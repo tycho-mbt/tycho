@@ -2,7 +2,7 @@ members = [
   "vulkan",
   "window",
   "shader",
-  "rhi",
+  "tycho",
   "codegen",
   "examples",
 ]

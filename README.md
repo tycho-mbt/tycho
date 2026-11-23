@@ -9,7 +9,7 @@
 | `laplaceliu/tycho_vulkan` | `vulkan/` | Pure Vulkan 1.4.363 bindings generated from `vk.xml` (root package, self-contained vendored headers) | `-lvulkan` |
 | `laplaceliu/tycho_window` | `window/` | Thin native window + input events + Vulkan WSI surface helper (Xlib on Linux, zero GLFW dependency) | `-lX11 -lvulkan` |
 | `laplaceliu/tycho_shader` | `shader/` | GLSL (`glslangValidator`), Slang (`slangc`), SPIR-V & PPM/BMP image helpers | *(none)* |
-| `laplaceliu/tycho` | `rhi/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, and free-list sub-allocator (zero C stubs) | `-lvulkan -lX11` |
+| `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, and free-list sub-allocator (zero C stubs) | `-lvulkan -lX11` |
 | `laplaceliu/tycho_codegen` *(private)* | `codegen/` | Khronos `vk.xml` → MoonBit + C shim generator | *(none)* |
 | `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | 39 pure-MoonBit examples (31 low-level Vulkan API suites at **100.0%** reachable Linux coverage + 8 unified `@rhi` demos) | `-lvulkan` (`-lX11` for WSI) |
 
@@ -69,7 +69,7 @@ Or publish from source in dependency order (after `moon login` as `laplaceliu`):
 (cd vulkan && moon publish)
 (cd shader && moon publish)
 (cd window && moon publish)
-(cd rhi && moon publish)
+(cd tycho && moon publish)
 ```
 
 Use `moon publish --dry-run` to validate packaging and standalone `moon check` before releasing.
