@@ -1,0 +1,157 @@
+// Example 40 — Pure-MoonBit SPIR-V reflection (`PipelineDesc::from_spirv`),
+// GPU-generated mipmap chain (`create_texture_mipmapped`), mip level readback,
+// and sampler LOD control (`SamplerDesc` min_lod/max_lod).
+
+///|
+fn main {
+  try {
+    let dev = @rhi.Device::new("Tycho RHI Reflection & Mipmaps", true)
+    let sc = dev.create_swapchain("Tycho RHI Reflection & Mipmaps", 800, 600)
+
+    let vert = @rhi.compile_glsl(
+      "examples/40-rhi-reflection-mipmaps/shader.vert",
+      @rhi.ShaderStage::Vertex,
+    )
+    let frag = @rhi.compile_glsl(
+      "examples/40-rhi-reflection-mipmaps/shader.frag",
+      @rhi.ShaderStage::Fragment,
+    )
+
+    // Verify SPIR-V bytecode reflection directly
+    let vr = @rhi.reflect_spirv(vert)
+    let fr = @rhi.reflect_spirv(frag)
+    let refl_ok = vr.vertex_inputs.length() == 2 &&
+      fr.bindings.length() == 1 &&
+      fr.bindings[0].binding == 0 &&
+      fr.push_constant_size == 16 &&
+      fr.color_output_count == 1
+
+    // Zero manual vertex_formats / texture_slots / push_constant_size!
+    let pipe = sc.create_pipeline_desc(@rhi.PipelineDesc::from_spirv(vert, frag))
+
+    // 16x16 4-quadrant RGBA8 image: Red, Green, Blue, White -> 1x1 mip average ≈ (127, 127, 127, 255)
+    let w = 16
+    let h = 16
+    let tex_bytes = Bytes::makei(w * h * 4, fn(idx) {
+      let p = idx / 4
+      let ch = idx % 4
+      let x = p % w
+      let y = p / w
+      let (r, g, b) = if x < 8 && y < 8 {
+        (255, 0, 0)
+      } else if x >= 8 && y < 8 {
+        (0, 255, 0)
+      } else if x < 8 && y >= 8 {
+        (0, 0, 255)
+      } else {
+        (255, 255, 255)
+      }
+      if ch == 0 {
+        r.to_byte()
+      } else if ch == 1 {
+        g.to_byte()
+      } else if ch == 2 {
+        b.to_byte()
+      } else {
+        (255 : Byte)
+      }
+    })
+    let tex = dev.create_texture_mipmapped(
+      w,
+      h,
+      @rhi.TextureFormat::RGBA8,
+      tex_bytes,
+    )
+    let levels = tex.mip_levels()
+    let mip4 = tex.readback_mip(4)
+    let mr = mip4[0].to_int()
+    let mg = mip4[1].to_int()
+    let mb = mip4[2].to_int()
+    let mip_ok = levels == 5 &&
+      mip4.length() == 4 &&
+      mr >= 115 &&
+      mr <= 140 &&
+      mg >= 115 &&
+      mg <= 140 &&
+      mb >= 115 &&
+      mb <= 140
+
+    // Sampler locked to mip level 4 (1x1 average)
+    let samp = dev.create_sampler_desc(
+      @rhi.SamplerDesc::new(
+        mag=@rhi.Filter::Linear,
+        min=@rhi.Filter::Linear,
+        mipmap=@rhi.Filter::Linear,
+        address=@rhi.AddressMode::ClampToEdge,
+        min_lod=(4.0 : Float),
+        max_lod=(4.0 : Float),
+      ),
+    )
+
+    // Fullscreen quad: (vec2 pos, vec2 uv)
+    let verts : FixedArray[Float] = [
+      -1.0, -1.0, 0.0, 0.0,
+      1.0, -1.0, 1.0, 0.0,
+      1.0, 1.0, 1.0, 1.0,
+      -1.0, -1.0, 0.0, 0.0,
+      1.0, 1.0, 1.0, 1.0,
+      -1.0, 1.0, 0.0, 1.0,
+    ]
+    let vbuf = dev.create_buffer(verts.length() * 4, @rhi.BufferKind::Vertex)
+    vbuf.upload_floats(verts)
+    let tint : FixedArray[Float] = [1.0, 1.0, 1.0, 1.0]
+
+    let start = @rhi.Swapchain::time()
+    let mut pixels : FixedArray[Byte] = []
+    let mut frames = 0
+    while !sc.should_close() && frames < 10 && @rhi.Swapchain::time() - start < 0.8 {
+      let cmd = sc.begin_frame()
+      cmd.bind_pipeline(pipe)
+      cmd.bind_texture(pipe, 0, tex, samp)
+      cmd.push_constants_floats(pipe, tint)
+      cmd.bind_vertex(0, vbuf)
+      cmd.draw(6, 1)
+      sc.end_frame(cmd)
+      if frames == 0 {
+        pixels = sc.readback()
+      }
+      frames = frames + 1
+    }
+
+    let c = (300 * 800 + 400) * 4
+    let (sr, sg, sb) = if sc.color_format() == @rhi.TextureFormat::BGRA8 {
+      (pixels[c + 2].to_int(), pixels[c + 1].to_int(), pixels[c].to_int())
+    } else {
+      (pixels[c].to_int(), pixels[c + 1].to_int(), pixels[c + 2].to_int())
+    }
+    let sc_ok = sr >= 115 &&
+      sr <= 140 &&
+      sg >= 115 &&
+      sg <= 140 &&
+      sb >= 115 &&
+      sb <= 140
+    let errs = dev.validation_errors()
+
+    vbuf.destroy()
+    samp.destroy()
+    tex.destroy()
+    pipe.destroy()
+    sc.destroy()
+    dev.destroy()
+
+    println(
+      "[40-rhi-reflection-mipmaps] refl_ok=\{refl_ok} mip_levels=\{levels} mip4=(\{mr},\{mg},\{mb}) centre=(\{sr},\{sg},\{sb}) frames=\{frames}",
+    )
+    if refl_ok && mip_ok && sc_ok && errs == 0 {
+      println(
+        "[40-rhi-reflection-mipmaps] OK — auto-reflected pipeline + 5-level GPU mipmap chain + LOD-4 sampling, 0 validation errors",
+      )
+    } else {
+      println(
+        "[40-rhi-reflection-mipmaps] FAIL — refl_ok=\{refl_ok} mip_ok=\{mip_ok} sc_ok=\{sc_ok} errs=\{errs}",
+      )
+    }
+  } catch {
+    err => println("[40-rhi-reflection-mipmaps] FAIL — \{err}")
+  }
+}

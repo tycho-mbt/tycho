@@ -8,13 +8,13 @@
 |---|---|---|---|
 | `laplaceliu/tycho_vulkan` | `vulkan/` | Pure Vulkan 1.4.363 bindings generated from `vk.xml` (root package, self-contained vendored headers) | `-lvulkan` |
 | `laplaceliu/tycho_window` | `window/` | Thin native window + input events + Vulkan WSI surface helper (Xlib on Linux, zero GLFW dependency) | `-lX11 -lvulkan` |
-| `laplaceliu/tycho_shader` | `shader/` | GLSL (`glslangValidator`), Slang (`slangc`), SPIR-V & PPM/BMP image helpers | *(none)* |
-| `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, and free-list sub-allocator (zero C stubs) | `-lvulkan -lX11` |
+| `laplaceliu/tycho_shader` | `shader/` | GLSL (`glslangValidator`), Slang (`slangc`), pure-MoonBit SPIR-V reflection (`reflect_spirv`), & PPM/BMP image helpers | *(none)* |
+| `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, free-list sub-allocator, auto-reflected pipelines (`from_spirv`), MRT, mipmaps, storage images, and GPU timestamps (zero C stubs) | `-lvulkan -lX11` |
 | `laplaceliu/tycho_codegen` *(private)* | `codegen/` | Khronos `vk.xml` → MoonBit + C shim generator | *(none)* |
-| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | 39 pure-MoonBit examples (31 low-level Vulkan API suites at **100.0%** reachable Linux coverage + 8 unified `@rhi` demos) | `-lvulkan` (`-lX11` for WSI) |
+| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | 42 pure-MoonBit examples (31 low-level Vulkan API suites at **100.0%** reachable Linux coverage + 11 unified `@rhi` demos) | `-lvulkan` (`-lX11` for WSI) |
 
 Planned next phase:
-- Add `laplaceliu/tycho_metal` (macOS/iOS) and `laplaceliu/tycho_dx12` (Windows) backends under `laplaceliu/tycho`, plus cross-platform shader compilation & reflection.
+- Add `laplaceliu/tycho_metal` (macOS/iOS) and `laplaceliu/tycho_dx12` (Windows) backends under `laplaceliu/tycho`, plus cross-platform shader compilation.
 
 ## Key Design Improvements for `mooncakes.io`
 
@@ -25,7 +25,7 @@ Planned next phase:
 
 ## Linux Vulkan API Coverage
 
-All 39 examples pass on both `lavapipe` and `nvidia` drivers with zero validation errors:
+All 42 examples pass on both `lavapipe` and `nvidia` drivers with zero validation errors:
 - Desktop Vulkan commands in `vk.xml`: **813 / 813** exercised in pure MoonBit
 - Host-reachable commands on Linux (`lavapipe` + `nvidia`): **664 / 664 (100.0%)**
 
@@ -41,7 +41,7 @@ All 39 examples pass on both `lavapipe` and `nvidia` drivers with zero validatio
 # 3. Run unit tests
 moon test --target native
 
-# 4. Run all 39 pure-MoonBit verification examples on lavapipe + NVIDIA
+# 4. Run all 42 pure-MoonBit verification examples on lavapipe + NVIDIA
 ./tools/run-all.sh both
 
 # 5. Measure reproducible Linux Vulkan API coverage
