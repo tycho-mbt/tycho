@@ -1,0 +1,14 @@
+pkgtype(kind: "foreign_library")
+
+import {
+  "moonbitlang/core/encoding/utf8" @utf8,
+}
+
+options(
+  "native-stub": [ "shader_stub.c" ],
+  "link": {
+    "native": {
+      "cc": "cc",
+    },
+  },
+)
