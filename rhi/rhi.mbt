@@ -1,0 +1,841 @@
+// Tycho RHI public API façade.
+// Users import only `"laplaceliu/tycho" @rhi` — zero Vulkan handles, descriptor
+// sets, sync primitives, or C stubs are exposed.
+
+///|
+pub struct Device {
+  priv inner : VkDeviceState
+}
+
+///|
+pub struct Swapchain {
+  priv inner : VkSwapchainState
+}
+
+///|
+pub struct Pipeline {
+  priv inner : VkPipelineState
+}
+
+///|
+pub struct Buffer {
+  priv inner : VkBufferState
+}
+
+///|
+pub struct Texture {
+  priv inner : VkTextureState
+}
+
+///|
+pub struct Sampler {
+  priv inner : VkSamplerState
+}
+
+///|
+pub struct Fence {
+  priv inner : VkFenceState
+}
+
+///|
+pub struct CommandBuffer {
+  priv inner : VkCmdState
+}
+
+///|
+pub fn Device::new(
+  app_name : String,
+  validation : Bool,
+) -> Device raise RhiError {
+  { inner: vk_device_create(app_name, validation) }
+}
+
+///|
+pub fn Device::backend(self : Device) -> BackendKind {
+  let _ = self
+  BackendKind::Vulkan
+}
+
+///|
+pub fn Device::validation_errors(self : Device) -> Int {
+  g_rhi_validation_errors.val - self.inner.error_baseline
+}
+
+///|
+pub fn Device::allocator_stats(self : Device) -> (Int, Int) {
+  self.inner.alloc.stats()
+}
+
+///|
+pub fn Device::allocator_used_bytes(self : Device) -> UInt64 {
+  self.inner.alloc.used_bytes()
+}
+
+///|
+pub fn Device::destroy(self : Device) -> Unit {
+  vk_device_destroy(self.inner)
+}
+
+///|
+pub fn Device::create_swapchain(
+  self : Device,
+  title : String,
+  width : Int,
+  height : Int,
+) -> Swapchain raise RhiError {
+  self.create_swapchain_desc(SwapchainDesc::new(title, width, height))
+}
+
+///|
+pub fn Device::create_swapchain_desc(
+  self : Device,
+  desc : SwapchainDesc,
+) -> Swapchain raise RhiError {
+  { inner: vk_swapchain_create(self.inner, desc) }
+}
+
+///|
+pub fn Swapchain::width(self : Swapchain) -> Int {
+  self.inner.width
+}
+
+///|
+pub fn Swapchain::height(self : Swapchain) -> Int {
+  self.inner.height
+}
+
+///|
+pub fn Swapchain::color_format(self : Swapchain) -> TextureFormat {
+  if self.inner.format == @vk.VK_FORMAT_B8G8R8A8_UNORM {
+    TextureFormat::BGRA8
+  } else {
+    TextureFormat::RGBA8
+  }
+}
+
+///|
+pub fn Swapchain::should_close(self : Swapchain) -> Bool {
+  @win.should_close(self.inner.window) != 0
+}
+
+///|
+pub fn Swapchain::poll_events(self : Swapchain) -> Array[Event] {
+  @win.poll_events(self.inner.window)
+}
+
+///|
+pub fn Swapchain::set_title(self : Swapchain, title : String) -> Unit {
+  @win.set_title(self.inner.window, title)
+}
+
+///|
+pub fn Swapchain::time() -> Double {
+  @win.time()
+}
+
+///|
+pub fn Swapchain::begin_frame(self : Swapchain) -> CommandBuffer raise RhiError {
+  { inner: vk_swapchain_begin_frame(self.inner) }
+}
+
+///|
+pub fn Swapchain::end_frame(
+  self : Swapchain,
+  cmd : CommandBuffer,
+) -> Unit raise RhiError {
+  vk_swapchain_end_frame(self.inner, cmd.inner)
+}
+
+///|
+pub fn Swapchain::readback(self : Swapchain) -> FixedArray[Byte] {
+  vk_swapchain_readback(self.inner)
+}
+
+///|
+pub fn Swapchain::destroy(self : Swapchain) -> Unit {
+  vk_swapchain_destroy(self.inner)
+}
+
+///|
+pub fn Swapchain::create_pipeline(
+  self : Swapchain,
+  vert_spv : FixedArray[UInt32],
+  frag_spv : FixedArray[UInt32],
+  uniform_slots : Int,
+) -> Pipeline raise RhiError {
+  self.create_pipeline_desc(
+    PipelineDesc::new(vert_spv, frag_spv, uniform_slots~),
+  )
+}
+
+///|
+pub fn Swapchain::create_pipeline_desc(
+  self : Swapchain,
+  desc : PipelineDesc,
+) -> Pipeline raise RhiError {
+  {
+    inner: vk_graphics_pipeline_create(
+      self.inner.device,
+      desc,
+      self.inner.format,
+    ),
+  }
+}
+
+///|
+pub fn Device::create_graphics_pipeline(
+  self : Device,
+  desc : PipelineDesc,
+) -> Pipeline raise RhiError {
+  {
+    inner: vk_graphics_pipeline_create(
+      self.inner,
+      desc,
+      @vk.VK_FORMAT_R8G8B8A8_UNORM,
+    ),
+  }
+}
+
+///|
+pub fn Device::create_compute_pipeline(
+  self : Device,
+  spv : FixedArray[UInt32],
+  uniform_slots : Int,
+  storage_slots : Int,
+  push_constant_size? : Int = 0,
+) -> Pipeline raise RhiError {
+  {
+    inner: vk_compute_pipeline_create(
+      self.inner,
+      spv,
+      uniform_slots,
+      storage_slots,
+      push_constant_size,
+    ),
+  }
+}
+
+///|
+pub fn Pipeline::destroy(self : Pipeline) -> Unit {
+  vk_pipeline_destroy(self.inner)
+}
+
+///|
+pub fn Device::create_buffer(
+  self : Device,
+  size : Int,
+  kind : BufferKind,
+) -> Buffer raise RhiError {
+  { inner: vk_buffer_create(self.inner, size, kind) }
+}
+
+///|
+pub fn Buffer::upload_bytes(
+  self : Buffer,
+  data : Bytes,
+) -> Unit raise RhiError {
+  vk_buffer_upload_ptr(self.inner, @vk.bytes_ptr(data), data.length())
+}
+
+///|
+pub fn Buffer::upload_floats(
+  self : Buffer,
+  data : FixedArray[Float],
+) -> Unit raise RhiError {
+  vk_buffer_upload_ptr(self.inner, @vk.float_ptr(data), data.length() * 4)
+}
+
+///|
+pub fn Buffer::upload_uint32(
+  self : Buffer,
+  data : FixedArray[UInt32],
+) -> Unit raise RhiError {
+  vk_buffer_upload_ptr(self.inner, @vk.uint32_ptr(data), data.length() * 4)
+}
+
+///|
+pub fn Buffer::upload_uint16(
+  self : Buffer,
+  data : FixedArray[UInt16],
+) -> Unit raise RhiError {
+  let bytes = Bytes::makei(data.length() * 2, fn(i) {
+    let v = data[i / 2].to_int()
+    if i % 2 == 0 {
+      (v & 0xFF).to_byte()
+    } else {
+      ((v >> 8) & 0xFF).to_byte()
+    }
+  })
+  self.upload_bytes(bytes)
+}
+
+///|
+pub fn Buffer::download(self : Buffer) -> Bytes {
+  let b = self.inner
+  let out = FixedArray::make(b.size, (0 : Byte))
+  if b.size > 0 {
+    @vk.memcpy_ptr(@vk.byte_ptr(out), b.alloc.mapped, b.size)
+  }
+  Bytes::from_array(out[:])
+}
+
+///|
+pub fn Buffer::destroy(self : Buffer) -> Unit {
+  vk_buffer_destroy(self.inner)
+}
+
+///|
+pub fn Device::create_texture(
+  self : Device,
+  width : Int,
+  height : Int,
+  pixels : Bytes,
+) -> Texture raise RhiError {
+  self.create_texture_format(width, height, TextureFormat::RGBA8, pixels)
+}
+
+///|
+pub fn Device::create_texture_format(
+  self : Device,
+  width : Int,
+  height : Int,
+  format : TextureFormat,
+  pixels : Bytes,
+) -> Texture raise RhiError {
+  { inner: vk_texture_create_uploaded(self.inner, width, height, format, pixels) }
+}
+
+///|
+pub fn Device::create_render_target(
+  self : Device,
+  width : Int,
+  height : Int,
+  format : TextureFormat,
+  samples? : SampleCount = SampleCount::X1,
+) -> Texture raise RhiError {
+  if format == TextureFormat::Depth32F {
+    raise InvalidArgument("Use create_depth_texture for Depth32F targets")
+  }
+  let usage = match samples {
+    SampleCount::X1 =>
+      @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+      @vk.VK_IMAGE_USAGE_SAMPLED_BIT |
+      @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+    SampleCount::X4 => @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+  }
+  {
+    inner: create_image_and_view(
+      self.inner,
+      width,
+      height,
+      vk_texture_format(format),
+      usage,
+      @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+      samples,
+      format,
+    ),
+  }
+}
+
+///|
+pub fn Device::create_depth_texture(
+  self : Device,
+  width : Int,
+  height : Int,
+  samples? : SampleCount = SampleCount::X1,
+) -> Texture raise RhiError {
+  {
+    inner: create_image_and_view(
+      self.inner,
+      width,
+      height,
+      @vk.VK_FORMAT_D32_SFLOAT,
+      @vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+      @vk.VK_IMAGE_ASPECT_DEPTH_BIT,
+      samples,
+      TextureFormat::Depth32F,
+    ),
+  }
+}
+
+///|
+pub fn Texture::width(self : Texture) -> Int {
+  self.inner.width
+}
+
+///|
+pub fn Texture::height(self : Texture) -> Int {
+  self.inner.height
+}
+
+///|
+pub fn Texture::readback(self : Texture) -> FixedArray[Byte] raise RhiError {
+  vk_texture_readback(self.inner)
+}
+
+///|
+pub fn Texture::destroy(self : Texture) -> Unit {
+  vk_texture_destroy(self.inner)
+}
+
+///|
+pub fn Device::create_sampler(self : Device) -> Sampler raise RhiError {
+  self.create_sampler_desc(SamplerDesc::new())
+}
+
+///|
+pub fn Device::create_sampler_desc(
+  self : Device,
+  desc : SamplerDesc,
+) -> Sampler raise RhiError {
+  let d = self.inner
+  let ci = @vk.VkSamplerCreateInfo::new()
+  ci.set_magFilter(vk_filter(desc.mag))
+  ci.set_minFilter(vk_filter(desc.min))
+  ci.set_addressModeU(vk_address(desc.address))
+  ci.set_addressModeV(vk_address(desc.address))
+  ci.set_addressModeW(vk_address(desc.address))
+  ci.set_anisotropyEnable((0 : UInt32))
+  ci.set_maxAnisotropy((1.0 : Float))
+  ci.set_unnormalizedCoordinates((0 : UInt32))
+  ci.set_compareEnable((0 : UInt32))
+  ci.set_mipmapMode(@vk.VK_SAMPLER_MIPMAP_MODE_LINEAR)
+  let out = FixedArray::make(1, @vk.VkSampler::null())
+  let r = (d.dfn.vkCreateSampler)(
+    d.dev,
+    ci,
+    @vk.VkAllocationCallbacks::null(),
+    out,
+  )
+  ci.free()
+  if r != 0 {
+    raise AllocationFailed("vkCreateSampler failed: \{r}")
+  }
+  { inner: { device: d, sampler: out[0] } }
+}
+
+///|
+pub fn Sampler::destroy(self : Sampler) -> Unit {
+  let s = self.inner
+  (s.device.dfn.vkDestroySampler)(
+    s.device.dev,
+    s.sampler,
+    @vk.VkAllocationCallbacks::null(),
+  )
+}
+
+///|
+pub fn Device::create_fence(
+  self : Device,
+  signaled : Bool,
+) -> Fence raise RhiError {
+  let d = self.inner
+  let ci = @vk.VkFenceCreateInfo::new()
+  if signaled {
+    ci.set_flags(@vk.VK_FENCE_CREATE_SIGNALED_BIT)
+  }
+  let out = FixedArray::make(1, @vk.VkFence::null())
+  let r = (d.dfn.vkCreateFence)(d.dev, ci, @vk.VkAllocationCallbacks::null(), out)
+  ci.free()
+  if r != 0 {
+    raise CommandFailed("vkCreateFence failed: \{r}")
+  }
+  { inner: { device: d, fence: out[0] } }
+}
+
+///|
+pub fn Fence::wait(self : Fence) -> Unit {
+  let f = FixedArray::make(1, self.inner.fence)
+  let _ = (self.inner.device.dfn.vkWaitForFences)(
+    self.inner.device.dev,
+    (1 : UInt32),
+    f,
+    (1 : UInt32),
+    (0xFFFFFFFFFFFFFFFF : UInt64),
+  )
+}
+
+///|
+pub fn Fence::reset(self : Fence) -> Unit {
+  let f = FixedArray::make(1, self.inner.fence)
+  let _ = (self.inner.device.dfn.vkResetFences)(
+    self.inner.device.dev,
+    (1 : UInt32),
+    f,
+  )
+}
+
+///|
+pub fn Fence::destroy(self : Fence) -> Unit {
+  let f = self.inner
+  (f.device.dfn.vkDestroyFence)(
+    f.device.dev,
+    f.fence,
+    @vk.VkAllocationCallbacks::null(),
+  )
+}
+
+///|
+pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
+  let d = self.inner
+  let cmd = begin_one_time(d)
+  {
+    inner: {
+      device: d,
+      cmd,
+      frame_idx: 0,
+      frame_gen: (1 : UInt64),
+      pending_uniforms: [],
+      pending_textures: [],
+      pending_storage: [],
+      bound: None,
+      active_render_targets: [],
+    },
+  }
+}
+
+///|
+pub fn Device::end_commands(
+  self : Device,
+  cmd : CommandBuffer,
+) -> Unit raise RhiError {
+  end_one_time(self.inner, cmd.inner.cmd)
+}
+
+///|
+pub fn Device::submit_commands(
+  self : Device,
+  cmd : CommandBuffer,
+  fence : Fence,
+) -> Unit raise RhiError {
+  let d = self.inner
+  let er = (d.dfn.vkEndCommandBuffer)(cmd.inner.cmd)
+  if er != 0 {
+    raise CommandFailed("vkEndCommandBuffer failed: \{er}")
+  }
+  let cmd_si = @vk.VkCommandBufferSubmitInfo::new()
+  cmd_si.set_commandBuffer(cmd.inner.cmd)
+  let si2 = @vk.VkSubmitInfo2::new()
+  si2.set_commandBufferInfoCount((1 : UInt32))
+  si2.set_pCommandBufferInfos(cmd_si)
+  let sr = (d.dfn.vkQueueSubmit2)(d.queue, (1 : UInt32), si2, fence.inner.fence)
+  si2.free()
+  cmd_si.free()
+  if sr != 0 {
+    raise CommandFailed("vkQueueSubmit2 failed: \{sr}")
+  }
+}
+
+///|
+pub fn CommandBuffer::begin_render_pass(
+  self : CommandBuffer,
+  colors : Array[RenderTargetDesc],
+  depth? : DepthTargetDesc? = None,
+) -> Unit raise RhiError {
+  vk_cmd_begin_render_pass(self.inner, colors, depth)
+}
+
+///|
+pub fn CommandBuffer::end_render_pass(self : CommandBuffer) -> Unit {
+  vk_cmd_end_render_pass(self.inner)
+}
+
+///|
+pub fn CommandBuffer::bind_pipeline(
+  self : CommandBuffer,
+  pipeline : Pipeline,
+) -> Unit {
+  let c = self.inner
+  let point = if pipeline.inner.compute {
+    @vk.VK_PIPELINE_BIND_POINT_COMPUTE
+  } else {
+    @vk.VK_PIPELINE_BIND_POINT_GRAPHICS
+  }
+  (c.device.dfn.vkCmdBindPipeline)(c.cmd, point, pipeline.inner.pipeline)
+  c.bound = Some(pipeline)
+}
+
+///|
+pub fn CommandBuffer::bind_uniform(
+  self : CommandBuffer,
+  pipeline : Pipeline,
+  slot : Int,
+  buffer : Buffer,
+) -> Unit {
+  self.inner.pending_uniforms.push((pipeline, slot, buffer))
+}
+
+///|
+pub fn CommandBuffer::bind_texture(
+  self : CommandBuffer,
+  pipeline : Pipeline,
+  slot : Int,
+  texture : Texture,
+  sampler : Sampler,
+) -> Unit {
+  self.inner.pending_textures.push((pipeline, slot, texture, sampler))
+}
+
+///|
+pub fn CommandBuffer::bind_storage(
+  self : CommandBuffer,
+  pipeline : Pipeline,
+  slot : Int,
+  buffer : Buffer,
+) -> Unit {
+  self.inner.pending_storage.push((pipeline, slot, buffer))
+}
+
+///|
+pub fn CommandBuffer::bind_vertex(
+  self : CommandBuffer,
+  slot : Int,
+  buffer : Buffer,
+) -> Unit {
+  let buffers = FixedArray::make(1, buffer.inner.buffer)
+  let offsets = FixedArray::make(1, (0 : UInt64))
+  (self.inner.device.dfn.vkCmdBindVertexBuffers)(
+    self.inner.cmd,
+    slot.reinterpret_as_uint(),
+    (1 : UInt32),
+    buffers,
+    offsets,
+  )
+}
+
+///|
+pub fn CommandBuffer::bind_index(
+  self : CommandBuffer,
+  buffer : Buffer,
+  index_type : IndexType,
+) -> Unit {
+  let vk_ty = match index_type {
+    IndexType::Uint16 => @vk.VK_INDEX_TYPE_UINT16
+    IndexType::Uint32 => @vk.VK_INDEX_TYPE_UINT32
+  }
+  (self.inner.device.dfn.vkCmdBindIndexBuffer)(
+    self.inner.cmd,
+    buffer.inner.buffer,
+    (0 : UInt64),
+    vk_ty,
+  )
+}
+
+///|
+pub fn CommandBuffer::push_constants_floats(
+  self : CommandBuffer,
+  pipeline : Pipeline,
+  data : FixedArray[Float],
+  offset? : Int = 0,
+) -> Unit {
+  let stages = if pipeline.inner.compute {
+    @vk.VK_SHADER_STAGE_COMPUTE_BIT
+  } else {
+    @vk.VK_SHADER_STAGE_VERTEX_BIT | @vk.VK_SHADER_STAGE_FRAGMENT_BIT
+  }
+  (self.inner.device.dfn.vkCmdPushConstants)(
+    self.inner.cmd,
+    pipeline.inner.layout,
+    stages,
+    offset.reinterpret_as_uint(),
+    (data.length() * 4).reinterpret_as_uint(),
+    @vk.float_ptr(data),
+  )
+}
+
+///|
+pub fn CommandBuffer::push_constants_bytes(
+  self : CommandBuffer,
+  pipeline : Pipeline,
+  data : Bytes,
+  offset? : Int = 0,
+) -> Unit {
+  let stages = if pipeline.inner.compute {
+    @vk.VK_SHADER_STAGE_COMPUTE_BIT
+  } else {
+    @vk.VK_SHADER_STAGE_VERTEX_BIT | @vk.VK_SHADER_STAGE_FRAGMENT_BIT
+  }
+  (self.inner.device.dfn.vkCmdPushConstants)(
+    self.inner.cmd,
+    pipeline.inner.layout,
+    stages,
+    offset.reinterpret_as_uint(),
+    data.length().reinterpret_as_uint(),
+    @vk.bytes_ptr(data),
+  )
+}
+
+///|
+pub fn CommandBuffer::set_viewport(
+  self : CommandBuffer,
+  x : Float,
+  y : Float,
+  w : Float,
+  h : Float,
+) -> Unit {
+  let vp = @vk.VkViewport::new()
+  vp.set_x(x)
+  vp.set_y(y)
+  vp.set_width(w)
+  vp.set_height(h)
+  vp.set_minDepth((0.0 : Float))
+  vp.set_maxDepth((1.0 : Float))
+  (self.inner.device.dfn.vkCmdSetViewport)(
+    self.inner.cmd,
+    (0 : UInt32),
+    (1 : UInt32),
+    vp,
+  )
+  vp.free()
+}
+
+///|
+pub fn CommandBuffer::set_scissor(
+  self : CommandBuffer,
+  x : Int,
+  y : Int,
+  w : Int,
+  h : Int,
+) -> Unit {
+  let off = @vk.VkOffset2D::new()
+  off.set_x(x)
+  off.set_y(y)
+  let ext = @vk.VkExtent2D::new()
+  ext.set_width(w.reinterpret_as_uint())
+  ext.set_height(h.reinterpret_as_uint())
+  let rect = @vk.VkRect2D::new()
+  rect.set_offset(off)
+  rect.set_extent(ext)
+  (self.inner.device.dfn.vkCmdSetScissor)(
+    self.inner.cmd,
+    (0 : UInt32),
+    (1 : UInt32),
+    rect,
+  )
+  off.free()
+  ext.free()
+  rect.free()
+}
+
+///|
+pub fn CommandBuffer::draw(
+  self : CommandBuffer,
+  vertices : Int,
+  instances : Int,
+) -> Unit {
+  self.draw_instanced(vertices, instances, 0, 0)
+}
+
+///|
+pub fn CommandBuffer::draw_instanced(
+  self : CommandBuffer,
+  vertices : Int,
+  instances : Int,
+  first_vertex : Int,
+  first_instance : Int,
+) -> Unit {
+  vk_cmd_flush_slots(self.inner)
+  (self.inner.device.dfn.vkCmdDraw)(
+    self.inner.cmd,
+    vertices.reinterpret_as_uint(),
+    instances.reinterpret_as_uint(),
+    first_vertex.reinterpret_as_uint(),
+    first_instance.reinterpret_as_uint(),
+  )
+}
+
+///|
+pub fn CommandBuffer::draw_indexed(
+  self : CommandBuffer,
+  index_count : Int,
+  instances? : Int = 1,
+) -> Unit {
+  self.draw_indexed_full(index_count, instances, 0, 0, 0)
+}
+
+///|
+pub fn CommandBuffer::draw_indexed_full(
+  self : CommandBuffer,
+  index_count : Int,
+  instances : Int,
+  first_index : Int,
+  vertex_offset : Int,
+  first_instance : Int,
+) -> Unit {
+  vk_cmd_flush_slots(self.inner)
+  (self.inner.device.dfn.vkCmdDrawIndexed)(
+    self.inner.cmd,
+    index_count.reinterpret_as_uint(),
+    instances.reinterpret_as_uint(),
+    first_index.reinterpret_as_uint(),
+    vertex_offset,
+    first_instance.reinterpret_as_uint(),
+  )
+}
+
+///|
+pub fn CommandBuffer::dispatch(
+  self : CommandBuffer,
+  x : Int,
+  y : Int,
+  z : Int,
+) -> Unit {
+  vk_cmd_flush_slots(self.inner)
+  (self.inner.device.dfn.vkCmdDispatch)(
+    self.inner.cmd,
+    x.reinterpret_as_uint(),
+    y.reinterpret_as_uint(),
+    z.reinterpret_as_uint(),
+  )
+}
+
+///|
+pub fn CommandBuffer::copy_buffer(
+  self : CommandBuffer,
+  src : Buffer,
+  dst : Buffer,
+  size : Int,
+) -> Unit {
+  let region = @vk.VkBufferCopy::new()
+  region.set_srcOffset((0 : UInt64))
+  region.set_dstOffset((0 : UInt64))
+  region.set_size(size.to_uint64())
+  (self.inner.device.dfn.vkCmdCopyBuffer)(
+    self.inner.cmd,
+    src.inner.buffer,
+    dst.inner.buffer,
+    (1 : UInt32),
+    region,
+  )
+  region.free()
+}
+
+///|
+pub fn CommandBuffer::barrier(self : CommandBuffer) -> Unit {
+  let mb = @vk.VkMemoryBarrier2::new()
+  mb.set_srcStageMask(
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+  )
+  mb.set_srcAccessMask(
+    @vk.VK_ACCESS_2_SHADER_WRITE_BIT |
+    @vk.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+  )
+  mb.set_dstStageMask(
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+  )
+  mb.set_dstAccessMask(
+    @vk.VK_ACCESS_2_TRANSFER_READ_BIT |
+    @vk.VK_ACCESS_2_SHADER_READ_BIT |
+    @vk.VK_ACCESS_2_UNIFORM_READ_BIT,
+  )
+  let dep = @vk.VkDependencyInfo::new()
+  dep.set_memoryBarrierCount((1 : UInt32))
+  dep.set_pMemoryBarriers(mb)
+  (self.inner.device.dfn.vkCmdPipelineBarrier2)(self.inner.cmd, dep)
+  dep.free()
+  mb.free()
+}

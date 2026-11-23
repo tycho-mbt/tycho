@@ -1,0 +1,304 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho"
+
+import {
+  "laplaceliu/tycho_window",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const KEY_A : Int32 = 0x0061
+
+pub const KEY_D : Int32 = 0x0064
+
+pub const KEY_DOWN : Int32 = 0xff54
+
+pub const KEY_ESCAPE : Int32 = 0xff1b
+
+pub const KEY_LEFT : Int32 = 0xff51
+
+pub const KEY_RETURN : Int32 = 0xff0d
+
+pub const KEY_RIGHT : Int32 = 0xff53
+
+pub const KEY_S : Int32 = 0x0073
+
+pub const KEY_SPACE : Int32 = 0x0020
+
+pub const KEY_UP : Int32 = 0xff52
+
+pub const KEY_W : Int32 = 0x0077
+
+pub fn compile_glsl(String, ShaderStage) -> FixedArray[UInt32]
+
+pub fn compile_glsl_source(String, ShaderStage) -> FixedArray[UInt32]
+
+pub fn compile_slang(String, String) -> FixedArray[UInt32]
+
+pub fn load_image(String) -> (FixedArray[Byte], Int32, Int32)
+
+pub fn load_spirv(String) -> FixedArray[UInt32]
+
+// Errors
+pub suberror RhiError {
+  InitFailed(String)
+  DeviceFailed(String)
+  SwapchainFailed(String)
+  PipelineFailed(String)
+  AllocationFailed(String)
+  CommandFailed(String)
+  InvalidArgument(String)
+}
+pub impl Show for RhiError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum AddressMode {
+  Repeat
+  ClampToEdge
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum BackendKind {
+  Vulkan
+}
+
+pub struct Buffer {
+  // private fields
+}
+pub fn Buffer::destroy(Self) -> Unit
+pub fn Buffer::download(Self) -> Bytes
+pub fn Buffer::upload_bytes(Self, Bytes) -> Unit raise RhiError
+pub fn Buffer::upload_floats(Self, FixedArray[Float]) -> Unit raise RhiError
+pub fn Buffer::upload_uint16(Self, FixedArray[UInt16]) -> Unit raise RhiError
+pub fn Buffer::upload_uint32(Self, FixedArray[UInt32]) -> Unit raise RhiError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum BufferKind {
+  Vertex
+  Index
+  Uniform
+  Storage
+  Staging
+}
+
+pub(all) struct ClearColor {
+  r : Float
+  g : Float
+  b : Float
+  a : Float
+}
+pub fn ClearColor::black() -> Self
+pub fn ClearColor::rgba(Float, Float, Float, Float) -> Self
+
+pub struct CommandBuffer {
+  // private fields
+}
+pub fn CommandBuffer::barrier(Self) -> Unit
+pub fn CommandBuffer::begin_render_pass(Self, Array[RenderTargetDesc], depth? : DepthTargetDesc?) -> Unit raise RhiError
+pub fn CommandBuffer::bind_index(Self, Buffer, IndexType) -> Unit
+pub fn CommandBuffer::bind_pipeline(Self, Pipeline) -> Unit
+pub fn CommandBuffer::bind_storage(Self, Pipeline, Int32, Buffer) -> Unit
+pub fn CommandBuffer::bind_texture(Self, Pipeline, Int32, Texture, Sampler) -> Unit
+pub fn CommandBuffer::bind_uniform(Self, Pipeline, Int32, Buffer) -> Unit
+pub fn CommandBuffer::bind_vertex(Self, Int32, Buffer) -> Unit
+pub fn CommandBuffer::copy_buffer(Self, Buffer, Buffer, Int32) -> Unit
+pub fn CommandBuffer::dispatch(Self, Int32, Int32, Int32) -> Unit
+pub fn CommandBuffer::draw(Self, Int32, Int32) -> Unit
+pub fn CommandBuffer::draw_indexed(Self, Int32, instances? : Int32) -> Unit
+pub fn CommandBuffer::draw_indexed_full(Self, Int32, Int32, Int32, Int32, Int32) -> Unit
+pub fn CommandBuffer::draw_instanced(Self, Int32, Int32, Int32, Int32) -> Unit
+pub fn CommandBuffer::end_render_pass(Self) -> Unit
+pub fn CommandBuffer::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int32) -> Unit
+pub fn CommandBuffer::push_constants_floats(Self, Pipeline, FixedArray[Float], offset? : Int32) -> Unit
+pub fn CommandBuffer::set_scissor(Self, Int32, Int32, Int32, Int32) -> Unit
+pub fn CommandBuffer::set_viewport(Self, Float, Float, Float, Float) -> Unit
+
+#derive(Eq, @debug.Debug)
+pub(all) enum CullMode {
+  None
+  Back
+  Front
+}
+
+pub(all) struct DepthTargetDesc {
+  texture : Texture
+  load_op : LoadOp
+  store_op : StoreOp
+  clear_depth : Float
+}
+pub fn DepthTargetDesc::new(Texture, load_op? : LoadOp, store_op? : StoreOp, clear_depth? : Float) -> Self
+
+pub struct Device {
+  // private fields
+}
+pub fn Device::allocator_stats(Self) -> (Int32, Int32)
+pub fn Device::allocator_used_bytes(Self) -> UInt64
+pub fn Device::backend(Self) -> BackendKind
+pub fn Device::begin_commands(Self) -> CommandBuffer raise RhiError
+pub fn Device::create_buffer(Self, Int32, BufferKind) -> Buffer raise RhiError
+pub fn Device::create_compute_pipeline(Self, FixedArray[UInt32], Int32, Int32, push_constant_size? : Int32) -> Pipeline raise RhiError
+pub fn Device::create_depth_texture(Self, Int32, Int32, samples? : SampleCount) -> Texture raise RhiError
+pub fn Device::create_fence(Self, Bool) -> Fence raise RhiError
+pub fn Device::create_graphics_pipeline(Self, PipelineDesc) -> Pipeline raise RhiError
+pub fn Device::create_render_target(Self, Int32, Int32, TextureFormat, samples? : SampleCount) -> Texture raise RhiError
+pub fn Device::create_sampler(Self) -> Sampler raise RhiError
+pub fn Device::create_sampler_desc(Self, SamplerDesc) -> Sampler raise RhiError
+pub fn Device::create_swapchain(Self, String, Int32, Int32) -> Swapchain raise RhiError
+pub fn Device::create_swapchain_desc(Self, SwapchainDesc) -> Swapchain raise RhiError
+pub fn Device::create_texture(Self, Int32, Int32, Bytes) -> Texture raise RhiError
+pub fn Device::create_texture_format(Self, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
+pub fn Device::destroy(Self) -> Unit
+pub fn Device::end_commands(Self, CommandBuffer) -> Unit raise RhiError
+pub fn Device::new(String, Bool) -> Self raise RhiError
+pub fn Device::submit_commands(Self, CommandBuffer, Fence) -> Unit raise RhiError
+pub fn Device::validation_errors(Self) -> Int32
+
+pub struct Fence {
+  // private fields
+}
+pub fn Fence::destroy(Self) -> Unit
+pub fn Fence::reset(Self) -> Unit
+pub fn Fence::wait(Self) -> Unit
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Filter {
+  Nearest
+  Linear
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum FrontFace {
+  Clockwise
+  CounterClockwise
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum IndexType {
+  Uint16
+  Uint32
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum LoadOp {
+  Clear
+  Load
+  DontCare
+}
+
+pub struct Pipeline {
+  // private fields
+}
+pub fn Pipeline::destroy(Self) -> Unit
+
+pub(all) struct PipelineDesc {
+  vert : FixedArray[UInt32]
+  frag : FixedArray[UInt32]
+  vertex_formats : Array[VertexFormat]
+  uniform_slots : Int32
+  texture_slots : Int32
+  storage_slots : Int32
+  push_constant_size : Int32
+  depth_test : Bool
+  depth_write : Bool
+  cull_mode : CullMode
+  front_face : FrontFace
+  blend : Bool
+  samples : SampleCount
+  color_format : TextureFormat?
+}
+pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vertex_formats? : Array[VertexFormat], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, push_constant_size? : Int32, depth_test? : Bool, depth_write? : Bool, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, samples? : SampleCount, color_format? : TextureFormat?) -> Self
+
+pub(all) struct RenderTargetDesc {
+  texture : Texture
+  load_op : LoadOp
+  store_op : StoreOp
+  clear_color : ClearColor
+  resolve_texture : Texture?
+}
+pub fn RenderTargetDesc::new(Texture, load_op? : LoadOp, store_op? : StoreOp, clear_color? : ClearColor, resolve_texture? : Texture?) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum SampleCount {
+  X1
+  X4
+}
+
+pub struct Sampler {
+  // private fields
+}
+pub fn Sampler::destroy(Self) -> Unit
+
+pub(all) struct SamplerDesc {
+  mag : Filter
+  min : Filter
+  address : AddressMode
+}
+pub fn SamplerDesc::new(mag? : Filter, min? : Filter, address? : AddressMode) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ShaderStage {
+  Vertex
+  Fragment
+  Compute
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum StoreOp {
+  Store
+  DontCare
+}
+
+pub struct Swapchain {
+  // private fields
+}
+pub fn Swapchain::begin_frame(Self) -> CommandBuffer raise RhiError
+pub fn Swapchain::color_format(Self) -> TextureFormat
+pub fn Swapchain::create_pipeline(Self, FixedArray[UInt32], FixedArray[UInt32], Int32) -> Pipeline raise RhiError
+pub fn Swapchain::create_pipeline_desc(Self, PipelineDesc) -> Pipeline raise RhiError
+pub fn Swapchain::destroy(Self) -> Unit
+pub fn Swapchain::end_frame(Self, CommandBuffer) -> Unit raise RhiError
+pub fn Swapchain::height(Self) -> Int32
+pub fn Swapchain::poll_events(Self) -> Array[@tycho_window.Event]
+pub fn Swapchain::readback(Self) -> FixedArray[Byte]
+pub fn Swapchain::set_title(Self, String) -> Unit
+pub fn Swapchain::should_close(Self) -> Bool
+pub fn Swapchain::time() -> Double
+pub fn Swapchain::width(Self) -> Int32
+
+pub(all) struct SwapchainDesc {
+  title : String
+  width : Int32
+  height : Int32
+  depth : Bool
+  clear_color : ClearColor
+}
+pub fn SwapchainDesc::new(String, Int32, Int32, depth? : Bool, clear_color? : ClearColor) -> Self
+
+pub struct Texture {
+  // private fields
+}
+pub fn Texture::destroy(Self) -> Unit
+pub fn Texture::height(Self) -> Int32
+pub fn Texture::readback(Self) -> FixedArray[Byte] raise RhiError
+pub fn Texture::width(Self) -> Int32
+
+#derive(Eq, @debug.Debug)
+pub(all) enum TextureFormat {
+  RGBA8
+  BGRA8
+  RGBA32F
+  Depth32F
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VertexFormat {
+  Float2
+  Float3
+  Float4
+}
+
+// Type aliases
+pub using @tycho_window {type Event}
+
+// Traits

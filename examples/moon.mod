@@ -14,4 +14,5 @@ import {
   "laplaceliu/tycho_vulkan@0.1.0",
   "laplaceliu/tycho_window@0.1.0",
   "laplaceliu/tycho_shader@0.1.0",
+  "laplaceliu/tycho@0.1.0",
 }
