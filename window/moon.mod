@@ -10,9 +10,9 @@ repository = "https://github.com/tycho-mbt/tycho"
 
 preferred_target = "native"
 
-description = "Thin pure-MoonBit GLFW windowing and Vulkan WSI surface helper for Tycho"
+description = "Thin pure-MoonBit native windowing (Xlib on Linux, zero GLFW), input events, and Vulkan WSI surface helper for Tycho"
 
-keywords = [ "vulkan", "glfw", "window", "wsi", "tycho" ]
+keywords = [ "vulkan", "x11", "xlib", "window", "wsi", "input", "tycho" ]
 
 import {
   "laplaceliu/tycho_vulkan@0.1.0",
