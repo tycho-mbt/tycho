@@ -1,0 +1,16 @@
+import {
+  "laplaceliu/tycho_vulkan" @vk,
+  "laplaceliu/tycho_window" @win,
+  "laplaceliu/tycho_shader" @shader,
+}
+
+pkgtype(kind: "executable")
+
+options(
+  "link": {
+    "native": {
+      "cc": "cc",
+      "cc-link-flags": "-lvulkan -lX11",
+    },
+  },
+)
