@@ -1,0 +1,15 @@
+import {
+  "laplaceliu/tycho_vulkan" @vk,
+}
+
+pkgtype(kind: "foreign_library")
+
+options(
+  "native-stub": [ "window_stub.c" ],
+  "link": {
+    "native": {
+      "cc": "cc",
+      "cc-link-flags": "-lX11 -lvulkan",
+    },
+  },
+)
