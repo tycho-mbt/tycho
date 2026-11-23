@@ -1,0 +1,7 @@
+members = [
+  "vulkan",
+  "window",
+  "shader",
+  "codegen",
+  "examples",
+]
