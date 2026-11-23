@@ -72,6 +72,11 @@ pub fn Device::allocator_used_bytes(self : Device) -> UInt64 {
 }
 
 ///|
+pub fn Device::wait_idle(self : Device) -> Unit {
+  let _ = (self.inner.dfn.vkDeviceWaitIdle)(self.inner.dev)
+}
+
+///|
 pub fn Device::destroy(self : Device) -> Unit {
   vk_device_destroy(self.inner)
 }
@@ -417,6 +422,7 @@ pub fn Device::create_sampler_desc(
 ///|
 pub fn Sampler::destroy(self : Sampler) -> Unit {
   let s = self.inner
+  let _ = (s.device.dfn.vkDeviceWaitIdle)(s.device.dev)
   (s.device.dfn.vkDestroySampler)(
     s.device.dev,
     s.sampler,

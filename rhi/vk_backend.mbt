@@ -43,12 +43,13 @@ priv struct VkSwapchainState {
   cmds : FixedArray[@vk.VkCommandBuffer]
   image_available : FixedArray[@vk.VkSemaphore]
   in_flight : FixedArray[@vk.VkFence]
+  readback_bufs : FixedArray[VkBufferState]
   clear_color : ClearColor
   mut width : Int
   mut height : Int
   mut frame_idx : Int
+  mut last_frame_idx : Int
   mut image_index : Int
-  mut last_image_index : Int
   mut frame_gen : UInt64
   mut needs_recreate : Bool
 }
@@ -646,6 +647,7 @@ fn vk_buffer_upload_ptr(
 
 ///|
 fn vk_buffer_destroy(b : VkBufferState) -> Unit {
+  let _ = (b.device.dfn.vkDeviceWaitIdle)(b.device.dev)
   (b.device.dfn.vkDestroyBuffer)(
     b.device.dev,
     b.buffer,
@@ -826,6 +828,7 @@ fn vk_texture_create_uploaded(
 
 ///|
 fn vk_texture_destroy(t : VkTextureState) -> Unit {
+  let _ = (t.device.dfn.vkDeviceWaitIdle)(t.device.dev)
   let na = @vk.VkAllocationCallbacks::null()
   (t.device.dfn.vkDestroyImageView)(t.device.dev, t.view, na)
   (t.device.dfn.vkDestroyImage)(t.device.dev, t.image, na)
@@ -1028,16 +1031,20 @@ fn build_swapchain_resources(
     raise SwapchainFailed("vkCreateSwapchainKHR failed with code \{swr}")
   }
   let swapchain = sc_out[0]
-  let ic = FixedArray::make(1, (0 : UInt32))
-  let _ = (d.dfn.vkGetSwapchainImagesKHR)(
-    d.dev,
-    swapchain,
-    ic,
-    FixedArray::make(0, @vk.VkImage::null()),
-  )
+  let ic = FixedArray::make(1, (16 : UInt32))
+  let img_buf = FixedArray::make(16, @vk.VkImage::null())
+  let mut gir = (d.dfn.vkGetSwapchainImagesKHR)(d.dev, swapchain, ic, img_buf)
   let nimg = ic[0].reinterpret_as_int()
-  let images = FixedArray::make(nimg, @vk.VkImage::null())
-  let _ = (d.dfn.vkGetSwapchainImagesKHR)(d.dev, swapchain, ic, images)
+  let images = if gir == 5 && nimg > 16 {
+    let big = FixedArray::make(nimg, @vk.VkImage::null())
+    gir = (d.dfn.vkGetSwapchainImagesKHR)(d.dev, swapchain, ic, big)
+    big
+  } else {
+    FixedArray::makei(nimg, fn(i) { img_buf[i] })
+  }
+  if gir != 0 {
+    raise SwapchainFailed("vkGetSwapchainImagesKHR failed with code \{gir}")
+  }
   let views = FixedArray::make(nimg, @vk.VkImageView::null())
   let range = @vk.VkImageSubresourceRange::new()
   range.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
@@ -1163,6 +1170,12 @@ fn vk_swapchain_create(
   semci.free()
   fci.free()
 
+  let rb_bytes = w * h * 4
+  let rb0 = vk_buffer_create(d, rb_bytes, BufferKind::Staging)
+  let rb1 = vk_buffer_create(d, rb_bytes, BufferKind::Staging)
+  let readback_bufs = FixedArray::make(MAX_FRAMES, rb0)
+  readback_bufs[1] = rb1
+
   {
     device: d,
     window,
@@ -1180,12 +1193,13 @@ fn vk_swapchain_create(
     cmds,
     image_available,
     in_flight,
+    readback_bufs,
     clear_color: desc.clear_color,
     width: w,
     height: h,
     frame_idx: 0,
+    last_frame_idx: 0,
     image_index: 0,
-    last_image_index: 0,
     frame_gen: (0 : UInt64),
     needs_recreate: false,
   }
@@ -1196,6 +1210,9 @@ fn recreate_swapchain(s : VkSwapchainState) -> Unit raise RhiError {
   let na = @vk.VkAllocationCallbacks::null()
   let d = s.device
   let _ = (d.dfn.vkDeviceWaitIdle)(d.dev)
+  for i = 0; i < MAX_FRAMES; i = i + 1 {
+    vk_buffer_destroy(s.readback_bufs[i])
+  }
   let old_sw = s.swapchain
   let old_views = s.views
   let old_sems = s.render_finished
@@ -1239,6 +1256,9 @@ fn recreate_swapchain(s : VkSwapchainState) -> Unit raise RhiError {
   }
   (d.dfn.vkDestroySwapchainKHR)(d.dev, old_sw, na)
 
+  let rb_bytes = w * h * 4
+  s.readback_bufs[0] = vk_buffer_create(d, rb_bytes, BufferKind::Staging)
+  s.readback_bufs[1] = vk_buffer_create(d, rb_bytes, BufferKind::Staging)
   s.swapchain = new_sw
   s.format = fmt
   s.width = w
@@ -1446,9 +1466,42 @@ fn vk_swapchain_end_frame(
     @vk.VK_IMAGE_ASPECT_COLOR_BIT,
     @vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
     @vk.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_READ_BIT,
+    @vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+  )
+  let extent = @vk.VkExtent3D::new()
+  extent.set_width(s.width.reinterpret_as_uint())
+  extent.set_height(s.height.reinterpret_as_uint())
+  extent.set_depth((1 : UInt32))
+  let sub = @vk.VkImageSubresourceLayers::new()
+  sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+  sub.set_layerCount((1 : UInt32))
+  let region = @vk.VkBufferImageCopy::new()
+  region.set_imageSubresource(sub)
+  region.set_imageExtent(extent)
+  (d.dfn.vkCmdCopyImageToBuffer)(
+    c.cmd,
+    s.images[img_idx],
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    s.readback_bufs[fi].buffer,
+    (1 : UInt32),
+    region,
+  )
+  extent.free()
+  sub.free()
+  region.free()
+  cmd_image_barrier2(
+    d,
+    c.cmd,
+    s.images[img_idx],
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_READ_BIT,
     @vk.VK_PIPELINE_STAGE_2_NONE,
     @vk.VK_ACCESS_2_NONE,
-    @vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     @vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
   )
   let er = (d.dfn.vkEndCommandBuffer)(c.cmd)
@@ -1501,23 +1554,28 @@ fn vk_swapchain_end_frame(
   } else if pr != 0 {
     raise SwapchainFailed("vkQueuePresentKHR failed: \{pr}")
   }
-  s.last_image_index = img_idx
+  s.last_frame_idx = fi
   s.frame_idx = (fi + 1) % MAX_FRAMES
 }
 
 ///|
 fn vk_swapchain_readback(s : VkSwapchainState) -> FixedArray[Byte] {
   let d = s.device
-  let _ = (d.dfn.vkQueueWaitIdle)(d.queue)
-  @vk.readback_image(
+  let fi = s.last_frame_idx
+  let fence = FixedArray::make(1, s.in_flight[fi])
+  let _ = (d.dfn.vkWaitForFences)(
     d.dev,
-    d.phys,
-    d.queue,
-    d.pool,
-    s.images[s.last_image_index],
-    s.width.reinterpret_as_uint(),
-    s.height.reinterpret_as_uint(),
+    (1 : UInt32),
+    fence,
+    (1 : UInt32),
+    (0xFFFFFFFFFFFFFFFF : UInt64),
   )
+  let bytes = s.width * s.height * 4
+  let out = FixedArray::make(bytes, (0 : Byte))
+  if bytes > 0 {
+    @vk.memcpy_ptr(@vk.byte_ptr(out), s.readback_bufs[fi].alloc.mapped, bytes)
+  }
+  out
 }
 
 ///|
@@ -1526,6 +1584,7 @@ fn vk_swapchain_destroy(s : VkSwapchainState) -> Unit {
   let d = s.device
   let _ = (d.dfn.vkDeviceWaitIdle)(d.dev)
   for i = 0; i < MAX_FRAMES; i = i + 1 {
+    vk_buffer_destroy(s.readback_bufs[i])
     (d.dfn.vkDestroyFence)(d.dev, s.in_flight[i], na)
     (d.dfn.vkDestroySemaphore)(d.dev, s.image_available[i], na)
   }
@@ -2025,6 +2084,7 @@ fn vk_compute_pipeline_create(
 fn vk_pipeline_destroy(p : VkPipelineState) -> Unit {
   let na = @vk.VkAllocationCallbacks::null()
   let d = p.device
+  let _ = (d.dfn.vkDeviceWaitIdle)(d.dev)
   (d.dfn.vkDestroyPipeline)(d.dev, p.pipeline, na)
   (d.dfn.vkDestroyPipelineLayout)(d.dev, p.layout, na)
   (d.dfn.vkDestroyDescriptorSetLayout)(d.dev, p.set_layout, na)
