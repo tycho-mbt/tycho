@@ -1,0 +1,17 @@
+pkgtype(kind: "foreign_library")
+
+import {
+  "moonbitlang/core/encoding/utf8" @utf8,
+}
+
+options(
+  "native-stub": [ "dispatch_stub.c", "structs_stub.c" ],
+  "link": {
+    "native": {
+      "cc": "cc",
+      "cc-link-flags": "-lvulkan",
+    },
+  },
+)
+
+warnings = "-6-1-29-55"
