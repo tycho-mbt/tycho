@@ -2,6 +2,7 @@
 package "laplaceliu/tycho"
 
 import {
+  "laplaceliu/tycho_shader",
   "laplaceliu/tycho_window",
   "moonbitlang/core/debug",
 }
@@ -38,6 +39,8 @@ pub fn compile_slang(String, String) -> FixedArray[UInt32]
 pub fn load_image(String) -> (FixedArray[Byte], Int32, Int32)
 
 pub fn load_spirv(String) -> FixedArray[UInt32]
+
+pub fn reflect_spirv(FixedArray[UInt32]) -> @tycho_shader.SpirvReflection
 
 // Errors
 pub suberror RhiError {
@@ -99,6 +102,7 @@ pub fn CommandBuffer::begin_render_pass(Self, Array[RenderTargetDesc], depth? : 
 pub fn CommandBuffer::bind_index(Self, Buffer, IndexType) -> Unit
 pub fn CommandBuffer::bind_pipeline(Self, Pipeline) -> Unit
 pub fn CommandBuffer::bind_storage(Self, Pipeline, Int32, Buffer) -> Unit
+pub fn CommandBuffer::bind_storage_image(Self, Pipeline, Int32, Texture) -> Unit
 pub fn CommandBuffer::bind_texture(Self, Pipeline, Int32, Texture, Sampler) -> Unit
 pub fn CommandBuffer::bind_uniform(Self, Pipeline, Int32, Buffer) -> Unit
 pub fn CommandBuffer::bind_vertex(Self, Int32, Buffer) -> Unit
@@ -111,8 +115,12 @@ pub fn CommandBuffer::draw_instanced(Self, Int32, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::end_render_pass(Self) -> Unit
 pub fn CommandBuffer::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int32) -> Unit
 pub fn CommandBuffer::push_constants_floats(Self, Pipeline, FixedArray[Float], offset? : Int32) -> Unit
+pub fn CommandBuffer::reset_timestamps(Self, TimestampPool) -> Unit
 pub fn CommandBuffer::set_scissor(Self, Int32, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::set_viewport(Self, Float, Float, Float, Float) -> Unit
+pub fn CommandBuffer::transition_for_compute(Self, Texture) -> Unit
+pub fn CommandBuffer::transition_for_sampling(Self, Texture) -> Unit
+pub fn CommandBuffer::write_timestamp(Self, TimestampPool, Int32, at_start? : Bool) -> Unit
 
 #derive(Eq, @debug.Debug)
 pub(all) enum CullMode {
@@ -137,22 +145,27 @@ pub fn Device::allocator_used_bytes(Self) -> UInt64
 pub fn Device::backend(Self) -> BackendKind
 pub fn Device::begin_commands(Self) -> CommandBuffer raise RhiError
 pub fn Device::create_buffer(Self, Int32, BufferKind) -> Buffer raise RhiError
-pub fn Device::create_compute_pipeline(Self, FixedArray[UInt32], Int32, Int32, push_constant_size? : Int32) -> Pipeline raise RhiError
+pub fn Device::create_compute_pipeline(Self, FixedArray[UInt32], Int32, Int32, storage_image_slots? : Int32, push_constant_size? : Int32) -> Pipeline raise RhiError
+pub fn Device::create_compute_pipeline_auto(Self, FixedArray[UInt32]) -> Pipeline raise RhiError
 pub fn Device::create_depth_texture(Self, Int32, Int32, samples? : SampleCount) -> Texture raise RhiError
 pub fn Device::create_fence(Self, Bool) -> Fence raise RhiError
 pub fn Device::create_graphics_pipeline(Self, PipelineDesc) -> Pipeline raise RhiError
 pub fn Device::create_render_target(Self, Int32, Int32, TextureFormat, samples? : SampleCount) -> Texture raise RhiError
 pub fn Device::create_sampler(Self) -> Sampler raise RhiError
 pub fn Device::create_sampler_desc(Self, SamplerDesc) -> Sampler raise RhiError
+pub fn Device::create_storage_texture(Self, Int32, Int32, TextureFormat) -> Texture raise RhiError
 pub fn Device::create_swapchain(Self, String, Int32, Int32) -> Swapchain raise RhiError
 pub fn Device::create_swapchain_desc(Self, SwapchainDesc) -> Swapchain raise RhiError
 pub fn Device::create_texture(Self, Int32, Int32, Bytes) -> Texture raise RhiError
 pub fn Device::create_texture_format(Self, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
+pub fn Device::create_texture_mipmapped(Self, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
+pub fn Device::create_timestamp_pool(Self, Int32) -> TimestampPool raise RhiError
 pub fn Device::destroy(Self) -> Unit
 pub fn Device::end_commands(Self, CommandBuffer) -> Unit raise RhiError
 pub fn Device::new(String, Bool) -> Self raise RhiError
 pub fn Device::submit_commands(Self, CommandBuffer, Fence) -> Unit raise RhiError
 pub fn Device::validation_errors(Self) -> Int32
+pub fn Device::wait_idle(Self) -> Unit
 
 pub struct Fence {
   // private fields
@@ -198,6 +211,11 @@ pub(all) struct PipelineDesc {
   uniform_slots : Int32
   texture_slots : Int32
   storage_slots : Int32
+  storage_image_slots : Int32
+  uniform_bindings : Array[Int32]
+  texture_bindings : Array[Int32]
+  storage_bindings : Array[Int32]
+  storage_image_bindings : Array[Int32]
   push_constant_size : Int32
   depth_test : Bool
   depth_write : Bool
@@ -206,8 +224,10 @@ pub(all) struct PipelineDesc {
   blend : Bool
   samples : SampleCount
   color_format : TextureFormat?
+  color_formats : Array[TextureFormat]
 }
-pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vertex_formats? : Array[VertexFormat], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, push_constant_size? : Int32, depth_test? : Bool, depth_write? : Bool, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, samples? : SampleCount, color_format? : TextureFormat?) -> Self
+pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], depth_test? : Bool, depth_write? : Bool, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat]) -> Self
+pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vertex_formats? : Array[VertexFormat], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], push_constant_size? : Int32, depth_test? : Bool, depth_write? : Bool, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat]) -> Self
 
 pub(all) struct RenderTargetDesc {
   texture : Texture
@@ -232,9 +252,13 @@ pub fn Sampler::destroy(Self) -> Unit
 pub(all) struct SamplerDesc {
   mag : Filter
   min : Filter
+  mipmap : Filter
   address : AddressMode
+  min_lod : Float
+  max_lod : Float
+  mip_lod_bias : Float
 }
-pub fn SamplerDesc::new(mag? : Filter, min? : Filter, address? : AddressMode) -> Self
+pub fn SamplerDesc::new(mag? : Filter, min? : Filter, mipmap? : Filter, address? : AddressMode, min_lod? : Float, max_lod? : Float, mip_lod_bias? : Float) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum ShaderStage {
@@ -280,7 +304,9 @@ pub struct Texture {
 }
 pub fn Texture::destroy(Self) -> Unit
 pub fn Texture::height(Self) -> Int32
+pub fn Texture::mip_levels(Self) -> Int32
 pub fn Texture::readback(Self) -> FixedArray[Byte] raise RhiError
+pub fn Texture::readback_mip(Self, Int32) -> FixedArray[Byte] raise RhiError
 pub fn Texture::width(Self) -> Int32
 
 #derive(Eq, @debug.Debug)
@@ -291,6 +317,13 @@ pub(all) enum TextureFormat {
   Depth32F
 }
 
+pub struct TimestampPool {
+  // private fields
+}
+pub fn TimestampPool::destroy(Self) -> Unit
+pub fn TimestampPool::elapsed_ms(Self, Int32, Int32) -> Double raise RhiError
+pub fn TimestampPool::resolve_ns(Self) -> FixedArray[Double] raise RhiError
+
 #derive(Eq, @debug.Debug)
 pub(all) enum VertexFormat {
   Float2
@@ -300,5 +333,17 @@ pub(all) enum VertexFormat {
 
 // Type aliases
 pub using @tycho_window {type Event}
+
+pub using @tycho_shader {type ReflectedBinding}
+
+pub using @tycho_shader {type ReflectedDescriptorKind}
+
+pub using @tycho_shader {type ReflectedStage}
+
+pub using @tycho_shader {type ReflectedVertexFormat}
+
+pub using @tycho_shader {type ReflectedVertexInput}
+
+pub using @tycho_shader {type SpirvReflection}
 
 // Traits

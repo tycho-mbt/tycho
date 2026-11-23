@@ -145,16 +145,24 @@ pub fn ClearColor::black() -> ClearColor {
 pub(all) struct SamplerDesc {
   mag : Filter
   min : Filter
+  mipmap : Filter
   address : AddressMode
+  min_lod : Float
+  max_lod : Float
+  mip_lod_bias : Float
 }
 
 ///|
 pub fn SamplerDesc::new(
   mag? : Filter = Filter::Linear,
   min? : Filter = Filter::Linear,
+  mipmap? : Filter = Filter::Linear,
   address? : AddressMode = AddressMode::Repeat,
+  min_lod? : Float = (0.0 : Float),
+  max_lod? : Float = (1000.0 : Float),
+  mip_lod_bias? : Float = (0.0 : Float),
 ) -> SamplerDesc {
-  { mag, min, address }
+  { mag, min, mipmap, address, min_lod, max_lod, mip_lod_bias }
 }
 
 ///|
@@ -165,6 +173,11 @@ pub(all) struct PipelineDesc {
   uniform_slots : Int
   texture_slots : Int
   storage_slots : Int
+  storage_image_slots : Int
+  uniform_bindings : Array[Int]
+  texture_bindings : Array[Int]
+  storage_bindings : Array[Int]
+  storage_image_bindings : Array[Int]
   push_constant_size : Int
   depth_test : Bool
   depth_write : Bool
@@ -173,6 +186,7 @@ pub(all) struct PipelineDesc {
   blend : Bool
   samples : SampleCount
   color_format : TextureFormat?
+  color_formats : Array[TextureFormat]
 }
 
 ///|
@@ -183,6 +197,11 @@ pub fn PipelineDesc::new(
   uniform_slots? : Int = 0,
   texture_slots? : Int = 0,
   storage_slots? : Int = 0,
+  storage_image_slots? : Int = 0,
+  uniform_bindings? : Array[Int] = [],
+  texture_bindings? : Array[Int] = [],
+  storage_bindings? : Array[Int] = [],
+  storage_image_bindings? : Array[Int] = [],
   push_constant_size? : Int = 0,
   depth_test? : Bool = false,
   depth_write? : Bool = false,
@@ -191,6 +210,7 @@ pub fn PipelineDesc::new(
   blend? : Bool = false,
   samples? : SampleCount = SampleCount::X1,
   color_format? : TextureFormat? = None,
+  color_formats? : Array[TextureFormat] = [],
 ) -> PipelineDesc {
   {
     vert,
@@ -199,6 +219,11 @@ pub fn PipelineDesc::new(
     uniform_slots,
     texture_slots,
     storage_slots,
+    storage_image_slots,
+    uniform_bindings,
+    texture_bindings,
+    storage_bindings,
+    storage_image_bindings,
     push_constant_size,
     depth_test,
     depth_write,
@@ -207,7 +232,117 @@ pub fn PipelineDesc::new(
     blend,
     samples,
     color_format,
+    color_formats,
   }
+}
+
+///|
+fn push_unique_int(arr : Array[Int], v : Int) -> Unit {
+  for x in arr {
+    if x == v {
+      return
+    }
+  }
+  arr.push(v)
+}
+
+///|
+// Builds a PipelineDesc by automatically reflecting SPIR-V bytecode for vertex
+// inputs, descriptor bindings, push constant byte size, and MRT color targets.
+pub fn PipelineDesc::from_spirv(
+  vert : FixedArray[UInt32],
+  frag : FixedArray[UInt32],
+  depth_test? : Bool = false,
+  depth_write? : Bool = false,
+  cull_mode? : CullMode = CullMode::None,
+  front_face? : FrontFace = FrontFace::Clockwise,
+  blend? : Bool = false,
+  samples? : SampleCount = SampleCount::X1,
+  color_format? : TextureFormat? = None,
+  color_formats? : Array[TextureFormat] = [],
+) -> PipelineDesc {
+  let vr = @shader.reflect_spirv(vert)
+  let fr = @shader.reflect_spirv(frag)
+  let vertex_formats : Array[VertexFormat] = []
+  for vi in vr.vertex_inputs {
+    match vi.format {
+      @shader.ReflectedVertexFormat::Float2 =>
+        vertex_formats.push(VertexFormat::Float2)
+      @shader.ReflectedVertexFormat::Float3 =>
+        vertex_formats.push(VertexFormat::Float3)
+      @shader.ReflectedVertexFormat::Float4 =>
+        vertex_formats.push(VertexFormat::Float4)
+      _ => ()
+    }
+  }
+  let u_binds : Array[Int] = []
+  let t_binds : Array[Int] = []
+  let s_binds : Array[Int] = []
+  let si_binds : Array[Int] = []
+  let all_b : Array[@shader.ReflectedBinding] = []
+  for b in vr.bindings {
+    all_b.push(b)
+  }
+  for b in fr.bindings {
+    all_b.push(b)
+  }
+  for b in all_b {
+    if b.set != 0 {
+      continue
+    }
+    match b.kind {
+      @shader.ReflectedDescriptorKind::UniformBuffer =>
+        push_unique_int(u_binds, b.binding)
+      @shader.ReflectedDescriptorKind::CombinedImageSampler =>
+        push_unique_int(t_binds, b.binding)
+      @shader.ReflectedDescriptorKind::StorageBuffer =>
+        push_unique_int(s_binds, b.binding)
+      @shader.ReflectedDescriptorKind::StorageImage =>
+        push_unique_int(si_binds, b.binding)
+    }
+  }
+  u_binds.sort_by(fn(a, b) { a - b })
+  t_binds.sort_by(fn(a, b) { a - b })
+  s_binds.sort_by(fn(a, b) { a - b })
+  si_binds.sort_by(fn(a, b) { a - b })
+  let push_constant_size = if vr.push_constant_size > fr.push_constant_size {
+    vr.push_constant_size
+  } else {
+    fr.push_constant_size
+  }
+  let resolved_formats : Array[TextureFormat] = []
+  if color_formats.length() > 0 {
+    for f in color_formats {
+      resolved_formats.push(f)
+    }
+  } else if color_format is None && fr.color_output_count > 1 {
+    for i = 0; i < fr.color_output_count; i = i + 1 {
+      let _ = i
+      resolved_formats.push(TextureFormat::RGBA8)
+    }
+  }
+  PipelineDesc::new(
+    vert,
+    frag,
+    vertex_formats~,
+    uniform_slots=u_binds.length(),
+    texture_slots=t_binds.length(),
+    storage_slots=s_binds.length(),
+    storage_image_slots=si_binds.length(),
+    uniform_bindings=u_binds,
+    texture_bindings=t_binds,
+    storage_bindings=s_binds,
+    storage_image_bindings=si_binds,
+    push_constant_size~,
+    depth_test~,
+    depth_write~,
+    cull_mode~,
+    front_face~,
+    blend~,
+    samples~,
+    color_format~,
+    color_formats=resolved_formats,
+  )
 }
 
 ///|
@@ -306,7 +441,30 @@ pub const KEY_S : Int = @win.KEY_S
 ///|
 pub const KEY_D : Int = @win.KEY_D
 
-// Shader & image loading helpers (delegated to laplaceliu/tycho_shader).
+// Shader compilation, SPIR-V reflection & image loading helpers (via laplaceliu/tycho_shader).
+
+///|
+pub type ReflectedStage = @shader.ReflectedStage
+
+///|
+pub type ReflectedDescriptorKind = @shader.ReflectedDescriptorKind
+
+///|
+pub type ReflectedVertexFormat = @shader.ReflectedVertexFormat
+
+///|
+pub type ReflectedBinding = @shader.ReflectedBinding
+
+///|
+pub type ReflectedVertexInput = @shader.ReflectedVertexInput
+
+///|
+pub type SpirvReflection = @shader.SpirvReflection
+
+///|
+pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
+  @shader.reflect_spirv(spv)
+}
 
 ///|
 fn shader_kind(stage : ShaderStage) -> UInt32 {

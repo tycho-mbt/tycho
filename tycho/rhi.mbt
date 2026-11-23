@@ -38,6 +38,11 @@ pub struct Fence {
 }
 
 ///|
+pub struct TimestampPool {
+  priv inner : VkTimestampPoolState
+}
+
+///|
 pub struct CommandBuffer {
   priv inner : VkCmdState
 }
@@ -207,15 +212,68 @@ pub fn Device::create_compute_pipeline(
   spv : FixedArray[UInt32],
   uniform_slots : Int,
   storage_slots : Int,
+  storage_image_slots? : Int = 0,
   push_constant_size? : Int = 0,
 ) -> Pipeline raise RhiError {
+  let u_binds = resolve_slot_bindings(uniform_slots, [], 0)
+  let t_binds = FixedArray::make(0, 0)
+  let s_binds = resolve_slot_bindings(storage_slots, [], uniform_slots)
+  let si_binds = resolve_slot_bindings(
+    storage_image_slots,
+    [],
+    uniform_slots + storage_slots,
+  )
   {
     inner: vk_compute_pipeline_create(
       self.inner,
       spv,
-      uniform_slots,
-      storage_slots,
+      u_binds,
+      t_binds,
+      s_binds,
+      si_binds,
       push_constant_size,
+    ),
+  }
+}
+
+///|
+pub fn Device::create_compute_pipeline_auto(
+  self : Device,
+  spv : FixedArray[UInt32],
+) -> Pipeline raise RhiError {
+  let refl = @shader.reflect_spirv(spv)
+  let u_arr : Array[Int] = []
+  let t_arr : Array[Int] = []
+  let s_arr : Array[Int] = []
+  let si_arr : Array[Int] = []
+  for b in refl.bindings {
+    if b.set != 0 {
+      continue
+    }
+    match b.kind {
+      @shader.ReflectedDescriptorKind::UniformBuffer =>
+        push_unique_int(u_arr, b.binding)
+      @shader.ReflectedDescriptorKind::CombinedImageSampler =>
+        push_unique_int(t_arr, b.binding)
+      @shader.ReflectedDescriptorKind::StorageBuffer =>
+        push_unique_int(s_arr, b.binding)
+      @shader.ReflectedDescriptorKind::StorageImage =>
+        push_unique_int(si_arr, b.binding)
+    }
+  }
+  u_arr.sort_by(fn(a, b) { a - b })
+  t_arr.sort_by(fn(a, b) { a - b })
+  s_arr.sort_by(fn(a, b) { a - b })
+  si_arr.sort_by(fn(a, b) { a - b })
+  {
+    inner: vk_compute_pipeline_create(
+      self.inner,
+      spv,
+      FixedArray::makei(u_arr.length(), fn(i) { u_arr[i] }),
+      FixedArray::makei(t_arr.length(), fn(i) { t_arr[i] }),
+      FixedArray::makei(s_arr.length(), fn(i) { s_arr[i] }),
+      FixedArray::makei(si_arr.length(), fn(i) { si_arr[i] }),
+      refl.push_constant_size,
     ),
   }
 }
@@ -311,6 +369,29 @@ pub fn Device::create_texture_format(
 }
 
 ///|
+pub fn Device::create_texture_mipmapped(
+  self : Device,
+  width : Int,
+  height : Int,
+  format : TextureFormat,
+  pixels : Bytes,
+) -> Texture raise RhiError {
+  {
+    inner: vk_texture_create_mipmapped(self.inner, width, height, format, pixels),
+  }
+}
+
+///|
+pub fn Device::create_storage_texture(
+  self : Device,
+  width : Int,
+  height : Int,
+  format : TextureFormat,
+) -> Texture raise RhiError {
+  { inner: vk_texture_create_storage(self.inner, width, height, format) }
+}
+
+///|
 pub fn Device::create_render_target(
   self : Device,
   width : Int,
@@ -374,8 +455,21 @@ pub fn Texture::height(self : Texture) -> Int {
 }
 
 ///|
+pub fn Texture::mip_levels(self : Texture) -> Int {
+  self.inner.mip_levels
+}
+
+///|
 pub fn Texture::readback(self : Texture) -> FixedArray[Byte] raise RhiError {
   vk_texture_readback(self.inner)
+}
+
+///|
+pub fn Texture::readback_mip(
+  self : Texture,
+  level : Int,
+) -> FixedArray[Byte] raise RhiError {
+  vk_texture_readback_mip(self.inner, level)
 }
 
 ///|
@@ -404,7 +498,15 @@ pub fn Device::create_sampler_desc(
   ci.set_maxAnisotropy((1.0 : Float))
   ci.set_unnormalizedCoordinates((0 : UInt32))
   ci.set_compareEnable((0 : UInt32))
-  ci.set_mipmapMode(@vk.VK_SAMPLER_MIPMAP_MODE_LINEAR)
+  ci.set_mipmapMode(
+    match desc.mipmap {
+      Filter::Nearest => @vk.VK_SAMPLER_MIPMAP_MODE_NEAREST
+      Filter::Linear => @vk.VK_SAMPLER_MIPMAP_MODE_LINEAR
+    },
+  )
+  ci.set_mipLodBias(desc.mip_lod_bias)
+  ci.set_minLod(desc.min_lod)
+  ci.set_maxLod(desc.max_lod)
   let out = FixedArray::make(1, @vk.VkSampler::null())
   let r = (d.dfn.vkCreateSampler)(
     d.dev,
@@ -482,6 +584,43 @@ pub fn Fence::destroy(self : Fence) -> Unit {
 }
 
 ///|
+pub fn Device::create_timestamp_pool(
+  self : Device,
+  count : Int,
+) -> TimestampPool raise RhiError {
+  { inner: vk_timestamp_pool_create(self.inner, count) }
+}
+
+///|
+pub fn TimestampPool::resolve_ns(
+  self : TimestampPool,
+) -> FixedArray[Double] raise RhiError {
+  vk_timestamp_pool_resolve_ns(self.inner)
+}
+
+///|
+pub fn TimestampPool::elapsed_ms(
+  self : TimestampPool,
+  start_idx : Int,
+  end_idx : Int,
+) -> Double raise RhiError {
+  if start_idx < 0 ||
+    end_idx < 0 ||
+    start_idx >= self.inner.count ||
+    end_idx >= self.inner.count {
+    raise InvalidArgument("Timestamp query index out of range")
+  }
+  let ns = self.resolve_ns()
+  let diff = ns[end_idx] - ns[start_idx]
+  if diff < 0.0 { 0.0 } else { diff / 1000000.0 }
+}
+
+///|
+pub fn TimestampPool::destroy(self : TimestampPool) -> Unit {
+  vk_timestamp_pool_destroy(self.inner)
+}
+
+///|
 pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
   let d = self.inner
   let cmd = begin_one_time(d)
@@ -494,6 +633,7 @@ pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
       pending_uniforms: [],
       pending_textures: [],
       pending_storage: [],
+      pending_storage_images: [],
       bound: None,
       active_render_targets: [],
     },
@@ -590,6 +730,65 @@ pub fn CommandBuffer::bind_storage(
   buffer : Buffer,
 ) -> Unit {
   self.inner.pending_storage.push((pipeline, slot, buffer))
+}
+
+///|
+pub fn CommandBuffer::bind_storage_image(
+  self : CommandBuffer,
+  pipeline : Pipeline,
+  slot : Int,
+  texture : Texture,
+) -> Unit {
+  self.inner.pending_storage_images.push((pipeline, slot, texture))
+}
+
+///|
+pub fn CommandBuffer::transition_for_compute(
+  self : CommandBuffer,
+  texture : Texture,
+) -> Unit {
+  vk_cmd_transition_for_compute(self.inner, texture.inner)
+}
+
+///|
+pub fn CommandBuffer::transition_for_sampling(
+  self : CommandBuffer,
+  texture : Texture,
+) -> Unit {
+  vk_cmd_transition_for_sampling(self.inner, texture.inner)
+}
+
+///|
+pub fn CommandBuffer::reset_timestamps(
+  self : CommandBuffer,
+  pool : TimestampPool,
+) -> Unit {
+  (self.inner.device.dfn.vkCmdResetQueryPool)(
+    self.inner.cmd,
+    pool.inner.pool,
+    (0 : UInt32),
+    pool.inner.count.reinterpret_as_uint(),
+  )
+}
+
+///|
+pub fn CommandBuffer::write_timestamp(
+  self : CommandBuffer,
+  pool : TimestampPool,
+  index : Int,
+  at_start? : Bool = false,
+) -> Unit {
+  let stage = if at_start {
+    @vk.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
+  } else {
+    @vk.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
+  }
+  (self.inner.device.dfn.vkCmdWriteTimestamp)(
+    self.inner.cmd,
+    stage,
+    pool.inner.pool,
+    index.reinterpret_as_uint(),
+  )
 }
 
 ///|

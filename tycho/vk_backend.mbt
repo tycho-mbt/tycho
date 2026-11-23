@@ -23,6 +23,7 @@ priv struct VkDeviceState {
   alloc : SubAllocator
   messenger : @vk.VkDebugUtilsMessengerEXT
   error_baseline : Int
+  timestamp_period_ns : Float
 }
 
 ///|
@@ -69,10 +70,16 @@ priv struct VkPipelineState {
   uniform_slots : Int
   texture_slots : Int
   storage_slots : Int
+  storage_image_slots : Int
+  uniform_bindings : FixedArray[Int]
+  texture_bindings : FixedArray[Int]
+  storage_bindings : FixedArray[Int]
+  storage_image_bindings : FixedArray[Int]
   compute : Bool
   cur_uniforms : FixedArray[Buffer?]
   cur_textures : FixedArray[(Texture, Sampler)?]
   cur_storage : FixedArray[Buffer?]
+  cur_storage_images : FixedArray[Texture?]
 }
 
 ///|
@@ -93,6 +100,7 @@ priv struct VkTextureState {
   samples : SampleCount
   width : Int
   height : Int
+  mip_levels : Int
   mut layout : UInt32
 }
 
@@ -109,6 +117,13 @@ priv struct VkFenceState {
 }
 
 ///|
+priv struct VkTimestampPoolState {
+  device : VkDeviceState
+  pool : @vk.VkQueryPool
+  count : Int
+}
+
+///|
 priv struct VkCmdState {
   device : VkDeviceState
   cmd : @vk.VkCommandBuffer
@@ -117,6 +132,7 @@ priv struct VkCmdState {
   pending_uniforms : Array[(Pipeline, Int, Buffer)]
   pending_textures : Array[(Pipeline, Int, Texture, Sampler)]
   pending_storage : Array[(Pipeline, Int, Buffer)]
+  pending_storage_images : Array[(Pipeline, Int, Texture)]
   mut bound : Pipeline?
   mut active_render_targets : Array[RenderTargetDesc]
 }
@@ -347,12 +363,14 @@ fn vk_device_create(
   let mut chosen_qf : UInt32 = (0 : UInt32)
   let mut found_device = false
   let mut is_discrete = false
+  let mut timestamp_period_ns : Float = (1.0 : Float)
   for pi = 0; pi < pcount; pi = pi + 1 {
     let pd = pdevs[pi]
     let pprops = @vk.VkPhysicalDeviceProperties::new()
     (ifn.vkGetPhysicalDeviceProperties)(pd, pprops)
     let discrete = pprops.get_deviceType() ==
       @vk.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+    let ts_period = pprops.get_limits().get_timestampPeriod()
     pprops.free()
     let qfc = FixedArray::make(1, (0 : UInt32))
     (ifn.vkGetPhysicalDeviceQueueFamilyProperties)(
@@ -375,6 +393,7 @@ fn vk_device_create(
           chosen_qf = qi.reinterpret_as_uint()
           found_device = true
           is_discrete = discrete
+          timestamp_period_ns = ts_period
         }
         break
       }
@@ -466,6 +485,7 @@ fn vk_device_create(
     alloc,
     messenger,
     error_baseline,
+    timestamp_period_ns,
   }
 }
 
@@ -539,11 +559,13 @@ fn end_one_time(
 }
 
 ///|
-fn cmd_image_barrier2(
+fn cmd_image_barrier2_mips(
   d : VkDeviceState,
   cmd : @vk.VkCommandBuffer,
   image : @vk.VkImage,
   aspect : UInt32,
+  base_mip : Int,
+  mip_count : Int,
   src_stage : UInt64,
   src_access : UInt64,
   dst_stage : UInt64,
@@ -553,7 +575,8 @@ fn cmd_image_barrier2(
 ) -> Unit {
   let range = @vk.VkImageSubresourceRange::new()
   range.set_aspectMask(aspect)
-  range.set_levelCount((1 : UInt32))
+  range.set_baseMipLevel(base_mip.reinterpret_as_uint())
+  range.set_levelCount(mip_count.reinterpret_as_uint())
   range.set_layerCount((1 : UInt32))
   let b2 = @vk.VkImageMemoryBarrier2::new()
   b2.set_srcStageMask(src_stage)
@@ -573,6 +596,25 @@ fn cmd_image_barrier2(
   dep.free()
   b2.free()
   range.free()
+}
+
+///|
+fn cmd_image_barrier2(
+  d : VkDeviceState,
+  cmd : @vk.VkCommandBuffer,
+  image : @vk.VkImage,
+  aspect : UInt32,
+  src_stage : UInt64,
+  src_access : UInt64,
+  dst_stage : UInt64,
+  dst_access : UInt64,
+  old_layout : UInt32,
+  new_layout : UInt32,
+) -> Unit {
+  cmd_image_barrier2_mips(
+    d, cmd, image, aspect, 0, 1, src_stage, src_access, dst_stage, dst_access, old_layout,
+    new_layout,
+  )
 }
 
 ///|
@@ -657,6 +699,33 @@ fn vk_buffer_destroy(b : VkBufferState) -> Unit {
 }
 
 ///|
+fn mip_count_for(width : Int, height : Int) -> Int {
+  let mut levels = 1
+  let mut dim = if width > height { width } else { height }
+  while dim > 1 {
+    dim = dim / 2
+    levels = levels + 1
+  }
+  levels
+}
+
+///|
+fn blit_offsets_bytes(w : Int, h : Int) -> Bytes {
+  let arr : Array[Byte] = Array::make(24, (0 : Byte))
+  // src/dst offset[0] = (0, 0, 0), offset[1] = (w, h, 1) as little-endian Int32
+  arr[12] = (w & 0xFF).to_byte()
+  arr[13] = ((w >> 8) & 0xFF).to_byte()
+  arr[14] = ((w >> 16) & 0xFF).to_byte()
+  arr[15] = ((w >> 24) & 0xFF).to_byte()
+  arr[16] = (h & 0xFF).to_byte()
+  arr[17] = ((h >> 8) & 0xFF).to_byte()
+  arr[18] = ((h >> 16) & 0xFF).to_byte()
+  arr[19] = ((h >> 24) & 0xFF).to_byte()
+  arr[20] = (1 : Byte)
+  Bytes::from_array(arr)
+}
+
+///|
 fn create_image_and_view(
   d : VkDeviceState,
   width : Int,
@@ -666,10 +735,12 @@ fn create_image_and_view(
   aspect : UInt32,
   samples : SampleCount,
   format : TextureFormat,
+  mip_levels? : Int = 1,
 ) -> VkTextureState raise RhiError {
   if width <= 0 || height <= 0 {
     raise InvalidArgument("Texture dimensions must be positive")
   }
+  let levels = if mip_levels < 1 { 1 } else { mip_levels }
   let na = @vk.VkAllocationCallbacks::null()
   let extent = @vk.VkExtent3D::new()
   extent.set_width(width.reinterpret_as_uint())
@@ -679,7 +750,7 @@ fn create_image_and_view(
   ici.set_imageType(@vk.VK_IMAGE_TYPE_2D)
   ici.set_format(vk_format)
   ici.set_extent(extent)
-  ici.set_mipLevels((1 : UInt32))
+  ici.set_mipLevels(levels.reinterpret_as_uint())
   ici.set_arrayLayers((1 : UInt32))
   ici.set_samples(vk_samples(samples))
   ici.set_tiling(@vk.VK_IMAGE_TILING_OPTIMAL)
@@ -711,7 +782,8 @@ fn create_image_and_view(
   }
   let range = @vk.VkImageSubresourceRange::new()
   range.set_aspectMask(aspect)
-  range.set_levelCount((1 : UInt32))
+  range.set_baseMipLevel((0 : UInt32))
+  range.set_levelCount(levels.reinterpret_as_uint())
   range.set_layerCount((1 : UInt32))
   let ivci = @vk.VkImageViewCreateInfo::new()
   ivci.set_image(image)
@@ -736,6 +808,7 @@ fn create_image_and_view(
     samples,
     width,
     height,
+    mip_levels: levels,
     layout: @vk.VK_IMAGE_LAYOUT_UNDEFINED,
   }
 }
@@ -827,6 +900,203 @@ fn vk_texture_create_uploaded(
 }
 
 ///|
+fn vk_texture_create_mipmapped(
+  d : VkDeviceState,
+  width : Int,
+  height : Int,
+  format : TextureFormat,
+  pixels : Bytes,
+) -> VkTextureState raise RhiError {
+  if format == TextureFormat::Depth32F {
+    raise InvalidArgument("Depth32F textures cannot generate mipmaps")
+  }
+  let expected_bytes = width * height * texture_format_bytes(format)
+  if pixels.length() < expected_bytes {
+    raise InvalidArgument(
+      "Texture upload bytes (\{pixels.length()}) smaller than \{expected_bytes}",
+    )
+  }
+  let levels = mip_count_for(width, height)
+  let staging = vk_buffer_create(d, expected_bytes, BufferKind::Staging)
+  vk_buffer_upload_ptr(staging, @vk.bytes_ptr(pixels), expected_bytes)
+  let tex = create_image_and_view(
+    d,
+    width,
+    height,
+    vk_texture_format(format),
+    @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+    @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    @vk.VK_IMAGE_USAGE_SAMPLED_BIT,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    SampleCount::X1,
+    format,
+    mip_levels=levels,
+  )
+  let cmd = begin_one_time(d)
+  cmd_image_barrier2_mips(
+    d,
+    cmd,
+    tex.image,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    0,
+    levels,
+    @vk.VK_PIPELINE_STAGE_2_NONE,
+    @vk.VK_ACCESS_2_NONE,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    @vk.VK_IMAGE_LAYOUT_UNDEFINED,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+  )
+  let extent = @vk.VkExtent3D::new()
+  extent.set_width(width.reinterpret_as_uint())
+  extent.set_height(height.reinterpret_as_uint())
+  extent.set_depth((1 : UInt32))
+  let region = @vk.VkBufferImageCopy::new()
+  let sub = @vk.VkImageSubresourceLayers::new()
+  sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+  sub.set_mipLevel((0 : UInt32))
+  sub.set_layerCount((1 : UInt32))
+  region.set_imageSubresource(sub)
+  region.set_imageExtent(extent)
+  (d.dfn.vkCmdCopyBufferToImage)(
+    cmd,
+    staging.buffer,
+    tex.image,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    (1 : UInt32),
+    region,
+  )
+  extent.free()
+  region.free()
+  sub.free()
+
+  let mut mip_w = width
+  let mut mip_h = height
+  let src_sub = @vk.VkImageSubresourceLayers::new()
+  let dst_sub = @vk.VkImageSubresourceLayers::new()
+  src_sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+  src_sub.set_layerCount((1 : UInt32))
+  dst_sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+  dst_sub.set_layerCount((1 : UInt32))
+  let blit = @vk.VkImageBlit::new()
+  for i = 1; i < levels; i = i + 1 {
+    cmd_image_barrier2_mips(
+      d,
+      cmd,
+      tex.image,
+      @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+      i - 1,
+      1,
+      @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+      @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+      @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+      @vk.VK_ACCESS_2_TRANSFER_READ_BIT,
+      @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    )
+    let next_w = if mip_w > 1 { mip_w / 2 } else { 1 }
+    let next_h = if mip_h > 1 { mip_h / 2 } else { 1 }
+    src_sub.set_mipLevel((i - 1).reinterpret_as_uint())
+    dst_sub.set_mipLevel(i.reinterpret_as_uint())
+    blit.set_srcSubresource(src_sub)
+    blit.set_dstSubresource(dst_sub)
+    blit.set_srcOffsets(blit_offsets_bytes(mip_w, mip_h))
+    blit.set_dstOffsets(blit_offsets_bytes(next_w, next_h))
+    (d.dfn.vkCmdBlitImage)(
+      cmd,
+      tex.image,
+      @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+      tex.image,
+      @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      (1 : UInt32),
+      blit,
+      @vk.VK_FILTER_LINEAR,
+    )
+    cmd_image_barrier2_mips(
+      d,
+      cmd,
+      tex.image,
+      @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+      i - 1,
+      1,
+      @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+      @vk.VK_ACCESS_2_TRANSFER_READ_BIT,
+      @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+      @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+      @vk.VK_ACCESS_2_SHADER_READ_BIT,
+      @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+      @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    )
+    mip_w = next_w
+    mip_h = next_h
+  }
+  cmd_image_barrier2_mips(
+    d,
+    cmd,
+    tex.image,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    levels - 1,
+    1,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+  )
+  end_one_time(d, cmd)
+  src_sub.free()
+  dst_sub.free()
+  blit.free()
+  vk_buffer_destroy(staging)
+  tex.layout = @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+  tex
+}
+
+///|
+fn vk_texture_create_storage(
+  d : VkDeviceState,
+  width : Int,
+  height : Int,
+  format : TextureFormat,
+) -> VkTextureState raise RhiError {
+  if format == TextureFormat::Depth32F {
+    raise InvalidArgument("Depth32F cannot be used as a storage image")
+  }
+  let tex = create_image_and_view(
+    d,
+    width,
+    height,
+    vk_texture_format(format),
+    @vk.VK_IMAGE_USAGE_STORAGE_BIT |
+    @vk.VK_IMAGE_USAGE_SAMPLED_BIT |
+    @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    SampleCount::X1,
+    format,
+  )
+  let cmd = begin_one_time(d)
+  cmd_image_barrier2(
+    d,
+    cmd,
+    tex.image,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    @vk.VK_PIPELINE_STAGE_2_NONE,
+    @vk.VK_ACCESS_2_NONE,
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    @vk.VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT |
+    @vk.VK_ACCESS_2_SHADER_STORAGE_READ_BIT,
+    @vk.VK_IMAGE_LAYOUT_UNDEFINED,
+    @vk.VK_IMAGE_LAYOUT_GENERAL,
+  )
+  end_one_time(d, cmd)
+  tex.layout = @vk.VK_IMAGE_LAYOUT_GENERAL
+  tex
+}
+
+///|
 fn vk_texture_destroy(t : VkTextureState) -> Unit {
   let _ = (t.device.dfn.vkDeviceWaitIdle)(t.device.dev)
   let na = @vk.VkAllocationCallbacks::null()
@@ -836,21 +1106,35 @@ fn vk_texture_destroy(t : VkTextureState) -> Unit {
 }
 
 ///|
-fn vk_texture_readback(t : VkTextureState) -> FixedArray[Byte] raise RhiError {
+fn vk_texture_readback_mip(
+  t : VkTextureState,
+  level : Int,
+) -> FixedArray[Byte] raise RhiError {
   if t.samples != SampleCount::X1 {
     raise InvalidArgument("Cannot read back multisampled texture directly")
   }
+  if level < 0 || level >= t.mip_levels {
+    raise InvalidArgument(
+      "Mip level \{level} out of range (0..\{t.mip_levels - 1})",
+    )
+  }
+  let mut mw = t.width >> level
+  let mut mh = t.height >> level
+  if mw < 1 { mw = 1 }
+  if mh < 1 { mh = 1 }
   let d = t.device
   let _ = (d.dfn.vkQueueWaitIdle)(d.queue)
-  let bytes = t.width * t.height * texture_format_bytes(t.format)
+  let bytes = mw * mh * texture_format_bytes(t.format)
   let staging = vk_buffer_create(d, bytes, BufferKind::Staging)
   let old_layout = t.layout
   let cmd = begin_one_time(d)
-  cmd_image_barrier2(
+  cmd_image_barrier2_mips(
     d,
     cmd,
     t.image,
     @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    level,
+    1,
     @vk.VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
     @vk.VK_ACCESS_2_MEMORY_WRITE_BIT,
     @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
@@ -859,12 +1143,13 @@ fn vk_texture_readback(t : VkTextureState) -> FixedArray[Byte] raise RhiError {
     @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
   )
   let extent = @vk.VkExtent3D::new()
-  extent.set_width(t.width.reinterpret_as_uint())
-  extent.set_height(t.height.reinterpret_as_uint())
+  extent.set_width(mw.reinterpret_as_uint())
+  extent.set_height(mh.reinterpret_as_uint())
   extent.set_depth((1 : UInt32))
   let region = @vk.VkBufferImageCopy::new()
   let sub = @vk.VkImageSubresourceLayers::new()
   sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+  sub.set_mipLevel(level.reinterpret_as_uint())
   sub.set_layerCount((1 : UInt32))
   region.set_imageSubresource(sub)
   region.set_imageExtent(extent)
@@ -881,11 +1166,13 @@ fn vk_texture_readback(t : VkTextureState) -> FixedArray[Byte] raise RhiError {
   } else {
     old_layout
   }
-  cmd_image_barrier2(
+  cmd_image_barrier2_mips(
     d,
     cmd,
     t.image,
     @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    level,
+    1,
     @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
     @vk.VK_ACCESS_2_TRANSFER_READ_BIT,
     @vk.VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
@@ -897,13 +1184,20 @@ fn vk_texture_readback(t : VkTextureState) -> FixedArray[Byte] raise RhiError {
   extent.free()
   region.free()
   sub.free()
-  t.layout = restore_layout
+  if level == 0 && t.mip_levels == 1 {
+    t.layout = restore_layout
+  }
   let out = FixedArray::make(bytes, (0 : Byte))
   if bytes > 0 {
     @vk.memcpy_ptr(@vk.byte_ptr(out), staging.alloc.mapped, bytes)
   }
   vk_buffer_destroy(staging)
   out
+}
+
+///|
+fn vk_texture_readback(t : VkTextureState) -> FixedArray[Byte] raise RhiError {
+  vk_texture_readback_mip(t, 0)
 }
 
 ///|
@@ -1445,6 +1739,7 @@ fn vk_swapchain_begin_frame(
     pending_uniforms: [],
     pending_textures: [],
     pending_storage: [],
+    pending_storage_images: [],
     bound: None,
     active_render_targets: [],
   }
@@ -1610,11 +1905,27 @@ fn vk_swapchain_destroy(s : VkSwapchainState) -> Unit {
 }
 
 ///|
+fn resolve_slot_bindings(
+  count : Int,
+  explicit : Array[Int],
+  default_start : Int,
+) -> FixedArray[Int] {
+  FixedArray::makei(count, fn(i) {
+    if i < explicit.length() {
+      explicit[i]
+    } else {
+      default_start + i
+    }
+  })
+}
+
+///|
 fn alloc_pipeline_descriptors(
   d : VkDeviceState,
-  uniform_slots : Int,
-  texture_slots : Int,
-  storage_slots : Int,
+  u_bindings : FixedArray[Int],
+  t_bindings : FixedArray[Int],
+  s_bindings : FixedArray[Int],
+  si_bindings : FixedArray[Int],
   stages : UInt32,
 ) -> (
   @vk.VkDescriptorSetLayout,
@@ -1622,37 +1933,50 @@ fn alloc_pipeline_descriptors(
   FixedArray[@vk.VkDescriptorSet],
 ) raise RhiError {
   let na = @vk.VkAllocationCallbacks::null()
-  let total = uniform_slots + texture_slots + storage_slots
+  let uniform_slots = u_bindings.length()
+  let texture_slots = t_bindings.length()
+  let storage_slots = s_bindings.length()
+  let storage_image_slots = si_bindings.length()
+  let total = uniform_slots + texture_slots + storage_slots + storage_image_slots
   let bindings = @vk.VkDescriptorSetLayoutBinding::array(total)
+  let mut bi = 0
   for i = 0; i < uniform_slots; i = i + 1 {
-    bindings.set_binding_at(i, i.reinterpret_as_uint())
-    bindings.set_descriptorType_at(i, @vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-    bindings.set_descriptorCount_at(i, (1 : UInt32))
-    bindings.set_stageFlags_at(i, stages)
+    bindings.set_binding_at(bi, u_bindings[i].reinterpret_as_uint())
+    bindings.set_descriptorType_at(bi, @vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+    bindings.set_descriptorCount_at(bi, (1 : UInt32))
+    bindings.set_stageFlags_at(bi, stages)
+    bi = bi + 1
   }
   for i = 0; i < texture_slots; i = i + 1 {
-    let b = uniform_slots + i
-    bindings.set_binding_at(b, b.reinterpret_as_uint())
+    bindings.set_binding_at(bi, t_bindings[i].reinterpret_as_uint())
     bindings.set_descriptorType_at(
-      b,
+      bi,
       @vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
     )
-    bindings.set_descriptorCount_at(b, (1 : UInt32))
+    bindings.set_descriptorCount_at(bi, (1 : UInt32))
     bindings.set_stageFlags_at(
-      b,
+      bi,
       if (stages & @vk.VK_SHADER_STAGE_COMPUTE_BIT) != (0 : UInt32) {
         stages
       } else {
         @vk.VK_SHADER_STAGE_FRAGMENT_BIT
       },
     )
+    bi = bi + 1
   }
   for i = 0; i < storage_slots; i = i + 1 {
-    let b = uniform_slots + texture_slots + i
-    bindings.set_binding_at(b, b.reinterpret_as_uint())
-    bindings.set_descriptorType_at(b, @vk.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-    bindings.set_descriptorCount_at(b, (1 : UInt32))
-    bindings.set_stageFlags_at(b, stages | @vk.VK_SHADER_STAGE_COMPUTE_BIT)
+    bindings.set_binding_at(bi, s_bindings[i].reinterpret_as_uint())
+    bindings.set_descriptorType_at(bi, @vk.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+    bindings.set_descriptorCount_at(bi, (1 : UInt32))
+    bindings.set_stageFlags_at(bi, stages | @vk.VK_SHADER_STAGE_COMPUTE_BIT)
+    bi = bi + 1
+  }
+  for i = 0; i < storage_image_slots; i = i + 1 {
+    bindings.set_binding_at(bi, si_bindings[i].reinterpret_as_uint())
+    bindings.set_descriptorType_at(bi, @vk.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+    bindings.set_descriptorCount_at(bi, (1 : UInt32))
+    bindings.set_stageFlags_at(bi, stages | @vk.VK_SHADER_STAGE_COMPUTE_BIT)
+    bi = bi + 1
   }
   let dslci = @vk.VkDescriptorSetLayoutCreateInfo::new()
   dslci.set_bindingCount(total.reinterpret_as_uint())
@@ -1676,7 +2000,8 @@ fn alloc_pipeline_descriptors(
 
   let nsizes = (if uniform_slots > 0 { 1 } else { 0 }) +
     (if texture_slots > 0 { 1 } else { 0 }) +
-    (if storage_slots > 0 { 1 } else { 0 })
+    (if storage_slots > 0 { 1 } else { 0 }) +
+    (if storage_image_slots > 0 { 1 } else { 0 })
   let sizes = @vk.VkDescriptorPoolSize::array(nsizes)
   let mut si = 0
   if uniform_slots > 0 {
@@ -1700,6 +2025,14 @@ fn alloc_pipeline_descriptors(
     sizes.set_descriptorCount_at(
       si,
       (storage_slots * MAX_PIPELINE_SETS).reinterpret_as_uint(),
+    )
+    si = si + 1
+  }
+  if storage_image_slots > 0 {
+    sizes.set_type_at(si, @vk.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+    sizes.set_descriptorCount_at(
+      si,
+      (storage_image_slots * MAX_PIPELINE_SETS).reinterpret_as_uint(),
     )
   }
   let dpci = @vk.VkDescriptorPoolCreateInfo::new()
@@ -1823,35 +2156,80 @@ fn vk_graphics_pipeline_create(
   )
   depth_stencil.set_depthCompareOp(@vk.VK_COMPARE_OP_LESS)
 
-  let blend_att = @vk.VkPipelineColorBlendAttachmentState::new()
-  blend_att.set_colorWriteMask(
-    @vk.VK_COLOR_COMPONENT_R_BIT |
+  let color_vk_fmts : FixedArray[UInt32] = if desc.color_formats.length() > 0 {
+    FixedArray::makei(desc.color_formats.length(), fn(i) {
+      vk_texture_format(desc.color_formats[i])
+    })
+  } else {
+    let single = match desc.color_format {
+      Some(f) => vk_texture_format(f)
+      None => default_color_vk_fmt
+    }
+    FixedArray::make(1, single)
+  }
+  let n_colors = color_vk_fmts.length()
+
+  let blend_atts = @vk.VkPipelineColorBlendAttachmentState::array(n_colors)
+  let mask = @vk.VK_COLOR_COMPONENT_R_BIT |
     @vk.VK_COLOR_COMPONENT_G_BIT |
     @vk.VK_COLOR_COMPONENT_B_BIT |
-    @vk.VK_COLOR_COMPONENT_A_BIT,
-  )
-  if desc.blend {
-    blend_att.set_blendEnable((1 : UInt32))
-    blend_att.set_srcColorBlendFactor(@vk.VK_BLEND_FACTOR_SRC_ALPHA)
-    blend_att.set_dstColorBlendFactor(@vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
-    blend_att.set_colorBlendOp(@vk.VK_BLEND_OP_ADD)
-    blend_att.set_srcAlphaBlendFactor(@vk.VK_BLEND_FACTOR_ONE)
-    blend_att.set_dstAlphaBlendFactor(@vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
-    blend_att.set_alphaBlendOp(@vk.VK_BLEND_OP_ADD)
+    @vk.VK_COLOR_COMPONENT_A_BIT
+  for i = 0; i < n_colors; i = i + 1 {
+    blend_atts.set_colorWriteMask_at(i, mask)
+    if desc.blend {
+      blend_atts.set_blendEnable_at(i, (1 : UInt32))
+      blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
+      blend_atts.set_dstColorBlendFactor_at(
+        i,
+        @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+      )
+      blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+      blend_atts.set_dstAlphaBlendFactor_at(
+        i,
+        @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+      )
+      blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+    }
   }
   let color_blend = @vk.VkPipelineColorBlendStateCreateInfo::new()
-  color_blend.set_attachmentCount((1 : UInt32))
-  color_blend.set_pAttachments(blend_att)
+  color_blend.set_attachmentCount(n_colors.reinterpret_as_uint())
+  color_blend.set_pAttachments(blend_atts)
+
+  let u_bindings = resolve_slot_bindings(
+    desc.uniform_slots,
+    desc.uniform_bindings,
+    0,
+  )
+  let t_bindings = resolve_slot_bindings(
+    desc.texture_slots,
+    desc.texture_bindings,
+    desc.uniform_slots,
+  )
+  let s_bindings = resolve_slot_bindings(
+    desc.storage_slots,
+    desc.storage_bindings,
+    desc.uniform_slots + desc.texture_slots,
+  )
+  let si_bindings = resolve_slot_bindings(
+    desc.storage_image_slots,
+    desc.storage_image_bindings,
+    desc.uniform_slots + desc.texture_slots + desc.storage_slots,
+  )
 
   let (set_layout, descriptor_pool, sets) = alloc_pipeline_descriptors(
     d,
-    desc.uniform_slots,
-    desc.texture_slots,
-    desc.storage_slots,
+    u_bindings,
+    t_bindings,
+    s_bindings,
+    si_bindings,
     @vk.VK_SHADER_STAGE_VERTEX_BIT | @vk.VK_SHADER_STAGE_FRAGMENT_BIT,
   )
 
-  let total_slots = desc.uniform_slots + desc.texture_slots + desc.storage_slots
+  let total_slots = desc.uniform_slots +
+    desc.texture_slots +
+    desc.storage_slots +
+    desc.storage_image_slots
   let plci = @vk.VkPipelineLayoutCreateInfo::new()
   if total_slots > 0 {
     plci.set_setLayoutCount((1 : UInt32))
@@ -1882,7 +2260,7 @@ fn vk_graphics_pipeline_create(
     rasterizer.free()
     multisample.free()
     depth_stencil.free()
-    blend_att.free()
+    blend_atts.free()
     color_blend.free()
     if total_slots > 0 {
       (d.dfn.vkDestroyDescriptorPool)(d.dev, descriptor_pool, na)
@@ -1893,13 +2271,9 @@ fn vk_graphics_pipeline_create(
     raise PipelineFailed("vkCreatePipelineLayout failed: \{plr}")
   }
 
-  let color_vk_fmt = match desc.color_format {
-    Some(f) => vk_texture_format(f)
-    None => default_color_vk_fmt
-  }
   let prci = @vk.VkPipelineRenderingCreateInfo::new()
-  prci.set_colorAttachmentCount((1 : UInt32))
-  prci.set_pColorAttachmentFormats(FixedArray::make(1, color_vk_fmt))
+  prci.set_colorAttachmentCount(n_colors.reinterpret_as_uint())
+  prci.set_pColorAttachmentFormats(color_vk_fmts)
   if desc.depth_test || desc.depth_write {
     prci.set_depthAttachmentFormat(@vk.VK_FORMAT_D32_SFLOAT)
   }
@@ -1939,7 +2313,7 @@ fn vk_graphics_pipeline_create(
   rasterizer.free()
   multisample.free()
   depth_stencil.free()
-  blend_att.free()
+  blend_atts.free()
   color_blend.free()
 
   if gpr != 0 {
@@ -1967,10 +2341,16 @@ fn vk_graphics_pipeline_create(
     uniform_slots: desc.uniform_slots,
     texture_slots: desc.texture_slots,
     storage_slots: desc.storage_slots,
+    storage_image_slots: desc.storage_image_slots,
+    uniform_bindings: u_bindings,
+    texture_bindings: t_bindings,
+    storage_bindings: s_bindings,
+    storage_image_bindings: si_bindings,
     compute: false,
     cur_uniforms: FixedArray::make(desc.uniform_slots, None),
     cur_textures: FixedArray::make(desc.texture_slots, None),
     cur_storage: FixedArray::make(desc.storage_slots, None),
+    cur_storage_images: FixedArray::make(desc.storage_image_slots, None),
   }
 }
 
@@ -1978,8 +2358,10 @@ fn vk_graphics_pipeline_create(
 fn vk_compute_pipeline_create(
   d : VkDeviceState,
   spv : FixedArray[UInt32],
-  uniform_slots : Int,
-  storage_slots : Int,
+  u_bindings : FixedArray[Int],
+  t_bindings : FixedArray[Int],
+  s_bindings : FixedArray[Int],
+  si_bindings : FixedArray[Int],
   push_constant_size : Int,
 ) -> VkPipelineState raise RhiError {
   if spv.length() == 0 {
@@ -2002,12 +2384,20 @@ fn vk_compute_pipeline_create(
 
   let (set_layout, descriptor_pool, sets) = alloc_pipeline_descriptors(
     d,
-    uniform_slots,
-    0,
-    storage_slots,
+    u_bindings,
+    t_bindings,
+    s_bindings,
+    si_bindings,
     @vk.VK_SHADER_STAGE_COMPUTE_BIT,
   )
-  let total_slots = uniform_slots + storage_slots
+  let uniform_slots = u_bindings.length()
+  let texture_slots = t_bindings.length()
+  let storage_slots = s_bindings.length()
+  let storage_image_slots = si_bindings.length()
+  let total_slots = uniform_slots +
+    texture_slots +
+    storage_slots +
+    storage_image_slots
   let plci = @vk.VkPipelineLayoutCreateInfo::new()
   if total_slots > 0 {
     plci.set_setLayoutCount((1 : UInt32))
@@ -2071,12 +2461,18 @@ fn vk_compute_pipeline_create(
     vert_module: sm_out[0],
     frag_module: @vk.VkShaderModule::null(),
     uniform_slots,
-    texture_slots: 0,
+    texture_slots,
     storage_slots,
+    storage_image_slots,
+    uniform_bindings: u_bindings,
+    texture_bindings: t_bindings,
+    storage_bindings: s_bindings,
+    storage_image_bindings: si_bindings,
     compute: true,
     cur_uniforms: FixedArray::make(uniform_slots, None),
-    cur_textures: FixedArray::make(0, None),
+    cur_textures: FixedArray::make(texture_slots, None),
     cur_storage: FixedArray::make(storage_slots, None),
+    cur_storage_images: FixedArray::make(storage_image_slots, None),
   }
 }
 
@@ -2088,7 +2484,8 @@ fn vk_pipeline_destroy(p : VkPipelineState) -> Unit {
   (d.dfn.vkDestroyPipeline)(d.dev, p.pipeline, na)
   (d.dfn.vkDestroyPipelineLayout)(d.dev, p.layout, na)
   (d.dfn.vkDestroyDescriptorSetLayout)(d.dev, p.set_layout, na)
-  if p.uniform_slots + p.texture_slots + p.storage_slots > 0 {
+  if p.uniform_slots + p.texture_slots + p.storage_slots + p.storage_image_slots >
+    0 {
     (d.dfn.vkDestroyDescriptorPool)(d.dev, p.descriptor_pool, na)
   }
   (d.dfn.vkDestroyShaderModule)(d.dev, p.vert_module, na)
@@ -2158,6 +2555,35 @@ fn write_descriptor_texture(
 }
 
 ///|
+fn write_descriptor_storage_image(
+  d : VkDeviceState,
+  dset : @vk.VkDescriptorSet,
+  binding : Int,
+  tex : VkTextureState,
+) -> Unit {
+  let info = @vk.VkDescriptorImageInfo::new()
+  info.set_sampler(@vk.VkSampler::null())
+  info.set_imageView(tex.view)
+  info.set_imageLayout(@vk.VK_IMAGE_LAYOUT_GENERAL)
+  let write = @vk.VkWriteDescriptorSet::new()
+  write.set_dstSet(dset)
+  write.set_dstBinding(binding.reinterpret_as_uint())
+  write.set_dstArrayElement((0 : UInt32))
+  write.set_descriptorCount((1 : UInt32))
+  write.set_descriptorType(@vk.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+  write.set_pImageInfo(info)
+  (d.dfn.vkUpdateDescriptorSets)(
+    d.dev,
+    (1 : UInt32),
+    write,
+    (0 : UInt32),
+    @vk.VkCopyDescriptorSet::null(),
+  )
+  info.free()
+  write.free()
+}
+
+///|
 fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
   for entry in c.pending_uniforms {
     let (p, slot, buf) = entry
@@ -2183,11 +2609,22 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
     }
   }
   c.pending_storage.clear()
+  for entry in c.pending_storage_images {
+    let (p, slot, tex) = entry
+    let ps = p.inner
+    if slot >= 0 && slot < ps.storage_image_slots {
+      ps.cur_storage_images[slot] = Some(tex)
+    }
+  }
+  c.pending_storage_images.clear()
 
   match c.bound {
     Some(p) => {
       let ps = p.inner
-      let total = ps.uniform_slots + ps.texture_slots + ps.storage_slots
+      let total = ps.uniform_slots +
+        ps.texture_slots +
+        ps.storage_slots +
+        ps.storage_image_slots
       if total > 0 {
         let f = c.frame_idx % MAX_FRAMES
         if ps.last_gen[f] != c.frame_gen {
@@ -2203,7 +2640,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
               write_descriptor_buffer(
                 c.device,
                 dset,
-                i,
+                ps.uniform_bindings[i],
                 @vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                 buf.inner,
               )
@@ -2216,7 +2653,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
               write_descriptor_texture(
                 c.device,
                 dset,
-                ps.uniform_slots + i,
+                ps.texture_bindings[i],
                 tex.inner,
                 samp.inner,
               )
@@ -2229,9 +2666,21 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
               write_descriptor_buffer(
                 c.device,
                 dset,
-                ps.uniform_slots + ps.texture_slots + i,
+                ps.storage_bindings[i],
                 @vk.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 buf.inner,
+              )
+            None => ()
+          }
+        }
+        for i = 0; i < ps.storage_image_slots; i = i + 1 {
+          match ps.cur_storage_images[i] {
+            Some(tex) =>
+              write_descriptor_storage_image(
+                c.device,
+                dset,
+                ps.storage_image_bindings[i],
+                tex.inner,
               )
             None => ()
           }
@@ -2256,6 +2705,112 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
     }
     None => ()
   }
+}
+
+///|
+fn vk_cmd_transition_for_compute(c : VkCmdState, tex : VkTextureState) -> Unit {
+  if tex.layout == @vk.VK_IMAGE_LAYOUT_GENERAL {
+    return
+  }
+  cmd_image_barrier2_mips(
+    c.device,
+    c.cmd,
+    tex.image,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    0,
+    tex.mip_levels,
+    @vk.VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT | @vk.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    @vk.VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT |
+    @vk.VK_ACCESS_2_SHADER_STORAGE_READ_BIT,
+    tex.layout,
+    @vk.VK_IMAGE_LAYOUT_GENERAL,
+  )
+  tex.layout = @vk.VK_IMAGE_LAYOUT_GENERAL
+}
+
+///|
+fn vk_cmd_transition_for_sampling(c : VkCmdState, tex : VkTextureState) -> Unit {
+  if tex.layout == @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL {
+    return
+  }
+  cmd_image_barrier2_mips(
+    c.device,
+    c.cmd,
+    tex.image,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    0,
+    tex.mip_levels,
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT |
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT |
+    @vk.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT |
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    tex.layout,
+    @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+  )
+  tex.layout = @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+}
+
+///|
+fn vk_timestamp_pool_create(
+  d : VkDeviceState,
+  count : Int,
+) -> VkTimestampPoolState raise RhiError {
+  if count <= 0 {
+    raise InvalidArgument("TimestampPool count must be positive")
+  }
+  let qpci = @vk.VkQueryPoolCreateInfo::new()
+  qpci.set_queryType(@vk.VK_QUERY_TYPE_TIMESTAMP)
+  qpci.set_queryCount(count.reinterpret_as_uint())
+  let out = FixedArray::make(1, @vk.VkQueryPool::null())
+  let r = (d.dfn.vkCreateQueryPool)(
+    d.dev,
+    qpci,
+    @vk.VkAllocationCallbacks::null(),
+    out,
+  )
+  qpci.free()
+  if r != 0 {
+    raise CommandFailed("vkCreateQueryPool failed: \{r}")
+  }
+  { device: d, pool: out[0], count }
+}
+
+///|
+fn vk_timestamp_pool_resolve_ns(
+  tp : VkTimestampPoolState,
+) -> FixedArray[Double] raise RhiError {
+  let d = tp.device
+  let _ = (d.dfn.vkQueueWaitIdle)(d.queue)
+  let raw = FixedArray::make(tp.count, (0 : UInt64))
+  let r = (d.dfn.vkGetQueryPoolResults)(
+    d.dev,
+    tp.pool,
+    (0 : UInt32),
+    tp.count.reinterpret_as_uint(),
+    (tp.count * 8).to_uint64(),
+    @vk.uint64_ptr(raw),
+    (8 : UInt64),
+    @vk.VK_QUERY_RESULT_64_BIT | @vk.VK_QUERY_RESULT_WAIT_BIT,
+  )
+  if r != 0 {
+    raise CommandFailed("vkGetQueryPoolResults failed: \{r}")
+  }
+  let period = d.timestamp_period_ns.to_double()
+  FixedArray::makei(tp.count, fn(i) { raw[i].to_double() * period })
+}
+
+///|
+fn vk_timestamp_pool_destroy(tp : VkTimestampPoolState) -> Unit {
+  let d = tp.device
+  let _ = (d.dfn.vkDeviceWaitIdle)(d.dev)
+  (d.dfn.vkDestroyQueryPool)(d.dev, tp.pool, @vk.VkAllocationCallbacks::null())
 }
 
 ///|
