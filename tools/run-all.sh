@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run all pure-Vulkan verification examples on both lavapipe and default (NVIDIA) drivers.
+# Run all pure-MoonBit verification examples on lavapipe and/or NVIDIA drivers.
 # Gate fails if exit code != 0 OR output contains "FAIL".
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -8,14 +8,27 @@ BUILD_DIR="_build/native/debug/build/laplaceliu/tycho_vulkan_examples"
 LVP_ICD="/usr/share/vulkan/icd.d/lvp_icd.x86_64.json"
 [ -f "$LVP_ICD" ] || LVP_ICD="/usr/share/vulkan/icd.d/lvp_icd.json"
 DRIVER="${1:-both}"
+SKIP_LIST=" ${TYCHO_SKIP:-} "
+
+if [ -z "${VK_LAYER_PATH:-}" ] && [ -d "/home/laplaceliu/VulkanSDK/1.4.363.1/x86_64/share/vulkan/explicit_layer.d" ]; then
+  export VK_LAYER_PATH="/home/laplaceliu/VulkanSDK/1.4.363.1/x86_64/share/vulkan/explicit_layer.d"
+fi
 
 run_suite() {
   local drv="$1"
   local fail=0
   local pass=0
+  local skip=0
   echo "================ DRIVER: $drv ================"
   for d in examples/*/; do
     name=$(basename "$d")
+    case "$SKIP_LIST" in
+      *" $name "*)
+        echo "  SKIP     $name (TYCHO_SKIP)"
+        skip=$((skip + 1))
+        continue
+        ;;
+    esac
     exe="$BUILD_DIR/$name/$name.exe"
     if [ ! -x "$exe" ]; then
       echo "  MISSING  $name ($exe)"
@@ -40,7 +53,7 @@ run_suite() {
       pass=$((pass + 1))
     fi
   done
-  echo "[$drv] passed=$pass failed=$fail"
+  echo "[$drv] passed=$pass failed=$fail skipped=$skip"
   return $fail
 }
 

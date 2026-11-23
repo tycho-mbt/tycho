@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-tools \
+                                  libx11-dev glslang-tools xvfb vulkan-validationlayers
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Prepare toolchain
+        run: ./setup-linux.sh
+      - name: Build
+        run: ./build.sh
+      - name: Unit tests
+        run: |
+          export PATH="$PWD/.toolchain:$HOME/.moon/bin:$PATH"
+          moon test --target native
+      - name: Generated code is in sync
+        run: ./check-generated.sh
+      - name: Examples stay pure MoonBit
+        run: ./check-examples-pure.sh
+      - name: Run examples on lavapipe
+        run: TYCHO_SKIP="07-slang" xvfb-run -a ./tools/run-all.sh lavapipe
+      - name: Report Vulkan API coverage
+        run: python3 ./tools/coverage.py
