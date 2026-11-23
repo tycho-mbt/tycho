@@ -1,0 +1,113 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_shader"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const SHADER_ENV_VULKAN_1_0 : UInt32 = 0
+
+pub const SHADER_ENV_VULKAN_1_1 : UInt32 = 1
+
+pub const SHADER_ENV_VULKAN_1_2 : UInt32 = 2
+
+pub const SHADER_ENV_VULKAN_1_3 : UInt32 = 3
+
+pub const SHADER_KIND_ANYHIT : UInt32 = 6
+
+pub const SHADER_KIND_CALLABLE : UInt32 = 10
+
+pub const SHADER_KIND_CLOSESTHIT : UInt32 = 7
+
+pub const SHADER_KIND_COMPUTE : UInt32 = 2
+
+pub const SHADER_KIND_FRAGMENT : UInt32 = 1
+
+pub const SHADER_KIND_INTERSECTION : UInt32 = 9
+
+pub const SHADER_KIND_MESH : UInt32 = 4
+
+pub const SHADER_KIND_MISS : UInt32 = 8
+
+pub const SHADER_KIND_RAYGEN : UInt32 = 5
+
+pub const SHADER_KIND_TASK : UInt32 = 3
+
+pub const SHADER_KIND_VERTEX : UInt32 = 0
+
+pub fn compile_shader(String, UInt32) -> FixedArray[UInt32]
+
+pub fn compile_shader_env(String, UInt32, UInt32) -> FixedArray[UInt32]
+
+pub fn compile_shader_file(String, UInt32) -> FixedArray[UInt32]
+
+pub fn compile_shader_file_env(String, UInt32, UInt32) -> FixedArray[UInt32]
+
+pub fn compile_slang(String, String) -> FixedArray[UInt32]
+
+pub fn compile_slang_file(String, String) -> FixedArray[UInt32]
+
+pub fn load_image(String) -> (FixedArray[Byte], Int32, Int32)
+
+pub fn load_spirv(String) -> FixedArray[UInt32]
+
+pub fn reflect_spirv(FixedArray[UInt32]) -> SpirvReflection
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct ReflectedBinding {
+  set : Int32
+  binding : Int32
+  kind : ReflectedDescriptorKind
+  name : String
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ReflectedDescriptorKind {
+  UniformBuffer
+  StorageBuffer
+  CombinedImageSampler
+  StorageImage
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ReflectedStage {
+  Vertex
+  Fragment
+  Compute
+  Unknown
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ReflectedVertexFormat {
+  Float1
+  Float2
+  Float3
+  Float4
+  Int1
+  Uint1
+  Unknown
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct ReflectedVertexInput {
+  location : Int32
+  format : ReflectedVertexFormat
+  name : String
+}
+
+pub(all) struct SpirvReflection {
+  stage : ReflectedStage
+  entry_point : String
+  vertex_inputs : Array[ReflectedVertexInput]
+  bindings : Array[ReflectedBinding]
+  push_constant_size : Int32
+  color_output_count : Int32
+}
+
+// Type aliases
+
+// Traits
