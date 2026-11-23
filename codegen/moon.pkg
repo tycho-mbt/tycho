@@ -1,0 +1,16 @@
+import {
+  "moonbitlang/core/async" @async,
+  "moonbitlang/core/async/fs" @fs,
+  "moonbitlang/core/env" @env,
+  "moonbitlang/core/hashmap" @hashmap,
+  "moonbitlang/core/string" @string,
+  "Milky2018/xml" @xml,
+}
+
+options(
+  "allow-experimental-packages": [ "moonbitlang/core/async", "moonbitlang/core/async/fs" ],
+)
+
+warnings = "-29"
+
+pkgtype(kind: "executable")
