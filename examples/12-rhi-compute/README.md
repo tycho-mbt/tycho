@@ -1,6 +1,6 @@
 # 12-rhi-compute
 
-Headless compute shader + Synchronization2 barrier + buffer copy + fence wait through `@rhi`.
+Headless compute shader + Synchronization2 barrier + buffer copy + fence wait through `@tycho`.
 
 ## Run
 

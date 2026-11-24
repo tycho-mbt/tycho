@@ -5,60 +5,60 @@
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI MSAA Offscreen", true)
+    let dev = @tycho.Device::new("Tycho RHI MSAA Offscreen", true)
     let sc = dev.create_swapchain("Tycho RHI MSAA Offscreen", 800, 600)
 
     let msaa_tex = dev.create_render_target(
       256,
       256,
-      @rhi.TextureFormat::RGBA8,
-      samples=@rhi.SampleCount::X4,
+      @tycho.TextureFormat::RGBA8,
+      samples=@tycho.SampleCount::X4,
     )
     let resolve_tex = dev.create_render_target(
       256,
       256,
-      @rhi.TextureFormat::RGBA8,
-      samples=@rhi.SampleCount::X1,
+      @tycho.TextureFormat::RGBA8,
+      samples=@tycho.SampleCount::X1,
     )
 
-    let tri_vert = @rhi.compile_glsl(
+    let tri_vert = @tycho.compile_glsl(
       "examples/39-rhi-msaa-offscreen/tri.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let tri_frag = @rhi.compile_glsl(
+    let tri_frag = @tycho.compile_glsl(
       "examples/39-rhi-msaa-offscreen/tri.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
     let off_pipe = dev.create_graphics_pipeline(
-      @rhi.PipelineDesc::new(
+      @tycho.PipelineDesc::new(
         tri_vert,
         tri_frag,
-        samples=@rhi.SampleCount::X4,
-        color_format=Some(@rhi.TextureFormat::RGBA8),
+        samples=@tycho.SampleCount::X4,
+        color_format=Some(@tycho.TextureFormat::RGBA8),
       ),
     )
 
-    let quad_vert = @rhi.compile_glsl(
+    let quad_vert = @tycho.compile_glsl(
       "examples/39-rhi-msaa-offscreen/quad.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let quad_frag = @rhi.compile_glsl(
+    let quad_frag = @tycho.compile_glsl(
       "examples/39-rhi-msaa-offscreen/quad.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
     let present_pipe = sc.create_pipeline_desc(
-      @rhi.PipelineDesc::new(quad_vert, quad_frag, texture_slots=1),
+      @tycho.PipelineDesc::new(quad_vert, quad_frag, texture_slots=1),
     )
     let samp = dev.create_sampler()
 
     // Render diagonal triangle into 4x MSAA offscreen target and resolve
     let off_cmd = dev.begin_commands()
     off_cmd.begin_render_pass([
-      @rhi.RenderTargetDesc::new(
+      @tycho.RenderTargetDesc::new(
         msaa_tex,
-        load_op=@rhi.LoadOp::Clear,
-        store_op=@rhi.StoreOp::DontCare,
-        clear_color=@rhi.ClearColor::black(),
+        load_op=@tycho.LoadOp::Clear,
+        store_op=@tycho.StoreOp::DontCare,
+        clear_color=@tycho.ClearColor::black(),
         resolve_texture=Some(resolve_tex),
       ),
     ])
@@ -84,9 +84,9 @@ fn main {
     }
 
     // Blit resolved offscreen texture onto the window swapchain
-    let start = @rhi.Swapchain::time()
+    let start = @tycho.Swapchain::time()
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @rhi.Swapchain::time() - start < 0.8 {
+    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
       let cmd = sc.begin_frame()
       cmd.bind_pipeline(present_pipe)
       cmd.bind_texture(present_pipe, 0, resolve_tex, samp)

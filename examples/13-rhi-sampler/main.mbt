@@ -10,18 +10,18 @@ fn centre_green(pixels : FixedArray[Byte]) -> Int {
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI Sampler", true)
+    let dev = @tycho.Device::new("Tycho RHI Sampler", true)
     let sc = dev.create_swapchain("Tycho RHI Sampler", 800, 600)
-    let vert = @rhi.compile_glsl(
+    let vert = @tycho.compile_glsl(
       "examples/13-rhi-sampler/shader.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let frag = @rhi.compile_glsl(
+    let frag = @tycho.compile_glsl(
       "examples/13-rhi-sampler/shader.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
     let pipe = sc.create_pipeline_desc(
-      @rhi.PipelineDesc::new(vert, frag, texture_slots=1),
+      @tycho.PipelineDesc::new(vert, frag, texture_slots=1),
     )
     let checker : Bytes = Bytes::from_array([
       0, 0, 0, 255, 255, 255, 255, 255,
@@ -29,17 +29,17 @@ fn main {
     ])
     let tex = dev.create_texture(2, 2, checker)
     let nearest = dev.create_sampler_desc(
-      @rhi.SamplerDesc::new(
-        mag=@rhi.Filter::Nearest,
-        min=@rhi.Filter::Nearest,
-        address=@rhi.AddressMode::ClampToEdge,
+      @tycho.SamplerDesc::new(
+        mag=@tycho.Filter::Nearest,
+        min=@tycho.Filter::Nearest,
+        address=@tycho.AddressMode::ClampToEdge,
       ),
     )
     let linear = dev.create_sampler_desc(
-      @rhi.SamplerDesc::new(
-        mag=@rhi.Filter::Linear,
-        min=@rhi.Filter::Linear,
-        address=@rhi.AddressMode::ClampToEdge,
+      @tycho.SamplerDesc::new(
+        mag=@tycho.Filter::Linear,
+        min=@tycho.Filter::Linear,
+        address=@tycho.AddressMode::ClampToEdge,
       ),
     )
     let mut g_nearest = 0

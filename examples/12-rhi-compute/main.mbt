@@ -14,14 +14,14 @@ fn float_at(data : Bytes, i : Int) -> Float {
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI Compute", true)
-    let spv = @rhi.compile_glsl(
+    let dev = @tycho.Device::new("Tycho RHI Compute", true)
+    let spv = @tycho.compile_glsl(
       "examples/12-rhi-compute/shader.comp",
-      @rhi.ShaderStage::Compute,
+      @tycho.ShaderStage::Compute,
     )
     let pipe = dev.create_compute_pipeline(spv, 0, 1)
-    let src = dev.create_buffer(64, @rhi.BufferKind::Storage)
-    let dst = dev.create_buffer(64, @rhi.BufferKind::Storage)
+    let src = dev.create_buffer(64, @tycho.BufferKind::Storage)
+    let dst = dev.create_buffer(64, @tycho.BufferKind::Storage)
     let fence = dev.create_fence(false)
     let cmd = dev.begin_commands()
     cmd.bind_pipeline(pipe)

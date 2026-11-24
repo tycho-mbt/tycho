@@ -1,6 +1,6 @@
 # 13-rhi-sampler
 
-Compares `Filter::Nearest` vs `Filter::Linear` on a 2x2 checkerboard texture using `@rhi`.
+Compares `Filter::Nearest` vs `Filter::Linear` on a 2x2 checkerboard texture using `@tycho`.
 
 ## Run
 

@@ -1,6 +1,6 @@
 # 10-rhi-vertex
 
-Vertex buffer input attributes (`Float2` position + `Float3` color) through `@rhi`.
+Vertex buffer input attributes (`Float2` position + `Float3` color) through `@tycho`.
 
 ## Run
 

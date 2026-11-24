@@ -1,6 +1,6 @@
 # 09-rhi-uniform
 
-Uniform buffer slot binding through `@rhi` (`CommandBuffer::bind_uniform`).
+Uniform buffer slot binding through `@tycho` (`CommandBuffer::bind_uniform`).
 
 ## Run
 

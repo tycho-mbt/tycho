@@ -1,6 +1,6 @@
 # 11-rhi-texture
 
-Texture upload + sampler slot binding through `@rhi` (`Device::create_texture`, `CommandBuffer::bind_texture`).
+Texture upload + sampler slot binding through `@tycho` (`Device::create_texture`, `CommandBuffer::bind_texture`).
 
 ## Run
 

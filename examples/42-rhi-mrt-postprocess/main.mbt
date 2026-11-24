@@ -1,5 +1,5 @@
 // Example 42 — Multiple Render Targets (MRT) G-Buffer + Deferred Lighting Composite
-// using pure-MoonBit @rhi:
+// using pure-MoonBit @tycho:
 //   Pass 1: Offscreen MRT (albedo RGBA8 + world normal RGBA8 + Depth32F) timed via TimestampPool,
 //           auto-reflected via PipelineDesc::from_spirv (3 vertex inputs, 64B push constant, 2 color targets).
 //   Pass 2: Fullscreen deferred directional lighting sampling both G-Buffer textures to swapchain.
@@ -90,46 +90,46 @@ fn make_mvp(angle : Float, aspect : Float) -> FixedArray[Float] {
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI MRT Deferred", true)
+    let dev = @tycho.Device::new("Tycho RHI MRT Deferred", true)
     let sc = dev.create_swapchain("Tycho RHI MRT Deferred", 800, 600)
 
-    let albedo_rt = dev.create_render_target(256, 256, @rhi.TextureFormat::RGBA8)
-    let normal_rt = dev.create_render_target(256, 256, @rhi.TextureFormat::RGBA8)
+    let albedo_rt = dev.create_render_target(256, 256, @tycho.TextureFormat::RGBA8)
+    let normal_rt = dev.create_render_target(256, 256, @tycho.TextureFormat::RGBA8)
     let depth_rt = dev.create_depth_texture(256, 256)
     let ts = dev.create_timestamp_pool(2)
 
-    let gvert = @rhi.compile_glsl(
+    let gvert = @tycho.compile_glsl(
       "examples/42-rhi-mrt-postprocess/gbuffer.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let gfrag = @rhi.compile_glsl(
+    let gfrag = @tycho.compile_glsl(
       "examples/42-rhi-mrt-postprocess/gbuffer.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
     // Auto-reflects 3 vertex inputs (Float3 pos, Float3 normal, Float3 color),
     // 64B push constant, and 2 MRT RGBA8 color targets!
-    let gbuf_desc = @rhi.PipelineDesc::from_spirv(
+    let gbuf_desc = @tycho.PipelineDesc::from_spirv(
       gvert,
       gfrag,
       depth_test=true,
       depth_write=true,
-      cull_mode=@rhi.CullMode::Back,
-      front_face=@rhi.FrontFace::CounterClockwise,
+      cull_mode=@tycho.CullMode::Back,
+      front_face=@tycho.FrontFace::CounterClockwise,
     )
     let mrt_refl_ok = gbuf_desc.vertex_formats.length() == 3 &&
       gbuf_desc.push_constant_size == 64 &&
       gbuf_desc.color_formats.length() == 2
     let gbuf_pipe = dev.create_graphics_pipeline(gbuf_desc)
 
-    let cvert = @rhi.compile_glsl(
+    let cvert = @tycho.compile_glsl(
       "examples/42-rhi-mrt-postprocess/composite.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let cfrag = @rhi.compile_glsl(
+    let cfrag = @tycho.compile_glsl(
       "examples/42-rhi-mrt-postprocess/composite.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
-    let comp_desc = @rhi.PipelineDesc::from_spirv(cvert, cfrag)
+    let comp_desc = @tycho.PipelineDesc::from_spirv(cvert, cfrag)
     let comp_refl_ok = comp_desc.texture_slots == 2 &&
       comp_desc.texture_bindings.length() == 2 &&
       comp_desc.texture_bindings[0] == 0 &&
@@ -178,9 +178,9 @@ fn main {
       16, 17, 18, 16, 18, 19,
       20, 21, 22, 20, 22, 23,
     ]
-    let vbuf = dev.create_buffer(verts.length() * 4, @rhi.BufferKind::Vertex)
+    let vbuf = dev.create_buffer(verts.length() * 4, @tycho.BufferKind::Vertex)
     vbuf.upload_floats(verts)
-    let ibuf = dev.create_buffer(indices.length() * 2, @rhi.BufferKind::Index)
+    let ibuf = dev.create_buffer(indices.length() * 2, @tycho.BufferKind::Index)
     ibuf.upload_uint16(indices)
 
     // Pass 1: Render cube at angle 0 into MRT G-Buffer (albedo + normal + depth)
@@ -190,21 +190,21 @@ fn main {
     gcmd.write_timestamp(ts, 0, at_start=true)
     gcmd.begin_render_pass(
       [
-        @rhi.RenderTargetDesc::new(
+        @tycho.RenderTargetDesc::new(
           albedo_rt,
-          clear_color=@rhi.ClearColor::rgba(0.0, 0.0, 0.0, 0.0),
+          clear_color=@tycho.ClearColor::rgba(0.0, 0.0, 0.0, 0.0),
         ),
-        @rhi.RenderTargetDesc::new(
+        @tycho.RenderTargetDesc::new(
           normal_rt,
-          clear_color=@rhi.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
+          clear_color=@tycho.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
         ),
       ],
-      depth=Some(@rhi.DepthTargetDesc::new(depth_rt)),
+      depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
     )
     gcmd.bind_pipeline(gbuf_pipe)
     gcmd.push_constants_floats(gbuf_pipe, mvp0)
     gcmd.bind_vertex(0, vbuf)
-    gcmd.bind_index(ibuf, @rhi.IndexType::Uint16)
+    gcmd.bind_index(ibuf, @tycho.IndexType::Uint16)
     gcmd.draw_indexed(36)
     gcmd.end_render_pass()
     gcmd.write_timestamp(ts, 1)
@@ -230,10 +230,10 @@ fn main {
       nb > 240
 
     // Pass 2: Deferred lighting composite onto swapchain
-    let start = @rhi.Swapchain::time()
+    let start = @tycho.Swapchain::time()
     let mut pixels : FixedArray[Byte] = []
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @rhi.Swapchain::time() - start < 0.8 {
+    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
       let cmd = sc.begin_frame()
       cmd.bind_pipeline(comp_pipe)
       cmd.bind_texture(comp_pipe, 0, albedo_rt, samp)
@@ -247,7 +247,7 @@ fn main {
     }
 
     let c = (300 * 800 + 400) * 4
-    let (sr, sg, sb) = if sc.color_format() == @rhi.TextureFormat::BGRA8 {
+    let (sr, sg, sb) = if sc.color_format() == @tycho.TextureFormat::BGRA8 {
       (pixels[c + 2].to_int(), pixels[c + 1].to_int(), pixels[c].to_int())
     } else {
       (pixels[c].to_int(), pixels[c + 1].to_int(), pixels[c + 2].to_int())

@@ -4,18 +4,18 @@
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI Texture", true)
+    let dev = @tycho.Device::new("Tycho RHI Texture", true)
     let sc = dev.create_swapchain("Tycho RHI Texture", 800, 600)
-    let vert = @rhi.compile_glsl(
+    let vert = @tycho.compile_glsl(
       "examples/11-rhi-texture/shader.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let frag = @rhi.compile_glsl(
+    let frag = @tycho.compile_glsl(
       "examples/11-rhi-texture/shader.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
     let pipe = sc.create_pipeline_desc(
-      @rhi.PipelineDesc::new(vert, frag, texture_slots=1),
+      @tycho.PipelineDesc::new(vert, frag, texture_slots=1),
     )
     let magenta : Bytes = Bytes::from_array([
       255, 0, 255, 255, 255, 0, 255, 255,
@@ -23,10 +23,10 @@ fn main {
     ])
     let tex = dev.create_texture(2, 2, magenta)
     let samp = dev.create_sampler()
-    let start = @rhi.Swapchain::time()
+    let start = @tycho.Swapchain::time()
     let mut pixels : FixedArray[Byte] = []
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @rhi.Swapchain::time() - start < 0.8 {
+    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
       let cmd = sc.begin_frame()
       cmd.bind_pipeline(pipe)
       cmd.bind_texture(pipe, 0, tex, samp)

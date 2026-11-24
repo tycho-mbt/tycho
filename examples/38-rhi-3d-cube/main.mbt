@@ -1,4 +1,4 @@
-// Example 38 — Rotating 3D cube using pure-MoonBit @rhi:
+// Example 38 — Rotating 3D cube using pure-MoonBit @tycho:
 // depth testing, back-face culling, index buffers, push constants, event queue,
 // and GPU memory sub-allocator block sharing.
 
@@ -94,28 +94,28 @@ fn make_mvp(angle : Float, aspect : Float) -> FixedArray[Float] {
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI 3D Cube", true)
+    let dev = @tycho.Device::new("Tycho RHI 3D Cube", true)
     let sc = dev.create_swapchain_desc(
-      @rhi.SwapchainDesc::new("Tycho RHI 3D Cube", 800, 600, depth=true),
+      @tycho.SwapchainDesc::new("Tycho RHI 3D Cube", 800, 600, depth=true),
     )
-    let vert = @rhi.compile_glsl(
+    let vert = @tycho.compile_glsl(
       "examples/38-rhi-3d-cube/shader.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let frag = @rhi.compile_glsl(
+    let frag = @tycho.compile_glsl(
       "examples/38-rhi-3d-cube/shader.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
     let pipe = sc.create_pipeline_desc(
-      @rhi.PipelineDesc::new(
+      @tycho.PipelineDesc::new(
         vert,
         frag,
-        vertex_formats=[@rhi.VertexFormat::Float3, @rhi.VertexFormat::Float3],
+        vertex_formats=[@tycho.VertexFormat::Float3, @tycho.VertexFormat::Float3],
         push_constant_size=64,
         depth_test=true,
         depth_write=true,
-        cull_mode=@rhi.CullMode::Back,
-        front_face=@rhi.FrontFace::CounterClockwise,
+        cull_mode=@tycho.CullMode::Back,
+        front_face=@tycho.FrontFace::CounterClockwise,
       ),
     )
 
@@ -160,20 +160,20 @@ fn main {
       16, 17, 18, 16, 18, 19,
       20, 21, 22, 20, 22, 23,
     ]
-    let vbuf = dev.create_buffer(verts.length() * 4, @rhi.BufferKind::Vertex)
+    let vbuf = dev.create_buffer(verts.length() * 4, @tycho.BufferKind::Vertex)
     vbuf.upload_floats(verts)
-    let ibuf = dev.create_buffer(indices.length() * 2, @rhi.BufferKind::Index)
+    let ibuf = dev.create_buffer(indices.length() * 2, @tycho.BufferKind::Index)
     ibuf.upload_uint16(indices)
 
     let (blocks, allocs) = dev.allocator_stats()
-    let start = @rhi.Swapchain::time()
+    let start = @tycho.Swapchain::time()
     let mut pixels : FixedArray[Byte] = []
     let mut frames = 0
     let mut quit = false
-    while !sc.should_close() && !quit && frames < 16 && @rhi.Swapchain::time() - start < 1.0 {
+    while !sc.should_close() && !quit && frames < 16 && @tycho.Swapchain::time() - start < 1.0 {
       for ev in sc.poll_events() {
         match ev {
-          @rhi.Event::KeyDown(k, _) => if k == @rhi.KEY_ESCAPE { quit = true }
+          @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
           _ => ()
         }
       }
@@ -189,7 +189,7 @@ fn main {
       cmd.bind_pipeline(pipe)
       cmd.push_constants_floats(pipe, mvp)
       cmd.bind_vertex(0, vbuf)
-      cmd.bind_index(ibuf, @rhi.IndexType::Uint16)
+      cmd.bind_index(ibuf, @tycho.IndexType::Uint16)
       cmd.draw_indexed(36)
       sc.end_frame(cmd)
       if frames == 0 {

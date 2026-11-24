@@ -5,24 +5,24 @@
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI Compute Storage Image", true)
+    let dev = @tycho.Device::new("Tycho RHI Compute Storage Image", true)
     let sc = dev.create_swapchain("Tycho RHI Compute Storage Image", 800, 600)
 
-    let comp_spv = @rhi.compile_glsl(
+    let comp_spv = @tycho.compile_glsl(
       "examples/41-rhi-compute-storage-image/gen.comp",
-      @rhi.ShaderStage::Compute,
+      @tycho.ShaderStage::Compute,
     )
-    let cr = @rhi.reflect_spirv(comp_spv)
+    let cr = @tycho.reflect_spirv(comp_spv)
     let refl_ok = cr.bindings.length() == 1 &&
       cr.bindings[0].binding == 0 &&
-      cr.bindings[0].kind == @rhi.ReflectedDescriptorKind::StorageImage &&
+      cr.bindings[0].kind == @tycho.ReflectedDescriptorKind::StorageImage &&
       cr.push_constant_size == 16
 
     let cpipe = dev.create_compute_pipeline_auto(comp_spv)
     let storage_tex = dev.create_storage_texture(
       128,
       128,
-      @rhi.TextureFormat::RGBA8,
+      @tycho.TextureFormat::RGBA8,
     )
     let ts = dev.create_timestamp_pool(2)
 
@@ -64,20 +64,20 @@ fn main {
       p11_g > 240
 
     // Present computed image onto the window via auto-reflected graphics pipeline
-    let qvert = @rhi.compile_glsl(
+    let qvert = @tycho.compile_glsl(
       "examples/41-rhi-compute-storage-image/quad.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let qfrag = @rhi.compile_glsl(
+    let qfrag = @tycho.compile_glsl(
       "examples/41-rhi-compute-storage-image/quad.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
-    let gpipe = sc.create_pipeline_desc(@rhi.PipelineDesc::from_spirv(qvert, qfrag))
+    let gpipe = sc.create_pipeline_desc(@tycho.PipelineDesc::from_spirv(qvert, qfrag))
     let samp = dev.create_sampler()
 
-    let start = @rhi.Swapchain::time()
+    let start = @tycho.Swapchain::time()
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @rhi.Swapchain::time() - start < 0.8 {
+    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
       let cmd = sc.begin_frame()
       cmd.bind_pipeline(gpipe)
       cmd.bind_texture(gpipe, 0, storage_tex, samp)

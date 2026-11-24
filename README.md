@@ -11,14 +11,14 @@
 | `laplaceliu/tycho_shader` | `shader/` | GLSL (`glslangValidator`), Slang (`slangc`), pure-MoonBit SPIR-V reflection (`reflect_spirv`), & PPM/BMP image helpers | *(none)* |
 | `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, free-list sub-allocator, auto-reflected pipelines (`from_spirv`), MRT, mipmaps, storage images, and GPU timestamps (zero C stubs) | `-lvulkan -lX11` |
 | `laplaceliu/tycho_codegen` *(private)* | `codegen/` | Khronos `vk.xml` → MoonBit + C shim generator | *(none)* |
-| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | 42 pure-MoonBit examples (31 low-level Vulkan API suites at **100.0%** reachable Linux coverage + 11 unified `@rhi` demos) | `-lvulkan` (`-lX11` for WSI) |
+| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | 42 pure-MoonBit examples (31 low-level Vulkan API suites at **100.0%** reachable Linux coverage + 11 unified `@tycho` demos) | `-lvulkan` (`-lX11` for WSI) |
 
 Planned next phase:
 - Add `laplaceliu/tycho_metal` (macOS/iOS) and `laplaceliu/tycho_dx12` (Windows) backends under `laplaceliu/tycho`, plus cross-platform shader compilation.
 
 ## Key Design Improvements for `mooncakes.io`
 
-1. **Clean root package import**: users import `"laplaceliu/tycho_vulkan" @vk` or `"laplaceliu/tycho" @rhi` directly (no `/generated` subpackage).
+1. **Clean root package import**: users import `"laplaceliu/tycho_vulkan" @vk` or `"laplaceliu/tycho" @tycho` directly (no `/generated` subpackage).
 2. **Self-contained vendored headers**: Vulkan 1.4.363 C headers (including `vk_video/`) live inside `vulkan/include/vulkan/` and are included via relative `#include "include/vulkan/vulkan.h"` — requiring **zero `-I` flags** and **zero Vulkan SDK** for downstream consumers. `1.4.363` is only the Khronos header/spec revision shipped with the package: it never forces a matching loader, because every command is fetched through `vkGetInstanceProcAddr` / `vkGetDeviceProcAddr` and the RHI requests API version **1.3**.
 3. **Minimal native coupling**: `laplaceliu/tycho_vulkan` links **only `-lvulkan`** (no `shaderc`, `stb`, `glfw`, or `X11` required). `vk.xml` stays in `codegen/registry/` so the published `laplaceliu/tycho_vulkan` tarball stays compact (~1.3 MB).
 4. **Compile-time ABI audit**: generated stubs embed thousands of `_Static_assert` checks enforcing `sizeof(C type) <= MoonBit type width` across all generated struct fields and scalar command parameters.

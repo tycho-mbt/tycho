@@ -1,5 +1,5 @@
 import {
-  "laplaceliu/tycho" @rhi,
+  "laplaceliu/tycho" @tycho,
 }
 
 pkgtype(kind: "executable")

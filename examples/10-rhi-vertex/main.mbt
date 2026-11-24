@@ -11,33 +11,33 @@ fn rgb_at(pixels : FixedArray[Byte], x : Int, y : Int) -> (Int, Int, Int) {
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI Vertex", true)
+    let dev = @tycho.Device::new("Tycho RHI Vertex", true)
     let sc = dev.create_swapchain("Tycho RHI Vertex", 800, 600)
-    let vert = @rhi.compile_glsl(
+    let vert = @tycho.compile_glsl(
       "examples/10-rhi-vertex/shader.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let frag = @rhi.compile_glsl(
+    let frag = @tycho.compile_glsl(
       "examples/10-rhi-vertex/shader.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
     let pipe = sc.create_pipeline_desc(
-      @rhi.PipelineDesc::new(
+      @tycho.PipelineDesc::new(
         vert,
         frag,
-        vertex_formats=[@rhi.VertexFormat::Float2, @rhi.VertexFormat::Float3],
+        vertex_formats=[@tycho.VertexFormat::Float2, @tycho.VertexFormat::Float3],
       ),
     )
-    let vbuf = dev.create_buffer(60, @rhi.BufferKind::Vertex)
+    let vbuf = dev.create_buffer(60, @tycho.BufferKind::Vertex)
     vbuf.upload_floats([
       (0.0 : Float), (-0.5 : Float), (1.0 : Float), (0.0 : Float), (0.0 : Float),
       (0.5 : Float), (0.5 : Float), (0.0 : Float), (1.0 : Float), (0.0 : Float),
       (-0.5 : Float), (0.5 : Float), (0.0 : Float), (0.0 : Float), (1.0 : Float),
     ])
-    let start = @rhi.Swapchain::time()
+    let start = @tycho.Swapchain::time()
     let mut pixels : FixedArray[Byte] = []
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @rhi.Swapchain::time() - start < 0.8 {
+    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
       let cmd = sc.begin_frame()
       cmd.bind_pipeline(pipe)
       cmd.bind_vertex(0, vbuf)

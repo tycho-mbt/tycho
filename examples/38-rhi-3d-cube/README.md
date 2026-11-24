@@ -1,6 +1,6 @@
 # 38-rhi-3d-cube
 
-Rotating 3D colored cube rendered with `laplaceliu/tycho` (`@rhi`), exercising:
+Rotating 3D colored cube rendered with `laplaceliu/tycho` (`@tycho`), exercising:
 - Depth buffering (`SwapchainDesc` with `depth=true`)
 - Back-face culling (`CullMode::Back`, `FrontFace::CounterClockwise`)
 - Index buffers (`BufferKind::Index`, `IndexType::Uint16`, `draw_indexed`)

@@ -4,23 +4,23 @@
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI Uniform", true)
+    let dev = @tycho.Device::new("Tycho RHI Uniform", true)
     let sc = dev.create_swapchain("Tycho RHI Uniform", 800, 600)
-    let vert = @rhi.compile_glsl(
+    let vert = @tycho.compile_glsl(
       "examples/09-rhi-uniform/shader.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let frag = @rhi.compile_glsl(
+    let frag = @tycho.compile_glsl(
       "examples/09-rhi-uniform/shader.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
     let pipe = sc.create_pipeline(vert, frag, 1)
-    let ubo = dev.create_buffer(16, @rhi.BufferKind::Uniform)
+    let ubo = dev.create_buffer(16, @tycho.BufferKind::Uniform)
     ubo.upload_floats([(0.2 : Float), (0.8 : Float), (0.4 : Float), (1.0 : Float)])
-    let start = @rhi.Swapchain::time()
+    let start = @tycho.Swapchain::time()
     let mut pixels : FixedArray[Byte] = []
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @rhi.Swapchain::time() - start < 0.8 {
+    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
       let cmd = sc.begin_frame()
       cmd.bind_pipeline(pipe)
       cmd.bind_uniform(pipe, 0, ubo)

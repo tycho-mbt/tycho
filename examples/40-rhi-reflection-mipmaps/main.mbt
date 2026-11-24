@@ -5,21 +5,21 @@
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI Reflection & Mipmaps", true)
+    let dev = @tycho.Device::new("Tycho RHI Reflection & Mipmaps", true)
     let sc = dev.create_swapchain("Tycho RHI Reflection & Mipmaps", 800, 600)
 
-    let vert = @rhi.compile_glsl(
+    let vert = @tycho.compile_glsl(
       "examples/40-rhi-reflection-mipmaps/shader.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let frag = @rhi.compile_glsl(
+    let frag = @tycho.compile_glsl(
       "examples/40-rhi-reflection-mipmaps/shader.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
 
     // Verify SPIR-V bytecode reflection directly
-    let vr = @rhi.reflect_spirv(vert)
-    let fr = @rhi.reflect_spirv(frag)
+    let vr = @tycho.reflect_spirv(vert)
+    let fr = @tycho.reflect_spirv(frag)
     let refl_ok = vr.vertex_inputs.length() == 2 &&
       fr.bindings.length() == 1 &&
       fr.bindings[0].binding == 0 &&
@@ -27,7 +27,7 @@ fn main {
       fr.color_output_count == 1
 
     // Zero manual vertex_formats / texture_slots / push_constant_size!
-    let pipe = sc.create_pipeline_desc(@rhi.PipelineDesc::from_spirv(vert, frag))
+    let pipe = sc.create_pipeline_desc(@tycho.PipelineDesc::from_spirv(vert, frag))
 
     // 16x16 4-quadrant RGBA8 image: Red, Green, Blue, White -> 1x1 mip average ≈ (127, 127, 127, 255)
     let w = 16
@@ -59,7 +59,7 @@ fn main {
     let tex = dev.create_texture_mipmapped(
       w,
       h,
-      @rhi.TextureFormat::RGBA8,
+      @tycho.TextureFormat::RGBA8,
       tex_bytes,
     )
     let levels = tex.mip_levels()
@@ -78,11 +78,11 @@ fn main {
 
     // Sampler locked to mip level 4 (1x1 average)
     let samp = dev.create_sampler_desc(
-      @rhi.SamplerDesc::new(
-        mag=@rhi.Filter::Linear,
-        min=@rhi.Filter::Linear,
-        mipmap=@rhi.Filter::Linear,
-        address=@rhi.AddressMode::ClampToEdge,
+      @tycho.SamplerDesc::new(
+        mag=@tycho.Filter::Linear,
+        min=@tycho.Filter::Linear,
+        mipmap=@tycho.Filter::Linear,
+        address=@tycho.AddressMode::ClampToEdge,
         min_lod=(4.0 : Float),
         max_lod=(4.0 : Float),
       ),
@@ -97,14 +97,14 @@ fn main {
       1.0, 1.0, 1.0, 1.0,
       -1.0, 1.0, 0.0, 1.0,
     ]
-    let vbuf = dev.create_buffer(verts.length() * 4, @rhi.BufferKind::Vertex)
+    let vbuf = dev.create_buffer(verts.length() * 4, @tycho.BufferKind::Vertex)
     vbuf.upload_floats(verts)
     let tint : FixedArray[Float] = [1.0, 1.0, 1.0, 1.0]
 
-    let start = @rhi.Swapchain::time()
+    let start = @tycho.Swapchain::time()
     let mut pixels : FixedArray[Byte] = []
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @rhi.Swapchain::time() - start < 0.8 {
+    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
       let cmd = sc.begin_frame()
       cmd.bind_pipeline(pipe)
       cmd.bind_texture(pipe, 0, tex, samp)
@@ -119,7 +119,7 @@ fn main {
     }
 
     let c = (300 * 800 + 400) * 4
-    let (sr, sg, sb) = if sc.color_format() == @rhi.TextureFormat::BGRA8 {
+    let (sr, sg, sb) = if sc.color_format() == @tycho.TextureFormat::BGRA8 {
       (pixels[c + 2].to_int(), pixels[c + 1].to_int(), pixels[c].to_int())
     } else {
       (pixels[c].to_int(), pixels[c + 1].to_int(), pixels[c + 2].to_int())

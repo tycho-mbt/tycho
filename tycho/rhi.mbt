@@ -1,5 +1,5 @@
 // Tycho RHI public API façade.
-// Users import only `"laplaceliu/tycho" @rhi` — zero Vulkan handles, descriptor
+// Users import only `"laplaceliu/tycho" @tycho` — zero Vulkan handles, descriptor
 // sets, sync primitives, or C stubs are exposed.
 
 ///|

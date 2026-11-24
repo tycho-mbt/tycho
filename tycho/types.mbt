@@ -403,7 +403,7 @@ pub fn DepthTargetDesc::new(
   { texture, load_op, store_op, clear_depth }
 }
 
-// Re-export window events and key codes so users only need `@rhi`.
+// Re-export window events and key codes so users only need `@tycho`.
 
 ///|
 pub type Event = @win.Event

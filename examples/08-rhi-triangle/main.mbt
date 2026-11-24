@@ -19,21 +19,21 @@ fn count_rgb(pixels : FixedArray[Byte]) -> Int {
 ///|
 fn main {
   try {
-    let dev = @rhi.Device::new("Tycho RHI Triangle", true)
+    let dev = @tycho.Device::new("Tycho RHI Triangle", true)
     let sc = dev.create_swapchain("Tycho RHI Triangle", 800, 600)
-    let vert = @rhi.compile_glsl(
+    let vert = @tycho.compile_glsl(
       "examples/08-rhi-triangle/shader.vert",
-      @rhi.ShaderStage::Vertex,
+      @tycho.ShaderStage::Vertex,
     )
-    let frag = @rhi.compile_glsl(
+    let frag = @tycho.compile_glsl(
       "examples/08-rhi-triangle/shader.frag",
-      @rhi.ShaderStage::Fragment,
+      @tycho.ShaderStage::Fragment,
     )
     let pipe = sc.create_pipeline(vert, frag, 0)
-    let start = @rhi.Swapchain::time()
+    let start = @tycho.Swapchain::time()
     let mut pixels = 0
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @rhi.Swapchain::time() - start < 0.8 {
+    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
       let cmd = sc.begin_frame()
       cmd.bind_pipeline(pipe)
       cmd.draw(3, 1)
