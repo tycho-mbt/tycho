@@ -1,7 +1,13 @@
 // Example 45 — RHI v0.4 texture formats, cubemap, subregion upload, blit, and sampler extensions.
 
 ///|
-fn solid_rgba(r : Int, g : Int, b : Int, a : Int, pixels : Int) -> Bytes {
+fn solid_rgba(
+  r : Int32,
+  g : Int32,
+  b : Int32,
+  a : Int32,
+  pixels : Int32,
+) -> Bytes {
   Bytes::makei(pixels * 4, fn(i) {
     let ch = i % 4
     if ch == 0 {
@@ -17,28 +23,49 @@ fn solid_rgba(r : Int, g : Int, b : Int, a : Int, pixels : Int) -> Bytes {
 }
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
   try {
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
-      @tycho.DeviceDesc::new("Tycho RHI Textures", validation=true, headless=true),
+      @tycho.DeviceDesc::new(
+        "Tycho RHI Textures",
+        validation=true,
+        headless=!show_win,
+      ),
     )
 
     // 1. Cubemap: +X=red, -X=cyan, +Y=green, -Y=magenta, +Z=blue, -Z=yellow
-    let cube = dev.create_cubemap(
-      4,
-      @tycho.TextureFormat::RGBA8,
-      [
-        solid_rgba(255, 0, 0, 255, 16),
-        solid_rgba(0, 255, 255, 255, 16),
-        solid_rgba(0, 255, 0, 255, 16),
-        solid_rgba(255, 0, 255, 255, 16),
-        solid_rgba(0, 0, 255, 255, 16),
-        solid_rgba(255, 255, 0, 255, 16),
-      ],
-    )
+    let cube = dev.create_cubemap(4, @tycho.TextureFormat::RGBA8, [
+      solid_rgba(255, 0, 0, 255, 16),
+      solid_rgba(0, 255, 255, 255, 16),
+      solid_rgba(0, 255, 0, 255, 16),
+      solid_rgba(255, 0, 255, 255, 16),
+      solid_rgba(0, 0, 255, 255, 16),
+      solid_rgba(255, 255, 0, 255, 16),
+    ])
 
     // 2. R8 texture + upload_subregion (fill 4x4 with 0, then patch all 4x4 with 200)
-    let r8_tex = dev.create_texture_format(4, 4, @tycho.TextureFormat::R8, Bytes::make(16, (0 : Byte)))
+    let r8_tex = dev.create_texture_format(
+      4,
+      4,
+      @tycho.TextureFormat::R8,
+      Bytes::make(16, (0 : Byte)),
+    )
     r8_tex.upload_subregion(0, 0, 4, 4, Bytes::make(16, (200 : Byte)))
 
     // 3. Anisotropic + ClampToBorder sampler
@@ -84,12 +111,30 @@ fn main {
     dev.end_commands(cmd)
 
     let px = ldr_rt.readback()
+    if shot != "" {
+      let _ = @tycho.save_png(shot, 32, 32, px)
+    }
+    if show_win {
+      let sc = dev.create_swapchain("Tycho RHI Textures", 512, 512)
+      while !should_quit(sc) {
+        sc.present_texture(ldr_rt)
+      }
+      sc.destroy()
+    }
     // Left half (x=8, y=16): +Z blue + R8 green(~200) -> (0, ~200, 255)
     let li = (16 * 32 + 8) * 4
-    let (lr, lg, lb) = (px[li].to_int(), px[li + 1].to_int(), px[li + 2].to_int())
+    let (lr, lg, lb) = (
+      px[li].to_int(),
+      px[li + 1].to_int(),
+      px[li + 2].to_int(),
+    )
     // Right half (x=24, y=16): +X red + R8 green(~200) -> (255, ~200, 0)
     let ri = (16 * 32 + 24) * 4
-    let (rr, rg, rb) = (px[ri].to_int(), px[ri + 1].to_int(), px[ri + 2].to_int())
+    let (rr, rg, rb) = (
+      px[ri].to_int(),
+      px[ri + 1].to_int(),
+      px[ri + 2].to_int(),
+    )
 
     let errs = dev.validation_errors()
     pipe.destroy()

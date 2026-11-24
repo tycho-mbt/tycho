@@ -1,12 +1,32 @@
-// Example 39 — Offscreen 4x MSAA render pass + resolve + swapchain blit.
-// Verifies anti-aliased edge coverage pixels (20 < v < 235) exist in the
-// resolved single-sample texture, then presents it to the window.
+// Example 39 — Offscreen 4x MSAA render pass + resolve.
+// Default headless verification; pass `--window` (or TYCHO_WINDOW=1) to present in a window.
+
+///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
 
 ///|
 fn main {
   try {
-    let dev = @tycho.Device::new("Tycho RHI MSAA Offscreen", true)
-    let sc = dev.create_swapchain("Tycho RHI MSAA Offscreen", 800, 600)
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
+    let dev = @tycho.Device::new_desc(
+      @tycho.DeviceDesc::new(
+        "Tycho RHI MSAA Offscreen",
+        validation=true,
+        headless=!show_win,
+      ),
+    )
 
     let msaa_tex = dev.create_render_target(
       256,
@@ -38,20 +58,6 @@ fn main {
       ),
     )
 
-    let quad_vert = @tycho.compile_glsl(
-      "examples/39-rhi-msaa-offscreen/quad.vert",
-      @tycho.ShaderStage::Vertex,
-    )
-    let quad_frag = @tycho.compile_glsl(
-      "examples/39-rhi-msaa-offscreen/quad.frag",
-      @tycho.ShaderStage::Fragment,
-    )
-    let present_pipe = sc.create_pipeline_desc(
-      @tycho.PipelineDesc::new(quad_vert, quad_frag, texture_slots=1),
-    )
-    let samp = dev.create_sampler()
-
-    // Render diagonal triangle into 4x MSAA offscreen target and resolve
     let off_cmd = dev.begin_commands()
     off_cmd.begin_render_pass([
       @tycho.RenderTargetDesc::new(
@@ -68,6 +74,9 @@ fn main {
     dev.end_commands(off_cmd)
 
     let resolved = resolve_tex.readback()
+    if shot != "" {
+      let _ = @tycho.save_png(shot, 256, 256, resolved)
+    }
     let mut white = 0
     let mut black = 0
     let mut partial = 0
@@ -83,25 +92,20 @@ fn main {
       }
     }
 
-    // Blit resolved offscreen texture onto the window swapchain
-    let start = @tycho.Swapchain::time()
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
-      let cmd = sc.begin_frame()
-      cmd.bind_pipeline(present_pipe)
-      cmd.bind_texture(present_pipe, 0, resolve_tex, samp)
-      cmd.draw(6, 1)
-      sc.end_frame(cmd)
-      frames = frames + 1
+    if show_win {
+      let sc = dev.create_swapchain("Tycho RHI MSAA Offscreen", 800, 600)
+      while !should_quit(sc) {
+        sc.present_texture(resolve_tex)
+        frames = frames + 1
+      }
+      sc.destroy()
     }
 
     let errs = dev.validation_errors()
-    samp.destroy()
-    present_pipe.destroy()
     off_pipe.destroy()
     resolve_tex.destroy()
     msaa_tex.destroy()
-    sc.destroy()
     dev.destroy()
     println(
       "[39-rhi-msaa-offscreen] white=\{white} black=\{black} partial_aa=\{partial} frames=\{frames}",

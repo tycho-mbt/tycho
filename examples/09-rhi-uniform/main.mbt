@@ -1,12 +1,27 @@
 // Example 09 — RHI slot binding: a uniform slot tints the triangle.
-// User code imports only laplaceliu/tycho; descriptor sets stay internal.
+// Default headless offscreen verification; pass `--window` (or TYCHO_WINDOW=1) for screen rendering.
+
+///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
 
 ///|
 fn main {
   try {
-    let dev = @tycho.Device::new("Tycho RHI Uniform", true)
-    let sc = dev.create_swapchain_desc(
-      @tycho.SwapchainDesc::new("Tycho RHI Uniform", 800, 600, enable_readback=true),
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
+    let dev = @tycho.Device::new_desc(
+      @tycho.DeviceDesc::new("Tycho RHI Uniform", validation=true, headless=!show_win),
     )
     let vert = @tycho.compile_glsl(
       "examples/09-rhi-uniform/shader.vert",
@@ -16,32 +31,68 @@ fn main {
       "examples/09-rhi-uniform/shader.frag",
       @tycho.ShaderStage::Fragment,
     )
-    let pipe = sc.create_pipeline(vert, frag, 1)
     let ubo = dev.create_buffer(16, @tycho.BufferKind::Uniform)
     ubo.upload_floats([(0.2 : Float), (0.8 : Float), (0.4 : Float), (1.0 : Float)])
-    let start = @tycho.Swapchain::time()
     let mut pixels : FixedArray[Byte] = []
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
-      let cmd = sc.begin_frame()
+    if show_win {
+      let sc = dev.create_swapchain_desc(
+        @tycho.SwapchainDesc::new("Tycho RHI Uniform", 800, 600, enable_readback=true),
+      )
+      let pipe = sc.create_pipeline(vert, frag, 1)
+      while !should_quit(sc) {
+        let cmd = sc.begin_frame()
+        cmd.bind_pipeline(pipe)
+        cmd.bind_uniform(pipe, 0, ubo)
+        cmd.draw(3, 1)
+        sc.end_frame(cmd)
+        if frames == 0 {
+          pixels = sc.readback()
+          if shot != "" {
+            let _ = @tycho.save_png(
+              shot,
+              800,
+              600,
+              pixels,
+              bgra=sc.color_format() == @tycho.TextureFormat::BGRA8,
+            )
+          }
+        }
+        frames = frames + 1
+      }
+      pipe.destroy()
+      sc.destroy()
+    } else {
+      let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
+      let pipe = dev.create_graphics_pipeline(
+        @tycho.PipelineDesc::new(
+          vert,
+          frag,
+          uniform_slots=1,
+          color_format=Some(@tycho.TextureFormat::RGBA8),
+        ),
+      )
+      let cmd = dev.begin_commands()
+      cmd.begin_render_pass([@tycho.RenderTargetDesc::new(rt)])
       cmd.bind_pipeline(pipe)
       cmd.bind_uniform(pipe, 0, ubo)
       cmd.draw(3, 1)
-      sc.end_frame(cmd)
-      if frames == 0 {
-        pixels = sc.readback()
+      cmd.end_render_pass()
+      dev.end_commands(cmd)
+      pixels = rt.readback()
+      frames = 1
+      if shot != "" {
+        let _ = @tycho.save_png(shot, 800, 600, pixels)
       }
-      frames = frames + 1
+      pipe.destroy()
+      rt.destroy()
     }
     let centre = (300 * 800 + 400) * 4
-    // Swapchain readback matches BGRA layout (or RGBA); check green dominant.
     let c0 = pixels[centre].to_int()
     let g = pixels[centre + 1].to_int()
     let c2 = pixels[centre + 2].to_int()
     let errs = dev.validation_errors()
     ubo.destroy()
-    pipe.destroy()
-    sc.destroy()
     dev.destroy()
     println(
       "[09-rhi-uniform] centre channels=(\{c0}, \{g}, \{c2}), frames=\{frames}",

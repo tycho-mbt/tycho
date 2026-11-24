@@ -10,3 +10,9 @@ Two-pass deferred shading pipeline using pure-MoonBit `@tycho`:
 ./build.sh
 ./_build/native/debug/build/laplaceliu/tycho_vulkan_examples/42-rhi-mrt-postprocess/42-rhi-mrt-postprocess.exe
 ```
+
+## Screenshot
+
+![42-rhi-mrt-postprocess screenshot](./screenshot.png)
+
+> Runs headless by default for automated verification. Pass `--window` (or `TYCHO_WINDOW=1`) to render on screen.

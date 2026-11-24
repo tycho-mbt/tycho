@@ -6,7 +6,7 @@
 // 5. Pass 3: Tone mapping into RGBA8Srgb + strict pixel probes (shadowed, lit, border, subregion)
 
 ///|
-fn parse_int_slice(b : Bytes, start : Int, end : Int) -> Int {
+fn parse_int_slice(b : Bytes, start : Int32, end : Int32) -> Int32 {
   let mut i = start
   let mut sign = 1
   if i < end && b[i] == b'-' {
@@ -25,7 +25,7 @@ fn parse_int_slice(b : Bytes, start : Int, end : Int) -> Int {
 }
 
 ///|
-fn parse_float_slice(b : Bytes, start : Int, end : Int) -> Float {
+fn parse_float_slice(b : Bytes, start : Int32, end : Int32) -> Float {
   let mut i = start
   let mut sign = 1.0
   if i < end && b[i] == b'-' {
@@ -59,8 +59,8 @@ fn parse_float_slice(b : Bytes, start : Int, end : Int) -> Float {
 }
 
 ///|
-fn split_tokens(b : Bytes, start : Int, end : Int) -> Array[(Int, Int)] {
-  let out : Array[(Int, Int)] = []
+fn split_tokens(b : Bytes, start : Int32, end : Int32) -> Array[(Int32, Int32)] {
+  let out : Array[(Int32, Int32)] = []
   let mut i = start
   while i < end {
     while i < end && (b[i] == b' ' || b[i] == b'\t' || b[i] == b'\r') {
@@ -98,24 +98,34 @@ fn parse_obj(b : Bytes) -> Array[Float] {
         let (s1, e1) = toks[1]
         let (s2, e2) = toks[2]
         let (s3, e3) = toks[3]
-        pos.push((
-          parse_float_slice(b, s1, e1),
-          parse_float_slice(b, s2, e2),
-          parse_float_slice(b, s3, e3),
-        ))
-      } else if len0 == 2 && b[s0] == b'v' && b[s0 + 1] == b't' && toks.length() >= 3 {
+        pos.push(
+          (
+            parse_float_slice(b, s1, e1),
+            parse_float_slice(b, s2, e2),
+            parse_float_slice(b, s3, e3),
+          ),
+        )
+      } else if len0 == 2 &&
+        b[s0] == b'v' &&
+        b[s0 + 1] == b't' &&
+        toks.length() >= 3 {
         let (s1, e1) = toks[1]
         let (s2, e2) = toks[2]
         uv.push((parse_float_slice(b, s1, e1), parse_float_slice(b, s2, e2)))
-      } else if len0 == 2 && b[s0] == b'v' && b[s0 + 1] == b'n' && toks.length() >= 4 {
+      } else if len0 == 2 &&
+        b[s0] == b'v' &&
+        b[s0 + 1] == b'n' &&
+        toks.length() >= 4 {
         let (s1, e1) = toks[1]
         let (s2, e2) = toks[2]
         let (s3, e3) = toks[3]
-        norm.push((
-          parse_float_slice(b, s1, e1),
-          parse_float_slice(b, s2, e2),
-          parse_float_slice(b, s3, e3),
-        ))
+        norm.push(
+          (
+            parse_float_slice(b, s1, e1),
+            parse_float_slice(b, s2, e2),
+            parse_float_slice(b, s3, e3),
+          ),
+        )
       } else if len0 == 1 && b[s0] == b'f' && toks.length() >= 4 {
         for ti = 1; ti <= 3; ti = ti + 1 {
           let (ts, te) = toks[ti]
@@ -150,7 +160,10 @@ fn parse_obj(b : Bytes) -> Array[Float] {
 }
 
 ///|
-fn v3_sub(a : (Double, Double, Double), b : (Double, Double, Double)) -> (Double, Double, Double) {
+fn v3_sub(
+  a : (Double, Double, Double),
+  b : (Double, Double, Double),
+) -> (Double, Double, Double) {
   (a.0 - b.0, a.1 - b.1, a.2 - b.2)
 }
 
@@ -160,12 +173,11 @@ fn v3_dot(a : (Double, Double, Double), b : (Double, Double, Double)) -> Double 
 }
 
 ///|
-fn v3_cross(a : (Double, Double, Double), b : (Double, Double, Double)) -> (Double, Double, Double) {
-  (
-    a.1 * b.2 - a.2 * b.1,
-    a.2 * b.0 - a.0 * b.2,
-    a.0 * b.1 - a.1 * b.0,
-  )
+fn v3_cross(
+  a : (Double, Double, Double),
+  b : (Double, Double, Double),
+) -> (Double, Double, Double) {
+  (a.1 * b.2 - a.2 * b.1, a.2 * b.0 - a.0 * b.2, a.0 * b.1 - a.1 * b.0)
 }
 
 ///|
@@ -201,7 +213,12 @@ fn look_at(
 }
 
 ///|
-fn ortho_vk(half_w : Double, half_h : Double, near : Double, far : Double) -> FixedArray[Double] {
+fn ortho_vk(
+  half_w : Double,
+  half_h : Double,
+  near : Double,
+  far : Double,
+) -> FixedArray[Double] {
   let m = FixedArray::make(16, 0.0)
   m[0] = 1.0 / half_w
   m[5] = -1.0 / half_h
@@ -212,7 +229,12 @@ fn ortho_vk(half_w : Double, half_h : Double, near : Double, far : Double) -> Fi
 }
 
 ///|
-fn persp_vk(f : Double, aspect : Double, near : Double, far : Double) -> FixedArray[Double] {
+fn persp_vk(
+  f : Double,
+  aspect : Double,
+  near : Double,
+  far : Double,
+) -> FixedArray[Double] {
   let m = FixedArray::make(16, 0.0)
   m[0] = f / aspect
   m[5] = -f
@@ -223,7 +245,10 @@ fn persp_vk(f : Double, aspect : Double, near : Double, far : Double) -> FixedAr
 }
 
 ///|
-fn mat4_mul(a : FixedArray[Double], b : FixedArray[Double]) -> FixedArray[Double] {
+fn mat4_mul(
+  a : FixedArray[Double],
+  b : FixedArray[Double],
+) -> FixedArray[Double] {
   let out = FixedArray::make(16, 0.0)
   for col = 0; col < 4; col = col + 1 {
     for row = 0; row < 4; row = row + 1 {
@@ -241,9 +266,9 @@ fn mat4_mul(a : FixedArray[Double], b : FixedArray[Double]) -> FixedArray[Double
 fn project_px(
   vp : FixedArray[Double],
   p : (Double, Double, Double),
-  w : Int,
-  h : Int,
-) -> (Int, Int, Bool) {
+  w : Int32,
+  h : Int32,
+) -> (Int32, Int32, Bool) {
   let cx = vp[0] * p.0 + vp[4] * p.1 + vp[8] * p.2 + vp[12]
   let cy = vp[1] * p.0 + vp[5] * p.1 + vp[9] * p.2 + vp[13]
   let cw = vp[3] * p.0 + vp[7] * p.1 + vp[11] * p.2 + vp[15]
@@ -256,23 +281,50 @@ fn project_px(
 }
 
 ///|
-fn sample_rgba(pixels : FixedArray[Byte], w : Int, x : Int, y : Int) -> (Int, Int, Int) {
+fn sample_rgba(
+  pixels : FixedArray[Byte],
+  w : Int32,
+  x : Int32,
+  y : Int32,
+) -> (Int32, Int32, Int32) {
   let i = (y * w + x) * 4
   (pixels[i].to_int(), pixels[i + 1].to_int(), pixels[i + 2].to_int())
 }
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
   try {
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
-      @tycho.DeviceDesc::new("Tycho RHI Shadow HDR", validation=true, headless=true),
+      @tycho.DeviceDesc::new(
+        "Tycho RHI Shadow HDR",
+        validation=true,
+        headless=!show_win,
+      ),
     )
 
     let obj_bytes = @tycho.read_file_bytes("examples/assets/scene.obj")
     let obj_floats = parse_obj(obj_bytes)
     let vertex_count = obj_floats.length() / 8
     let obj_ok = obj_bytes.length() > 0 && vertex_count == 36
-    let vbuf_arr = FixedArray::makei(obj_floats.length(), fn(i) { obj_floats[i] })
+    let vbuf_arr = FixedArray::makei(obj_floats.length(), fn(i) {
+      obj_floats[i]
+    })
     let vbuf = dev.create_buffer_with(
       obj_floats.length() * 4,
       @tycho.BufferKind::Vertex,
@@ -280,10 +332,16 @@ fn main {
     )
     vbuf.upload_floats(vbuf_arr)
 
-    let (bmp_px, bmp_w, bmp_h) = @tycho.load_image("examples/assets/checker16.bmp")
+    let (bmp_px, bmp_w, bmp_h) = @tycho.load_image(
+      "examples/assets/checker16.bmp",
+    )
     let bmp_ok = bmp_w == 16 && bmp_h == 16 && bmp_px.length() == 1024
     let layer_bytes = Bytes::makei(1024 * 2, fn(i) {
-      if i < 1024 { bmp_px[i] } else { (10 : Byte) }
+      if i < 1024 {
+        bmp_px[i]
+      } else {
+        (10 : Byte)
+      }
     })
     let tex_array = dev.create_texture_array(
       16,
@@ -295,19 +353,22 @@ fn main {
     // Patch center 8x8 region (4..12, 4..12) on layer 1 with bright green
     let green_patch = Bytes::makei(8 * 8 * 4, fn(i) {
       let c = i % 4
-      if c == 1 { (240 : Byte) } else if c == 3 { (255 : Byte) } else { (20 : Byte) }
+      if c == 1 {
+        (240 : Byte)
+      } else if c == 3 {
+        (255 : Byte)
+      } else {
+        (20 : Byte)
+      }
     })
     tex_array.upload_subregion(4, 4, 8, 8, green_patch, layer=1)
 
     let obj_layouts = [
-      @tycho.VertexBufferLayout::new(
-        32,
-        [
-          @tycho.VertexAttribute::new(0, @tycho.VertexFormat::Float3, 0),
-          @tycho.VertexAttribute::new(1, @tycho.VertexFormat::Float2, 12),
-          @tycho.VertexAttribute::new(2, @tycho.VertexFormat::Float3, 20),
-        ],
-      ),
+      @tycho.VertexBufferLayout::new(32, [
+        @tycho.VertexAttribute::new(0, @tycho.VertexFormat::Float3, 0),
+        @tycho.VertexAttribute::new(1, @tycho.VertexFormat::Float2, 12),
+        @tycho.VertexAttribute::new(2, @tycho.VertexFormat::Float3, 20),
+      ]),
     ]
 
     let shadow_vert = @tycho.compile_glsl(
@@ -371,13 +432,21 @@ fn main {
       512,
       @tycho.TextureFormat::Depth24Stencil8,
     )
-    let hdr_rt = dev.create_render_target(256, 256, @tycho.TextureFormat::RGBA16F)
+    let hdr_rt = dev.create_render_target(
+      256,
+      256,
+      @tycho.TextureFormat::RGBA16F,
+    )
     let scene_depth = dev.create_depth_texture_format(
       256,
       256,
       @tycho.TextureFormat::Depth32F,
     )
-    let srgb_rt = dev.create_render_target(256, 256, @tycho.TextureFormat::RGBA8Srgb)
+    let srgb_rt = dev.create_render_target(
+      256,
+      256,
+      @tycho.TextureFormat::RGBA8Srgb,
+    )
 
     let shadow_samp = dev.create_sampler_desc(
       @tycho.SamplerDesc::new(
@@ -409,7 +478,9 @@ fn main {
     )
     let ldir = v3_norm(light_pos)
 
-    let light_pc = FixedArray::makei(16, fn(i) { Float::from_double(light_vp[i]) })
+    let light_pc = FixedArray::makei(16, fn(i) {
+      Float::from_double(light_vp[i])
+    })
     let ubo_floats = FixedArray::make(36, (0.0 : Float))
     for i = 0; i < 16; i = i + 1 {
       ubo_floats[i] = Float::from_double(cam_vp[i])
@@ -481,6 +552,16 @@ fn main {
     dev.end_commands(cmd)
 
     let px = srgb_rt.readback()
+    if shot != "" {
+      let _ = @tycho.save_png(shot, 256, 256, px)
+    }
+    if show_win {
+      let sc = dev.create_swapchain("Tycho RHI Shadow HDR", 768, 768)
+      while !should_quit(sc) {
+        sc.present_texture(srgb_rt)
+      }
+      sc.destroy()
+    }
     // World probes:
     //   A (0.80, -0.50, 0.00): shadowed ground behind occluder
     //   B (-1.10, -0.50, 0.00): lit ground inside shadow frustum

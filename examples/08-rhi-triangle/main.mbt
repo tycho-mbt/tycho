@@ -1,5 +1,5 @@
-// Example 08 — RHI triangle. User code imports only laplaceliu/tycho: no Vulkan
-// handles, no descriptor sets, no swapchain/sync boilerplate, no C.
+// Example 08 — RHI triangle. Default headless offscreen verification; pass `--window`
+// (or TYCHO_WINDOW=1) to open an interactive window.
 
 ///|
 fn count_rgb(pixels : FixedArray[Byte]) -> Int {
@@ -17,11 +17,26 @@ fn count_rgb(pixels : FixedArray[Byte]) -> Int {
 }
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
   try {
-    let dev = @tycho.Device::new("Tycho RHI Triangle", true)
-    let sc = dev.create_swapchain_desc(
-      @tycho.SwapchainDesc::new("Tycho RHI Triangle", 800, 600, enable_readback=true),
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
+    let dev = @tycho.Device::new_desc(
+      @tycho.DeviceDesc::new("Tycho RHI Triangle", validation=true, headless=!show_win),
     )
     let vert = @tycho.compile_glsl(
       "examples/08-rhi-triangle/shader.vert",
@@ -31,23 +46,60 @@ fn main {
       "examples/08-rhi-triangle/shader.frag",
       @tycho.ShaderStage::Fragment,
     )
-    let pipe = sc.create_pipeline(vert, frag, 0)
-    let start = @tycho.Swapchain::time()
     let mut pixels = 0
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
-      let cmd = sc.begin_frame()
+    if show_win {
+      let sc = dev.create_swapchain_desc(
+        @tycho.SwapchainDesc::new("Tycho RHI Triangle", 800, 600, enable_readback=true),
+      )
+      let pipe = sc.create_pipeline(vert, frag, 0)
+      while !should_quit(sc) {
+        let cmd = sc.begin_frame()
+        cmd.bind_pipeline(pipe)
+        cmd.draw(3, 1)
+        sc.end_frame(cmd)
+        if frames == 0 {
+          let px = sc.readback()
+          pixels = count_rgb(px)
+          if shot != "" {
+            let _ = @tycho.save_png(
+              shot,
+              800,
+              600,
+              px,
+              bgra=sc.color_format() == @tycho.TextureFormat::BGRA8,
+            )
+          }
+        }
+        frames = frames + 1
+      }
+      pipe.destroy()
+      sc.destroy()
+    } else {
+      let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
+      let pipe = dev.create_graphics_pipeline(
+        @tycho.PipelineDesc::new(
+          vert,
+          frag,
+          color_format=Some(@tycho.TextureFormat::RGBA8),
+        ),
+      )
+      let cmd = dev.begin_commands()
+      cmd.begin_render_pass([@tycho.RenderTargetDesc::new(rt)])
       cmd.bind_pipeline(pipe)
       cmd.draw(3, 1)
-      sc.end_frame(cmd)
-      if frames == 0 {
-        pixels = count_rgb(sc.readback())
+      cmd.end_render_pass()
+      dev.end_commands(cmd)
+      let px = rt.readback()
+      pixels = count_rgb(px)
+      frames = 1
+      if shot != "" {
+        let _ = @tycho.save_png(shot, 800, 600, px)
       }
-      frames = frames + 1
+      pipe.destroy()
+      rt.destroy()
     }
     let errs = dev.validation_errors()
-    pipe.destroy()
-    sc.destroy()
     dev.destroy()
     if pixels > 0 && errs == 0 {
       println(

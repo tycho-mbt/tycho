@@ -3,15 +3,29 @@
 // and sampler LOD control (`SamplerDesc` min_lod/max_lod).
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
   try {
-    let dev = @tycho.Device::new("Tycho RHI Reflection & Mipmaps", true)
-    let sc = dev.create_swapchain_desc(
-      @tycho.SwapchainDesc::new(
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
+    let dev = @tycho.Device::new_desc(
+      @tycho.DeviceDesc::new(
         "Tycho RHI Reflection & Mipmaps",
-        800,
-        600,
-        enable_readback=true,
+        validation=true,
+        headless=!show_win,
       ),
     )
 
@@ -32,9 +46,6 @@ fn main {
       fr.bindings[0].binding == 0 &&
       fr.push_constant_size == 16 &&
       fr.color_output_count == 1
-
-    // Zero manual vertex_formats / texture_slots / push_constant_size!
-    let pipe = sc.create_pipeline_desc(@tycho.PipelineDesc::from_spirv(vert, frag))
 
     // 16x16 4-quadrant RGBA8 image: Red, Green, Blue, White -> 1x1 mip average ≈ (127, 127, 127, 255)
     let w = 16
@@ -108,25 +119,67 @@ fn main {
     vbuf.upload_floats(verts)
     let tint : FixedArray[Float] = [1.0, 1.0, 1.0, 1.0]
 
-    let start = @tycho.Swapchain::time()
     let mut pixels : FixedArray[Byte] = []
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
-      let cmd = sc.begin_frame()
+    let mut is_bgra = false
+    if show_win {
+      let sc = dev.create_swapchain_desc(
+        @tycho.SwapchainDesc::new(
+          "Tycho RHI Reflection & Mipmaps",
+          800,
+          600,
+          enable_readback=true,
+        ),
+      )
+      is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
+      let pipe = sc.create_pipeline_desc(@tycho.PipelineDesc::from_spirv(vert, frag))
+      while !should_quit(sc) {
+        let cmd = sc.begin_frame()
+        cmd.bind_pipeline(pipe)
+        cmd.bind_texture(pipe, 0, tex, samp)
+        cmd.push_constants_floats(pipe, tint)
+        cmd.bind_vertex(0, vbuf)
+        cmd.draw(6, 1)
+        sc.end_frame(cmd)
+        if frames == 0 {
+          pixels = sc.readback()
+          if shot != "" {
+            let _ = @tycho.save_png(shot, 800, 600, pixels, bgra=is_bgra)
+          }
+        }
+        frames = frames + 1
+      }
+      pipe.destroy()
+      sc.destroy()
+    } else {
+      let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
+      let pipe = dev.create_graphics_pipeline(
+        @tycho.PipelineDesc::from_spirv(
+          vert,
+          frag,
+          color_format=Some(@tycho.TextureFormat::RGBA8),
+        ),
+      )
+      let cmd = dev.begin_commands()
+      cmd.begin_render_pass([@tycho.RenderTargetDesc::new(rt)])
       cmd.bind_pipeline(pipe)
       cmd.bind_texture(pipe, 0, tex, samp)
       cmd.push_constants_floats(pipe, tint)
       cmd.bind_vertex(0, vbuf)
       cmd.draw(6, 1)
-      sc.end_frame(cmd)
-      if frames == 0 {
-        pixels = sc.readback()
+      cmd.end_render_pass()
+      dev.end_commands(cmd)
+      pixels = rt.readback()
+      frames = 1
+      if shot != "" {
+        let _ = @tycho.save_png(shot, 800, 600, pixels)
       }
-      frames = frames + 1
+      pipe.destroy()
+      rt.destroy()
     }
 
     let c = (300 * 800 + 400) * 4
-    let (sr, sg, sb) = if sc.color_format() == @tycho.TextureFormat::BGRA8 {
+    let (sr, sg, sb) = if is_bgra {
       (pixels[c + 2].to_int(), pixels[c + 1].to_int(), pixels[c].to_int())
     } else {
       (pixels[c].to_int(), pixels[c + 1].to_int(), pixels[c + 2].to_int())
@@ -142,8 +195,6 @@ fn main {
     vbuf.destroy()
     samp.destroy()
     tex.destroy()
-    pipe.destroy()
-    sc.destroy()
     dev.destroy()
 
     println(

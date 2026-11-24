@@ -4,10 +4,30 @@
 // - Exercises both direct `draw_mesh_tasks` and indirect `draw_mesh_tasks_indirect`
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
   try {
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
-      @tycho.DeviceDesc::new("Tycho RHI Mesh", validation=true, headless=true),
+      @tycho.DeviceDesc::new(
+        "Tycho RHI Mesh",
+        validation=true,
+        headless=!show_win,
+      ),
     )
     if !dev.capabilities().supports_mesh_shader {
       println("[47-rhi-mesh] SKIP — device lacks VK_EXT_mesh_shader")
@@ -43,9 +63,18 @@ fn main {
       location=@tycho.MemoryLocation::GpuOnly,
     )
     ssbo.upload_floats([
-      (-0.35 : Float), (-0.5 : Float), (0.0 : Float), (1.0 : Float),
-      (0.35 : Float), (-0.5 : Float), (0.0 : Float), (1.0 : Float),
-      (0.0 : Float), (0.5 : Float), (0.0 : Float), (1.0 : Float),
+      (-0.35 : Float),
+      (-0.5 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
+      (0.35 : Float),
+      (-0.5 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
+      (0.0 : Float),
+      (0.5 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
     ])
     let indirect_buf = dev.create_buffer_with(
       12,
@@ -67,22 +96,48 @@ fn main {
     cmd.bind_storage(pipe, 0, ssbo)
     // Left red triangle via direct draw_mesh_tasks
     cmd.push_constants_floats(pipe, [
-      (0.95 : Float), (0.05 : Float), (0.05 : Float), (1.0 : Float), (-0.5 : Float),
+      (0.95 : Float),
+      (0.05 : Float),
+      (0.05 : Float),
+      (1.0 : Float),
+      (-0.5 : Float),
     ])
     cmd.draw_mesh_tasks(1, 1, 1)
     // Right green triangle via draw_mesh_tasks_indirect
     cmd.push_constants_floats(pipe, [
-      (0.05 : Float), (0.95 : Float), (0.1 : Float), (1.0 : Float), (0.5 : Float),
+      (0.05 : Float),
+      (0.95 : Float),
+      (0.1 : Float),
+      (1.0 : Float),
+      (0.5 : Float),
     ])
     cmd.draw_mesh_tasks_indirect(indirect_buf, 1)
     cmd.end_render_pass()
     dev.end_commands(cmd)
 
     let px = rt.readback()
+    if shot != "" {
+      let _ = @tycho.save_png(shot, 200, 200, px)
+    }
+    if show_win {
+      let sc = dev.create_swapchain("Tycho RHI Mesh", 600, 600)
+      while !should_quit(sc) {
+        sc.present_texture(rt)
+      }
+      sc.destroy()
+    }
     let li = (100 * 200 + 50) * 4
-    let (lr, lg, lb) = (px[li].to_int(), px[li + 1].to_int(), px[li + 2].to_int())
+    let (lr, lg, lb) = (
+      px[li].to_int(),
+      px[li + 1].to_int(),
+      px[li + 2].to_int(),
+    )
     let ri = (100 * 200 + 150) * 4
-    let (rr, rg, rb) = (px[ri].to_int(), px[ri + 1].to_int(), px[ri + 2].to_int())
+    let (rr, rg, rb) = (
+      px[ri].to_int(),
+      px[ri + 1].to_int(),
+      px[ri + 2].to_int(),
+    )
 
     let errs = dev.validation_errors()
     rt.destroy()
@@ -93,9 +148,7 @@ fn main {
 
     let left_ok = lr > 200 && lg < 40 && lb < 40
     let right_ok = rr < 40 && rg > 200 && rb < 60
-    println(
-      "[47-rhi-mesh] left=(\{lr},\{lg},\{lb}) right=(\{rr},\{rg},\{rb})",
-    )
+    println("[47-rhi-mesh] left=(\{lr},\{lg},\{lb}) right=(\{rr},\{rg},\{rb})")
     if left_ok && right_ok && errs == 0 {
       println(
         "[47-rhi-mesh] OK — task+mesh shader + SSBO + push constants + draw_mesh_tasks_indirect passed (0 validation errors)",

@@ -6,3 +6,9 @@ Tests RHI v0.4 texture & sampler extensions:
 - `Texture::upload_subregion` (updating an `R8` texture region)
 - `CommandBuffer::blit_texture` (16x16 -> 32x32 linear blit)
 - `SamplerDesc` with `anisotropy=8.0`, `AddressMode::ClampToBorder`, `BorderColor::OpaqueWhite`
+
+## Screenshot
+
+![45-rhi-textures-samplers screenshot](./screenshot.png)
+
+> Runs headless by default for automated verification. Pass `--window` (or `TYCHO_WINDOW=1`) to render on screen.

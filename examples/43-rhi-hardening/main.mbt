@@ -67,16 +67,11 @@ fn main {
       dev_h.validation_errors() == 0
     dev_h.destroy()
 
-    // 2. Windowed device + dynamic descriptor pool expansion (40 draws in 1 frame)
-    let dev = @tycho.Device::new("Tycho RHI Hardening", true)
-    let sc = dev.create_swapchain_desc(
-      @tycho.SwapchainDesc::new(
-        "Tycho RHI Hardening",
-        400,
-        300,
-        enable_readback=true,
-        present_mode=@tycho.PresentMode::Mailbox,
-      ),
+    // 2. Dynamic descriptor pool expansion (40+ draws in 1 frame): headless by default, `--window` for screen
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
+    let dev = @tycho.Device::new_desc(
+      @tycho.DeviceDesc::new("Tycho RHI Hardening", validation=true, headless=!show_win),
     )
     let vert = @tycho.compile_glsl(
       "examples/43-rhi-hardening/shader.vert",
@@ -86,7 +81,6 @@ fn main {
       "examples/43-rhi-hardening/shader.frag",
       @tycho.ShaderStage::Fragment,
     )
-    let pipe = sc.create_pipeline(vert, frag, 1)
 
     let ubos : Array[@tycho.Buffer] = []
     for i = 0; i < 40; i = i + 1 {
@@ -100,39 +94,105 @@ fn main {
     }
 
     let mut pixels : FixedArray[Byte] = []
-    let scale = sc.content_scale()
-    let is_fs = sc.is_fullscreen()
-    sc.set_cursor_mode(@tycho.CursorMode::Hidden)
-    sc.set_cursor_mode(@tycho.CursorMode::Normal)
+    let mut scale = 1.0
+    let mut is_fs = false
+    let mut is_bgra = false
     let keys_ok = @tycho.KEY_W != 0 && @tycho.KEY_F1 != 0 && @tycho.KEY_LSHIFT != 0
-    for f = 0; f < 6; f = f + 1 {
-      // Create & destroy a transient buffer per frame to exercise deferred deletion across frames
-      let transient = dev.create_buffer(128, @tycho.BufferKind::Uniform)
-      transient.destroy()
+    if show_win {
+      let sc = dev.create_swapchain_desc(
+        @tycho.SwapchainDesc::new(
+          "Tycho RHI Hardening",
+          400,
+          300,
+          enable_readback=true,
+          present_mode=@tycho.PresentMode::Mailbox,
+        ),
+      )
+      is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
+      let pipe = sc.create_pipeline(vert, frag, 1)
+      scale = sc.content_scale()
+      is_fs = sc.is_fullscreen()
+      sc.set_cursor_mode(@tycho.CursorMode::Hidden)
+      sc.set_cursor_mode(@tycho.CursorMode::Normal)
+      let mut f = 0
+      let mut quit = false
+      while !sc.should_close() && !quit {
+        for ev in sc.poll_events() {
+          match ev {
+            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
+            _ => ()
+          }
+        }
+        let transient = dev.create_buffer(128, @tycho.BufferKind::Uniform)
+        transient.destroy()
+        let inflight_ubo = dev.create_buffer(64, @tycho.BufferKind::Uniform)
+        inflight_ubo.upload_floats([(0.0 : Float), (0.9 : Float), (0.1 : Float), (1.0 : Float)])
 
-      let inflight_ubo = dev.create_buffer(64, @tycho.BufferKind::Uniform)
-      inflight_ubo.upload_floats([(0.0 : Float), (0.9 : Float), (0.1 : Float), (1.0 : Float)])
-
-      let cmd = sc.begin_frame_commands()
-      cmd.begin_swapchain_pass(sc)
-      cmd.bind_pipeline(pipe)
-      for i = 0; i < 40; i = i + 1 {
-        cmd.bind_uniform(pipe, 0, ubos[i])
+        let cmd = sc.begin_frame_commands()
+        cmd.begin_swapchain_pass(sc)
+        cmd.bind_pipeline(pipe)
+        for i = 0; i < 40; i = i + 1 {
+          cmd.bind_uniform(pipe, 0, ubos[i])
+          cmd.draw(3, 1)
+        }
+        cmd.bind_uniform(pipe, 0, inflight_ubo)
         cmd.draw(3, 1)
+        cmd.end_swapchain_pass()
+        sc.end_frame(cmd)
+        inflight_ubo.destroy()
+        if f == 0 {
+          pixels = sc.readback()
+          if shot != "" {
+            let _ = @tycho.save_png(shot, 400, 300, pixels, bgra=is_bgra)
+          }
+        }
+        f = f + 1
       }
-      cmd.bind_uniform(pipe, 0, inflight_ubo)
-      cmd.draw(3, 1)
-      cmd.end_swapchain_pass()
-      sc.end_frame(cmd)
-      // Destroy in-flight uniform buffer immediately after end_frame while GPU work is pending
-      inflight_ubo.destroy()
-      if f == 0 {
-        pixels = sc.readback()
+      pipe.destroy()
+      sc.destroy()
+    } else {
+      let rt = dev.create_render_target(400, 300, @tycho.TextureFormat::RGBA8)
+      let pipe = dev.create_graphics_pipeline(
+        @tycho.PipelineDesc::new(
+          vert,
+          frag,
+          uniform_slots=1,
+          color_format=Some(@tycho.TextureFormat::RGBA8),
+        ),
+      )
+      for f = 0; f < 6; f = f + 1 {
+        let transient = dev.create_buffer(128, @tycho.BufferKind::Uniform)
+        transient.destroy()
+        let inflight_ubo = dev.create_buffer(64, @tycho.BufferKind::Uniform)
+        inflight_ubo.upload_floats([(0.0 : Float), (0.9 : Float), (0.1 : Float), (1.0 : Float)])
+        let fence = dev.create_fence(false)
+        let cmd = dev.begin_commands()
+        cmd.begin_render_pass([@tycho.RenderTargetDesc::new(rt)])
+        cmd.bind_pipeline(pipe)
+        for i = 0; i < 40; i = i + 1 {
+          cmd.bind_uniform(pipe, 0, ubos[i])
+          cmd.draw(3, 1)
+        }
+        cmd.bind_uniform(pipe, 0, inflight_ubo)
+        cmd.draw(3, 1)
+        cmd.end_render_pass()
+        dev.submit_commands(cmd, fence)
+        inflight_ubo.destroy()
+        fence.wait()
+        fence.destroy()
+        if f == 0 {
+          pixels = rt.readback()
+          if shot != "" {
+            let _ = @tycho.save_png(shot, 400, 300, pixels)
+          }
+        }
       }
+      pipe.destroy()
+      rt.destroy()
     }
 
     let c = (150 * 400 + 200) * 4
-    let (r, g, b) = if sc.color_format() == @tycho.TextureFormat::BGRA8 {
+    let (r, g, b) = if is_bgra {
       (pixels[c + 2].to_int(), pixels[c + 1].to_int(), pixels[c].to_int())
     } else {
       (pixels[c].to_int(), pixels[c + 1].to_int(), pixels[c + 2].to_int())
@@ -142,9 +202,7 @@ fn main {
     for u in ubos {
       u.destroy()
     }
-    pipe.destroy()
     let errs = dev.validation_errors()
-    sc.destroy()
     dev.wait_idle()
     let used_after_wait = dev.allocator_used_bytes()
     dev.destroy()

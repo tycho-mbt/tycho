@@ -2,22 +2,12 @@
 // Texture image + memory + layout transitions (pipeline barriers) + buffer->image copy
 // + sampler + combined-image-sampler descriptor + textured quad.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ///|
-fn find_memory_type(memprops : @vk.VkPhysicalDeviceMemoryProperties, typeBits : UInt32, props : UInt32) -> Int {
+fn find_memory_type(
+  memprops : @vk.VkPhysicalDeviceMemoryProperties,
+  typeBits : UInt32,
+  props : UInt32,
+) -> Int32 {
   let n = memprops.get_memoryTypeCount().reinterpret_as_int()
   for i = 0; i < n; i = i + 1 {
     if (typeBits & ((1 : UInt32) << i)) != (0 : UInt32) {
@@ -30,7 +20,15 @@ fn find_memory_type(memprops : @vk.VkPhysicalDeviceMemoryProperties, typeBits : 
 }
 
 ///|
-fn alloc_memory(dev : @vk.VkDevice, dfn : @vk.DeviceFn, phys : @vk.VkPhysicalDevice, ifn : @vk.InstanceFn, typeBits : UInt32, size : UInt64, props : UInt32) -> @vk.VkDeviceMemory {
+fn alloc_memory(
+  dev : @vk.VkDevice,
+  dfn : @vk.DeviceFn,
+  phys : @vk.VkPhysicalDevice,
+  ifn : @vk.InstanceFn,
+  typeBits : UInt32,
+  size : UInt64,
+  props : UInt32,
+) -> @vk.VkDeviceMemory {
   let memprops = @vk.VkPhysicalDeviceMemoryProperties::new()
   (ifn.vkGetPhysicalDeviceMemoryProperties)(phys, memprops)
   let idx = find_memory_type(memprops, typeBits, props)
@@ -38,14 +36,23 @@ fn alloc_memory(dev : @vk.VkDevice, dfn : @vk.DeviceFn, phys : @vk.VkPhysicalDev
   mai.set_allocationSize(size)
   mai.set_memoryTypeIndex(idx.reinterpret_as_uint())
   let mem_out = FixedArray::make(1, @vk.VkDeviceMemory::null())
-  let _ = (dfn.vkAllocateMemory)(dev, mai, @vk.VkAllocationCallbacks::null(), mem_out)
+  let _ = (dfn.vkAllocateMemory)(
+    dev,
+    mai,
+    @vk.VkAllocationCallbacks::null(),
+    mem_out,
+  )
   memprops.free()
   mai.free()
   mem_out[0]
 }
 
 ///|
-fn begin_one_time(dev : @vk.VkDevice, dfn : @vk.DeviceFn, pool : @vk.VkCommandPool) -> @vk.VkCommandBuffer {
+fn begin_one_time(
+  dev : @vk.VkDevice,
+  dfn : @vk.DeviceFn,
+  pool : @vk.VkCommandPool,
+) -> @vk.VkCommandBuffer {
   let cbai = @vk.VkCommandBufferAllocateInfo::new()
   cbai.set_commandPool(pool)
   cbai.set_level(@vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY)
@@ -61,7 +68,13 @@ fn begin_one_time(dev : @vk.VkDevice, dfn : @vk.DeviceFn, pool : @vk.VkCommandPo
 }
 
 ///|
-fn end_one_time(dev : @vk.VkDevice, dfn : @vk.DeviceFn, pool : @vk.VkCommandPool, queue : @vk.VkQueue, cmd : @vk.VkCommandBuffer) -> Unit {
+fn end_one_time(
+  dev : @vk.VkDevice,
+  dfn : @vk.DeviceFn,
+  pool : @vk.VkCommandPool,
+  queue : @vk.VkQueue,
+  cmd : @vk.VkCommandBuffer,
+) -> Unit {
   let _ = (dfn.vkEndCommandBuffer)(cmd)
   let submit = @vk.VkSubmitInfo::new()
   submit.set_commandBufferCount((1 : UInt32))
@@ -73,15 +86,158 @@ fn end_one_time(dev : @vk.VkDevice, dfn : @vk.DeviceFn, pool : @vk.VkCommandPool
 }
 
 ///|
+fn create_offscreen(
+  dev : @vk.VkDevice,
+  dfn : @vk.DeviceFn,
+  phys : @vk.VkPhysicalDevice,
+  ifn : @vk.InstanceFn,
+  format : UInt32,
+  w : UInt32,
+  h : UInt32,
+) -> (@vk.VkImage, @vk.VkDeviceMemory, @vk.VkImageView) {
+  let na = @vk.VkAllocationCallbacks::null()
+  let ext = @vk.VkExtent3D::new()
+  ext.set_width(w)
+  ext.set_height(h)
+  ext.set_depth((1 : UInt32))
+  let ici = @vk.VkImageCreateInfo::new()
+  ici.set_imageType(@vk.VK_IMAGE_TYPE_2D)
+  ici.set_format(format)
+  ici.set_extent(ext)
+  ici.set_mipLevels((1 : UInt32))
+  ici.set_arrayLayers((1 : UInt32))
+  ici.set_samples(@vk.VK_SAMPLE_COUNT_1_BIT)
+  ici.set_tiling(@vk.VK_IMAGE_TILING_OPTIMAL)
+  ici.set_usage(
+    @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+    @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+  )
+  ici.set_sharingMode(@vk.VK_SHARING_MODE_EXCLUSIVE)
+  let img_out = FixedArray::make(1, @vk.VkImage::null())
+  let _ = (dfn.vkCreateImage)(dev, ici, na, img_out)
+  let req = @vk.VkMemoryRequirements::new()
+  (dfn.vkGetImageMemoryRequirements)(dev, img_out[0], req)
+  let mem = alloc_memory(
+    dev,
+    dfn,
+    phys,
+    ifn,
+    req.get_memoryTypeBits(),
+    req.get_size(),
+    @vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+  )
+  let _ = (dfn.vkBindImageMemory)(dev, img_out[0], mem, (0 : UInt64))
+  let range = @vk.VkImageSubresourceRange::new()
+  range.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+  range.set_levelCount((1 : UInt32))
+  range.set_layerCount((1 : UInt32))
+  let ivci = @vk.VkImageViewCreateInfo::new()
+  ivci.set_image(img_out[0])
+  ivci.set_viewType(@vk.VK_IMAGE_VIEW_TYPE_2D)
+  ivci.set_format(format)
+  ivci.set_subresourceRange(range)
+  let iv_out = FixedArray::make(1, @vk.VkImageView::null())
+  let _ = (dfn.vkCreateImageView)(dev, ivci, na, iv_out)
+  ext.free()
+  ici.free()
+  req.free()
+  range.free()
+  ivci.free()
+  (img_out[0], mem, iv_out[0])
+}
+
+///|
+fn readback_offscreen(
+  dev : @vk.VkDevice,
+  dfn : @vk.DeviceFn,
+  phys : @vk.VkPhysicalDevice,
+  ifn : @vk.InstanceFn,
+  queue : @vk.VkQueue,
+  pool : @vk.VkCommandPool,
+  image : @vk.VkImage,
+  w : Int32,
+  h : Int32,
+) -> FixedArray[Byte] {
+  let na = @vk.VkAllocationCallbacks::null()
+  let bytes = w * h * 4
+  let bci = @vk.VkBufferCreateInfo::new()
+  bci.set_size(bytes.to_uint64())
+  bci.set_usage(@vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+  bci.set_sharingMode(@vk.VK_SHARING_MODE_EXCLUSIVE)
+  let buf_out = FixedArray::make(1, @vk.VkBuffer::null())
+  let _ = (dfn.vkCreateBuffer)(dev, bci, na, buf_out)
+  let req = @vk.VkMemoryRequirements::new()
+  (dfn.vkGetBufferMemoryRequirements)(dev, buf_out[0], req)
+  let mem = alloc_memory(
+    dev,
+    dfn,
+    phys,
+    ifn,
+    req.get_memoryTypeBits(),
+    req.get_size(),
+    @vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+    @vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+  )
+  let _ = (dfn.vkBindBufferMemory)(dev, buf_out[0], mem, (0 : UInt64))
+  let cmd = begin_one_time(dev, dfn, pool)
+  let sub = @vk.VkImageSubresourceLayers::new()
+  sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+  sub.set_layerCount((1 : UInt32))
+  let ext = @vk.VkExtent3D::new()
+  ext.set_width(w.reinterpret_as_uint())
+  ext.set_height(h.reinterpret_as_uint())
+  ext.set_depth((1 : UInt32))
+  let region = @vk.VkBufferImageCopy::new()
+  region.set_imageSubresource(sub)
+  region.set_imageExtent(ext)
+  (dfn.vkCmdCopyImageToBuffer)(
+    cmd,
+    image,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    buf_out[0],
+    (1 : UInt32),
+    region,
+  )
+  end_one_time(dev, dfn, pool, queue, cmd)
+  let raw = @vk.download_buffer(dev, mem, bytes)
+  let out = FixedArray::makei(raw.length(), fn(i) { raw[i] })
+  (dfn.vkDestroyBuffer)(dev, buf_out[0], na)
+  (dfn.vkFreeMemory)(dev, mem, na)
+  bci.free()
+  req.free()
+  sub.free()
+  ext.free()
+  region.free()
+  out
+}
+
+///|
+fn count_rgb_pixels(px : FixedArray[Byte]) -> UInt32 {
+  let mut n = 0
+  let mut i = 0
+  while i + 3 < px.length() {
+    if px[i] != (0 : Byte) || px[i + 1] != (0 : Byte) || px[i + 2] != (0 : Byte) {
+      n = n + 1
+    }
+    i = i + 4
+  }
+  n.reinterpret_as_uint()
+}
+
+///|
 fn main {
+  let show_win = @shader.want_window()
+  let shot = @shader.screenshot_path()
   let na = @vk.VkAllocationCallbacks::null()
   let app = @vk.VkApplicationInfo::new()
   app.set_pApplicationName(@vk.cstr("Texture"))
   app.set_apiVersion((4194304 : UInt32))
   let ici = @vk.VkInstanceCreateInfo::new()
   ici.set_pApplicationInfo(app)
-  ici.set_enabledExtensionCount((3 : UInt32))
-  ici.set_ppEnabledExtensionNames(@vk.cstr_array(@win.surface_extensions()))
+  if show_win {
+    ici.set_enabledExtensionCount((3 : UInt32))
+    ici.set_ppEnabledExtensionNames(@vk.cstr_array(@win.surface_extensions()))
+  }
   let inst_out = FixedArray::make(1, @vk.VkInstance::null())
   let _ = @vk.vkCreateInstance(ici, na, inst_out)
   let inst = inst_out[0]
@@ -98,8 +254,10 @@ fn main {
   let dci = @vk.VkDeviceCreateInfo::new()
   dci.set_queueCreateInfoCount((1 : UInt32))
   dci.set_pQueueCreateInfos(qci)
-  dci.set_enabledExtensionCount((1 : UInt32))
-  dci.set_ppEnabledExtensionNames(@vk.cstr_array(["VK_KHR_swapchain"]))
+  if show_win {
+    dci.set_enabledExtensionCount((1 : UInt32))
+    dci.set_ppEnabledExtensionNames(@vk.cstr_array(["VK_KHR_swapchain"]))
+  }
   let dev_out = FixedArray::make(1, @vk.VkDevice::null())
   let _ = (ifn.vkCreateDevice)(phys, dci, na, dev_out)
   let dev = dev_out[0]
@@ -113,63 +271,108 @@ fn main {
   let _ = (dfn.vkCreateCommandPool)(dev, cpci, na, pool_out)
   let cmd_pool = pool_out[0]
 
-  // surface + swapchain + views
-  let _ = @win.initialize()
-  let win = @win.create((800 : Int32), (600 : Int32), "Tycho-Example")
-  let surface = @win.create_surface(inst, win)
-  let caps = @vk.VkSurfaceCapabilitiesKHR::new()
-  let _ = (ifn.vkGetPhysicalDeviceSurfaceCapabilitiesKHR)(phys, surface, caps)
-  let fc = FixedArray::make(1, (0 : UInt32))
-  let _ = (ifn.vkGetPhysicalDeviceSurfaceFormatsKHR)(phys, surface, fc, @vk.VkSurfaceFormatKHR::null())
-  let formats = @vk.VkSurfaceFormatKHR::array(fc[0].reinterpret_as_int())
-  let _ = (ifn.vkGetPhysicalDeviceSurfaceFormatsKHR)(phys, surface, fc, formats)
-  let format = formats.get_format_at(0)
   let extent = @vk.VkExtent2D::new()
   extent.set_width((800 : UInt32))
   extent.set_height((600 : UInt32))
-  let swci = @vk.VkSwapchainCreateInfoKHR::new()
-  swci.set_surface(surface)
-  swci.set_minImageCount(caps.get_minImageCount())
-  swci.set_imageFormat(format)
-  swci.set_imageColorSpace(formats.get_colorSpace_at(0))
-  swci.set_imageExtent(extent)
-  swci.set_imageArrayLayers((1 : UInt32))
-  swci.set_imageUsage((@vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) // COLOR_ATTACHMENT(16) | TRANSFER_SRC(1)
-  swci.set_imageSharingMode(@vk.VK_SHARING_MODE_EXCLUSIVE)
-  swci.set_preTransform(caps.get_currentTransform())
-  swci.set_compositeAlpha(@vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
-  swci.set_presentMode(@vk.VK_PRESENT_MODE_FIFO_KHR)
-  swci.set_clipped((1 : UInt32))
-  let sc_out = FixedArray::make(1, @vk.VkSwapchainKHR::null())
-  let _ = (dfn.vkCreateSwapchainKHR)(dev, swci, na, sc_out)
-  let swapchain = sc_out[0]
-  let ic = FixedArray::make(1, (8 : UInt32))
+  let mut win : UInt64 = (0 : UInt64)
+  let mut surface = @vk.VkSurfaceKHR::null()
+  let mut swapchain = @vk.VkSwapchainKHR::null()
+  let mut format = @vk.VK_FORMAT_R8G8B8A8_UNORM
+  let mut nimg = 1
   let images = FixedArray::make(8, @vk.VkImage::null())
-  let _ = (dfn.vkGetSwapchainImagesKHR)(dev, swapchain, ic, images)
-  let nimg = ic[0].reinterpret_as_int()
-  let views = FixedArray::make(nimg, @vk.VkImageView::null())
-  for i = 0; i < nimg; i = i + 1 {
-    let range = @vk.VkImageSubresourceRange::new()
-    range.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
-    range.set_levelCount((1 : UInt32))
-    range.set_layerCount((1 : UInt32))
-    let ivci = @vk.VkImageViewCreateInfo::new()
-    ivci.set_image(images[i])
-    ivci.set_viewType(@vk.VK_IMAGE_VIEW_TYPE_2D)
-    ivci.set_format(format)
-    ivci.set_subresourceRange(range)
-    let iv_out = FixedArray::make(1, @vk.VkImageView::null())
-    let _ = (dfn.vkCreateImageView)(dev, ivci, na, iv_out)
-    views[i] = iv_out[0]
-    ivci.free()
-    range.free()
+  let views = FixedArray::make(8, @vk.VkImageView::null())
+  let mut off_mem = @vk.VkDeviceMemory::null()
+  if show_win {
+    let _ = @win.initialize()
+    win = @win.create((800 : Int32), (600 : Int32), "Tycho-Example")
+    surface = @win.create_surface(inst, win)
+    let caps = @vk.VkSurfaceCapabilitiesKHR::new()
+    let _ = (ifn.vkGetPhysicalDeviceSurfaceCapabilitiesKHR)(phys, surface, caps)
+    let fc = FixedArray::make(1, (0 : UInt32))
+    let _ = (ifn.vkGetPhysicalDeviceSurfaceFormatsKHR)(
+      phys,
+      surface,
+      fc,
+      @vk.VkSurfaceFormatKHR::null(),
+    )
+    let formats = @vk.VkSurfaceFormatKHR::array(fc[0].reinterpret_as_int())
+    let _ = (ifn.vkGetPhysicalDeviceSurfaceFormatsKHR)(
+      phys, surface, fc, formats,
+    )
+    format = formats.get_format_at(0)
+    let swci = @vk.VkSwapchainCreateInfoKHR::new()
+    swci.set_surface(surface)
+    swci.set_minImageCount(caps.get_minImageCount())
+    swci.set_imageFormat(format)
+    swci.set_imageColorSpace(formats.get_colorSpace_at(0))
+    swci.set_imageExtent(extent)
+    swci.set_imageArrayLayers((1 : UInt32))
+    swci.set_imageUsage(
+      @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+      @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+    )
+    swci.set_imageSharingMode(@vk.VK_SHARING_MODE_EXCLUSIVE)
+    swci.set_preTransform(caps.get_currentTransform())
+    swci.set_compositeAlpha(@vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
+    swci.set_presentMode(@vk.VK_PRESENT_MODE_FIFO_KHR)
+    swci.set_clipped((1 : UInt32))
+    let sc_out = FixedArray::make(1, @vk.VkSwapchainKHR::null())
+    let _ = (dfn.vkCreateSwapchainKHR)(dev, swci, na, sc_out)
+    swapchain = sc_out[0]
+    let ic = FixedArray::make(1, (8 : UInt32))
+    let _ = (dfn.vkGetSwapchainImagesKHR)(dev, swapchain, ic, images)
+    nimg = ic[0].reinterpret_as_int()
+    for i = 0; i < nimg; i = i + 1 {
+      let range = @vk.VkImageSubresourceRange::new()
+      range.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+      range.set_levelCount((1 : UInt32))
+      range.set_layerCount((1 : UInt32))
+      let ivci = @vk.VkImageViewCreateInfo::new()
+      ivci.set_image(images[i])
+      ivci.set_viewType(@vk.VK_IMAGE_VIEW_TYPE_2D)
+      ivci.set_format(format)
+      ivci.set_subresourceRange(range)
+      let iv_out = FixedArray::make(1, @vk.VkImageView::null())
+      let _ = (dfn.vkCreateImageView)(dev, ivci, na, iv_out)
+      views[i] = iv_out[0]
+      ivci.free()
+      range.free()
+    }
+  } else {
+    let (oi, om, ov) = create_offscreen(
+      dev,
+      dfn,
+      phys,
+      ifn,
+      format,
+      (800 : UInt32),
+      (600 : UInt32),
+    )
+    images[0] = oi
+    off_mem = om
+    views[0] = ov
   }
 
   // --- Texture image (2x2 RGBA) + staging upload + layout transitions + copy ---
   let tex_w : UInt32 = 2
   let tex_h : UInt32 = 2
   let pixels : Bytes = Bytes::from_array([
-    (255 : Byte), 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
+    (255 : Byte),
+    0,
+    0,
+    255,
+    0,
+    255,
+    0,
+    255,
+    0,
+    0,
+    255,
+    255,
+    255,
+    255,
+    0,
+    255,
   ])
   let staging_bci = @vk.VkBufferCreateInfo::new()
   staging_bci.set_size((16 : UInt64))
@@ -180,7 +383,15 @@ fn main {
   let staging_buf = staging_out[0]
   let sreq = @vk.VkMemoryRequirements::new()
   (dfn.vkGetBufferMemoryRequirements)(dev, staging_buf, sreq)
-  let staging_mem = alloc_memory(dev, dfn, phys, ifn, sreq.get_memoryTypeBits(), sreq.get_size(), (6 : UInt32))
+  let staging_mem = alloc_memory(
+    dev,
+    dfn,
+    phys,
+    ifn,
+    sreq.get_memoryTypeBits(),
+    sreq.get_size(),
+    (6 : UInt32),
+  )
   let _ = (dfn.vkBindBufferMemory)(dev, staging_buf, staging_mem, (0 : UInt64))
   let _ = @vk.upload_bytes(dev, staging_mem, pixels, 16)
   let ici2 = @vk.VkImageCreateInfo::new()
@@ -195,7 +406,9 @@ fn main {
   ici2.set_arrayLayers((1 : UInt32))
   ici2.set_samples(@vk.VK_SAMPLE_COUNT_1_BIT)
   ici2.set_tiling((0 : UInt32)) // OPTIMAL
-  ici2.set_usage((@vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT | @vk.VK_IMAGE_USAGE_SAMPLED_BIT)) // TRANSFER_DST | SAMPLED
+  ici2.set_usage(
+    @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT | @vk.VK_IMAGE_USAGE_SAMPLED_BIT,
+  ) // TRANSFER_DST | SAMPLED
   ici2.set_sharingMode((0 : UInt32))
   ici2.set_initialLayout(@vk.VK_IMAGE_LAYOUT_UNDEFINED) // UNDEFINED
   let tex_out = FixedArray::make(1, @vk.VkImage::null())
@@ -203,7 +416,15 @@ fn main {
   let tex_image = tex_out[0]
   let ireq = @vk.VkMemoryRequirements::new()
   (dfn.vkGetImageMemoryRequirements)(dev, tex_image, ireq)
-  let tex_mem = alloc_memory(dev, dfn, phys, ifn, ireq.get_memoryTypeBits(), ireq.get_size(), (1 : UInt32))
+  let tex_mem = alloc_memory(
+    dev,
+    dfn,
+    phys,
+    ifn,
+    ireq.get_memoryTypeBits(),
+    ireq.get_size(),
+    (1 : UInt32),
+  )
   let _ = (dfn.vkBindImageMemory)(dev, tex_image, tex_mem, (0 : UInt64))
   // transition UNDEFINED -> TRANSFER_DST_OPTIMAL
   let sub_range = @vk.VkImageSubresourceRange::new()
@@ -220,7 +441,18 @@ fn main {
   barrier.set_dstAccessMask(@vk.VK_ACCESS_TRANSFER_WRITE_BIT) // TRANSFER_WRITE
   barrier.set_subresourceRange(sub_range)
   let cmd1 = begin_one_time(dev, dfn, cmd_pool)
-  (dfn.vkCmdPipelineBarrier)(cmd1, (1 : UInt32), (1024 : UInt32), (0 : UInt32), (0 : UInt32), @vk.VkMemoryBarrier::null(), (0 : UInt32), @vk.VkBufferMemoryBarrier::null(), (1 : UInt32), barrier)
+  (dfn.vkCmdPipelineBarrier)(
+    cmd1,
+    (1 : UInt32),
+    (1024 : UInt32),
+    (0 : UInt32),
+    (0 : UInt32),
+    @vk.VkMemoryBarrier::null(),
+    (0 : UInt32),
+    @vk.VkBufferMemoryBarrier::null(),
+    (1 : UInt32),
+    barrier,
+  )
   end_one_time(dev, dfn, cmd_pool, queue, cmd1)
   // copy buffer -> image
   let copy_region = @vk.VkBufferImageCopy::new()
@@ -232,7 +464,14 @@ fn main {
   copy_region.set_imageOffset(img_off)
   copy_region.set_imageExtent(tex_extent)
   let cmd2 = begin_one_time(dev, dfn, cmd_pool)
-  (dfn.vkCmdCopyBufferToImage)(cmd2, staging_buf, tex_image, (2 : UInt32), (1 : UInt32), copy_region)
+  (dfn.vkCmdCopyBufferToImage)(
+    cmd2,
+    staging_buf,
+    tex_image,
+    (2 : UInt32),
+    (1 : UInt32),
+    copy_region,
+  )
   end_one_time(dev, dfn, cmd_pool, queue, cmd2)
   // transition TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL
   barrier.set_oldLayout(@vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
@@ -240,7 +479,18 @@ fn main {
   barrier.set_srcAccessMask(@vk.VK_ACCESS_TRANSFER_WRITE_BIT)
   barrier.set_dstAccessMask(@vk.VK_ACCESS_SHADER_READ_BIT) // SHADER_READ
   let cmd3 = begin_one_time(dev, dfn, cmd_pool)
-  (dfn.vkCmdPipelineBarrier)(cmd3, (1024 : UInt32), (128 : UInt32), (0 : UInt32), (0 : UInt32), @vk.VkMemoryBarrier::null(), (0 : UInt32), @vk.VkBufferMemoryBarrier::null(), (1 : UInt32), barrier)
+  (dfn.vkCmdPipelineBarrier)(
+    cmd3,
+    (1024 : UInt32),
+    (128 : UInt32),
+    (0 : UInt32),
+    (0 : UInt32),
+    @vk.VkMemoryBarrier::null(),
+    (0 : UInt32),
+    @vk.VkBufferMemoryBarrier::null(),
+    (1 : UInt32),
+    barrier,
+  )
   end_one_time(dev, dfn, cmd_pool, queue, cmd3)
   println("[06-tex] texture image created + uploaded + transitioned")
   // texture image view
@@ -311,12 +561,18 @@ fn main {
   write.set_descriptorCount((1 : UInt32))
   write.set_descriptorType((1 : UInt32))
   write.set_pImageInfo(img_info)
-  (dfn.vkUpdateDescriptorSets)(dev, (1 : UInt32), write, (0 : UInt32), @vk.VkCopyDescriptorSet::null())
+  (dfn.vkUpdateDescriptorSets)(
+    dev,
+    (1 : UInt32),
+    write,
+    (0 : UInt32),
+    @vk.VkCopyDescriptorSet::null(),
+  )
 
   // --- Vertex buffer (quad: pos vec2 + uv vec2, 6 verts) ---
   let vertices : FixedArray[Float] = [
-    -0.5, -0.5, 0.0, 0.0, 0.5, -0.5, 1.0, 0.0, 0.5, 0.5, 1.0, 1.0,
-    -0.5, -0.5, 0.0, 0.0, 0.5, 0.5, 1.0, 1.0, -0.5, 0.5, 0.0, 1.0,
+    -0.5, -0.5, 0.0, 0.0, 0.5, -0.5, 1.0, 0.0, 0.5, 0.5, 1.0, 1.0, -0.5, -0.5, 0.0,
+    0.0, 0.5, 0.5, 1.0, 1.0, -0.5, 0.5, 0.0, 1.0,
   ]
   let vbci = @vk.VkBufferCreateInfo::new()
   vbci.set_size((96 : UInt64))
@@ -326,24 +582,53 @@ fn main {
   let _ = (dfn.vkCreateBuffer)(dev, vbci, na, vstaging_out)
   let vreq = @vk.VkMemoryRequirements::new()
   (dfn.vkGetBufferMemoryRequirements)(dev, vstaging_out[0], vreq)
-  let vstaging_mem = alloc_memory(dev, dfn, phys, ifn, vreq.get_memoryTypeBits(), vreq.get_size(), (6 : UInt32))
-  let _ = (dfn.vkBindBufferMemory)(dev, vstaging_out[0], vstaging_mem, (0 : UInt64))
+  let vstaging_mem = alloc_memory(
+    dev,
+    dfn,
+    phys,
+    ifn,
+    vreq.get_memoryTypeBits(),
+    vreq.get_size(),
+    (6 : UInt32),
+  )
+  let _ = (dfn.vkBindBufferMemory)(
+    dev,
+    vstaging_out[0],
+    vstaging_mem,
+    (0 : UInt64),
+  )
   let _ = @vk.upload_buffer(dev, vstaging_mem, vertices, 96)
   let vbuf_ci = @vk.VkBufferCreateInfo::new()
   vbuf_ci.set_size((96 : UInt64))
-  vbuf_ci.set_usage((@vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT))
+  vbuf_ci.set_usage(
+    @vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+  )
   vbuf_ci.set_sharingMode((0 : UInt32))
   let vbuf_out = FixedArray::make(1, @vk.VkBuffer::null())
   let _ = (dfn.vkCreateBuffer)(dev, vbuf_ci, na, vbuf_out)
   let vertex_buf = vbuf_out[0]
   let vreq2 = @vk.VkMemoryRequirements::new()
   (dfn.vkGetBufferMemoryRequirements)(dev, vertex_buf, vreq2)
-  let vertex_mem = alloc_memory(dev, dfn, phys, ifn, vreq2.get_memoryTypeBits(), vreq2.get_size(), (1 : UInt32))
+  let vertex_mem = alloc_memory(
+    dev,
+    dfn,
+    phys,
+    ifn,
+    vreq2.get_memoryTypeBits(),
+    vreq2.get_size(),
+    (1 : UInt32),
+  )
   let _ = (dfn.vkBindBufferMemory)(dev, vertex_buf, vertex_mem, (0 : UInt64))
   let cmdv = begin_one_time(dev, dfn, cmd_pool)
   let vregion = @vk.VkBufferCopy::new()
   vregion.set_size((96 : UInt64))
-  (dfn.vkCmdCopyBuffer)(cmdv, vstaging_out[0], vertex_buf, (1 : UInt32), vregion)
+  (dfn.vkCmdCopyBuffer)(
+    cmdv,
+    vstaging_out[0],
+    vertex_buf,
+    (1 : UInt32),
+    vregion,
+  )
   end_one_time(dev, dfn, cmd_pool, queue, cmdv)
   (dfn.vkDestroyBuffer)(dev, vstaging_out[0], na)
   (dfn.vkFreeMemory)(dev, vstaging_mem, na)
@@ -357,7 +642,13 @@ fn main {
   attachment.set_stencilLoadOp(@vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE)
   attachment.set_stencilStoreOp(@vk.VK_ATTACHMENT_STORE_OP_DONT_CARE)
   attachment.set_initialLayout(@vk.VK_IMAGE_LAYOUT_UNDEFINED)
-  attachment.set_finalLayout(@vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+  attachment.set_finalLayout(
+    if show_win {
+      @vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    } else {
+      @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+    },
+  )
   let att_ref = @vk.VkAttachmentReference::new()
   att_ref.set_attachment((0 : UInt32))
   att_ref.set_layout(@vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
@@ -383,8 +674,14 @@ fn main {
   let render_pass = rp_out[0]
 
   // --- Pipeline ---
-  let vert_code = @shader.compile_shader_file("examples/06-texture/shader.vert", @shader.SHADER_KIND_VERTEX)
-  let frag_code = @shader.compile_shader_file("examples/06-texture/shader.frag", @shader.SHADER_KIND_FRAGMENT)
+  let vert_code = @shader.compile_shader_file(
+    "examples/06-texture/shader.vert",
+    @shader.SHADER_KIND_VERTEX,
+  )
+  let frag_code = @shader.compile_shader_file(
+    "examples/06-texture/shader.frag",
+    @shader.SHADER_KIND_FRAGMENT,
+  )
   let vsmci = @vk.VkShaderModuleCreateInfo::new()
   vsmci.set_codeSize((vert_code.length() * 4).to_uint64())
   vsmci.set_pCode(vert_code)
@@ -441,7 +738,12 @@ fn main {
   let multisample = @vk.VkPipelineMultisampleStateCreateInfo::new()
   multisample.set_rasterizationSamples(@vk.VK_SAMPLE_COUNT_1_BIT)
   let blend_attachment = @vk.VkPipelineColorBlendAttachmentState::new()
-  blend_attachment.set_colorWriteMask((@vk.VK_COLOR_COMPONENT_R_BIT | @vk.VK_COLOR_COMPONENT_G_BIT | @vk.VK_COLOR_COMPONENT_B_BIT | @vk.VK_COLOR_COMPONENT_A_BIT))
+  blend_attachment.set_colorWriteMask(
+    @vk.VK_COLOR_COMPONENT_R_BIT |
+    @vk.VK_COLOR_COMPONENT_G_BIT |
+    @vk.VK_COLOR_COMPONENT_B_BIT |
+    @vk.VK_COLOR_COMPONENT_A_BIT,
+  )
   let color_blend = @vk.VkPipelineColorBlendStateCreateInfo::new()
   color_blend.set_attachmentCount((1 : UInt32))
   color_blend.set_pAttachments(blend_attachment)
@@ -462,7 +764,14 @@ fn main {
   gpci.set_layout(pl_out[0])
   gpci.set_renderPass(render_pass)
   let pipe_out = FixedArray::make(1, @vk.VkPipeline::null())
-  let gpr = (dfn.vkCreateGraphicsPipelines)(dev, @vk.VkPipelineCache::null(), (1 : UInt32), gpci, na, pipe_out)
+  let gpr = (dfn.vkCreateGraphicsPipelines)(
+    dev,
+    @vk.VkPipelineCache::null(),
+    (1 : UInt32),
+    gpci,
+    na,
+    pipe_out,
+  )
   let pipeline = pipe_out[0]
   println("[06-tex] graphics pipeline (texture) = \{gpr}")
 
@@ -488,7 +797,12 @@ fn main {
   cbai2.set_commandBufferCount(nimg.reinterpret_as_uint())
   let _ = (dfn.vkAllocateCommandBuffers)(dev, cbai2, cmd_buffers)
   let clear_value = @vk.VkClearValue::new()
-  clear_value.set_color_rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (1.0 : Float))
+  clear_value.set_color_rgba(
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (1.0 : Float),
+  )
   let render_area = @vk.VkRect2D::new()
   render_area.set_extent(extent)
   let vbuffers = FixedArray::make(1, vertex_buf)
@@ -504,10 +818,35 @@ fn main {
     rpbi.set_clearValueCount((1 : UInt32))
     rpbi.set_pClearValues(clear_value)
     (dfn.vkCmdBeginRenderPass)(cmd_buffers[i], rpbi, (0 : UInt32))
-    (dfn.vkCmdBindPipeline)(cmd_buffers[i], @vk.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline)
-    (dfn.vkCmdBindVertexBuffers)(cmd_buffers[i], (0 : UInt32), (1 : UInt32), vbuffers, voffsets)
-    (dfn.vkCmdBindDescriptorSets)(cmd_buffers[i], (0 : UInt32), pl_out[0], (0 : UInt32), (1 : UInt32), desc_sets, (0 : UInt32), FixedArray::make(0, (0 : UInt32)))
-    (dfn.vkCmdDraw)(cmd_buffers[i], (6 : UInt32), (1 : UInt32), (0 : UInt32), (0 : UInt32))
+    (dfn.vkCmdBindPipeline)(
+      cmd_buffers[i],
+      @vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
+      pipeline,
+    )
+    (dfn.vkCmdBindVertexBuffers)(
+      cmd_buffers[i],
+      (0 : UInt32),
+      (1 : UInt32),
+      vbuffers,
+      voffsets,
+    )
+    (dfn.vkCmdBindDescriptorSets)(
+      cmd_buffers[i],
+      (0 : UInt32),
+      pl_out[0],
+      (0 : UInt32),
+      (1 : UInt32),
+      desc_sets,
+      (0 : UInt32),
+      FixedArray::make(0, (0 : UInt32)),
+    )
+    (dfn.vkCmdDraw)(
+      cmd_buffers[i],
+      (6 : UInt32),
+      (1 : UInt32),
+      (0 : UInt32),
+      (0 : UInt32),
+    )
     (dfn.vkCmdEndRenderPass)(cmd_buffers[i])
     let _ = (dfn.vkEndCommandBuffer)(cmd_buffers[i])
     cbi2.free()
@@ -524,37 +863,112 @@ fn main {
   fci.set_flags(@vk.VK_FENCE_CREATE_SIGNALED_BIT)
   let fence = FixedArray::make(1, @vk.VkFence::null())
   let _ = (dfn.vkCreateFence)(dev, fci, na, fence)
-  let _ = (dfn.vkWaitForFences)(dev, (1 : UInt32), fence, (1 : UInt32), (0xFFFFFFFFFFFFFFFF : UInt64))
+  let _ = (dfn.vkWaitForFences)(
+    dev,
+    (1 : UInt32),
+    fence,
+    (1 : UInt32),
+    (0xFFFFFFFFFFFFFFFF : UInt64),
+  )
   let img_idx = FixedArray::make(1, (0 : UInt32))
-  let ar = (dfn.vkAcquireNextImageKHR)(dev, swapchain, (0xFFFFFFFFFFFFFFFF : UInt64), img_avail[0], @vk.VkFence::null(), img_idx)
-  let _ = (dfn.vkResetFences)(dev, (1 : UInt32), fence)
-  let submit = @vk.VkSubmitInfo::new()
-  submit.set_waitSemaphoreCount((1 : UInt32))
-  submit.set_pWaitSemaphores(FixedArray::make(1, img_avail[0]))
-  submit.set_pWaitDstStageMask(FixedArray::make(1, @vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT))
-  submit.set_commandBufferCount((1 : UInt32))
-  submit.set_pCommandBuffers(FixedArray::make(1, cmd_buffers[img_idx[0].reinterpret_as_int()]))
-  submit.set_signalSemaphoreCount((1 : UInt32))
-  submit.set_pSignalSemaphores(FixedArray::make(1, render_done[0]))
-  let sr = (dfn.vkQueueSubmit)(queue, (1 : UInt32), submit, fence[0])
-  let _ = (dfn.vkQueueWaitIdle)(queue)
-  let rendered = @vk.count_rendered(dev, phys, queue, cmd_pool, images[img_idx[0].reinterpret_as_int()], (800 : UInt32), (600 : UInt32))
-  println("[render] non-zero pixels=\{rendered}/480000")
-  let present = @vk.VkPresentInfoKHR::new()
-  present.set_waitSemaphoreCount((1 : UInt32))
-  present.set_pWaitSemaphores(FixedArray::make(1, render_done[0]))
-  present.set_swapchainCount((1 : UInt32))
-  present.set_pSwapchains(FixedArray::make(1, swapchain))
-  present.set_pImageIndices(img_idx)
-  let pr = (dfn.vkQueuePresentKHR)(queue, present)
-  let _ = (dfn.vkDeviceWaitIdle)(dev)
-  println("[06-tex] acquire=\{ar} submit=\{sr} present=\{pr} (0=VK_SUCCESS)")
-
-  // Keep the window open (pumping events) while the swapchain/device are alive,
-  // so the presented frame stays visible before teardown.
-  let t0 = @win.time()
-  while @win.should_close(win) == 0 && @win.time() - t0 < 3.0 {
-    @win.poll()
+  let mut ar = 0
+  let mut sr = 0
+  let mut pr = 0
+  let mut rendered = (0 : UInt32)
+  if show_win {
+    let _ = (dfn.vkWaitForFences)(
+      dev,
+      (1 : UInt32),
+      fence,
+      (1 : UInt32),
+      (0xFFFFFFFFFFFFFFFF : UInt64),
+    )
+    ar = (dfn.vkAcquireNextImageKHR)(
+      dev,
+      swapchain,
+      (0xFFFFFFFFFFFFFFFF : UInt64),
+      img_avail[0],
+      @vk.VkFence::null(),
+      img_idx,
+    )
+    let _ = (dfn.vkResetFences)(dev, (1 : UInt32), fence)
+    let submit = @vk.VkSubmitInfo::new()
+    submit.set_waitSemaphoreCount((1 : UInt32))
+    submit.set_pWaitSemaphores(FixedArray::make(1, img_avail[0]))
+    submit.set_pWaitDstStageMask(
+      FixedArray::make(1, @vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+    )
+    submit.set_commandBufferCount((1 : UInt32))
+    submit.set_pCommandBuffers(
+      FixedArray::make(1, cmd_buffers[img_idx[0].reinterpret_as_int()]),
+    )
+    submit.set_signalSemaphoreCount((1 : UInt32))
+    submit.set_pSignalSemaphores(FixedArray::make(1, render_done[0]))
+    sr = (dfn.vkQueueSubmit)(queue, (1 : UInt32), submit, fence[0])
+    let _ = (dfn.vkQueueWaitIdle)(queue)
+    rendered = @vk.count_rendered(
+      dev,
+      phys,
+      queue,
+      cmd_pool,
+      images[img_idx[0].reinterpret_as_int()],
+      (800 : UInt32),
+      (600 : UInt32),
+    )
+    if shot != "" {
+      let px = @vk.readback_image(
+        dev,
+        phys,
+        queue,
+        cmd_pool,
+        images[img_idx[0].reinterpret_as_int()],
+        (800 : UInt32),
+        (600 : UInt32),
+      )
+      let _ = @shader.save_png(
+        shot,
+        800,
+        600,
+        px,
+        bgra=format == @vk.VK_FORMAT_B8G8R8A8_UNORM,
+      )
+    }
+    println("[render] non-zero pixels=\{rendered}/480000")
+    let present = @vk.VkPresentInfoKHR::new()
+    present.set_waitSemaphoreCount((1 : UInt32))
+    present.set_pWaitSemaphores(FixedArray::make(1, render_done[0]))
+    present.set_swapchainCount((1 : UInt32))
+    present.set_pSwapchains(FixedArray::make(1, swapchain))
+    present.set_pImageIndices(img_idx)
+    pr = (dfn.vkQueuePresentKHR)(queue, present)
+    let _ = (dfn.vkDeviceWaitIdle)(dev)
+    println("[06-tex] acquire=\{ar} submit=\{sr} present=\{pr} (0=VK_SUCCESS)")
+    while @win.should_close(win) == 0 {
+      @win.poll()
+    }
+  } else {
+    let _ = (dfn.vkResetFences)(dev, (1 : UInt32), fence)
+    let submit = @vk.VkSubmitInfo::new()
+    submit.set_commandBufferCount((1 : UInt32))
+    submit.set_pCommandBuffers(FixedArray::make(1, cmd_buffers[0]))
+    sr = (dfn.vkQueueSubmit)(queue, (1 : UInt32), submit, fence[0])
+    let _ = (dfn.vkQueueWaitIdle)(queue)
+    let px = readback_offscreen(
+      dev,
+      dfn,
+      phys,
+      ifn,
+      queue,
+      cmd_pool,
+      images[0],
+      800,
+      600,
+    )
+    rendered = count_rgb_pixels(px)
+    if shot != "" {
+      let _ = @shader.save_png(shot, 800, 600, px)
+    }
+    println("[render] non-zero pixels=\{rendered}/480000")
   }
 
   // --- Cleanup ---
@@ -579,18 +993,31 @@ fn main {
   (dfn.vkDestroyRenderPass)(dev, render_pass, na)
   (dfn.vkDestroyShaderModule)(dev, vsm_out[0], na)
   (dfn.vkDestroyShaderModule)(dev, fsm_out[0], na)
-  (dfn.vkDestroySwapchainKHR)(dev, swapchain, na)
-  (ifn.vkDestroySurfaceKHR)(inst, surface, na)
+  if show_win {
+    (dfn.vkDestroySwapchainKHR)(dev, swapchain, na)
+    (ifn.vkDestroySurfaceKHR)(inst, surface, na)
+  } else {
+    (dfn.vkDestroyImage)(dev, images[0], na)
+    (dfn.vkFreeMemory)(dev, off_mem, na)
+  }
   (dfn.vkDestroyDevice)(dev, na)
   (ifn.vkDestroyInstance)(inst, na)
-  @win.destroy(win)
-  @win.terminate()
+  if show_win {
+    @win.destroy(win)
+    @win.terminate()
+  }
   // Judge on the pipeline/acquire/submit/present results and the read-back pixel
   // count instead of printing OK unconditionally.
   // VK_SUBOPTIMAL_KHR (1000001003) still means the frame was presented.
-  if gpr == 0 && ar == 0 && sr == 0 && (pr == 0 || pr == 1000001003) && rendered > 0 {
+  if gpr == 0 &&
+    ar == 0 &&
+    sr == 0 &&
+    (pr == 0 || pr == 1000001003) &&
+    rendered > 0 {
     println("[06-tex] OK — texture chapter validated")
   } else {
-    println("[06-tex] FAIL — pipeline=\{gpr} acquire=\{ar} submit=\{sr} present=\{pr} pixels=\{rendered}")
+    println(
+      "[06-tex] FAIL — pipeline=\{gpr} acquire=\{ar} submit=\{sr} present=\{pr} pixels=\{rendered}",
+    )
   }
 }

@@ -8,3 +8,9 @@ Generates a 128x128 RGBA8 gradient texture on the GPU via an auto-reflected comp
 ./build.sh
 ./_build/native/debug/build/laplaceliu/tycho_vulkan_examples/41-rhi-compute-storage-image/41-rhi-compute-storage-image.exe
 ```
+
+## Screenshot
+
+![41-rhi-compute-storage-image screenshot](./screenshot.png)
+
+> Runs headless by default for automated verification. Pass `--window` (or `TYCHO_WINDOW=1`) to render on screen.

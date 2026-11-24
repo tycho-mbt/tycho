@@ -8,3 +8,9 @@ Demonstrates pure-MoonBit SPIR-V reflection (`reflect_spirv` and `PipelineDesc::
 ./build.sh
 ./_build/native/debug/build/laplaceliu/tycho_vulkan_examples/40-rhi-reflection-mipmaps/40-rhi-reflection-mipmaps.exe
 ```
+
+## Screenshot
+
+![40-rhi-reflection-mipmaps screenshot](./screenshot.png)
+
+> Runs headless by default for automated verification. Pass `--window` (or `TYCHO_WINDOW=1`) to render on screen.

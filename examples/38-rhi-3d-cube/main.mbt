@@ -92,17 +92,26 @@ fn make_mvp(angle : Float, aspect : Float) -> FixedArray[Float] {
 }
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
   try {
-    let dev = @tycho.Device::new("Tycho RHI 3D Cube", true)
-    let sc = dev.create_swapchain_desc(
-      @tycho.SwapchainDesc::new(
-        "Tycho RHI 3D Cube",
-        800,
-        600,
-        depth=true,
-        enable_readback=true,
-      ),
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
+    let dev = @tycho.Device::new_desc(
+      @tycho.DeviceDesc::new("Tycho RHI 3D Cube", validation=true, headless=!show_win),
     )
     let vert = @tycho.compile_glsl(
       "examples/38-rhi-3d-cube/shader.vert",
@@ -111,18 +120,6 @@ fn main {
     let frag = @tycho.compile_glsl(
       "examples/38-rhi-3d-cube/shader.frag",
       @tycho.ShaderStage::Fragment,
-    )
-    let pipe = sc.create_pipeline_desc(
-      @tycho.PipelineDesc::new(
-        vert,
-        frag,
-        vertex_formats=[@tycho.VertexFormat::Float3, @tycho.VertexFormat::Float3],
-        push_constant_size=64,
-        depth_test=true,
-        depth_write=true,
-        cull_mode=@tycho.CullMode::Back,
-        front_face=@tycho.FrontFace::CounterClockwise,
-      ),
     )
 
     // 24 vertices (4 per face, unique normals/colors), CCW winding when viewed from outside
@@ -171,48 +168,127 @@ fn main {
     let ibuf = dev.create_buffer(indices.length() * 2, @tycho.BufferKind::Index)
     ibuf.upload_uint16(indices)
 
-    let (blocks, allocs) = dev.allocator_stats()
-    let start = @tycho.Swapchain::time()
+    let mut blocks = 0
+    let mut allocs = 0
     let mut pixels : FixedArray[Byte] = []
     let mut frames = 0
-    let mut quit = false
-    while !sc.should_close() && !quit && frames < 16 && @tycho.Swapchain::time() - start < 1.0 {
-      for ev in sc.poll_events() {
-        match ev {
-          @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
-          _ => ()
+    let mut is_bgra = false
+    if show_win {
+      let sc = dev.create_swapchain_desc(
+        @tycho.SwapchainDesc::new(
+          "Tycho RHI 3D Cube",
+          800,
+          600,
+          depth=true,
+          enable_readback=true,
+        ),
+      )
+      is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
+      let pipe = sc.create_pipeline_desc(
+        @tycho.PipelineDesc::new(
+          vert,
+          frag,
+          vertex_formats=[@tycho.VertexFormat::Float3, @tycho.VertexFormat::Float3],
+          push_constant_size=64,
+          depth_test=true,
+          depth_write=true,
+          cull_mode=@tycho.CullMode::Back,
+          front_face=@tycho.FrontFace::CounterClockwise,
+        ),
+      )
+      while !should_quit(sc) {
+        let angle : Float = if frames == 0 {
+          (0.0 : Float)
+        } else {
+          Float::from_int(frames) * (0.03 : Float)
         }
+        let aspect = Float::from_int(sc.width()) / Float::from_int(sc.height())
+        let mvp = make_mvp(angle, aspect)
+        let cmd = sc.begin_frame()
+        cmd.bind_pipeline(pipe)
+        cmd.push_constants_floats(pipe, mvp)
+        cmd.bind_vertex(0, vbuf)
+        cmd.bind_index(ibuf, @tycho.IndexType::Uint16)
+        cmd.draw_indexed(36)
+        sc.end_frame(cmd)
+        if frames == 0 {
+          pixels = sc.readback()
+          if shot != "" {
+            let _ = @tycho.save_png(shot, 800, 600, pixels, bgra=is_bgra)
+          }
+        }
+        frames = frames + 1
       }
-      // Frame 0 uses angle=0 so the red front face faces camera cleanly for check
-      let angle : Float = if frames == 0 {
-        (0.0 : Float)
-      } else {
-        Float::from_int(frames) * (0.12 : Float)
-      }
-      let aspect = Float::from_int(sc.width()) / Float::from_int(sc.height())
-      let mvp = make_mvp(angle, aspect)
-      let cmd = sc.begin_frame()
+      let (sb, sa) = dev.allocator_stats()
+      blocks = sb
+      allocs = sa
+      pipe.destroy()
+      sc.destroy()
+    } else {
+      let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
+      let depth_rt = dev.create_depth_texture_format(800, 600, @tycho.TextureFormat::Depth32F)
+      let pipe = dev.create_graphics_pipeline(
+        @tycho.PipelineDesc::new(
+          vert,
+          frag,
+          vertex_formats=[@tycho.VertexFormat::Float3, @tycho.VertexFormat::Float3],
+          push_constant_size=64,
+          depth_test=true,
+          depth_write=true,
+          depth_format=Some(@tycho.TextureFormat::Depth32F),
+          cull_mode=@tycho.CullMode::Back,
+          front_face=@tycho.FrontFace::CounterClockwise,
+          color_format=Some(@tycho.TextureFormat::RGBA8),
+        ),
+      )
+      let mvp0 = make_mvp((0.0 : Float), (800.0 : Float) / (600.0 : Float))
+      let cmd = dev.begin_commands()
+      cmd.begin_render_pass(
+        [@tycho.RenderTargetDesc::new(rt, clear_color=@tycho.ClearColor::rgba(0.08, 0.08, 0.12, 1.0))],
+        depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+      )
       cmd.bind_pipeline(pipe)
-      cmd.push_constants_floats(pipe, mvp)
+      cmd.push_constants_floats(pipe, mvp0)
       cmd.bind_vertex(0, vbuf)
       cmd.bind_index(ibuf, @tycho.IndexType::Uint16)
       cmd.draw_indexed(36)
-      sc.end_frame(cmd)
-      if frames == 0 {
-        pixels = sc.readback()
+      cmd.end_render_pass()
+      dev.end_commands(cmd)
+      pixels = rt.readback()
+      frames = 1
+      if shot != "" {
+        let mvp_s = make_mvp((0.55 : Float), (800.0 : Float) / (600.0 : Float))
+        let cmd_s = dev.begin_commands()
+        cmd_s.begin_render_pass(
+          [@tycho.RenderTargetDesc::new(rt, clear_color=@tycho.ClearColor::rgba(0.08, 0.08, 0.12, 1.0))],
+          depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+        )
+        cmd_s.bind_pipeline(pipe)
+        cmd_s.push_constants_floats(pipe, mvp_s)
+        cmd_s.bind_vertex(0, vbuf)
+        cmd_s.bind_index(ibuf, @tycho.IndexType::Uint16)
+        cmd_s.draw_indexed(36)
+        cmd_s.end_render_pass()
+        dev.end_commands(cmd_s)
+        let _ = @tycho.save_png(shot, 800, 600, rt.readback())
       }
-      frames = frames + 1
+      let (hb, ha) = dev.allocator_stats()
+      blocks = hb
+      allocs = ha
+      pipe.destroy()
+      depth_rt.destroy()
+      rt.destroy()
     }
 
     let c = (300 * 800 + 400) * 4
-    let b = pixels[c].to_int()
-    let g = pixels[c + 1].to_int()
-    let r = pixels[c + 2].to_int()
+    let (r, g, b) = if is_bgra {
+      (pixels[c + 2].to_int(), pixels[c + 1].to_int(), pixels[c].to_int())
+    } else {
+      (pixels[c].to_int(), pixels[c + 1].to_int(), pixels[c + 2].to_int())
+    }
     let errs = dev.validation_errors()
     ibuf.destroy()
     vbuf.destroy()
-    pipe.destroy()
-    sc.destroy()
     dev.destroy()
     println(
       "[38-rhi-3d-cube] centre RGB=(\{r},\{g},\{b}) allocator=(blocks=\{blocks}, allocs=\{allocs}) frames=\{frames}",

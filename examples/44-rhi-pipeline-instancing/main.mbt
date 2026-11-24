@@ -6,22 +6,47 @@
 // - Device::pipeline_cache_data() round-trip
 
 ///|
-fn sample_rgb(pixels : FixedArray[Byte], w : Int, x : Int, y : Int) -> (Int, Int, Int) {
+fn sample_rgb(
+  pixels : FixedArray[Byte],
+  w : Int32,
+  x : Int32,
+  y : Int32,
+) -> (Int32, Int32, Int32) {
   let i = (y * w + x) * 4
   (pixels[i].to_int(), pixels[i + 1].to_int(), pixels[i + 2].to_int())
 }
 
 ///|
-fn near_byte(v : Int, expected : Int, tol : Int) -> Bool {
+fn near_byte(v : Int32, expected : Int32, tol : Int32) -> Bool {
   let d = if v > expected { v - expected } else { expected - v }
   d <= tol
 }
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
   try {
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
-      @tycho.DeviceDesc::new("Tycho RHI Instancing", validation=true, headless=true),
+      @tycho.DeviceDesc::new(
+        "Tycho RHI Instancing",
+        validation=true,
+        headless=!show_win,
+      ),
     )
     let vert = @tycho.compile_glsl(
       "examples/44-rhi-pipeline-instancing/shader.vert",
@@ -113,9 +138,15 @@ fn main {
       location=@tycho.MemoryLocation::GpuOnly,
     )
     vbuf.upload_floats([
-      (-0.35 : Float), (-0.35 : Float), (0.5 : Float),
-      (0.35 : Float), (-0.35 : Float), (0.5 : Float),
-      (0.0 : Float), (0.35 : Float), (0.5 : Float),
+      (-0.35 : Float),
+      (-0.35 : Float),
+      (0.5 : Float),
+      (0.35 : Float),
+      (-0.35 : Float),
+      (0.5 : Float),
+      (0.0 : Float),
+      (0.35 : Float),
+      (0.5 : Float),
     ])
     let ibuf = dev.create_buffer_with(
       72,
@@ -123,9 +154,24 @@ fn main {
       location=@tycho.MemoryLocation::GpuOnly,
     )
     ibuf.upload_floats([
-      (-0.5 : Float), (0.0 : Float), (0.8 : Float), (0.0 : Float), (0.0 : Float), (1.0 : Float),
-      (0.5 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float), (0.8 : Float), (1.0 : Float),
-      (0.5 : Float), (0.0 : Float), (0.0 : Float), (0.8 : Float), (0.0 : Float), (1.0 : Float),
+      (-0.5 : Float),
+      (0.0 : Float),
+      (0.8 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
+      (0.5 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.8 : Float),
+      (1.0 : Float),
+      (0.5 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.8 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
     ])
     let line_vbuf = dev.create_buffer_with(
       24,
@@ -133,8 +179,12 @@ fn main {
       location=@tycho.MemoryLocation::GpuOnly,
     )
     line_vbuf.upload_floats([
-      (-0.7 : Float), (-0.85 : Float), (0.0 : Float),
-      (0.7 : Float), (-0.85 : Float), (0.0 : Float),
+      (-0.7 : Float),
+      (-0.85 : Float),
+      (0.0 : Float),
+      (0.7 : Float),
+      (-0.85 : Float),
+      (0.0 : Float),
     ])
     let line_ibuf = dev.create_buffer_with(
       24,
@@ -142,7 +192,12 @@ fn main {
       location=@tycho.MemoryLocation::GpuOnly,
     )
     line_ibuf.upload_floats([
-      (0.0 : Float), (0.0 : Float), (1.0 : Float), (1.0 : Float), (1.0 : Float), (1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
     ])
 
     // Quad geometry in [-0.28, +0.28] x [-0.8, +0.8] (6 vertices)
@@ -152,12 +207,24 @@ fn main {
       location=@tycho.MemoryLocation::GpuOnly,
     )
     quad_vbuf.upload_floats([
-      (-0.28 : Float), (-0.8 : Float), (0.0 : Float),
-      (0.28 : Float), (-0.8 : Float), (0.0 : Float),
-      (0.28 : Float), (0.8 : Float), (0.0 : Float),
-      (-0.28 : Float), (-0.8 : Float), (0.0 : Float),
-      (0.28 : Float), (0.8 : Float), (0.0 : Float),
-      (-0.28 : Float), (0.8 : Float), (0.0 : Float),
+      (-0.28 : Float),
+      (-0.8 : Float),
+      (0.0 : Float),
+      (0.28 : Float),
+      (-0.8 : Float),
+      (0.0 : Float),
+      (0.28 : Float),
+      (0.8 : Float),
+      (0.0 : Float),
+      (-0.28 : Float),
+      (-0.8 : Float),
+      (0.0 : Float),
+      (0.28 : Float),
+      (0.8 : Float),
+      (0.0 : Float),
+      (-0.28 : Float),
+      (0.8 : Float),
+      (0.0 : Float),
     ])
     let blend_ibuf = dev.create_buffer_with(
       72,
@@ -169,9 +236,24 @@ fn main {
     //   1 Premultiplied: src=(0.0, 0.5, 0.0, 0.5) -> (0.4, 0.7, 0.1) ~ (102, 178, 25)
     //   2 Multiply:      src=(0.5, 1.0, 0.5, 1.0) -> (0.4, 0.4, 0.1) ~ (102, 102, 25)
     blend_ibuf.upload_floats([
-      (-0.66 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float), (1.0 : Float), (0.5 : Float),
-      (0.0 : Float), (0.0 : Float), (0.0 : Float), (0.5 : Float), (0.0 : Float), (0.5 : Float),
-      (0.66 : Float), (0.0 : Float), (0.5 : Float), (1.0 : Float), (0.5 : Float), (1.0 : Float),
+      (-0.66 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
+      (0.5 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.5 : Float),
+      (0.0 : Float),
+      (0.5 : Float),
+      (0.66 : Float),
+      (0.0 : Float),
+      (0.5 : Float),
+      (1.0 : Float),
+      (0.5 : Float),
+      (1.0 : Float),
     ])
 
     // Reversed-Z full-screen quads: near at z=0.8 (green) then far at z=0.3 (red)
@@ -181,18 +263,42 @@ fn main {
       location=@tycho.MemoryLocation::GpuOnly,
     )
     revz_vbuf.upload_floats([
-      (-0.8 : Float), (-0.8 : Float), (0.8 : Float),
-      (0.8 : Float), (-0.8 : Float), (0.8 : Float),
-      (0.8 : Float), (0.8 : Float), (0.8 : Float),
-      (-0.8 : Float), (-0.8 : Float), (0.8 : Float),
-      (0.8 : Float), (0.8 : Float), (0.8 : Float),
-      (-0.8 : Float), (0.8 : Float), (0.8 : Float),
-      (-0.8 : Float), (-0.8 : Float), (0.3 : Float),
-      (0.8 : Float), (-0.8 : Float), (0.3 : Float),
-      (0.8 : Float), (0.8 : Float), (0.3 : Float),
-      (-0.8 : Float), (-0.8 : Float), (0.3 : Float),
-      (0.8 : Float), (0.8 : Float), (0.3 : Float),
-      (-0.8 : Float), (0.8 : Float), (0.3 : Float),
+      (-0.8 : Float),
+      (-0.8 : Float),
+      (0.8 : Float),
+      (0.8 : Float),
+      (-0.8 : Float),
+      (0.8 : Float),
+      (0.8 : Float),
+      (0.8 : Float),
+      (0.8 : Float),
+      (-0.8 : Float),
+      (-0.8 : Float),
+      (0.8 : Float),
+      (0.8 : Float),
+      (0.8 : Float),
+      (0.8 : Float),
+      (-0.8 : Float),
+      (0.8 : Float),
+      (0.8 : Float),
+      (-0.8 : Float),
+      (-0.8 : Float),
+      (0.3 : Float),
+      (0.8 : Float),
+      (-0.8 : Float),
+      (0.3 : Float),
+      (0.8 : Float),
+      (0.8 : Float),
+      (0.3 : Float),
+      (-0.8 : Float),
+      (-0.8 : Float),
+      (0.3 : Float),
+      (0.8 : Float),
+      (0.8 : Float),
+      (0.3 : Float),
+      (-0.8 : Float),
+      (0.8 : Float),
+      (0.3 : Float),
     ])
     let revz_ibuf = dev.create_buffer_with(
       48,
@@ -200,14 +306,36 @@ fn main {
       location=@tycho.MemoryLocation::GpuOnly,
     )
     revz_ibuf.upload_floats([
-      (0.0 : Float), (0.0 : Float), (0.0 : Float), (1.0 : Float), (0.0 : Float), (1.0 : Float),
-      (0.0 : Float), (0.0 : Float), (1.0 : Float), (0.0 : Float), (0.0 : Float), (1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (1.0 : Float),
     ])
 
     let rt = dev.create_render_target(200, 200, @tycho.TextureFormat::RGBA8)
-    let rt_blend = dev.create_render_target(180, 60, @tycho.TextureFormat::RGBA8)
-    let rt_revz = dev.create_render_target(100, 100, @tycho.TextureFormat::RGBA8)
-    let depth_revz = dev.create_depth_texture_format(100, 100, @tycho.TextureFormat::Depth32F)
+    let rt_blend = dev.create_render_target(
+      180,
+      60,
+      @tycho.TextureFormat::RGBA8,
+    )
+    let rt_revz = dev.create_render_target(
+      100,
+      100,
+      @tycho.TextureFormat::RGBA8,
+    )
+    let depth_revz = dev.create_depth_texture_format(
+      100,
+      100,
+      @tycho.TextureFormat::Depth32F,
+    )
 
     let cmd = dev.begin_commands()
     cmd.begin_render_pass([
@@ -271,6 +399,16 @@ fn main {
     dev.end_commands(cmd)
 
     let px = rt.readback()
+    if shot != "" {
+      let _ = @tycho.save_png(shot, 200, 200, px)
+    }
+    if show_win {
+      let sc = dev.create_swapchain("Tycho RHI Instancing", 600, 600)
+      while !should_quit(sc) {
+        sc.present_texture(rt)
+      }
+      sc.destroy()
+    }
     let (lr, lg, lb) = sample_rgb(px, 200, 50, 100)
     let (rr, rg, rb) = sample_rgb(px, 200, 150, 100)
     let mut line_ok = false
@@ -285,9 +423,15 @@ fn main {
     let (ar, ag, ab) = sample_rgb(bpx, 180, 30, 30)
     let (pr, pg, pb) = sample_rgb(bpx, 180, 90, 30)
     let (mr, mg, mb) = sample_rgb(bpx, 180, 150, 30)
-    let alpha_ok = near_byte(ar, 102, 12) && near_byte(ag, 51, 12) && near_byte(ab, 153, 12)
-    let premul_ok = near_byte(pr, 102, 12) && near_byte(pg, 178, 12) && near_byte(pb, 25, 12)
-    let mult_ok = near_byte(mr, 102, 12) && near_byte(mg, 102, 12) && near_byte(mb, 25, 12)
+    let alpha_ok = near_byte(ar, 102, 12) &&
+      near_byte(ag, 51, 12) &&
+      near_byte(ab, 153, 12)
+    let premul_ok = near_byte(pr, 102, 12) &&
+      near_byte(pg, 178, 12) &&
+      near_byte(pb, 25, 12)
+    let mult_ok = near_byte(mr, 102, 12) &&
+      near_byte(mg, 102, 12) &&
+      near_byte(mb, 25, 12)
 
     let zpx = rt_revz.readback()
     let (zr, zg, zb) = sample_rgb(zpx, 100, 50, 50)

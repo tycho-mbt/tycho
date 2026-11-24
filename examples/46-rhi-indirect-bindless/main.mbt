@@ -5,13 +5,35 @@
 // 4. Pass 2 draws with draw_indexed_indirect -> (green, blue) without rebuilding pipeline/VBO
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
   try {
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
-      @tycho.DeviceDesc::new("Tycho RHI Indirect Bindless", validation=true, headless=true),
+      @tycho.DeviceDesc::new(
+        "Tycho RHI Indirect Bindless",
+        validation=true,
+        headless=!show_win,
+      ),
     )
     if !dev.capabilities().supports_bindless {
-      println("[46-rhi-indirect-bindless] SKIP — device lacks bindless support")
+      println(
+        "[46-rhi-indirect-bindless] SKIP — device lacks bindless support",
+      )
       dev.destroy()
       return
     }
@@ -22,7 +44,11 @@ fn main {
       2,
       Bytes::makei(16, fn(i) {
         let c = i % 4
-        if c == 0 || c == 3 { (255 : Byte) } else { (0 : Byte) }
+        if c == 0 || c == 3 {
+          (255 : Byte)
+        } else {
+          (0 : Byte)
+        }
       }),
     )
     let blue_tex = dev.create_texture(
@@ -30,7 +56,11 @@ fn main {
       2,
       Bytes::makei(16, fn(i) {
         let c = i % 4
-        if c == 2 || c == 3 { (255 : Byte) } else { (0 : Byte) }
+        if c == 2 || c == 3 {
+          (255 : Byte)
+        } else {
+          (0 : Byte)
+        }
       }),
     )
     let green_tex = dev.create_texture(
@@ -38,7 +68,11 @@ fn main {
       2,
       Bytes::makei(16, fn(i) {
         let c = i % 4
-        if c == 1 || c == 3 { (255 : Byte) } else { (0 : Byte) }
+        if c == 1 || c == 3 {
+          (255 : Byte)
+        } else {
+          (0 : Byte)
+        }
       }),
     )
     let samp = dev.create_sampler()
@@ -96,12 +130,30 @@ fn main {
     let rf = Float::from_int(red_id)
     let bf = Float::from_int(blue_id)
     vbuf.upload_floats([
-      (-0.9 : Float), (-0.5 : Float), rf, (0.0 : Float),
-      (-0.1 : Float), (-0.5 : Float), rf, (0.0 : Float),
-      (-0.5 : Float), (0.5 : Float), rf, (0.0 : Float),
-      (0.1 : Float), (-0.5 : Float), bf, (0.0 : Float),
-      (0.9 : Float), (-0.5 : Float), bf, (0.0 : Float),
-      (0.5 : Float), (0.5 : Float), bf, (0.0 : Float),
+      (-0.9 : Float),
+      (-0.5 : Float),
+      rf,
+      (0.0 : Float),
+      (-0.1 : Float),
+      (-0.5 : Float),
+      rf,
+      (0.0 : Float),
+      (-0.5 : Float),
+      (0.5 : Float),
+      rf,
+      (0.0 : Float),
+      (0.1 : Float),
+      (-0.5 : Float),
+      bf,
+      (0.0 : Float),
+      (0.9 : Float),
+      (-0.5 : Float),
+      bf,
+      (0.0 : Float),
+      (0.5 : Float),
+      (0.5 : Float),
+      bf,
+      (0.0 : Float),
     ])
     let ibuf = dev.create_buffer_with(
       24,
@@ -125,10 +177,7 @@ fn main {
     cmd.dispatch_indirect(disp_indirect_buf)
     cmd.barrier()
     cmd.begin_render_pass([
-      @tycho.RenderTargetDesc::new(
-        rt,
-        clear_color=@tycho.ClearColor::black(),
-      ),
+      @tycho.RenderTargetDesc::new(rt, clear_color=@tycho.ClearColor::black()),
     ])
     cmd.bind_pipeline(gfx_pipe)
     cmd.bind_bindless_heap(gfx_pipe, heap)
@@ -139,19 +188,24 @@ fn main {
 
     let px1 = rt.readback()
     let li = (100 * 200 + 50) * 4
-    let (lr1, lg1, lb1) = (px1[li].to_int(), px1[li + 1].to_int(), px1[li + 2].to_int())
+    let (lr1, lg1, lb1) = (
+      px1[li].to_int(),
+      px1[li + 1].to_int(),
+      px1[li + 2].to_int(),
+    )
     let ri = (100 * 200 + 150) * 4
-    let (rr1, rg1, rb1) = (px1[ri].to_int(), px1[ri + 1].to_int(), px1[ri + 2].to_int())
+    let (rr1, rg1, rb1) = (
+      px1[ri].to_int(),
+      px1[ri + 1].to_int(),
+      px1[ri + 2].to_int(),
+    )
 
     // Dynamically swap bindless slot `red_id` to `green_tex` and redraw with draw_indexed_indirect
     heap.unregister_texture(red_id)
     let reused_id = heap.register_texture(green_tex, samp)
     let cmd2 = dev.begin_commands()
     cmd2.begin_render_pass([
-      @tycho.RenderTargetDesc::new(
-        rt,
-        clear_color=@tycho.ClearColor::black(),
-      ),
+      @tycho.RenderTargetDesc::new(rt, clear_color=@tycho.ClearColor::black()),
     ])
     cmd2.bind_pipeline(gfx_pipe)
     cmd2.bind_bindless_heap(gfx_pipe, heap)
@@ -162,8 +216,26 @@ fn main {
     dev.end_commands(cmd2)
 
     let px2 = rt.readback()
-    let (lr2, lg2, lb2) = (px2[li].to_int(), px2[li + 1].to_int(), px2[li + 2].to_int())
-    let (rr2, rg2, rb2) = (px2[ri].to_int(), px2[ri + 1].to_int(), px2[ri + 2].to_int())
+    if shot != "" {
+      let _ = @tycho.save_png(shot, 200, 200, px2)
+    }
+    if show_win {
+      let sc = dev.create_swapchain("Tycho RHI Indirect Bindless", 600, 600)
+      while !should_quit(sc) {
+        sc.present_texture(rt)
+      }
+      sc.destroy()
+    }
+    let (lr2, lg2, lb2) = (
+      px2[li].to_int(),
+      px2[li + 1].to_int(),
+      px2[li + 2].to_int(),
+    )
+    let (rr2, rg2, rb2) = (
+      px2[ri].to_int(),
+      px2[ri + 1].to_int(),
+      px2[ri + 2].to_int(),
+    )
 
     let errs = dev.validation_errors()
     rt.destroy()
@@ -181,9 +253,19 @@ fn main {
     heap.destroy()
     dev.destroy()
 
-    let p1_ok = lr1 > 240 && lg1 < 20 && lb1 < 20 && rr1 < 20 && rg1 < 20 && rb1 > 240
+    let p1_ok = lr1 > 240 &&
+      lg1 < 20 &&
+      lb1 < 20 &&
+      rr1 < 20 &&
+      rg1 < 20 &&
+      rb1 > 240
     let slot_reused = reused_id == red_id
-    let p2_ok = lr2 < 20 && lg2 > 240 && lb2 < 20 && rr2 < 20 && rg2 < 20 && rb2 > 240
+    let p2_ok = lr2 < 20 &&
+      lg2 > 240 &&
+      lb2 < 20 &&
+      rr2 < 20 &&
+      rg2 < 20 &&
+      rb2 > 240
     println(
       "[46-rhi-indirect-bindless] ids=(\{red_id}->\{reused_id},\{blue_id}) p1=((\{lr1},\{lg1},\{lb1}),(\{rr1},\{rg1},\{rb1})) p2=((\{lr2},\{lg2},\{lb2}),(\{rr2},\{rg2},\{rb2}))",
     )

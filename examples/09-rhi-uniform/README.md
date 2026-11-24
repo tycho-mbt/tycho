@@ -8,3 +8,9 @@ Uniform buffer slot binding through `@tycho` (`CommandBuffer::bind_uniform`).
 ./build.sh
 ./_build/native/debug/build/laplaceliu/tycho_vulkan_examples/09-rhi-uniform/09-rhi-uniform.exe
 ```
+
+## Screenshot
+
+![09-rhi-uniform screenshot](./screenshot.png)
+
+> Runs headless by default for automated verification. Pass `--window` (or `TYCHO_WINDOW=1`) to render on screen.

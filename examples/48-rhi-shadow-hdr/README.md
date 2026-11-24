@@ -8,3 +8,9 @@ End-to-end 3D shadow-mapping and HDR tone-mapping verification using `@tycho`:
 - **Pass 1**: Depth-only shadow map into `Depth24Stencil8` (`depth_only=true`, `depth_bias=true`)
 - **Pass 2**: HDR lighting into `RGBA16F` + `Depth32F` sampling `sampler2DShadow` with `ClampToBorder(OpaqueWhite)` + `CompareOp::LessEqual`
 - **Pass 3**: Reinhard tone mapping into `RGBA8Srgb` with strict pixel assertions for shadowed, lit, out-of-frustum border, and subregion-textured occluder probes
+
+## Screenshot
+
+![48-rhi-shadow-hdr screenshot](./screenshot.png)
+
+> Runs headless by default for automated verification. Pass `--window` (or `TYCHO_WINDOW=1`) to render on screen.

@@ -88,20 +88,42 @@ fn make_mvp(angle : Float, aspect : Float) -> FixedArray[Float] {
 }
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
   try {
-    let dev = @tycho.Device::new("Tycho RHI MRT Deferred", true)
-    let sc = dev.create_swapchain_desc(
-      @tycho.SwapchainDesc::new(
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
+    let dev = @tycho.Device::new_desc(
+      @tycho.DeviceDesc::new(
         "Tycho RHI MRT Deferred",
-        800,
-        600,
-        enable_readback=true,
+        validation=true,
+        headless=!show_win,
       ),
     )
 
-    let albedo_rt = dev.create_render_target(256, 256, @tycho.TextureFormat::RGBA8)
-    let normal_rt = dev.create_render_target(256, 256, @tycho.TextureFormat::RGBA8)
+    let albedo_rt = dev.create_render_target(
+      256,
+      256,
+      @tycho.TextureFormat::RGBA8,
+    )
+    let normal_rt = dev.create_render_target(
+      256,
+      256,
+      @tycho.TextureFormat::RGBA8,
+    )
     let depth_rt = dev.create_depth_texture(256, 256)
     let ts = dev.create_timestamp_pool(2)
 
@@ -141,49 +163,38 @@ fn main {
       comp_desc.texture_bindings.length() == 2 &&
       comp_desc.texture_bindings[0] == 0 &&
       comp_desc.texture_bindings[1] == 1
-    let comp_pipe = sc.create_pipeline_desc(comp_desc)
     let samp = dev.create_sampler()
 
     // 24 cube vertices: (vec3 pos, vec3 normal, vec3 albedo)
     let verts : FixedArray[Float] = [
       // +Z front (Red albedo, normal +Z)
-      -0.5, -0.5, 0.5, 0.0, 0.0, 1.0, 1.0, 0.2, 0.2,
-      0.5, -0.5, 0.5, 0.0, 0.0, 1.0, 1.0, 0.2, 0.2,
-      0.5, 0.5, 0.5, 0.0, 0.0, 1.0, 1.0, 0.2, 0.2,
-      -0.5, 0.5, 0.5, 0.0, 0.0, 1.0, 1.0, 0.2, 0.2,
+      -0.5, -0.5, 0.5, 0.0, 0.0, 1.0, 1.0, 0.2, 0.2, 0.5, -0.5, 0.5, 0.0, 0.0, 1.0,
+      1.0, 0.2, 0.2, 0.5, 0.5, 0.5, 0.0, 0.0, 1.0, 1.0, 0.2, 0.2, -0.5, 0.5, 0.5,
+      0.0, 0.0, 1.0, 1.0, 0.2, 0.2,
       // -Z back (Blue albedo, normal -Z)
-      0.5, -0.5, -0.5, 0.0, 0.0, -1.0, 0.2, 0.3, 1.0,
-      -0.5, -0.5, -0.5, 0.0, 0.0, -1.0, 0.2, 0.3, 1.0,
-      -0.5, 0.5, -0.5, 0.0, 0.0, -1.0, 0.2, 0.3, 1.0,
-      0.5, 0.5, -0.5, 0.0, 0.0, -1.0, 0.2, 0.3, 1.0,
+       0.5, -0.5, -0.5, 0.0, 0.0, -1.0, 0.2, 0.3, 1.0, -0.5, -0.5, -0.5, 0.0, 0.0,
+      -1.0, 0.2, 0.3, 1.0, -0.5, 0.5, -0.5, 0.0, 0.0, -1.0, 0.2, 0.3, 1.0, 0.5, 0.5,
+      -0.5, 0.0, 0.0, -1.0, 0.2, 0.3, 1.0,
       // +X right (Green albedo, normal +X)
-      0.5, -0.5, 0.5, 1.0, 0.0, 0.0, 0.2, 0.9, 0.3,
-      0.5, -0.5, -0.5, 1.0, 0.0, 0.0, 0.2, 0.9, 0.3,
-      0.5, 0.5, -0.5, 1.0, 0.0, 0.0, 0.2, 0.9, 0.3,
-      0.5, 0.5, 0.5, 1.0, 0.0, 0.0, 0.2, 0.9, 0.3,
+       0.5, -0.5, 0.5, 1.0, 0.0, 0.0, 0.2, 0.9, 0.3, 0.5, -0.5, -0.5, 1.0, 0.0, 0.0,
+      0.2, 0.9, 0.3, 0.5, 0.5, -0.5, 1.0, 0.0, 0.0, 0.2, 0.9, 0.3, 0.5, 0.5, 0.5,
+      1.0, 0.0, 0.0, 0.2, 0.9, 0.3,
       // -X left (Yellow albedo, normal -X)
-      -0.5, -0.5, -0.5, -1.0, 0.0, 0.0, 0.9, 0.9, 0.2,
-      -0.5, -0.5, 0.5, -1.0, 0.0, 0.0, 0.9, 0.9, 0.2,
-      -0.5, 0.5, 0.5, -1.0, 0.0, 0.0, 0.9, 0.9, 0.2,
-      -0.5, 0.5, -0.5, -1.0, 0.0, 0.0, 0.9, 0.9, 0.2,
+       -0.5, -0.5, -0.5, -1.0, 0.0, 0.0, 0.9, 0.9, 0.2, -0.5, -0.5, 0.5, -1.0, 0.0,
+      0.0, 0.9, 0.9, 0.2, -0.5, 0.5, 0.5, -1.0, 0.0, 0.0, 0.9, 0.9, 0.2, -0.5, 0.5,
+      -0.5, -1.0, 0.0, 0.0, 0.9, 0.9, 0.2,
       // +Y top (Cyan albedo, normal +Y)
-      -0.5, 0.5, 0.5, 0.0, 1.0, 0.0, 0.2, 0.9, 0.9,
-      0.5, 0.5, 0.5, 0.0, 1.0, 0.0, 0.2, 0.9, 0.9,
-      0.5, 0.5, -0.5, 0.0, 1.0, 0.0, 0.2, 0.9, 0.9,
-      -0.5, 0.5, -0.5, 0.0, 1.0, 0.0, 0.2, 0.9, 0.9,
+       -0.5, 0.5, 0.5, 0.0, 1.0, 0.0, 0.2, 0.9, 0.9, 0.5, 0.5, 0.5, 0.0, 1.0, 0.0,
+      0.2, 0.9, 0.9, 0.5, 0.5, -0.5, 0.0, 1.0, 0.0, 0.2, 0.9, 0.9, -0.5, 0.5, -0.5,
+      0.0, 1.0, 0.0, 0.2, 0.9, 0.9,
       // -Y bottom (Magenta albedo, normal -Y)
-      -0.5, -0.5, -0.5, 0.0, -1.0, 0.0, 0.9, 0.2, 0.9,
-      0.5, -0.5, -0.5, 0.0, -1.0, 0.0, 0.9, 0.2, 0.9,
-      0.5, -0.5, 0.5, 0.0, -1.0, 0.0, 0.9, 0.2, 0.9,
-      -0.5, -0.5, 0.5, 0.0, -1.0, 0.0, 0.9, 0.2, 0.9,
+       -0.5, -0.5, -0.5, 0.0, -1.0, 0.0, 0.9, 0.2, 0.9, 0.5, -0.5, -0.5, 0.0, -1.0,
+      0.0, 0.9, 0.2, 0.9, 0.5, -0.5, 0.5, 0.0, -1.0, 0.0, 0.9, 0.2, 0.9, -0.5, -0.5,
+      0.5, 0.0, -1.0, 0.0, 0.9, 0.2, 0.9,
     ]
     let indices : FixedArray[UInt16] = [
-      0, 1, 2, 0, 2, 3,
-      4, 5, 6, 4, 6, 7,
-      8, 9, 10, 8, 10, 11,
-      12, 13, 14, 12, 14, 15,
-      16, 17, 18, 16, 18, 19,
-      20, 21, 22, 20, 22, 23,
+      0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14,
+      15, 16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
     ]
     let vbuf = dev.create_buffer(verts.length() * 4, @tycho.BufferKind::Vertex)
     vbuf.upload_floats(verts)
@@ -192,16 +203,89 @@ fn main {
 
     // Pass 1 + Pass 2 in a single command buffer per frame (no mid-frame vkQueueWaitIdle)
     let mvp0 = make_mvp((0.0 : Float), (1.0 : Float))
-    let start = @tycho.Swapchain::time()
     let mut pixels : FixedArray[Byte] = []
     let mut gbuf_ms = 0.0
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
-      let cmd = sc.begin_frame_commands()
-      if frames == 0 {
-        cmd.reset_timestamps(ts)
-        cmd.write_timestamp(ts, 0, at_start=true)
+    let mut is_bgra = false
+    if show_win {
+      let sc = dev.create_swapchain_desc(
+        @tycho.SwapchainDesc::new(
+          "Tycho RHI MRT Post-Process",
+          800,
+          600,
+          enable_readback=true,
+        ),
+      )
+      is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
+      let comp_pipe = sc.create_pipeline_desc(comp_desc)
+      while !should_quit(sc) {
+        let angle : Float = if frames == 0 {
+          (0.0 : Float)
+        } else {
+          Float::from_int(frames) * (0.03 : Float)
+        }
+        let mvp = make_mvp(angle, (1.0 : Float))
+        let cmd = sc.begin_frame_commands()
+        if frames == 0 {
+          cmd.reset_timestamps(ts)
+          cmd.write_timestamp(ts, 0, at_start=true)
+        }
+        cmd.begin_render_pass(
+          [
+            @tycho.RenderTargetDesc::new(
+              albedo_rt,
+              clear_color=@tycho.ClearColor::rgba(0.0, 0.0, 0.0, 0.0),
+            ),
+            @tycho.RenderTargetDesc::new(
+              normal_rt,
+              clear_color=@tycho.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
+            ),
+          ],
+          depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+        )
+        cmd.bind_pipeline(gbuf_pipe)
+        cmd.push_constants_floats(gbuf_pipe, mvp)
+        cmd.bind_vertex(0, vbuf)
+        cmd.bind_index(ibuf, @tycho.IndexType::Uint16)
+        cmd.draw_indexed(36)
+        cmd.end_render_pass()
+        if frames == 0 {
+          cmd.write_timestamp(ts, 1)
+        }
+        cmd.begin_swapchain_pass(sc)
+        cmd.bind_pipeline(comp_pipe)
+        cmd.bind_texture(comp_pipe, 0, albedo_rt, samp)
+        cmd.bind_texture(comp_pipe, 1, normal_rt, samp)
+        cmd.draw(6, 1)
+        cmd.end_swapchain_pass()
+        sc.end_frame(cmd)
+        if frames == 0 {
+          pixels = sc.readback()
+          gbuf_ms = ts.elapsed_ms(0, 1)
+          if shot != "" {
+            let _ = @tycho.save_png(shot, 800, 600, pixels, bgra=is_bgra)
+          }
+        }
+        frames = frames + 1
       }
+      comp_pipe.destroy()
+      sc.destroy()
+    } else {
+      let final_rt = dev.create_render_target(
+        800,
+        600,
+        @tycho.TextureFormat::RGBA8,
+      )
+      let comp_pipe = dev.create_graphics_pipeline(
+        @tycho.PipelineDesc::from_spirv(
+          cvert,
+          cfrag,
+          color_format=Some(@tycho.TextureFormat::RGBA8),
+        ),
+      )
+      let cmd = dev.begin_commands()
+      cmd.reset_timestamps(ts)
+      cmd.write_timestamp(ts, 0, at_start=true)
       cmd.begin_render_pass(
         [
           @tycho.RenderTargetDesc::new(
@@ -221,21 +305,72 @@ fn main {
       cmd.bind_index(ibuf, @tycho.IndexType::Uint16)
       cmd.draw_indexed(36)
       cmd.end_render_pass()
-      if frames == 0 {
-        cmd.write_timestamp(ts, 1)
-      }
-      cmd.begin_swapchain_pass(sc)
+      cmd.write_timestamp(ts, 1)
+      cmd.begin_render_pass([@tycho.RenderTargetDesc::new(final_rt)])
       cmd.bind_pipeline(comp_pipe)
       cmd.bind_texture(comp_pipe, 0, albedo_rt, samp)
       cmd.bind_texture(comp_pipe, 1, normal_rt, samp)
       cmd.draw(6, 1)
-      cmd.end_swapchain_pass()
-      sc.end_frame(cmd)
-      if frames == 0 {
-        pixels = sc.readback()
-        gbuf_ms = ts.elapsed_ms(0, 1)
+      cmd.end_render_pass()
+      dev.end_commands(cmd)
+      pixels = final_rt.readback()
+      gbuf_ms = ts.elapsed_ms(0, 1)
+      frames = 1
+      if shot != "" {
+        let mvp_s = make_mvp((0.55 : Float), (1.0 : Float))
+        let cmd_s = dev.begin_commands()
+        cmd_s.begin_render_pass(
+          [
+            @tycho.RenderTargetDesc::new(
+              albedo_rt,
+              clear_color=@tycho.ClearColor::rgba(0.0, 0.0, 0.0, 0.0),
+            ),
+            @tycho.RenderTargetDesc::new(
+              normal_rt,
+              clear_color=@tycho.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
+            ),
+          ],
+          depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+        )
+        cmd_s.bind_pipeline(gbuf_pipe)
+        cmd_s.push_constants_floats(gbuf_pipe, mvp_s)
+        cmd_s.bind_vertex(0, vbuf)
+        cmd_s.bind_index(ibuf, @tycho.IndexType::Uint16)
+        cmd_s.draw_indexed(36)
+        cmd_s.end_render_pass()
+        cmd_s.begin_render_pass([@tycho.RenderTargetDesc::new(final_rt)])
+        cmd_s.bind_pipeline(comp_pipe)
+        cmd_s.bind_texture(comp_pipe, 0, albedo_rt, samp)
+        cmd_s.bind_texture(comp_pipe, 1, normal_rt, samp)
+        cmd_s.draw(6, 1)
+        cmd_s.end_render_pass()
+        dev.end_commands(cmd_s)
+        let _ = @tycho.save_png(shot, 800, 600, final_rt.readback())
+        // Restore frame 0 G-buffer state so albedo_rt/normal_rt checks match
+        let cmd_r = dev.begin_commands()
+        cmd_r.begin_render_pass(
+          [
+            @tycho.RenderTargetDesc::new(
+              albedo_rt,
+              clear_color=@tycho.ClearColor::rgba(0.0, 0.0, 0.0, 0.0),
+            ),
+            @tycho.RenderTargetDesc::new(
+              normal_rt,
+              clear_color=@tycho.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
+            ),
+          ],
+          depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+        )
+        cmd_r.bind_pipeline(gbuf_pipe)
+        cmd_r.push_constants_floats(gbuf_pipe, mvp0)
+        cmd_r.bind_vertex(0, vbuf)
+        cmd_r.bind_index(ibuf, @tycho.IndexType::Uint16)
+        cmd_r.draw_indexed(36)
+        cmd_r.end_render_pass()
+        dev.end_commands(cmd_r)
       }
-      frames = frames + 1
+      comp_pipe.destroy()
+      final_rt.destroy()
     }
 
     let alb_px = albedo_rt.readback()
@@ -257,7 +392,7 @@ fn main {
       nb > 240
 
     let c = (300 * 800 + 400) * 4
-    let (sr, sg, sb) = if sc.color_format() == @tycho.TextureFormat::BGRA8 {
+    let (sr, sg, sb) = if is_bgra {
       (pixels[c + 2].to_int(), pixels[c + 1].to_int(), pixels[c].to_int())
     } else {
       (pixels[c].to_int(), pixels[c + 1].to_int(), pixels[c + 2].to_int())
@@ -268,19 +403,22 @@ fn main {
     ibuf.destroy()
     vbuf.destroy()
     samp.destroy()
-    comp_pipe.destroy()
     gbuf_pipe.destroy()
     ts.destroy()
     depth_rt.destroy()
     normal_rt.destroy()
     albedo_rt.destroy()
-    sc.destroy()
     dev.destroy()
 
     println(
       "[42-rhi-mrt-postprocess] refl=(mrt:\{mrt_refl_ok},comp:\{comp_refl_ok}) gbuf_ms=\{gbuf_ms} albedo=(\{ar},\{ag},\{ab}) normal=(\{nr},\{ng},\{nb}) lit=(\{sr},\{sg},\{sb}) frames=\{frames}",
     )
-    if mrt_refl_ok && comp_refl_ok && gbuf_ok && lit_ok && gbuf_ms >= 0.0 && errs == 0 {
+    if mrt_refl_ok &&
+      comp_refl_ok &&
+      gbuf_ok &&
+      lit_ok &&
+      gbuf_ms >= 0.0 &&
+      errs == 0 {
       println(
         "[42-rhi-mrt-postprocess] OK — 2-target MRT G-Buffer + deferred lighting composite in \{gbuf_ms} ms, 0 validation errors",
       )

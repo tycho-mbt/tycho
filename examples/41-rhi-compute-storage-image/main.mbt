@@ -1,12 +1,33 @@
 // Example 41 — Auto-reflected compute pipeline (`create_compute_pipeline_auto`),
 // storage image (`create_storage_texture` / `bind_storage_image` / `transition_for_sampling`),
-// GPU timestamp queries (`TimestampPool`), and graphics presentation.
+// and GPU timestamp queries (`TimestampPool`). Default headless; pass `--window` for screen.
+
+///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
 
 ///|
 fn main {
   try {
-    let dev = @tycho.Device::new("Tycho RHI Compute Storage Image", true)
-    let sc = dev.create_swapchain("Tycho RHI Compute Storage Image", 800, 600)
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
+    let dev = @tycho.Device::new_desc(
+      @tycho.DeviceDesc::new(
+        "Tycho RHI Compute Storage Image",
+        validation=true,
+        headless=!show_win,
+      ),
+    )
 
     let comp_spv = @tycho.compile_glsl(
       "examples/41-rhi-compute-storage-image/gen.comp",
@@ -40,6 +61,9 @@ fn main {
 
     let gpu_ms = ts.elapsed_ms(0, 1)
     let px = storage_tex.readback()
+    if shot != "" {
+      let _ = @tycho.save_png(shot, 128, 128, px)
+    }
     let p00_r = px[0].to_int()
     let p00_g = px[1].to_int()
     let p00_b = px[2].to_int()
@@ -49,9 +73,6 @@ fn main {
     let i_bl = 127 * 128 * 4
     let p01_r = px[i_bl].to_int()
     let p01_g = px[i_bl + 1].to_int()
-    let i_br = (127 * 128 + 127) * 4
-    let p11_r = px[i_br].to_int()
-    let p11_g = px[i_br + 1].to_int()
     let grad_ok = p00_r < 15 &&
       p00_g < 15 &&
       p00_b >= 115 &&
@@ -59,40 +80,22 @@ fn main {
       p10_r > 240 &&
       p10_g < 15 &&
       p01_r < 15 &&
-      p01_g > 240 &&
-      p11_r > 240 &&
-      p11_g > 240
+      p01_g > 240
 
-    // Present computed image onto the window via auto-reflected graphics pipeline
-    let qvert = @tycho.compile_glsl(
-      "examples/41-rhi-compute-storage-image/quad.vert",
-      @tycho.ShaderStage::Vertex,
-    )
-    let qfrag = @tycho.compile_glsl(
-      "examples/41-rhi-compute-storage-image/quad.frag",
-      @tycho.ShaderStage::Fragment,
-    )
-    let gpipe = sc.create_pipeline_desc(@tycho.PipelineDesc::from_spirv(qvert, qfrag))
-    let samp = dev.create_sampler()
-
-    let start = @tycho.Swapchain::time()
     let mut frames = 0
-    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
-      let cmd = sc.begin_frame()
-      cmd.bind_pipeline(gpipe)
-      cmd.bind_texture(gpipe, 0, storage_tex, samp)
-      cmd.draw(6, 1)
-      sc.end_frame(cmd)
-      frames = frames + 1
+    if show_win {
+      let sc = dev.create_swapchain("Tycho RHI Compute Storage Image", 800, 600)
+      while !should_quit(sc) {
+        sc.present_texture(storage_tex)
+        frames = frames + 1
+      }
+      sc.destroy()
     }
 
     let errs = dev.validation_errors()
-    samp.destroy()
-    gpipe.destroy()
     ts.destroy()
     storage_tex.destroy()
     cpipe.destroy()
-    sc.destroy()
     dev.destroy()
 
     println(

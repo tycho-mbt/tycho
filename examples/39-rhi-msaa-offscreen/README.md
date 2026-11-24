@@ -8,3 +8,9 @@ Offscreen 4x MSAA dynamic render pass (`begin_render_pass` / `end_render_pass`) 
 ./build.sh
 ./_build/native/debug/build/laplaceliu/tycho_vulkan_examples/39-rhi-msaa-offscreen/39-rhi-msaa-offscreen.exe
 ```
+
+## Screenshot
+
+![39-rhi-msaa-offscreen screenshot](./screenshot.png)
+
+> Runs headless by default for automated verification. Pass `--window` (or `TYCHO_WINDOW=1`) to render on screen.
