@@ -43,6 +43,11 @@ pub struct TimestampPool {
 }
 
 ///|
+pub struct BindlessHeap {
+  priv inner : VkBindlessHeapState
+}
+
+///|
 pub struct CommandBuffer {
   priv inner : VkCmdState
 }
@@ -844,6 +849,33 @@ pub fn TimestampPool::destroy(self : TimestampPool) -> Unit {
 }
 
 ///|
+pub fn Device::create_bindless_heap(
+  self : Device,
+  max_textures? : Int = 1024,
+) -> BindlessHeap raise RhiError {
+  { inner: vk_bindless_heap_create(self.inner, max_textures) }
+}
+
+///|
+pub fn BindlessHeap::register_texture(
+  self : BindlessHeap,
+  texture : Texture,
+  sampler : Sampler,
+) -> Int raise RhiError {
+  vk_bindless_heap_register(self.inner, texture.inner, sampler.inner)
+}
+
+///|
+pub fn BindlessHeap::unregister_texture(self : BindlessHeap, index : Int) -> Unit {
+  vk_bindless_heap_unregister(self.inner, index)
+}
+
+///|
+pub fn BindlessHeap::destroy(self : BindlessHeap) -> Unit {
+  vk_bindless_heap_destroy(self.inner)
+}
+
+///|
 pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
   let d = self.inner
   let cmd = begin_one_time(d)
@@ -1239,6 +1271,81 @@ pub fn CommandBuffer::dispatch(
 }
 
 ///|
+pub fn CommandBuffer::draw_indirect(
+  self : CommandBuffer,
+  buffer : Buffer,
+  draw_count : Int,
+  offset? : Int = 0,
+  stride? : Int = 16,
+) -> Unit {
+  vk_cmd_flush_slots(self.inner)
+  (self.inner.device.dfn.vkCmdDrawIndirect)(
+    self.inner.cmd,
+    buffer.inner.buffer,
+    offset.to_uint64(),
+    draw_count.reinterpret_as_uint(),
+    stride.reinterpret_as_uint(),
+  )
+}
+
+///|
+pub fn CommandBuffer::draw_indexed_indirect(
+  self : CommandBuffer,
+  buffer : Buffer,
+  draw_count : Int,
+  offset? : Int = 0,
+  stride? : Int = 20,
+) -> Unit {
+  vk_cmd_flush_slots(self.inner)
+  (self.inner.device.dfn.vkCmdDrawIndexedIndirect)(
+    self.inner.cmd,
+    buffer.inner.buffer,
+    offset.to_uint64(),
+    draw_count.reinterpret_as_uint(),
+    stride.reinterpret_as_uint(),
+  )
+}
+
+///|
+pub fn CommandBuffer::dispatch_indirect(
+  self : CommandBuffer,
+  buffer : Buffer,
+  offset? : Int = 0,
+) -> Unit {
+  vk_cmd_flush_slots(self.inner)
+  (self.inner.device.dfn.vkCmdDispatchIndirect)(
+    self.inner.cmd,
+    buffer.inner.buffer,
+    offset.to_uint64(),
+  )
+}
+
+///|
+pub fn CommandBuffer::bind_bindless_heap(
+  self : CommandBuffer,
+  pipeline : Pipeline,
+  heap : BindlessHeap,
+  set_index? : Int = 1,
+) -> Unit {
+  let point = if pipeline.inner.compute {
+    @vk.VK_PIPELINE_BIND_POINT_COMPUTE
+  } else {
+    @vk.VK_PIPELINE_BIND_POINT_GRAPHICS
+  }
+  let sets = FixedArray::make(1, heap.inner.set)
+  (self.inner.device.dfn.vkCmdBindDescriptorSets)(
+    self.inner.cmd,
+    point,
+    pipeline.inner.layout,
+    set_index.reinterpret_as_uint(),
+    (1 : UInt32),
+    sets,
+    (0 : UInt32),
+    FixedArray::make(0, (0 : UInt32)),
+  )
+}
+
+///|
 pub fn CommandBuffer::copy_buffer(
   self : CommandBuffer,
   src : Buffer,
@@ -1272,12 +1379,14 @@ pub fn CommandBuffer::barrier(self : CommandBuffer) -> Unit {
   )
   mb.set_dstStageMask(
     @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT |
     @vk.VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT |
     @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
     @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
   )
   mb.set_dstAccessMask(
     @vk.VK_ACCESS_2_TRANSFER_READ_BIT |
+    @vk.VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT |
     @vk.VK_ACCESS_2_SHADER_READ_BIT |
     @vk.VK_ACCESS_2_UNIFORM_READ_BIT,
   )

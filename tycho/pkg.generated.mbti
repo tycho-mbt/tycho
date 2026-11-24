@@ -171,6 +171,13 @@ pub(all) enum BackendKind {
   Vulkan
 }
 
+pub struct BindlessHeap {
+  // private fields
+}
+pub fn BindlessHeap::destroy(Self) -> Unit
+pub fn BindlessHeap::register_texture(Self, Texture, Sampler) -> Int32 raise RhiError
+pub fn BindlessHeap::unregister_texture(Self, Int32) -> Unit
+
 #derive(Eq, @debug.Debug)
 pub(all) enum BlendMode {
   Opaque
@@ -204,6 +211,7 @@ pub(all) enum BufferKind {
   Uniform
   Storage
   Staging
+  Indirect
 }
 
 pub(all) struct ClearColor {
@@ -221,6 +229,7 @@ pub struct CommandBuffer {
 pub fn CommandBuffer::barrier(Self) -> Unit
 pub fn CommandBuffer::begin_render_pass(Self, Array[RenderTargetDesc], depth? : DepthTargetDesc?) -> Unit raise RhiError
 pub fn CommandBuffer::begin_swapchain_pass(Self, Swapchain, load_op? : LoadOp, clear_color? : ClearColor?) -> Unit
+pub fn CommandBuffer::bind_bindless_heap(Self, Pipeline, BindlessHeap, set_index? : Int32) -> Unit
 pub fn CommandBuffer::bind_index(Self, Buffer, IndexType, offset? : Int32) -> Unit
 pub fn CommandBuffer::bind_pipeline(Self, Pipeline) -> Unit
 pub fn CommandBuffer::bind_storage(Self, Pipeline, Int32, Buffer) -> Unit
@@ -231,9 +240,12 @@ pub fn CommandBuffer::bind_vertex(Self, Int32, Buffer, offset? : Int32) -> Unit
 pub fn CommandBuffer::blit_texture(Self, Texture, Texture, filter? : Filter) -> Unit
 pub fn CommandBuffer::copy_buffer(Self, Buffer, Buffer, Int32) -> Unit
 pub fn CommandBuffer::dispatch(Self, Int32, Int32, Int32) -> Unit
+pub fn CommandBuffer::dispatch_indirect(Self, Buffer, offset? : Int32) -> Unit
 pub fn CommandBuffer::draw(Self, Int32, Int32) -> Unit
 pub fn CommandBuffer::draw_indexed(Self, Int32, instances? : Int32) -> Unit
 pub fn CommandBuffer::draw_indexed_full(Self, Int32, Int32, Int32, Int32, Int32) -> Unit
+pub fn CommandBuffer::draw_indexed_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
+pub fn CommandBuffer::draw_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
 pub fn CommandBuffer::draw_instanced(Self, Int32, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::end_render_pass(Self) -> Unit
 pub fn CommandBuffer::end_swapchain_pass(Self) -> Unit
@@ -281,6 +293,7 @@ pub fn Device::allocator_used_bytes(Self) -> UInt64
 pub fn Device::backend(Self) -> BackendKind
 pub fn Device::begin_commands(Self) -> CommandBuffer raise RhiError
 pub fn Device::capabilities(Self) -> DeviceCapabilities
+pub fn Device::create_bindless_heap(Self, max_textures? : Int32) -> BindlessHeap raise RhiError
 pub fn Device::create_buffer(Self, Int32, BufferKind) -> Buffer raise RhiError
 pub fn Device::create_buffer_with(Self, Int32, BufferKind, location? : MemoryLocation) -> Buffer raise RhiError
 pub fn Device::create_compute_pipeline(Self, FixedArray[UInt32], Int32, Int32, storage_image_slots? : Int32, push_constant_size? : Int32) -> Pipeline raise RhiError
@@ -407,9 +420,10 @@ pub(all) struct PipelineDesc {
   samples : SampleCount
   color_format : TextureFormat?
   color_formats : Array[TextureFormat]
+  bindless_heap : BindlessHeap?
 }
-pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout]) -> Self
-pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], push_constant_size? : Int32, topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat]) -> Self
+pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout], bindless_heap? : BindlessHeap?) -> Self
+pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], push_constant_size? : Int32, topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap?) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum PresentMode {

@@ -88,6 +88,7 @@ pub(all) enum BufferKind {
   Uniform
   Storage
   Staging
+  Indirect
 }
 
 ///|
@@ -350,6 +351,7 @@ pub(all) struct PipelineDesc {
   samples : SampleCount
   color_format : TextureFormat?
   color_formats : Array[TextureFormat]
+  bindless_heap : BindlessHeap?
 }
 
 ///|
@@ -383,6 +385,7 @@ pub fn PipelineDesc::new(
   samples? : SampleCount = SampleCount::X1,
   color_format? : TextureFormat? = None,
   color_formats? : Array[TextureFormat] = [],
+  bindless_heap? : BindlessHeap? = None,
 ) -> PipelineDesc {
   {
     vert,
@@ -414,6 +417,7 @@ pub fn PipelineDesc::new(
     samples,
     color_format,
     color_formats,
+    bindless_heap,
   }
 }
 
@@ -448,6 +452,7 @@ pub fn PipelineDesc::from_spirv(
   color_format? : TextureFormat? = None,
   color_formats? : Array[TextureFormat] = [],
   vertex_layouts? : Array[VertexBufferLayout] = [],
+  bindless_heap? : BindlessHeap? = None,
 ) -> PipelineDesc {
   let vr = @shader.reflect_spirv(vert)
   let fr = @shader.reflect_spirv(frag)
@@ -543,6 +548,7 @@ pub fn PipelineDesc::from_spirv(
     samples~,
     color_format~,
     color_formats=resolved_formats,
+    bindless_heap~,
   )
 }
 

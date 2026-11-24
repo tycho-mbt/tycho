@@ -22,6 +22,7 @@ priv enum DeleteKind {
     @vk.VkShaderModule,
   )
   DeleteTimestampPool(@vk.VkQueryPool)
+  DeleteBindlessHeap(@vk.VkDescriptorPool, @vk.VkDescriptorSetLayout)
 }
 
 ///|
@@ -154,6 +155,17 @@ priv struct VkTimestampPoolState {
   device : VkDeviceState
   pool : @vk.VkQueryPool
   count : Int
+}
+
+///|
+priv struct VkBindlessHeapState {
+  device : VkDeviceState
+  set_layout : @vk.VkDescriptorSetLayout
+  pool : @vk.VkDescriptorPool
+  set : @vk.VkDescriptorSet
+  capacity : Int
+  mut next_idx : Int
+  free_indices : Array[Int]
 }
 
 ///|
@@ -469,6 +481,10 @@ fn execute_delete(d : VkDeviceState, item : DeleteKind) -> Unit {
       }
     }
     DeleteTimestampPool(pool) => (d.dfn.vkDestroyQueryPool)(d.dev, pool, na)
+    DeleteBindlessHeap(pool, set_layout) => {
+      (d.dfn.vkDestroyDescriptorPool)(d.dev, pool, na)
+      (d.dfn.vkDestroyDescriptorSetLayout)(d.dev, set_layout, na)
+    }
   }
 }
 
@@ -707,9 +723,19 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   qci.set_queueFamilyIndex(chosen_qf)
   qci.set_queueCount((1 : UInt32))
   qci.set_pQueuePriorities(priority)
+  let f12 = @vk.VkPhysicalDeviceVulkan12Features::new()
+  if supports_bindless {
+    f12.set_descriptorBindingSampledImageUpdateAfterBind((1 : UInt32))
+    f12.set_descriptorBindingPartiallyBound((1 : UInt32))
+    f12.set_runtimeDescriptorArray((1 : UInt32))
+    f12.set_shaderSampledImageArrayNonUniformIndexing((1 : UInt32))
+  }
   let f13 = @vk.VkPhysicalDeviceVulkan13Features::new()
   f13.set_dynamicRendering((1 : UInt32))
   f13.set_synchronization2((1 : UInt32))
+  if supports_bindless {
+    f13.set_pNext(f12.as_ptr())
+  }
   let enabled_feats = @vk.VkPhysicalDeviceFeatures::new()
   if supports_anisotropy {
     enabled_feats.set_samplerAnisotropy((1 : UInt32))
@@ -731,6 +757,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   dci.free()
   enabled_feats.free()
   f13.free()
+  f12.free()
   qci.free()
   if dr != 0 {
     if use_debug {
@@ -949,6 +976,11 @@ fn vk_buffer_create(
     BufferKind::Staging =>
       @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT
     BufferKind::Storage =>
+      @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+      @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+      @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT
+    BufferKind::Indirect =>
+      @vk.VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
       @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
       @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
       @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -3002,9 +3034,18 @@ fn vk_graphics_pipeline_create(
     desc.storage_slots +
     desc.storage_image_slots
   let plci = @vk.VkPipelineLayoutCreateInfo::new()
-  if total_slots > 0 {
-    plci.set_setLayoutCount((1 : UInt32))
-    plci.set_pSetLayouts(FixedArray::make(1, set_layout))
+  match desc.bindless_heap {
+    Some(heap) => {
+      let sls = FixedArray::make(2, set_layout)
+      sls[1] = heap.inner.set_layout
+      plci.set_setLayoutCount((2 : UInt32))
+      plci.set_pSetLayouts(sls)
+    }
+    None =>
+      if total_slots > 0 {
+        plci.set_setLayoutCount((1 : UInt32))
+        plci.set_pSetLayouts(FixedArray::make(1, set_layout))
+      }
   }
   let pcr = @vk.VkPushConstantRange::new()
   if desc.push_constant_size > 0 {
@@ -3929,4 +3970,140 @@ fn vk_cmd_blit_texture(
     @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
   )
   dst.layout = @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+}
+
+///|
+fn vk_bindless_heap_create(
+  d : VkDeviceState,
+  capacity : Int,
+) -> VkBindlessHeapState raise RhiError {
+  if !d.caps.supports_bindless {
+    raise DeviceFailed("Physical device does not support bindless descriptors")
+  }
+  if capacity <= 0 {
+    raise InvalidArgument("BindlessHeap capacity must be positive")
+  }
+  let na = @vk.VkAllocationCallbacks::null()
+  let binding = @vk.VkDescriptorSetLayoutBinding::new()
+  binding.set_binding((0 : UInt32))
+  binding.set_descriptorType(@vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+  binding.set_descriptorCount(capacity.reinterpret_as_uint())
+  binding.set_stageFlags(
+    @vk.VK_SHADER_STAGE_VERTEX_BIT |
+    @vk.VK_SHADER_STAGE_FRAGMENT_BIT |
+    @vk.VK_SHADER_STAGE_COMPUTE_BIT,
+  )
+  let bflags = FixedArray::make(
+    1,
+    @vk.VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+    @vk.VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+  )
+  let bfci = @vk.VkDescriptorSetLayoutBindingFlagsCreateInfo::new()
+  bfci.set_bindingCount((1 : UInt32))
+  bfci.set_pBindingFlags(bflags)
+  let dslci = @vk.VkDescriptorSetLayoutCreateInfo::new()
+  dslci.set_pNext(bfci.as_ptr())
+  dslci.set_flags(@vk.VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT)
+  dslci.set_bindingCount((1 : UInt32))
+  dslci.set_pBindings(binding)
+  let dsl_out = FixedArray::make(1, @vk.VkDescriptorSetLayout::null())
+  let lr = (d.dfn.vkCreateDescriptorSetLayout)(d.dev, dslci, na, dsl_out)
+  binding.free()
+  bfci.free()
+  dslci.free()
+  if lr != 0 {
+    raise PipelineFailed("Bindless vkCreateDescriptorSetLayout failed: \{lr}")
+  }
+  let set_layout = dsl_out[0]
+
+  let psize = @vk.VkDescriptorPoolSize::new()
+  psize.set_type(@vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+  psize.set_descriptorCount(capacity.reinterpret_as_uint())
+  let dpci = @vk.VkDescriptorPoolCreateInfo::new()
+  dpci.set_flags(@vk.VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT)
+  dpci.set_maxSets((1 : UInt32))
+  dpci.set_poolSizeCount((1 : UInt32))
+  dpci.set_pPoolSizes(psize)
+  let pool_out = FixedArray::make(1, @vk.VkDescriptorPool::null())
+  let pr = (d.dfn.vkCreateDescriptorPool)(d.dev, dpci, na, pool_out)
+  psize.free()
+  dpci.free()
+  if pr != 0 {
+    (d.dfn.vkDestroyDescriptorSetLayout)(d.dev, set_layout, na)
+    raise PipelineFailed("Bindless vkCreateDescriptorPool failed: \{pr}")
+  }
+  let pool = pool_out[0]
+
+  let layouts = FixedArray::make(1, set_layout)
+  let dsai = @vk.VkDescriptorSetAllocateInfo::new()
+  dsai.set_descriptorPool(pool)
+  dsai.set_descriptorSetCount((1 : UInt32))
+  dsai.set_pSetLayouts(layouts)
+  let sets = FixedArray::make(1, @vk.VkDescriptorSet::null())
+  let ar = (d.dfn.vkAllocateDescriptorSets)(d.dev, dsai, sets)
+  dsai.free()
+  if ar != 0 {
+    (d.dfn.vkDestroyDescriptorPool)(d.dev, pool, na)
+    (d.dfn.vkDestroyDescriptorSetLayout)(d.dev, set_layout, na)
+    raise PipelineFailed("Bindless vkAllocateDescriptorSets failed: \{ar}")
+  }
+  {
+    device: d,
+    set_layout,
+    pool,
+    set: sets[0],
+    capacity,
+    next_idx: 0,
+    free_indices: [],
+  }
+}
+
+///|
+fn vk_bindless_heap_register(
+  h : VkBindlessHeapState,
+  tex : VkTextureState,
+  samp : VkSamplerState,
+) -> Int raise RhiError {
+  let idx = if h.free_indices.length() > 0 {
+    h.free_indices.pop().unwrap()
+  } else if h.next_idx < h.capacity {
+    let i = h.next_idx
+    h.next_idx = h.next_idx + 1
+    i
+  } else {
+    raise AllocationFailed("BindlessHeap capacity (\{h.capacity}) exhausted")
+  }
+  let info = @vk.VkDescriptorImageInfo::new()
+  info.set_sampler(samp.sampler)
+  info.set_imageView(tex.view)
+  info.set_imageLayout(@vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+  let write = @vk.VkWriteDescriptorSet::new()
+  write.set_dstSet(h.set)
+  write.set_dstBinding((0 : UInt32))
+  write.set_dstArrayElement(idx.reinterpret_as_uint())
+  write.set_descriptorCount((1 : UInt32))
+  write.set_descriptorType(@vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+  write.set_pImageInfo(info)
+  (h.device.dfn.vkUpdateDescriptorSets)(
+    h.device.dev,
+    (1 : UInt32),
+    write,
+    (0 : UInt32),
+    @vk.VkCopyDescriptorSet::null(),
+  )
+  info.free()
+  write.free()
+  idx
+}
+
+///|
+fn vk_bindless_heap_unregister(h : VkBindlessHeapState, idx : Int) -> Unit {
+  if idx >= 0 && idx < h.next_idx {
+    h.free_indices.push(idx)
+  }
+}
+
+///|
+fn vk_bindless_heap_destroy(h : VkBindlessHeapState) -> Unit {
+  enqueue_delete(h.device, DeleteBindlessHeap(h.pool, h.set_layout))
 }
