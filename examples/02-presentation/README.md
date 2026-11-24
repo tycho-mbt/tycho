@@ -2,7 +2,7 @@
 
 Example 02 — Presentation (vulkan-tutorial.com/Drawing_a_triangle/Presentation).
 
-GLFW window surface + swap chain + image views. Pure MoonBit (no C stub).
+X11 window surface + swap chain + image views. Pure MoonBit (no C stub).
 
 ## Windowing
 

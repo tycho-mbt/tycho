@@ -1,5 +1,5 @@
 // Example 02 — Presentation (vulkan-tutorial.com/Drawing_a_triangle/Presentation).
-// GLFW window surface + swap chain + image views. Pure MoonBit (no C stub).
+// X11 window surface + swap chain + image views. Pure MoonBit (no C stub).
 
 
 
@@ -43,7 +43,7 @@ fn main {
   let dfn = @vk.DeviceFn::load(dev)
   println("[02-present] instance=\{ir} device=\{dr}")
 
-  // --- GLFW window + Vulkan surface ---
+  // --- X11 window + Vulkan surface ---
   let _ = @win.initialize()
   let win = @win.create((800 : Int32), (600 : Int32), "Tycho-Example")
   let surface = @win.create_surface(inst, win)

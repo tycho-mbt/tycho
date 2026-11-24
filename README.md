@@ -62,7 +62,7 @@ Still manual:
 1. **New platform header**: the update script only refreshes the headers this package already vendors and *lists* the ones upstream adds; pass `--add-headers` to adopt them (this also widens the compilable surface that `tools/coverage.py` measures). If a backend needs one, add a matching `VK_USE_PLATFORM_*` entry to the `platforms` map in `codegen/main.mbt` (plus WSI wiring in `tycho_window`).
 2. **The RHI is hand-written** and stays on Vulkan 1.3: header bumps do not move its runtime requirement. Adopting a newer core version is a deliberate change in `tycho/vk_backend.mbt` (`set_apiVersion`), not part of an upgrade.
 3. **Doc numbers** (`813` commands, `5,520` constants, `664/664` coverage) are quoted for 1.4.363 and need a refresh; `tools/coverage.py` recomputes them from `vk.xml`.
-4. **Package versions**: bump the four published `moon.mod` versions and republish in dependency order; dependents pin `@0.1.0`, so their `import` lines move too.
+4. **Package versions**: bump the four published `moon.mod` versions and republish in dependency order; dependents pin an exact version (`@0.2.0` today), so their `import` lines move too.
 
 ## Linux Vulkan API Coverage
 

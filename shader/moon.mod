@@ -1,6 +1,6 @@
 name = "laplaceliu/tycho_shader"
 
-version = "0.1.0"
+version = "0.2.0"
 
 license = "Apache-2.0"
 
@@ -10,6 +10,6 @@ repository = "https://github.com/tycho-mbt/tycho"
 
 preferred_target = "native"
 
-description = "In-process GLSL (shaderc), Slang, SPIR-V, and texture loading helpers for Tycho"
+description = "GLSL (glslangValidator) and Slang shader compilation, pure-MoonBit SPIR-V reflection, and PPM/BMP image loading helpers for Tycho"
 
-keywords = [ "vulkan", "shader", "spirv", "shaderc", "slang", "tycho" ]
+keywords = [ "vulkan", "shader", "spirv", "glslang", "slang", "tycho" ]

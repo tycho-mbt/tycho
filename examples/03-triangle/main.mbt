@@ -40,7 +40,7 @@ fn main {
   let queue = queue_out[0]
   println("[03-triangle] instance=\{ir} device=\{dr}")
 
-  // surface + swapchain + views (windowing via GLFW)
+  // surface + swapchain + views (windowing via Xlib)
   let _ = @win.initialize()
   let win = @win.create((800 : Int32), (600 : Int32), "Tycho-Example")
   let surface = @win.create_surface(inst, win)
