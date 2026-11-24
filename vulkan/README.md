@@ -1,6 +1,8 @@
 # laplaceliu/tycho_vulkan
 
-Pure-MoonBit Vulkan 1.4 native bindings generated directly from Khronos `vk.xml` (Vulkan SDK 1.4.363).
+Pure-MoonBit Vulkan bindings generated directly from Khronos `vk.xml` (Vulkan-Headers 1.4.363).
+
+`1.4.363` is the Khronos header/spec revision used at **generation time**, not a requirement on the machine that consumes this package: headers are vendored in-package and every command is resolved at runtime via `vkGetInstanceProcAddr` / `vkGetDeviceProcAddr`, so any Vulkan loader ≥ 1.0 links and no LunarG Vulkan SDK is needed. Applications built on `laplaceliu/tycho` additionally need a Vulkan **1.3+** driver (dynamic rendering + synchronization2).
 
 - **Zero user C**: write Vulkan applications in 100% pure MoonBit — all struct/union accessors, three-layer `FuncRef` dispatch tables (`Entry` / `InstanceFn` / `DeviceFn`), `pNext` pointer chaining, `FuncRef` callbacks, and GC array pinning live inside this module.
 - **Self-contained for mooncakes.io**: Vulkan 1.4.363 C headers are vendored inside `include/vulkan/` and included relatively, requiring no external `-I` flags or Vulkan SDK installation for downstream users.
