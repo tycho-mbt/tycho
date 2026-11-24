@@ -1,0 +1,495 @@
+// Rich-text Paragraph layout engine (wrapping, alignment, ellipsis, caret & selection boxes).
+
+///|
+#derive(Eq, Debug)
+pub(all) enum TextAlign {
+  Left
+  Center
+  Right
+}
+
+///|
+pub(all) struct TextStyle {
+  font : FontFace
+  font_size : Float
+  color : Color
+  letter_spacing : Float
+  underline : Bool
+}
+
+///|
+pub fn TextStyle::new(
+  font? : FontFace = FontFace::builtin(),
+  font_size? : Float = (16.0 : Float),
+  color? : Color = Color::white(),
+  letter_spacing? : Float = (0.0 : Float),
+  underline? : Bool = false,
+) -> TextStyle {
+  { font, font_size, color, letter_spacing, underline }
+}
+
+///|
+pub(all) struct TextSpan {
+  text : String
+  style : TextStyle
+}
+
+///|
+pub fn TextSpan::new(text : String, style? : TextStyle = TextStyle::new()) -> TextSpan {
+  { text, style }
+}
+
+///|
+pub(all) struct ParagraphStyle {
+  align : TextAlign
+  max_lines : Int
+  ellipsis : String
+  line_height_scale : Float
+}
+
+///|
+pub fn ParagraphStyle::new(
+  align? : TextAlign = TextAlign::Left,
+  max_lines? : Int = 0,
+  ellipsis? : String = "",
+  line_height_scale? : Float = (1.15 : Float),
+) -> ParagraphStyle {
+  { align, max_lines, ellipsis, line_height_scale }
+}
+
+///|
+#derive(Eq, Debug)
+pub(all) struct TextPosition {
+  offset : Int
+  line : Int
+}
+
+///|
+pub(all) struct LineMetrics {
+  start_index : Int
+  end_index : Int
+  y : Float
+  height : Float
+  baseline : Float
+  width : Float
+}
+
+///|
+pub(all) struct PlacedGlyph {
+  codepoint : Int
+  font : FontFace
+  font_size : Float
+  x : Float
+  baseline_y : Float
+  advance : Float
+  color : Color
+  char_index : Int
+}
+
+///|
+priv struct LayoutChar {
+  cp : Int
+  style : TextStyle
+  advance : Float
+  char_index : Int
+  is_newline : Bool
+  is_space : Bool
+}
+
+///|
+fn is_cjk(cp : Int) -> Bool {
+  (cp >= 0x4E00 && cp <= 0x9FFF) ||
+  (cp >= 0x3040 && cp <= 0x30FF) ||
+  (cp >= 0xAC00 && cp <= 0xD7AF)
+}
+
+///|
+pub struct Paragraph {
+  priv spans : Array[TextSpan]
+  priv pstyle : ParagraphStyle
+  priv mut laid_out : Bool
+  priv mut layout_max_width : Float
+  priv mut total_width : Float
+  priv mut total_height : Float
+  priv lines : Array[LineMetrics]
+  priv glyphs : Array[PlacedGlyph]
+  priv char_x : Array[Float]
+  priv char_line : Array[Int]
+  priv underlines : Array[(Float, Float, Float, Float, Color)]
+}
+
+///|
+pub fn ParagraphBuilder::new(
+  style? : ParagraphStyle = ParagraphStyle::new(),
+) -> ParagraphBuilder {
+  { pstyle: style, spans: [] }
+}
+
+///|
+pub struct ParagraphBuilder {
+  priv pstyle : ParagraphStyle
+  priv spans : Array[TextSpan]
+}
+
+///|
+pub fn ParagraphBuilder::add_text(
+  self : ParagraphBuilder,
+  text : String,
+  style? : TextStyle = TextStyle::new(),
+) -> ParagraphBuilder {
+  self.spans.push({ text, style })
+  self
+}
+
+///|
+pub fn ParagraphBuilder::add_span(
+  self : ParagraphBuilder,
+  span : TextSpan,
+) -> ParagraphBuilder {
+  self.spans.push(span)
+  self
+}
+
+///|
+pub fn ParagraphBuilder::build(self : ParagraphBuilder) -> Paragraph {
+  {
+    spans: self.spans,
+    pstyle: self.pstyle,
+    laid_out: false,
+    layout_max_width: (-1.0 : Float),
+    total_width: (0.0 : Float),
+    total_height: (0.0 : Float),
+    lines: [],
+    glyphs: [],
+    char_x: [],
+    char_line: [],
+    underlines: [],
+  }
+}
+
+///|
+pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
+  let mw = if max_width <= (0.0 : Float) { (1.0e9 : Float) } else { max_width }
+  if self.laid_out && abs_f(self.layout_max_width - mw) < (0.01 : Float) {
+    return
+  }
+  self.laid_out = true
+  self.layout_max_width = mw
+  self.lines.clear()
+  self.glyphs.clear()
+  self.char_x.clear()
+  self.char_line.clear()
+  self.underlines.clear()
+
+  let chars : Array[LayoutChar] = []
+  let mut idx = 0
+  for sp in self.spans {
+    for ch in sp.text {
+      let cp = ch.to_int()
+      let is_nl = cp == 10
+      let is_sp = cp == 32 || cp == 9
+      let adv = if is_nl {
+        (0.0 : Float)
+      } else {
+        sp.style.font.advance_width(cp, sp.style.font_size) +
+        sp.style.letter_spacing
+      }
+      chars.push({
+        cp,
+        style: sp.style,
+        advance: adv,
+        char_index: idx,
+        is_newline: is_nl,
+        is_space: is_sp,
+      })
+      self.char_x.push((0.0 : Float))
+      self.char_line.push(0)
+      idx = idx + 1
+    }
+  }
+
+  let raw_lines : Array[(Int, Int)] = []
+  let mut line_start = 0
+  let mut cur_w = (0.0 : Float)
+  let mut last_break = -1
+  let n = chars.length()
+  let mut i = 0
+  while i < n {
+    let c = chars[i]
+    if c.is_newline {
+      raw_lines.push((line_start, i))
+      line_start = i + 1
+      cur_w = (0.0 : Float)
+      last_break = -1
+      i = i + 1
+      continue
+    }
+    if c.is_space || is_cjk(c.cp) {
+      last_break = i
+    }
+    if cur_w + c.advance > mw && i > line_start {
+      if last_break > line_start {
+        let brk = last_break
+        raw_lines.push((line_start, if chars[brk].is_space { brk } else { brk + 1 }))
+        line_start = if chars[brk].is_space { brk + 1 } else { brk + 1 }
+        cur_w = (0.0 : Float)
+        last_break = -1
+        i = line_start
+        continue
+      } else {
+        raw_lines.push((line_start, i))
+        line_start = i
+        cur_w = (0.0 : Float)
+        last_break = -1
+        continue
+      }
+    }
+    cur_w = cur_w + c.advance
+    i = i + 1
+  }
+  if line_start < n || raw_lines.length() == 0 {
+    raw_lines.push((line_start, n))
+  }
+
+  let limit = if self.pstyle.max_lines > 0 &&
+    raw_lines.length() > self.pstyle.max_lines {
+    self.pstyle.max_lines
+  } else {
+    raw_lines.length()
+  }
+  let truncated = self.pstyle.max_lines > 0 &&
+    raw_lines.length() > self.pstyle.max_lines
+
+  let mut cur_y = (0.0 : Float)
+  let mut max_w = (0.0 : Float)
+  for li = 0; li < limit; li = li + 1 {
+    let (rs, re) = raw_lines[li]
+    let mut line_w = (0.0 : Float)
+    let mut max_asc = (0.0 : Float)
+    let mut max_h = (0.0 : Float)
+    let ell = if truncated && li == limit - 1 && self.pstyle.ellipsis != "" {
+      self.pstyle.ellipsis
+    } else {
+      ""
+    }
+    let mut end_idx = re
+    if rs == re {
+      let fallback_st = if self.spans.length() > 0 {
+        self.spans[0].style
+      } else {
+        TextStyle::new()
+      }
+      let (asc, _desc, lh) = fallback_st.font.metrics(fallback_st.font_size)
+      max_asc = asc
+      max_h = lh * self.pstyle.line_height_scale
+    } else {
+      for k = rs; k < re; k = k + 1 {
+        let ch = chars[k]
+        let (asc, _desc, lh) = ch.style.font.metrics(ch.style.font_size)
+        if asc > max_asc { max_asc = asc }
+        let sh = lh * self.pstyle.line_height_scale
+        if sh > max_h { max_h = sh }
+        line_w = line_w + ch.advance
+      }
+      if ell != "" {
+        let last_st = chars[re - 1].style
+        let mut ell_w = (0.0 : Float)
+        for ech in ell {
+          ell_w = ell_w + last_st.font.advance_width(ech.to_int(), last_st.font_size)
+        }
+        while end_idx > rs && line_w + ell_w > mw {
+          end_idx = end_idx - 1
+          line_w = line_w - chars[end_idx].advance
+        }
+        line_w = line_w + ell_w
+      }
+    }
+
+    let x_start = match self.pstyle.align {
+      TextAlign::Left => (0.0 : Float)
+      TextAlign::Center =>
+        if mw < (1.0e8 : Float) { max_f((0.0 : Float), (mw - line_w) * (0.5 : Float)) } else { (0.0 : Float) }
+      TextAlign::Right =>
+        if mw < (1.0e8 : Float) { max_f((0.0 : Float), mw - line_w) } else { (0.0 : Float) }
+    }
+    let baseline = cur_y + max_asc
+    let mut cx = x_start
+    for k = rs; k < end_idx; k = k + 1 {
+      let ch = chars[k]
+      self.char_x[ch.char_index] = cx
+      self.char_line[ch.char_index] = li
+      if !ch.is_space && !ch.is_newline {
+        self.glyphs.push({
+          codepoint: ch.cp,
+          font: ch.style.font,
+          font_size: ch.style.font_size,
+          x: cx,
+          baseline_y: baseline,
+          advance: ch.advance,
+          color: ch.style.color,
+          char_index: ch.char_index,
+        })
+      }
+      if ch.style.underline {
+        self.underlines.push((
+          cx,
+          baseline + (2.0 : Float),
+          ch.advance,
+          max_f((1.0 : Float), ch.style.font_size * (0.07 : Float)),
+          ch.style.color,
+        ))
+      }
+      cx = cx + ch.advance
+    }
+    if ell != "" && end_idx > rs {
+      let est = chars[end_idx - 1].style
+      for ech in ell {
+        let ecp = ech.to_int()
+        let eadv = est.font.advance_width(ecp, est.font_size)
+        self.glyphs.push({
+          codepoint: ecp,
+          font: est.font,
+          font_size: est.font_size,
+          x: cx,
+          baseline_y: baseline,
+          advance: eadv,
+          color: est.color,
+          char_index: end_idx - 1,
+        })
+        cx = cx + eadv
+      }
+    }
+    if line_w > max_w { max_w = line_w }
+    self.lines.push({
+      start_index: rs,
+      end_index: end_idx,
+      y: cur_y,
+      height: max_h,
+      baseline,
+      width: line_w,
+    })
+    cur_y = cur_y + max_h
+  }
+  self.total_width = max_w
+  self.total_height = cur_y
+}
+
+///|
+pub fn Paragraph::width(self : Paragraph) -> Float {
+  self.total_width
+}
+
+///|
+pub fn Paragraph::height(self : Paragraph) -> Float {
+  self.total_height
+}
+
+///|
+pub fn Paragraph::line_count(self : Paragraph) -> Int {
+  self.lines.length()
+}
+
+///|
+pub fn Paragraph::line_metrics(self : Paragraph) -> Array[LineMetrics] {
+  self.lines
+}
+
+///|
+pub fn Paragraph::placed_glyphs(self : Paragraph) -> Array[PlacedGlyph] {
+  self.glyphs
+}
+
+///|
+pub fn Paragraph::underline_rects(
+  self : Paragraph,
+) -> Array[(Float, Float, Float, Float, Color)] {
+  self.underlines
+}
+
+///|
+pub fn Paragraph::get_position_for_offset(
+  self : Paragraph,
+  pt : Point,
+) -> TextPosition {
+  if self.lines.length() == 0 {
+    return { offset: 0, line: 0 }
+  }
+  let mut target_line = self.lines.length() - 1
+  for li = 0; li < self.lines.length(); li = li + 1 {
+    let lm = self.lines[li]
+    if pt.y < lm.y + lm.height || li == self.lines.length() - 1 {
+      target_line = li
+      break
+    }
+  }
+  let lm = self.lines[target_line]
+  let mut best_off = lm.end_index
+  let mut best_dist = (1.0e9 : Float)
+  for idx = lm.start_index; idx <= lm.end_index; idx = idx + 1 {
+    let gx = if idx < self.char_x.length() && idx < lm.end_index {
+      self.char_x[idx]
+    } else {
+      lm.width
+    }
+    let d = abs_f(pt.x - gx)
+    if d < best_dist {
+      best_dist = d
+      best_off = idx
+    }
+  }
+  { offset: best_off, line: target_line }
+}
+
+///|
+pub fn Paragraph::get_caret_rect(self : Paragraph, pos : TextPosition) -> Rect {
+  if self.lines.length() == 0 {
+    return Rect::new((0.0 : Float), (0.0 : Float), (2.0 : Float), (18.0 : Float))
+  }
+  let li = if pos.line >= 0 && pos.line < self.lines.length() {
+    pos.line
+  } else {
+    let mut found = 0
+    for k = 0; k < self.lines.length(); k = k + 1 {
+      if pos.offset >= self.lines[k].start_index && pos.offset <= self.lines[k].end_index {
+        found = k
+        break
+      }
+    }
+    found
+  }
+  let lm = self.lines[li]
+  let cx = if pos.offset >= lm.end_index {
+    lm.width
+  } else if pos.offset >= 0 && pos.offset < self.char_x.length() {
+    self.char_x[pos.offset]
+  } else {
+    (0.0 : Float)
+  }
+  Rect::new(cx, lm.y, (2.0 : Float), lm.height)
+}
+
+///|
+pub fn Paragraph::get_boxes_for_range(
+  self : Paragraph,
+  start : Int,
+  end : Int,
+) -> Array[Rect] {
+  let out : Array[Rect] = []
+  if end <= start {
+    return out
+  }
+  for lm in self.lines {
+    let s = if start > lm.start_index { start } else { lm.start_index }
+    let e = if end < lm.end_index { end } else { lm.end_index }
+    if e > s {
+      let x0 = if s < self.char_x.length() { self.char_x[s] } else { (0.0 : Float) }
+      let x1 = if e < lm.end_index && e < self.char_x.length() {
+        self.char_x[e]
+      } else {
+        lm.width
+      }
+      out.push(Rect::from_ltrb(x0, lm.y, x1, lm.y + lm.height))
+    }
+  }
+  out
+}

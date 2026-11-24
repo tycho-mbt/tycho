@@ -3036,6 +3036,108 @@ fn alloc_pipeline_descriptors(
 }
 
 ///|
+fn configure_blend_attachment(
+  blend_atts : @vk.VkPipelineColorBlendAttachmentState,
+  i : Int,
+  effective_blend : BlendMode,
+  color_write : Bool,
+) -> Unit {
+  let mask = if color_write {
+    @vk.VK_COLOR_COMPONENT_R_BIT |
+    @vk.VK_COLOR_COMPONENT_G_BIT |
+    @vk.VK_COLOR_COMPONENT_B_BIT |
+    @vk.VK_COLOR_COMPONENT_A_BIT
+  } else {
+    (0 : UInt32)
+  }
+  blend_atts.set_colorWriteMask_at(i, mask)
+  match effective_blend {
+    BlendMode::Opaque => ()
+    BlendMode::Alpha => {
+      blend_atts.set_blendEnable_at(i, (1 : UInt32))
+      blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
+      blend_atts.set_dstColorBlendFactor_at(
+        i,
+        @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+      )
+      blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+      blend_atts.set_dstAlphaBlendFactor_at(
+        i,
+        @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+      )
+      blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+    }
+    BlendMode::Additive => {
+      blend_atts.set_blendEnable_at(i, (1 : UInt32))
+      blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
+      blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+      blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+      blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+      blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+    }
+    BlendMode::Premultiplied => {
+      blend_atts.set_blendEnable_at(i, (1 : UInt32))
+      blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+      blend_atts.set_dstColorBlendFactor_at(
+        i,
+        @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+      )
+      blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+      blend_atts.set_dstAlphaBlendFactor_at(
+        i,
+        @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+      )
+      blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+    }
+    BlendMode::Multiply => {
+      blend_atts.set_blendEnable_at(i, (1 : UInt32))
+      blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_DST_COLOR)
+      blend_atts.set_dstColorBlendFactor_at(
+        i,
+        @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+      )
+      blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+      blend_atts.set_dstAlphaBlendFactor_at(
+        i,
+        @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+      )
+      blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+    }
+    BlendMode::DstIn => {
+      blend_atts.set_blendEnable_at(i, (1 : UInt32))
+      blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ZERO)
+      blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
+      blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ZERO)
+      blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
+      blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+    }
+    BlendMode::SrcIn => {
+      blend_atts.set_blendEnable_at(i, (1 : UInt32))
+      blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_DST_ALPHA)
+      blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ZERO)
+      blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_DST_ALPHA)
+      blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ZERO)
+      blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+    }
+    BlendMode::Clear => {
+      blend_atts.set_blendEnable_at(i, (1 : UInt32))
+      blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ZERO)
+      blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ZERO)
+      blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ZERO)
+      blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ZERO)
+      blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+    }
+  }
+}
+
+///|
 fn vk_graphics_pipeline_create(
   d : VkDeviceState,
   desc : PipelineDesc,
@@ -3217,69 +3319,8 @@ fn vk_graphics_pipeline_create(
     None => if desc.blend { BlendMode::Alpha } else { BlendMode::Opaque }
   }
   let blend_atts = @vk.VkPipelineColorBlendAttachmentState::array(n_colors)
-  let mask = @vk.VK_COLOR_COMPONENT_R_BIT |
-    @vk.VK_COLOR_COMPONENT_G_BIT |
-    @vk.VK_COLOR_COMPONENT_B_BIT |
-    @vk.VK_COLOR_COMPONENT_A_BIT
   for i = 0; i < n_colors; i = i + 1 {
-    blend_atts.set_colorWriteMask_at(i, mask)
-    match effective_blend {
-      BlendMode::Opaque => ()
-      BlendMode::Alpha => {
-        blend_atts.set_blendEnable_at(i, (1 : UInt32))
-        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
-        blend_atts.set_dstColorBlendFactor_at(
-          i,
-          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        )
-        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_dstAlphaBlendFactor_at(
-          i,
-          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        )
-        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-      }
-      BlendMode::Additive => {
-        blend_atts.set_blendEnable_at(i, (1 : UInt32))
-        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
-        blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-      }
-      BlendMode::Premultiplied => {
-        blend_atts.set_blendEnable_at(i, (1 : UInt32))
-        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_dstColorBlendFactor_at(
-          i,
-          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        )
-        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_dstAlphaBlendFactor_at(
-          i,
-          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        )
-        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-      }
-      BlendMode::Multiply => {
-        blend_atts.set_blendEnable_at(i, (1 : UInt32))
-        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_DST_COLOR)
-        blend_atts.set_dstColorBlendFactor_at(
-          i,
-          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        )
-        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_dstAlphaBlendFactor_at(
-          i,
-          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        )
-        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-      }
-    }
+    configure_blend_attachment(blend_atts, i, effective_blend, desc.color_write)
   }
   let color_blend = @vk.VkPipelineColorBlendStateCreateInfo::new()
   color_blend.set_attachmentCount(n_colors.reinterpret_as_uint())
@@ -4760,51 +4801,8 @@ fn vk_mesh_pipeline_create(
     None => if desc.blend { BlendMode::Alpha } else { BlendMode::Opaque }
   }
   let blend_atts = @vk.VkPipelineColorBlendAttachmentState::array(n_colors)
-  let mask = @vk.VK_COLOR_COMPONENT_R_BIT |
-    @vk.VK_COLOR_COMPONENT_G_BIT |
-    @vk.VK_COLOR_COMPONENT_B_BIT |
-    @vk.VK_COLOR_COMPONENT_A_BIT
   for i = 0; i < n_colors; i = i + 1 {
-    blend_atts.set_colorWriteMask_at(i, mask)
-    match effective_blend {
-      BlendMode::Opaque => ()
-      BlendMode::Alpha => {
-        blend_atts.set_blendEnable_at(i, (1 : UInt32))
-        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
-        blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
-        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
-        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-      }
-      BlendMode::Additive => {
-        blend_atts.set_blendEnable_at(i, (1 : UInt32))
-        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
-        blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-      }
-      BlendMode::Premultiplied => {
-        blend_atts.set_blendEnable_at(i, (1 : UInt32))
-        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
-        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
-        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-      }
-      BlendMode::Multiply => {
-        blend_atts.set_blendEnable_at(i, (1 : UInt32))
-        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_DST_COLOR)
-        blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
-        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-        blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
-        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-      }
-    }
+    configure_blend_attachment(blend_atts, i, effective_blend, desc.color_write)
   }
   let color_blend = @vk.VkPipelineColorBlendStateCreateInfo::new()
   color_blend.set_attachmentCount(n_colors.reinterpret_as_uint())

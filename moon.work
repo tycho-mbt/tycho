@@ -3,6 +3,8 @@ members = [
   "window",
   "shader",
   "tycho",
+  "2d",
+  "ui",
   "codegen",
   "examples",
 ]

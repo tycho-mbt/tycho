@@ -1,0 +1,452 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_2d"
+
+import {
+  "laplaceliu/tycho",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn flatten_path_contours(Path, Matrix3, tolerance? : Float) -> Array[(Array[Point], Bool)]
+
+pub fn tessellate_fill_fan(Path, Matrix3, tolerance? : Float) -> (Array[Float], Rect)
+
+pub fn tessellate_stroke(Path, Matrix3, Float, StrokeCap, StrokeJoin, Float, tolerance? : Float) -> Array[Float]
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum BlendMode2D {
+  SrcOver
+  Src
+  Plus
+  Multiply
+  DstIn
+  SrcIn
+  Clear
+}
+pub fn BlendMode2D::to_rhi(Self) -> @tycho.BlendMode
+
+pub struct Canvas {
+  // private fields
+}
+pub fn Canvas::clear(Self, Color) -> Unit
+pub fn Canvas::clip_path(Self, Path, op? : ClipOp) -> Unit
+pub fn Canvas::clip_rect(Self, Rect, op? : ClipOp) -> Unit
+pub fn Canvas::clip_rrect(Self, RRect, op? : ClipOp) -> Unit
+pub fn Canvas::concat(Self, Matrix3) -> Unit
+pub fn Canvas::draw_circle(Self, Point, Float, Paint) -> Unit
+pub fn Canvas::draw_display_list(Self, DisplayList) -> Unit
+pub fn Canvas::draw_image(Self, Image2D, Point, paint? : Paint) -> Unit
+pub fn Canvas::draw_image_rect(Self, Image2D, Rect, Rect, paint? : Paint) -> Unit
+pub fn Canvas::draw_line(Self, Point, Point, Paint) -> Unit
+pub fn Canvas::draw_paragraph(Self, Paragraph, Point) -> Unit
+pub fn Canvas::draw_path(Self, Path, Paint) -> Unit
+pub fn Canvas::draw_rect(Self, Rect, Paint) -> Unit
+pub fn Canvas::draw_rrect(Self, RRect, Paint) -> Unit
+pub fn Canvas::draw_rrect_shadow(Self, RRect, Float, Float, Float, Float, Color) -> Unit
+pub fn Canvas::finish(Self) -> DisplayList
+pub fn Canvas::new() -> Self
+pub fn Canvas::restore(Self) -> Unit
+pub fn Canvas::restore_to_count(Self, Int32) -> Unit
+pub fn Canvas::rotate(Self, Float) -> Unit
+pub fn Canvas::save(Self) -> Int32
+pub fn Canvas::save_backdrop_layer(Self, Rect, ImageFilter) -> Int32
+pub fn Canvas::save_count(Self) -> Int32
+pub fn Canvas::save_layer(Self, bounds? : Rect?, paint? : Paint) -> Int32
+pub fn Canvas::scale(Self, Float, Float) -> Unit
+pub fn Canvas::translate(Self, Float, Float) -> Unit
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ClipOp {
+  Intersect
+  Difference
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Color {
+  r : Float
+  g : Float
+  b : Float
+  a : Float
+}
+pub fn Color::black() -> Self
+pub fn Color::from_argb32(UInt32) -> Self
+pub fn Color::from_rgba8(Int32, Int32, Int32, a? : Int32) -> Self
+pub fn Color::lerp(Self, Self, Float) -> Self
+pub fn Color::rgb(Float, Float, Float) -> Self
+pub fn Color::rgba(Float, Float, Float, Float) -> Self
+pub fn Color::to_clear_color(Self) -> @tycho.ClearColor
+pub fn Color::to_premul(Self) -> (Float, Float, Float, Float)
+pub fn Color::transparent() -> Self
+pub fn Color::white() -> Self
+pub fn Color::with_alpha(Self, Float) -> Self
+
+pub struct DisplayList {
+  ops : FixedArray[DrawOp]
+  bounds : Rect
+}
+pub fn DisplayList::bounds(Self) -> Rect
+pub fn DisplayList::op_count(Self) -> Int32
+
+pub(all) enum DrawOp {
+  Clear(Color)
+  Save
+  Restore
+  SaveLayer(Rect?, Paint)
+  SaveBackdropLayer(Rect, ImageFilter)
+  Concat(Matrix3)
+  ClipRect(Rect, ClipOp)
+  ClipRRect(RRect, ClipOp)
+  ClipPath(Path, ClipOp)
+  DrawRect(Rect, Paint)
+  DrawRRect(RRect, Paint)
+  DrawCircle(Point, Float, Paint)
+  DrawLine(Point, Point, Paint)
+  DrawRRectShadow(RRect, Float, Float, Float, Float, Color)
+  DrawPath(Path, Paint)
+  DrawImage(Image2D, Rect, Rect, Paint)
+  DrawParagraph(Paragraph, Point)
+  DrawDisplayList(DisplayList)
+}
+
+pub struct DynamicAtlas {
+  texture : @tycho.Texture
+  width : Int32
+  height : Int32
+  packer : SkylinePacker
+}
+pub fn DynamicAtlas::alloc_and_upload(Self, Int32, Int32, Bytes, padding? : Int32) -> (Int32, Int32)? raise @tycho.RhiError
+pub fn DynamicAtlas::destroy(Self) -> Unit
+pub fn DynamicAtlas::new(@tycho.Device, Int32, Int32, @tycho.TextureFormat) -> Self raise @tycho.RhiError
+pub fn DynamicAtlas::reset(Self) -> Unit
+pub fn DynamicAtlas::uv_rect(Self, Int32, Int32, Int32, Int32) -> (Float, Float, Float, Float)
+
+#derive(Eq, @debug.Debug)
+pub(all) enum FillRule {
+  NonZero
+  EvenOdd
+}
+
+pub struct FontFace {
+  // private fields
+}
+pub fn FontFace::advance_width(Self, Int32, Float) -> Float
+pub fn FontFace::builtin() -> Self
+pub fn FontFace::from_ttf_bytes(Bytes) -> Self?
+pub fn FontFace::id(Self) -> Int32
+pub fn FontFace::metrics(Self, Float) -> (Float, Float, Float)
+
+pub struct GlyphCache {
+  atlas : DynamicAtlas
+  // private fields
+}
+pub fn GlyphCache::destroy(Self) -> Unit
+pub fn GlyphCache::get_or_rasterize(Self, FontFace, Int32, Float) -> GlyphEntry raise @tycho.RhiError
+pub fn GlyphCache::new(@tycho.Device, width? : Int32, height? : Int32) -> Self raise @tycho.RhiError
+
+pub(all) struct GlyphEntry {
+  uv_x0 : Float
+  uv_y0 : Float
+  uv_x1 : Float
+  uv_y1 : Float
+  offset_x : Int32
+  offset_y : Int32
+  width : Int32
+  height : Int32
+  advance : Float
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct GradientStop {
+  offset : Float
+  color : Color
+}
+pub fn GradientStop::new(Float, Color) -> Self
+
+pub(all) struct Image2D {
+  id : Int32
+  width : Int32
+  height : Int32
+  pixels : Bytes
+  texture : @tycho.Texture?
+}
+pub fn Image2D::from_bytes(Int32, Int32, Int32, Bytes) -> Self
+pub fn Image2D::from_texture(Int32, @tycho.Texture) -> Self
+
+pub(all) enum ImageFilter {
+  Blur(Float, Float, TileMode)
+  DropShadow(Float, Float, Float, Float, Color)
+  ColorMatrix(FixedArray[Float])
+}
+
+pub(all) struct LineMetrics {
+  start_index : Int32
+  end_index : Int32
+  y : Float
+  height : Float
+  baseline : Float
+  width : Float
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Matrix3 {
+  a : Float
+  c : Float
+  tx : Float
+  b : Float
+  d : Float
+  ty : Float
+}
+pub fn Matrix3::concat(Self, Self) -> Self
+pub fn Matrix3::identity() -> Self
+pub fn Matrix3::invert(Self) -> Self?
+pub fn Matrix3::is_axis_aligned(Self) -> Bool
+pub fn Matrix3::is_pure_translation(Self) -> Bool
+pub fn Matrix3::map_point(Self, Point) -> Point
+pub fn Matrix3::map_rect(Self, Rect) -> Rect
+pub fn Matrix3::rotate(Float) -> Self
+pub fn Matrix3::scale(Float, Float) -> Self
+pub fn Matrix3::translate(Float, Float) -> Self
+
+pub(all) struct Paint {
+  color : Color
+  style : PaintStyle
+  stroke_width : Float
+  stroke_cap : StrokeCap
+  stroke_join : StrokeJoin
+  stroke_miter : Float
+  blend_mode : BlendMode2D
+  shader : Shader2D?
+  image_filter : ImageFilter?
+  anti_alias : Bool
+}
+pub fn Paint::fill(Color) -> Self
+pub fn Paint::new(color? : Color, style? : PaintStyle, stroke_width? : Float, stroke_cap? : StrokeCap, stroke_join? : StrokeJoin, stroke_miter? : Float, blend_mode? : BlendMode2D, shader? : Shader2D?, image_filter? : ImageFilter?, anti_alias? : Bool) -> Self
+pub fn Paint::stroke(Color, Float, cap? : StrokeCap, join? : StrokeJoin) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum PaintStyle {
+  Fill
+  Stroke
+  StrokeAndFill
+}
+
+pub struct Paragraph {
+  // private fields
+}
+pub fn Paragraph::get_boxes_for_range(Self, Int32, Int32) -> Array[Rect]
+pub fn Paragraph::get_caret_rect(Self, TextPosition) -> Rect
+pub fn Paragraph::get_position_for_offset(Self, Point) -> TextPosition
+pub fn Paragraph::height(Self) -> Float
+pub fn Paragraph::layout(Self, Float) -> Unit
+pub fn Paragraph::line_count(Self) -> Int32
+pub fn Paragraph::line_metrics(Self) -> Array[LineMetrics]
+pub fn Paragraph::placed_glyphs(Self) -> Array[PlacedGlyph]
+pub fn Paragraph::underline_rects(Self) -> Array[(Float, Float, Float, Float, Color)]
+pub fn Paragraph::width(Self) -> Float
+
+pub struct ParagraphBuilder {
+  // private fields
+}
+pub fn ParagraphBuilder::add_span(Self, TextSpan) -> Self
+pub fn ParagraphBuilder::add_text(Self, String, style? : TextStyle) -> Self
+pub fn ParagraphBuilder::build(Self) -> Paragraph
+pub fn ParagraphBuilder::new(style? : ParagraphStyle) -> Self
+
+pub(all) struct ParagraphStyle {
+  align : TextAlign
+  max_lines : Int32
+  ellipsis : String
+  line_height_scale : Float
+}
+pub fn ParagraphStyle::new(align? : TextAlign, max_lines? : Int32, ellipsis? : String, line_height_scale? : Float) -> Self
+
+pub struct Path {
+  // private fields
+}
+pub fn Path::bounds(Self) -> Rect
+pub fn Path::fill_rule(Self) -> FillRule
+pub fn Path::id(Self) -> UInt64
+pub fn Path::is_empty(Self) -> Bool
+
+pub struct PathBuilder {
+  // private fields
+}
+pub fn PathBuilder::add_circle(Self, Float, Float, Float) -> Self
+pub fn PathBuilder::add_oval(Self, Rect) -> Self
+pub fn PathBuilder::add_rect(Self, Rect) -> Self
+pub fn PathBuilder::add_rrect(Self, RRect) -> Self
+pub fn PathBuilder::build(Self, fill_rule? : FillRule) -> Path
+pub fn PathBuilder::close(Self) -> Self
+pub fn PathBuilder::cubic_to(Self, Float, Float, Float, Float, Float, Float) -> Self
+pub fn PathBuilder::line_to(Self, Float, Float) -> Self
+pub fn PathBuilder::move_to(Self, Float, Float) -> Self
+pub fn PathBuilder::new() -> Self
+pub fn PathBuilder::quad_to(Self, Float, Float, Float, Float) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum PathVerb {
+  Move
+  Line
+  Quad
+  Cubic
+  Close
+}
+
+pub(all) struct PlacedGlyph {
+  codepoint : Int32
+  font : FontFace
+  font_size : Float
+  x : Float
+  baseline_y : Float
+  advance : Float
+  color : Color
+  char_index : Int32
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Point {
+  x : Float
+  y : Float
+}
+pub fn Point::add(Self, Self) -> Self
+pub fn Point::distance_to(Self, Self) -> Float
+pub fn Point::lerp(Self, Self, Float) -> Self
+pub fn Point::new(Float, Float) -> Self
+pub fn Point::scale(Self, Float) -> Self
+pub fn Point::sub(Self, Self) -> Self
+pub fn Point::zero() -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) struct RRect {
+  rect : Rect
+  tl : Float
+  tr : Float
+  br : Float
+  bl : Float
+}
+pub fn RRect::from_rect(Rect) -> Self
+pub fn RRect::is_rect(Self) -> Bool
+pub fn RRect::offset(Self, Float, Float) -> Self
+pub fn RRect::per_corner(Rect, Float, Float, Float, Float) -> Self
+pub fn RRect::uniform(Rect, Float) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Rect {
+  x : Float
+  y : Float
+  width : Float
+  height : Float
+}
+pub fn Rect::bottom(Self) -> Float
+pub fn Rect::center(Self) -> Point
+pub fn Rect::contains(Self, Point) -> Bool
+pub fn Rect::from_ltrb(Float, Float, Float, Float) -> Self
+pub fn Rect::from_size(Size) -> Self
+pub fn Rect::inflate(Self, Float) -> Self
+pub fn Rect::inset(Self, Float, Float) -> Self
+pub fn Rect::intersect(Self, Self) -> Self
+pub fn Rect::is_empty(Self) -> Bool
+pub fn Rect::new(Float, Float, Float, Float) -> Self
+pub fn Rect::offset(Self, Float, Float) -> Self
+pub fn Rect::right(Self) -> Float
+pub fn Rect::union(Self, Self) -> Self
+pub fn Rect::zero() -> Self
+
+pub struct RenderTargetPool {
+  // private fields
+}
+pub fn RenderTargetPool::acquire(Self, Int32, Int32, with_depth_stencil? : Bool) -> (@tycho.Texture, @tycho.Texture?) raise @tycho.RhiError
+pub fn RenderTargetPool::destroy(Self) -> Unit
+pub fn RenderTargetPool::new(@tycho.Device) -> Self
+pub fn RenderTargetPool::release_all(Self) -> Unit
+
+pub struct Renderer2D {
+  // private fields
+}
+pub fn Renderer2D::destroy(Self) -> Unit
+pub fn Renderer2D::new(@tycho.Device, max_prims_per_frame? : Int32, max_stops_per_frame? : Int32, max_path_verts_per_frame? : Int32) -> Self raise @tycho.RhiError
+pub fn Renderer2D::render_offscreen(Self, DisplayList, @tycho.Texture, clear_color? : Color) -> Unit raise @tycho.RhiError
+pub fn Renderer2D::render_swapchain(Self, @tycho.Swapchain, DisplayList, clear_color? : Color) -> Unit raise @tycho.RhiError
+
+pub(all) enum Shader2D {
+  Solid(Color)
+  LinearGradient(Point, Point, Array[GradientStop], TileMode)
+  RadialGradient(Point, Float, Array[GradientStop], TileMode)
+  SweepGradient(Point, Float, Float, Array[GradientStop], TileMode)
+  ImagePattern(Image2D, Matrix3, @tycho.Filter, TileMode, TileMode)
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Size {
+  width : Float
+  height : Float
+}
+pub fn Size::new(Float, Float) -> Self
+pub fn Size::zero() -> Self
+
+pub struct SkylinePacker {
+  width : Int32
+  height : Int32
+  // private fields
+}
+pub fn SkylinePacker::alloc(Self, Int32, Int32) -> (Int32, Int32)?
+pub fn SkylinePacker::new(Int32, Int32) -> Self
+pub fn SkylinePacker::reset(Self) -> Unit
+pub fn SkylinePacker::used_area(Self) -> Int32
+
+#derive(Eq, @debug.Debug)
+pub(all) enum StrokeCap {
+  Butt
+  Round
+  Square
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum StrokeJoin {
+  Miter
+  Round
+  Bevel
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum TextAlign {
+  Left
+  Center
+  Right
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct TextPosition {
+  offset : Int32
+  line : Int32
+}
+
+pub(all) struct TextSpan {
+  text : String
+  style : TextStyle
+}
+pub fn TextSpan::new(String, style? : TextStyle) -> Self
+
+pub(all) struct TextStyle {
+  font : FontFace
+  font_size : Float
+  color : Color
+  letter_spacing : Float
+  underline : Bool
+}
+pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum TileMode {
+  Clamp
+  Repeat
+  Mirror
+  Decal
+}
+
+// Type aliases
+
+// Traits

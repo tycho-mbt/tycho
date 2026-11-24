@@ -165,3 +165,5 @@ if dev.capabilities().supports_ray_query {
 | `51-wayland-window` | Linux Wayland WSI (`xdg-shell` + `VK_KHR_wayland_surface`) |
 | `52-rhi-rayquery-stencil` | `StencilState` + `set_stencil_reference`, `draw_indirect_count`, Inline Ray Query (`create_blas`/`create_tlas`) |
 | `53-rhi-2d-sdf-batch` | 2D per-corner SDF rounded rects, procedural icon atlas, hardware `set_scissor` clipping, and 30f × 2,000-quad ring-SSBO benchmark |
+| `54-tycho-2d-showcase` | `laplaceliu/tycho_2d` showcase: gradients, TrueType/built-in paragraphs, Stencil-then-Cover paths, `save_layer`, and `BackdropFilter` blur |
+| `55-tycho-ui-gallery` | `laplaceliu/tycho_ui` declarative UI showcase: three trees, `Signal[T]`, Dark/Light theme, `TextField`, `frosted_dialog`, and 100K virtual `ListView` |

@@ -222,6 +222,9 @@ pub(all) enum BlendMode {
   Additive
   Premultiplied
   Multiply
+  DstIn
+  SrcIn
+  Clear
 }
 
 ///|
@@ -355,6 +358,7 @@ pub(all) struct PipelineDesc {
   front_face : FrontFace
   blend : Bool
   blend_mode : BlendMode?
+  color_write : Bool
   samples : SampleCount
   color_format : TextureFormat?
   color_formats : Array[TextureFormat]
@@ -499,6 +503,7 @@ pub fn PipelineDesc::new(
   front_face? : FrontFace = FrontFace::Clockwise,
   blend? : Bool = false,
   blend_mode? : BlendMode? = None,
+  color_write? : Bool = true,
   samples? : SampleCount = SampleCount::X1,
   color_format? : TextureFormat? = None,
   color_formats? : Array[TextureFormat] = [],
@@ -536,6 +541,7 @@ pub fn PipelineDesc::new(
     front_face,
     blend,
     blend_mode,
+    color_write,
     samples,
     color_format,
     color_formats,
@@ -573,6 +579,7 @@ pub fn PipelineDesc::from_spirv(
   front_face? : FrontFace = FrontFace::Clockwise,
   blend? : Bool = false,
   blend_mode? : BlendMode? = None,
+  color_write? : Bool = true,
   samples? : SampleCount = SampleCount::X1,
   color_format? : TextureFormat? = None,
   color_formats? : Array[TextureFormat] = [],
@@ -679,6 +686,7 @@ pub fn PipelineDesc::from_spirv(
     front_face~,
     blend~,
     blend_mode~,
+    color_write~,
     samples~,
     color_format~,
     color_formats=resolved_formats,
@@ -711,6 +719,7 @@ pub(all) struct MeshPipelineDesc {
   front_face : FrontFace
   blend : Bool
   blend_mode : BlendMode?
+  color_write : Bool
   samples : SampleCount
   color_format : TextureFormat?
   color_formats : Array[TextureFormat]
@@ -742,6 +751,7 @@ pub fn MeshPipelineDesc::new(
   front_face? : FrontFace = FrontFace::Clockwise,
   blend? : Bool = false,
   blend_mode? : BlendMode? = None,
+  color_write? : Bool = true,
   samples? : SampleCount = SampleCount::X1,
   color_format? : TextureFormat? = None,
   color_formats? : Array[TextureFormat] = [],
@@ -771,6 +781,7 @@ pub fn MeshPipelineDesc::new(
     front_face,
     blend,
     blend_mode,
+    color_write,
     samples,
     color_format,
     color_formats,

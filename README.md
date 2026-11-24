@@ -10,6 +10,14 @@
 
 *2D SDF UI batching & high-frequency `CpuToGpu` ring-SSBO benchmark via `examples/53-rhi-2d-sdf-batch`.*
 
+![Tycho 2D Engine Showcase — Stencil-then-Cover Paths, Gradients, TrueType Text & Frosted Backdrop Blur](examples/54-tycho-2d-showcase/screenshot.png)
+
+*`laplaceliu/tycho_2d` showcase via `examples/54-tycho-2d-showcase`.*
+
+![Tycho UI Declarative Gallery — Three-Tree Widgets, Signals, Controls & 100K Virtual ListView](examples/55-tycho-ui-gallery/screenshot.png)
+
+*`laplaceliu/tycho_ui` declarative gallery via `examples/55-tycho-ui-gallery`.*
+
 ## Architecture (Multi-Module Workspace)
 
 | Module (`mooncakes.io`) | Directory | Purpose | Native Link Deps |
@@ -18,8 +26,10 @@
 | `laplaceliu/tycho_window` | `window/` | Thin native window + input events + Vulkan WSI surface helper across Linux (Wayland/X11 via `dlopen`), Windows (Win32 via `LoadLibraryA`), and macOS (Cocoa + `CAMetalLayer` via `dlopen`) | *(none)* |
 | `laplaceliu/tycho_shader` | `shader/` | GLSL (`glslangValidator`), Slang (`slangc`), pure-MoonBit SPIR-V reflection (`reflect_spirv`), & PPM/BMP/PNG/HDR image helpers | *(none)* |
 | `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, free-list sub-allocator, auto-reflected pipelines (`from_spirv`), MRT, mipmaps, storage images, bindless, mesh shaders, inline Ray Query (BLAS/TLAS), stencil state, and GPU timestamps | *(none)* |
+| `laplaceliu/tycho_2d` | `2d/` | Skia/Impeller-inspired pure-MoonBit 2D engine: `Canvas`/`DisplayList`, AOT embedded SPIR-V pipelines, Tier-1 SDF/gradient/atlas batcher, pure-MoonBit TrueType + built-in font & `Paragraph` layout, Tier-2 Stencil-then-Cover paths & strokes, `save_layer`, and Gaussian `BackdropFilter` blur | *(none)* |
+| `laplaceliu/tycho_ui` | `ui/` | Flutter-inspired declarative UI framework: Widget/Element/RenderObject/Layer trees, fine-grained `Signal[T]`, single-pass `BoxConstraints` (`Row`/`Column`/`Stack`/`Wrap`), `GestureArena`, `TextField`, `ThemeData`, virtualized `ListView`, `AppRunner` & headless `WidgetTester` | *(none)* |
 | `laplaceliu/tycho_codegen` *(private)* | `codegen/` | Khronos `vk.xml` → MoonBit + C shim generator | *(none)* |
-| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | 52 pure-MoonBit examples (31 low-level Vulkan API suites at **100.0%** reachable Linux coverage + 21 unified `@tycho` demos, Wayland check & benchmarks) | *(none)* |
+| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | Pure-MoonBit examples & suites (low-level Vulkan API suites + unified `@tycho` / `@tycho_2d` / `@tycho_ui` demos, Wayland check & benchmarks) | *(none)* |
 
 Documentation:
 - [Architecture Overview](docs/architecture.md)
@@ -117,6 +127,8 @@ moon add laplaceliu/tycho_vulkan
 moon add laplaceliu/tycho_shader
 moon add laplaceliu/tycho_window
 moon add laplaceliu/tycho
+moon add laplaceliu/tycho_2d
+moon add laplaceliu/tycho_ui
 ```
 
 No native `cc-link-flags` are needed in downstream `moon.pkg` files on Linux, Windows, or macOS — Vulkan and OS windowing APIs are resolved dynamically at runtime.
@@ -128,6 +140,8 @@ Or publish from source in dependency order (after `moon login` as `laplaceliu`):
 (cd shader && moon publish)
 (cd window && moon publish)
 (cd tycho && moon publish)
+(cd 2d && moon publish)
+(cd ui && moon publish)
 ```
 
 Use `moon publish --dry-run` to validate packaging and standalone `moon check` before releasing.

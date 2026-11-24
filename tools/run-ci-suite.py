@@ -36,6 +36,8 @@ RHI_EXAMPLES = [
     "50-rhi-bench",
     "52-rhi-rayquery-stencil",
     "53-rhi-2d-sdf-batch",
+    "54-tycho-2d-showcase",
+    "55-tycho-ui-gallery",
 ]
 
 WORD_FAIL = re.compile(r"\bFAIL\b")

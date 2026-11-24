@@ -1,0 +1,522 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_ui"
+
+import {
+  "laplaceliu/tycho",
+  "laplaceliu/tycho_2d",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const INF : Float = 1.0e30
+
+pub fn align(key? : Key?, Alignment, Widget) -> Widget
+
+pub fn backdrop_filter(key? : Key?, blur_sigma? : Float, radius? : Float, tint? : @tycho_2d.Color, Widget) -> Widget
+
+pub fn builder(key? : Key?, tag? : Int32, (BuildContext) -> Widget) -> Widget
+
+pub fn card(key? : Key?, pad? : EdgeInsets, radius? : Float?, color? : @tycho_2d.Color?, border_color? : @tycho_2d.Color?, shadow_blur? : Float, Widget) -> Widget
+
+pub fn center(key? : Key?, Widget) -> Widget
+
+pub fn checkbox(key? : Key?, Signal[Bool], label? : String, on_changed? : ((Bool) -> Unit)?) -> Widget
+
+pub fn clip_rect(key? : Key?, Widget) -> Widget
+
+pub fn clip_rrect(key? : Key?, Float, Widget) -> Widget
+
+pub fn column(key? : Key?, main_axis? : MainAxisAlignment, cross_axis? : CrossAxisAlignment, main_size? : MainAxisSize, gap? : Float, Array[Widget]) -> Widget
+
+pub fn constrained_box(key? : Key?, BoxConstraints, Widget) -> Widget
+
+pub fn container(key? : Key?, width? : Float?, height? : Float?, pad? : EdgeInsets?, color? : @tycho_2d.Color?, shader? : @tycho_2d.Shader2D?, border_color? : @tycho_2d.Color?, border_width? : Float, radius? : Float, tl? : Float, tr? : Float, br? : Float, bl? : Float, shadow_blur? : Float, shadow_dx? : Float, shadow_dy? : Float, shadow_color? : @tycho_2d.Color?, alignment? : Alignment?, child? : Widget?) -> Widget
+
+pub fn custom_paint(key? : Key?, @tycho_2d.Size, (@tycho_2d.Canvas, @tycho_2d.Size) -> Unit) -> Widget
+
+pub fn decorated_box(key? : Key?, DecoratedProps, child? : Widget?) -> Widget
+
+pub fn divider(key? : Key?, height? : Float, color? : @tycho_2d.Color?) -> Widget
+
+pub fn expanded(key? : Key?, flex? : Int32, Widget) -> Widget
+
+pub fn filled_button(key? : Key?, String, () -> Unit, color? : @tycho_2d.Color?, pad? : EdgeInsets) -> Widget
+
+pub fn flexible(key? : Key?, flex? : Int32, fit? : FlexFit, Widget) -> Widget
+
+pub fn frosted_dialog(key? : Key?, String, Widget, () -> Unit, width? : Float) -> Widget
+
+pub fn gesture_detector(key? : Key?, on_tap? : (() -> Unit)?, on_drag_start? : ((@tycho_2d.Point) -> Unit)?, on_drag_update? : ((@tycho_2d.Point, @tycho_2d.Point) -> Unit)?, on_drag_end? : (() -> Unit)?, on_scroll? : ((Float, Float) -> Unit)?, Widget) -> Widget
+
+pub fn image_widget(key? : Key?, @tycho_2d.Image2D, Float, Float) -> Widget
+
+pub fn lerp_color(@tycho_2d.Color, @tycho_2d.Color, Float) -> @tycho_2d.Color
+
+pub fn lerp_float(Float, Float, Float) -> Float
+
+pub fn list_view_builder(key? : Key?, Int32, Float, ScrollController, (BuildContext, Int32) -> Widget) -> Widget
+
+pub fn mouse_region(key? : Key?, on_enter? : (() -> Unit)?, on_exit? : (() -> Unit)?, on_hover? : ((@tycho_2d.Point) -> Unit)?, Widget) -> Widget
+
+pub fn opacity(key? : Key?, Float, Widget) -> Widget
+
+pub fn outlined_button(key? : Key?, String, () -> Unit, pad? : EdgeInsets) -> Widget
+
+pub fn padding(key? : Key?, EdgeInsets, Widget) -> Widget
+
+pub fn performance_overlay(FrameStats) -> Widget
+
+pub fn positioned(key? : Key?, left? : Float?, top? : Float?, right? : Float?, bottom? : Float?, width? : Float?, height? : Float?, Widget) -> Widget
+
+pub fn progress_bar(key? : Key?, Float, width? : Float, height? : Float, color? : @tycho_2d.Color?) -> Widget
+
+pub fn repaint_boundary(key? : Key?, Widget) -> Widget
+
+pub fn row(key? : Key?, main_axis? : MainAxisAlignment, cross_axis? : CrossAxisAlignment, main_size? : MainAxisSize, gap? : Float, Array[Widget]) -> Widget
+
+pub fn set_signal_dirty_hook((Int32) -> Unit) -> Unit
+
+pub fn sized_box(key? : Key?, width? : Float?, height? : Float?, child? : Widget?) -> Widget
+
+pub fn slider(key? : Key?, Signal[Float], width? : Float) -> Widget
+
+pub fn stack(key? : Key?, alignment? : Alignment, Array[Widget]) -> Widget
+
+pub fn switch_toggle(key? : Key?, Signal[Bool], label? : String, on_changed? : ((Bool) -> Unit)?) -> Widget
+
+pub fn text(key? : Key?, String, size? : Float, color? : @tycho_2d.Color?, font? : @tycho_2d.FontFace?, align? : @tycho_2d.TextAlign, max_lines? : Int32, ellipsis? : String) -> Widget
+
+pub fn text_field(key? : Key?, TextController, placeholder? : String, width? : Float, font_size? : Float) -> Widget
+
+pub fn theme_provider(key? : Key?, ThemeData, Widget) -> Widget
+
+pub fn transform(key? : Key?, @tycho_2d.Matrix3, Widget) -> Widget
+
+pub fn wrap(key? : Key?, spacing? : Float, run_spacing? : Float, Array[Widget]) -> Widget
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct Alignment {
+  x : Float
+  y : Float
+}
+pub fn Alignment::along_offset(Self, @tycho_2d.Size, @tycho_2d.Size) -> @tycho_2d.Point
+pub fn Alignment::bottom_center() -> Self
+pub fn Alignment::bottom_left() -> Self
+pub fn Alignment::bottom_right() -> Self
+pub fn Alignment::center() -> Self
+pub fn Alignment::center_left() -> Self
+pub fn Alignment::center_right() -> Self
+pub fn Alignment::new(Float, Float) -> Self
+pub fn Alignment::top_center() -> Self
+pub fn Alignment::top_left() -> Self
+pub fn Alignment::top_right() -> Self
+
+pub struct AnimationController {
+  value : Signal[Float]
+  // private fields
+}
+pub fn AnimationController::animate_to(Self, Float) -> Unit
+pub fn AnimationController::is_animating(Self) -> Bool
+pub fn AnimationController::new(initial? : Float, duration_sec? : Double, curve? : Curve) -> Self
+pub fn AnimationController::tick(Self, Double) -> Bool
+
+pub struct AppRunner {
+  dev : @tycho.Device
+  renderer : @tycho_2d.Renderer2D
+  tree : UiTree
+  arena : GestureArena
+  controllers : Array[AnimationController]
+  // private fields
+}
+pub fn AppRunner::add_animation(Self, AnimationController) -> Unit
+pub fn AppRunner::destroy(Self) -> Unit
+pub fn AppRunner::new(@tycho.Device, Widget, theme? : ThemeData, clear_color? : @tycho_2d.Color) -> Self raise @tycho.RhiError
+pub fn AppRunner::pump_frame(Self, Float, Float, dt_sec? : Double) -> @tycho_2d.DisplayList
+pub fn AppRunner::run_window(Self, String, Int32, Int32) -> Unit raise @tycho.RhiError
+pub fn AppRunner::stats(Self) -> FrameStats
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ArenaWinner {
+  Undecided
+  Tap
+  Drag
+  Cancelled
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Axis {
+  Horizontal
+  Vertical
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct BoxConstraints {
+  min_width : Float
+  max_width : Float
+  min_height : Float
+  max_height : Float
+}
+pub fn BoxConstraints::constrain(Self, @tycho_2d.Size) -> @tycho_2d.Size
+pub fn BoxConstraints::constrain_height(Self, Float) -> Float
+pub fn BoxConstraints::constrain_width(Self, Float) -> Float
+pub fn BoxConstraints::deflate(Self, EdgeInsets) -> Self
+pub fn BoxConstraints::enforce(Self, Self) -> Self
+pub fn BoxConstraints::expand() -> Self
+pub fn BoxConstraints::has_bounded_height(Self) -> Bool
+pub fn BoxConstraints::has_bounded_width(Self) -> Bool
+pub fn BoxConstraints::is_tight(Self) -> Bool
+pub fn BoxConstraints::loose(@tycho_2d.Size) -> Self
+pub fn BoxConstraints::loosen(Self) -> Self
+pub fn BoxConstraints::new(min_width? : Float, max_width? : Float, min_height? : Float, max_height? : Float) -> Self
+pub fn BoxConstraints::tight(@tycho_2d.Size) -> Self
+pub fn BoxConstraints::unbounded() -> Self
+
+pub struct BuildContext {
+  // private fields
+}
+pub fn BuildContext::colors(Self) -> ColorScheme
+pub fn BuildContext::element_id(Self) -> Int32
+pub fn BuildContext::theme(Self) -> ThemeData
+
+#derive(Eq, @debug.Debug)
+pub(all) struct ColorScheme {
+  is_dark : Bool
+  background : @tycho_2d.Color
+  surface : @tycho_2d.Color
+  surface_variant : @tycho_2d.Color
+  primary : @tycho_2d.Color
+  on_primary : @tycho_2d.Color
+  secondary : @tycho_2d.Color
+  text_primary : @tycho_2d.Color
+  text_secondary : @tycho_2d.Color
+  border : @tycho_2d.Color
+  danger : @tycho_2d.Color
+}
+pub fn ColorScheme::dark() -> Self
+pub fn ColorScheme::light() -> Self
+
+pub struct Computed[T] {
+  // private fields
+}
+pub fn[T] Computed::get(Self[T], BuildContext) -> T
+pub fn[T] Computed::new((BuildContext) -> T) -> Self[T]
+
+#derive(Eq, @debug.Debug)
+pub(all) enum CrossAxisAlignment {
+  Start
+  Center
+  End
+  Stretch
+}
+
+pub(all) enum Curve {
+  Linear
+  EaseIn
+  EaseOut
+  EaseInOut
+  CubicBezier(Float, Float, Float, Float)
+}
+pub fn Curve::eval(Self, Float) -> Float
+
+pub(all) struct DecoratedProps {
+  fill : @tycho_2d.Color?
+  shader : @tycho_2d.Shader2D?
+  border_color : @tycho_2d.Color?
+  border_width : Float
+  tl : Float
+  tr : Float
+  br : Float
+  bl : Float
+  shadow_blur : Float
+  shadow_dx : Float
+  shadow_dy : Float
+  shadow_color : @tycho_2d.Color?
+}
+pub fn DecoratedProps::new(fill? : @tycho_2d.Color?, shader? : @tycho_2d.Shader2D?, border_color? : @tycho_2d.Color?, border_width? : Float, radius? : Float, tl? : Float, tr? : Float, br? : Float, bl? : Float, shadow_blur? : Float, shadow_dx? : Float, shadow_dy? : Float, shadow_color? : @tycho_2d.Color?) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) struct EdgeInsets {
+  left : Float
+  top : Float
+  right : Float
+  bottom : Float
+}
+pub fn EdgeInsets::all(Float) -> Self
+pub fn EdgeInsets::horizontal(Self) -> Float
+pub fn EdgeInsets::only(left? : Float, top? : Float, right? : Float, bottom? : Float) -> Self
+pub fn EdgeInsets::symmetric(horizontal? : Float, vertical? : Float) -> Self
+pub fn EdgeInsets::vertical(Self) -> Float
+pub fn EdgeInsets::zero() -> Self
+
+pub(all) struct ElementId {
+  id : Int32
+}
+
+pub struct ElementNode {
+  id : Int32
+  key : Key?
+  mut depth : Int32
+  mut parent : ElementNode?
+  mut widget : Widget
+  mut dirty : Bool
+  mut theme : ThemeData
+  children : Array[ElementNode]
+  render : RenderNode?
+  mut list_first : Int32
+  mut list_last : Int32
+  mut list_last_scroll : Float
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum FlexFit {
+  Tight
+  Loose
+}
+
+pub(all) struct FrameStats {
+  build_ms : Double
+  layout_ms : Double
+  paint_ms : Double
+  gpu_ms : Double
+  element_count : Int32
+  render_count : Int32
+}
+
+pub struct GestureArena {
+  // private fields
+}
+pub fn GestureArena::handle_down(Self, Int32, @tycho_2d.Point, Array[HitTestEntry]) -> Unit
+pub fn GestureArena::handle_move(Self, Int32, @tycho_2d.Point) -> Unit
+pub fn GestureArena::handle_scroll(Self, Array[HitTestEntry], Float, Float) -> Unit
+pub fn GestureArena::handle_up(Self, Int32, @tycho_2d.Point, Bool) -> Unit
+pub fn GestureArena::new() -> Self
+pub fn GestureArena::update_hover(Self, Array[HitTestEntry]) -> Unit
+pub fn GestureArena::winner(Self) -> ArenaWinner
+
+pub(all) struct GestureCallbacks {
+  on_tap : (() -> Unit)?
+  on_drag_start : ((@tycho_2d.Point) -> Unit)?
+  on_drag_update : ((@tycho_2d.Point, @tycho_2d.Point) -> Unit)?
+  on_drag_end : (() -> Unit)?
+  on_scroll : ((Float, Float) -> Unit)?
+  on_mouse_enter : (() -> Unit)?
+  on_mouse_exit : (() -> Unit)?
+  on_hover : ((@tycho_2d.Point) -> Unit)?
+}
+pub fn GestureCallbacks::empty() -> Self
+
+pub(all) struct HitTestEntry {
+  node_id : Int32
+  local_pos : @tycho_2d.Point
+  callbacks : GestureCallbacks
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Key {
+  IntKey(Int32)
+  StrKey(String)
+}
+
+pub(all) struct KeyEvent {
+  key : Int32
+  mods : Int32
+  pressed : Bool
+}
+
+pub enum Layer {
+  Container(Array[Layer])
+  Offset(Float, Float, Array[Layer])
+  Transform(@tycho_2d.Matrix3, Array[Layer])
+  ClipRect(@tycho_2d.Rect, Array[Layer])
+  ClipRRect(@tycho_2d.RRect, Array[Layer])
+  Opacity(Float, Array[Layer])
+  BackdropFilter(@tycho_2d.Rect, @tycho_2d.ImageFilter, Array[Layer])
+  Picture(@tycho_2d.DisplayList)
+}
+pub fn Layer::emit_to_canvas(Self, @tycho_2d.Canvas) -> Unit
+pub fn Layer::to_display_list(Self) -> @tycho_2d.DisplayList
+
+#derive(Eq, @debug.Debug)
+pub(all) enum MainAxisAlignment {
+  Start
+  Center
+  End
+  SpaceBetween
+  SpaceAround
+  SpaceEvenly
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum MainAxisSize {
+  Min
+  Max
+}
+
+pub(all) enum PointerEvent {
+  Down(Int32, @tycho_2d.Point, Int32)
+  Move(Int32, @tycho_2d.Point)
+  Up(Int32, @tycho_2d.Point, Int32)
+  Scroll(@tycho_2d.Point, Float, Float)
+}
+
+pub(all) enum RenderKind {
+  Box(Float?, Float?)
+  Padding(EdgeInsets)
+  Align(Alignment)
+  Constrained(BoxConstraints)
+  Decorated(DecoratedProps)
+  Flex(Axis, MainAxisAlignment, CrossAxisAlignment, MainAxisSize, Float)
+  FlexChild(Int32, FlexFit)
+  Stack(Alignment)
+  Positioned(Float?, Float?, Float?, Float?, Float?, Float?)
+  Wrap(Float, Float)
+  ClipRect
+  ClipRRect(Float)
+  Opacity(Float)
+  Transform(@tycho_2d.Matrix3)
+  BackdropFilter(Float, Float, @tycho_2d.Color)
+  RepaintBoundary
+  Text(String, @tycho_2d.TextStyle, @tycho_2d.TextAlign, Int32, String)
+  Image(@tycho_2d.Image2D, Float, Float)
+  CustomPaint(@tycho_2d.Size, (@tycho_2d.Canvas, @tycho_2d.Size) -> Unit)
+  Gesture(GestureCallbacks)
+  ListView(Int32, Float, ScrollController)
+  TextField(TextController, String, Float, Float, ThemeData)
+}
+
+pub struct RenderNode {
+  id : Int32
+  mut kind : RenderKind
+  mut size : @tycho_2d.Size
+  mut offset : @tycho_2d.Point
+  mut last_constraints : BoxConstraints?
+  mut needs_layout : Bool
+  mut needs_paint : Bool
+  is_repaint_boundary : Bool
+  mut cached_dl : @tycho_2d.DisplayList?
+  children : Array[RenderNode]
+  mut text_para : @tycho_2d.Paragraph?
+  list_indices : Array[Int32]
+  mut active_theme : ThemeData
+}
+pub fn RenderNode::build_layer(Self) -> Layer
+pub fn RenderNode::count_nodes(Self) -> Int32
+pub fn RenderNode::hit_test(Self, @tycho_2d.Point, Array[HitTestEntry]) -> Bool
+pub fn RenderNode::layout(Self, BoxConstraints) -> @tycho_2d.Size
+pub fn RenderNode::new(Int32, RenderKind, ThemeData) -> Self
+
+pub struct ScrollController {
+  offset : Signal[Float]
+  // private fields
+}
+pub fn ScrollController::jump_to(Self, Float) -> Unit
+pub fn ScrollController::new(initial_offset? : Float) -> Self
+pub fn ScrollController::scroll_by(Self, Float) -> Unit
+
+pub struct Signal[T] {
+  // private fields
+}
+pub fn[T] Signal::get(Self[T], BuildContext) -> T
+pub fn[T] Signal::id(Self[T]) -> Int32
+pub fn[T] Signal::new(T) -> Self[T]
+pub fn[T] Signal::on_change(Self[T], () -> Unit) -> Unit
+pub fn[T] Signal::peek(Self[T]) -> T
+pub fn[T] Signal::set(Self[T], T) -> Unit
+pub fn[T] Signal::subscribe_element(Self[T], Int32) -> Unit
+pub fn[T] Signal::subscriber_count(Self[T]) -> Int32
+pub fn[T] Signal::unsubscribe_element(Self[T], Int32) -> Unit
+pub fn[T] Signal::update(Self[T], (T) -> T) -> Unit
+
+pub struct TextController {
+  text : Signal[String]
+  cursor : Signal[Int32]
+  sel_anchor : Signal[Int32]
+  focused : Signal[Bool]
+}
+pub fn TextController::backspace(Self) -> Unit
+pub fn TextController::insert_char(Self, Char) -> Unit
+pub fn TextController::move_left(Self) -> Unit
+pub fn TextController::move_right(Self) -> Unit
+pub fn TextController::new(initial? : String) -> Self
+
+pub(all) struct ThemeData {
+  colors : ColorScheme
+  font : @tycho_2d.FontFace
+  radius_sm : Float
+  radius_md : Float
+  radius_lg : Float
+}
+pub fn ThemeData::dark(font? : @tycho_2d.FontFace) -> Self
+pub fn ThemeData::light(font? : @tycho_2d.FontFace) -> Self
+
+pub struct UiTree {
+  // private fields
+}
+pub fn UiTree::build_display_list(Self) -> @tycho_2d.DisplayList
+pub fn UiTree::clear_text_focus_except(Self, TextController?) -> Unit
+pub fn UiTree::element_count(Self) -> Int32
+pub fn UiTree::flush_builds(Self) -> Unit
+pub fn UiTree::focused_text_controller(Self) -> TextController?
+pub fn UiTree::has_dirty(Self) -> Bool
+pub fn UiTree::hit_test(Self, @tycho_2d.Point) -> Array[HitTestEntry]
+pub fn UiTree::layout_root(Self, Float, Float) -> Unit
+pub fn UiTree::mark_dirty(Self, Int32) -> Unit
+pub fn UiTree::mount_root(Self, Widget) -> Unit
+pub fn UiTree::new(theme? : ThemeData) -> Self
+pub fn UiTree::render_count(Self) -> Int32
+pub fn UiTree::render_root(Self) -> RenderNode?
+pub fn UiTree::sync_list_viewports(Self) -> Bool
+
+pub struct Widget {
+  key : Key?
+  kind : WidgetKind
+}
+
+pub(all) enum WidgetKind {
+  Builder(Int32, (BuildContext) -> Widget)
+  ThemeProvider(ThemeData, Widget)
+  SizedBox(Float?, Float?, Widget?)
+  Padding(EdgeInsets, Widget)
+  Align(Alignment, Widget)
+  ConstrainedBox(BoxConstraints, Widget)
+  DecoratedBox(DecoratedProps, Widget?)
+  Flex(Axis, MainAxisAlignment, CrossAxisAlignment, MainAxisSize, Float, Array[Widget])
+  Expanded(Int32, FlexFit, Widget)
+  Stack(Alignment, Array[Widget])
+  Positioned(Float?, Float?, Float?, Float?, Float?, Float?, Widget)
+  Wrap(Float, Float, Array[Widget])
+  ClipRect(Widget)
+  ClipRRect(Float, Widget)
+  Opacity(Float, Widget)
+  Transform(@tycho_2d.Matrix3, Widget)
+  BackdropFilter(Float, Float, @tycho_2d.Color, Widget)
+  RepaintBoundary(Widget)
+  TextNode(String, @tycho_2d.TextStyle, @tycho_2d.TextAlign, Int32, String)
+  ImageNode(@tycho_2d.Image2D, Float, Float)
+  CustomPaint(@tycho_2d.Size, (@tycho_2d.Canvas, @tycho_2d.Size) -> Unit)
+  GestureNode(GestureCallbacks, Widget)
+  ListViewBuilder(Int32, Float, ScrollController, (BuildContext, Int32) -> Widget)
+  TextFieldNode(TextController, String, Float, Float)
+}
+
+pub struct WidgetTester {
+  tree : UiTree
+  arena : GestureArena
+  width : Float
+  height : Float
+}
+pub fn WidgetTester::element_count(Self) -> Int32
+pub fn WidgetTester::move_mouse(Self, Float, Float) -> Unit
+pub fn WidgetTester::new(Widget, width? : Float, height? : Float, theme? : ThemeData) -> Self
+pub fn WidgetTester::pump_frame(Self) -> @tycho_2d.DisplayList
+pub fn WidgetTester::render_to_texture(Self, @tycho_2d.Renderer2D, @tycho.Texture, clear_color? : @tycho_2d.Color) -> Unit raise @tycho.RhiError
+pub fn WidgetTester::scroll(Self, Float, Float, Float, Float) -> Unit
+pub fn WidgetTester::send_key(Self, Int32, shift? : Bool) -> Unit
+pub fn WidgetTester::tap(Self, Float, Float) -> Unit
+
+// Type aliases
+
+// Traits
