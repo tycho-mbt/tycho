@@ -178,3 +178,23 @@ test "compile_shader disk cache hits identically and separates stages" {
   assert_eq(reflect_spirv(vspv).stage, ReflectedStage::Vertex)
   assert_eq(reflect_spirv(spv2).stage, ReflectedStage::Fragment)
 }
+
+///|
+test "load_hdr_image decodes Radiance RGBE floats accurately" {
+  let (hdr, w, h) = load_hdr_image("shader/testdata/test_2x2.hdr")
+  assert_eq(w, 2)
+  assert_eq(h, 2)
+  assert_eq(hdr.length(), 16)
+  // Pixel 0: (4.0, 0, 0, 1.0)
+  assert_true(hdr[0] > (3.9 : Float) && hdr[0] < (4.1 : Float))
+  assert_eq(hdr[1], (0.0 : Float))
+  assert_eq(hdr[3], (1.0 : Float))
+  // Pixel 1: (0, 2.0, 0, 1.0)
+  assert_true(hdr[5] > (1.9 : Float) && hdr[5] < (2.1 : Float))
+  // Pixel 2: (0, 0, 8.0, 1.0)
+  assert_true(hdr[10] > (7.8 : Float) && hdr[10] < (8.2 : Float))
+  // Pixel 3: (1.0, 1.0, 1.0, 1.0)
+  assert_true(hdr[12] > (0.95 : Float) && hdr[12] < (1.05 : Float))
+  assert_true(hdr[13] > (0.95 : Float) && hdr[13] < (1.05 : Float))
+  assert_true(hdr[14] > (0.95 : Float) && hdr[14] < (1.05 : Float))
+}

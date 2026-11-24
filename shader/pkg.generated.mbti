@@ -48,6 +48,8 @@ pub fn compile_slang(String, String) -> FixedArray[UInt32]
 
 pub fn compile_slang_file(String, String) -> FixedArray[UInt32]
 
+pub fn load_hdr_image(String) -> (FixedArray[Float], Int32, Int32)
+
 pub fn load_image(String) -> (FixedArray[Byte], Int32, Int32)
 
 pub fn load_spirv(String) -> FixedArray[UInt32]

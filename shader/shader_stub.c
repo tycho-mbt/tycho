@@ -739,3 +739,103 @@ MOONBIT_FFI_EXPORT int32_t tycho_shader_save_png(
   fclose(f);
   return 1;
 }
+
+static void rgbe_to_float(const uint8_t rgbe[4], float out[4]) {
+  if (rgbe[3] <= 9) {
+    out[0] = out[1] = out[2] = 0.0f;
+    out[3] = 1.0f;
+    return;
+  }
+  uint32_t bits = (uint32_t)(rgbe[3] - 9) << 23;
+  float f = 0.0f;
+  memcpy(&f, &bits, sizeof(float));
+  out[0] = (float)rgbe[0] * f;
+  out[1] = (float)rgbe[1] * f;
+  out[2] = (float)rgbe[2] * f;
+  out[3] = 1.0f;
+}
+
+MOONBIT_FFI_EXPORT float *tycho_shader_load_hdr(
+    const uint8_t *path, int32_t plen, int32_t *out_w, int32_t *out_h) {
+  *out_w = 0;
+  *out_h = 0;
+  if (plen <= 0 || plen >= 512) return moonbit_make_float_array(0, 0.0f);
+  char rel[512];
+  memcpy(rel, path, plen);
+  rel[plen] = '\0';
+  char p[1280];
+  if (!tycho_resolve_path(rel, p, sizeof p)) return moonbit_make_float_array(0, 0.0f);
+  long sz = 0;
+  uint8_t *buf = tycho_read_all(p, &sz);
+  if (!buf || sz < 16) {
+    if (buf) free(buf);
+    return moonbit_make_float_array(0, 0.0f);
+  }
+  long pos = 0;
+  // Skip header lines until empty line ("\n\n" or "\r\n\r\n")
+  while (pos < sz) {
+    long ls = pos;
+    while (pos < sz && buf[pos] != '\n') pos++;
+    long le = pos;
+    if (pos < sz && buf[pos] == '\n') pos++;
+    if (le == ls || (le == ls + 1 && buf[ls] == '\r')) break;
+  }
+  // Parse resolution line: "-Y <h> +X <w>"
+  long rls = pos;
+  while (pos < sz && buf[pos] != '\n') pos++;
+  long rle = pos;
+  if (pos < sz && buf[pos] == '\n') pos++;
+  char res_line[128];
+  long rlen = rle - rls;
+  if (rlen <= 0 || rlen >= (long)sizeof(res_line)) {
+    free(buf);
+    return moonbit_make_float_array(0, 0.0f);
+  }
+  memcpy(res_line, buf + rls, (size_t)rlen);
+  res_line[rlen] = '\0';
+  int w = 0, h = 0;
+  if (sscanf(res_line, "-Y %d +X %d", &h, &w) != 2 || w <= 0 || h <= 0) {
+    free(buf);
+    return moonbit_make_float_array(0, 0.0f);
+  }
+  float *out = moonbit_make_float_array(w * h * 4, 0.0f);
+  uint8_t *scan = (uint8_t *)malloc((size_t)w * 4);
+  if (!scan) {
+    free(buf);
+    return moonbit_make_float_array(0, 0.0f);
+  }
+  for (int y = 0; y < h; y++) {
+    if (pos + 4 <= sz && buf[pos] == 2 && buf[pos + 1] == 2 &&
+        (((int)buf[pos + 2] << 8) | buf[pos + 3]) == w && w >= 8 && w <= 0x7FFF) {
+      pos += 4;
+      for (int ch = 0; ch < 4; ch++) {
+        int x = 0;
+        while (x < w && pos < sz) {
+          uint8_t code = buf[pos++];
+          if (code > 128) {
+            int run = code - 128;
+            if (pos >= sz) break;
+            uint8_t val = buf[pos++];
+            while (run-- > 0 && x < w) scan[x++ * 4 + ch] = val;
+          } else {
+            int cnt = code;
+            while (cnt-- > 0 && x < w && pos < sz) scan[x++ * 4 + ch] = buf[pos++];
+          }
+        }
+      }
+    } else {
+      long need = (long)w * 4;
+      if (pos + need > sz) break;
+      memcpy(scan, buf + pos, (size_t)need);
+      pos += need;
+    }
+    for (int x = 0; x < w; x++) {
+      rgbe_to_float(scan + x * 4, out + ((size_t)y * (size_t)w + (size_t)x) * 4);
+    }
+  }
+  free(scan);
+  free(buf);
+  *out_w = w;
+  *out_h = h;
+  return out;
+}

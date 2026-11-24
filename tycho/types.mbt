@@ -1026,3 +1026,9 @@ pub fn save_png(
 ) -> Bool {
   @shader.save_png(path, width, height, rgba, bgra~)
 }
+
+///|
+pub fn load_hdr_image(path : String) -> (FixedArray[Float], Int, Int) {
+  let (px, w, h) = @shader.load_hdr_image(path)
+  (px, w.to_int(), h.to_int())
+}

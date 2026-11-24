@@ -196,3 +196,20 @@ pub fn save_png(
     if bgra { 1 } else { 0 },
   ) != 0
 }
+
+#borrow(path, out_w, out_h)
+extern "c" fn load_hdr_ffi(
+  path : Bytes,
+  plen : Int32,
+  out_w : FixedArray[Int32],
+  out_h : FixedArray[Int32],
+) -> FixedArray[Float] = "tycho_shader_load_hdr"
+
+///|
+pub fn load_hdr_image(path : String) -> (FixedArray[Float], Int32, Int32) {
+  let p = @utf8.encode(path)
+  let w = FixedArray::make(1, (0 : Int32))
+  let h = FixedArray::make(1, (0 : Int32))
+  let px = load_hdr_ffi(p, p.length(), w, h)
+  (px, w[0], h[0])
+}
