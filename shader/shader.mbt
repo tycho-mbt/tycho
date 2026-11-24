@@ -149,3 +149,50 @@ pub fn read_file_bytes(path : String) -> Bytes {
   let p = @utf8.encode(path)
   read_file_ffi(p, p.length())
 }
+
+extern "c" fn want_window_ffi() -> Int32 = "tycho_shader_want_window"
+
+///|
+pub fn want_window() -> Bool {
+  want_window_ffi() != 0
+}
+
+extern "c" fn screenshot_path_ffi() -> Bytes = "tycho_shader_screenshot_path"
+
+///|
+pub fn screenshot_path() -> String {
+  let b = screenshot_path_ffi()
+  if b.length() == 0 {
+    return ""
+  }
+  @utf8.decode_lossy(b[:])
+}
+
+#borrow(path, rgba)
+extern "c" fn save_png_ffi(
+  path : Bytes,
+  plen : Int32,
+  w : Int32,
+  h : Int32,
+  rgba : FixedArray[Byte],
+  bgra : Int32,
+) -> Int32 = "tycho_shader_save_png"
+
+///|
+pub fn save_png(
+  path : String,
+  width : Int,
+  height : Int,
+  rgba : FixedArray[Byte],
+  bgra? : Bool = false,
+) -> Bool {
+  let p = @utf8.encode(path)
+  save_png_ffi(
+    p,
+    p.length(),
+    width,
+    height,
+    rgba,
+    if bgra { 1 } else { 0 },
+  ) != 0
+}

@@ -1005,3 +1005,24 @@ pub fn load_image(path : String) -> (FixedArray[Byte], Int, Int) {
 pub fn read_file_bytes(path : String) -> Bytes {
   @shader.read_file_bytes(path)
 }
+
+///|
+pub fn want_window() -> Bool {
+  @shader.want_window()
+}
+
+///|
+pub fn screenshot_path() -> String {
+  @shader.screenshot_path()
+}
+
+///|
+pub fn save_png(
+  path : String,
+  width : Int,
+  height : Int,
+  rgba : FixedArray[Byte],
+  bgra? : Bool = false,
+) -> Bool {
+  @shader.save_png(path, width, height, rgba, bgra~)
+}

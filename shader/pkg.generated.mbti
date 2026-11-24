@@ -56,6 +56,12 @@ pub fn read_file_bytes(String) -> Bytes
 
 pub fn reflect_spirv(FixedArray[UInt32]) -> SpirvReflection
 
+pub fn save_png(String, Int32, Int32, FixedArray[Byte], bgra? : Bool) -> Bool
+
+pub fn screenshot_path() -> String
+
+pub fn want_window() -> Bool
+
 // Errors
 
 // Types and methods

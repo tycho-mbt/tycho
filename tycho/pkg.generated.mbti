@@ -148,6 +148,12 @@ pub fn read_file_bytes(String) -> Bytes
 
 pub fn reflect_spirv(FixedArray[UInt32]) -> @tycho_shader.SpirvReflection
 
+pub fn save_png(String, Int32, Int32, FixedArray[Byte], bgra? : Bool) -> Bool
+
+pub fn screenshot_path() -> String
+
+pub fn want_window() -> Bool
+
 // Errors
 pub suberror RhiError {
   InitFailed(String)
@@ -240,6 +246,7 @@ pub fn CommandBuffer::bind_texture(Self, Pipeline, Int32, Texture, Sampler) -> U
 pub fn CommandBuffer::bind_uniform(Self, Pipeline, Int32, Buffer) -> Unit
 pub fn CommandBuffer::bind_vertex(Self, Int32, Buffer, offset? : Int32) -> Unit
 pub fn CommandBuffer::blit_texture(Self, Texture, Texture, filter? : Filter) -> Unit
+pub fn CommandBuffer::blit_to_swapchain(Self, Texture, Swapchain) -> Unit
 pub fn CommandBuffer::copy_buffer(Self, Buffer, Buffer, Int32) -> Unit
 pub fn CommandBuffer::dispatch(Self, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::dispatch_indirect(Self, Buffer, offset? : Int32) -> Unit
@@ -543,6 +550,7 @@ pub fn Swapchain::end_frame(Self, CommandBuffer) -> Unit raise RhiError
 pub fn Swapchain::height(Self) -> Int32
 pub fn Swapchain::is_fullscreen(Self) -> Bool
 pub fn Swapchain::poll_events(Self) -> Array[@tycho_window.Event]
+pub fn Swapchain::present_texture(Self, Texture) -> Unit raise RhiError
 pub fn Swapchain::readback(Self) -> FixedArray[Byte]
 pub fn Swapchain::set_cursor_mode(Self, @tycho_window.CursorMode) -> Unit
 pub fn Swapchain::set_fullscreen(Self, Bool) -> Unit

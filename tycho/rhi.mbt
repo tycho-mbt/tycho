@@ -217,6 +217,25 @@ pub fn Swapchain::begin_frame_commands(
 }
 
 ///|
+pub fn CommandBuffer::blit_to_swapchain(
+  self : CommandBuffer,
+  src : Texture,
+  swapchain : Swapchain,
+) -> Unit {
+  vk_cmd_blit_to_swapchain(self.inner, src.inner, swapchain.inner)
+}
+
+///|
+pub fn Swapchain::present_texture(
+  self : Swapchain,
+  src : Texture,
+) -> Unit raise RhiError {
+  let cmd = self.begin_frame_commands()
+  cmd.blit_to_swapchain(src, self)
+  self.end_frame(cmd)
+}
+
+///|
 pub fn CommandBuffer::begin_swapchain_pass(
   self : CommandBuffer,
   swapchain : Swapchain,

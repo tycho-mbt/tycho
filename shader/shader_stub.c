@@ -556,3 +556,186 @@ MOONBIT_FFI_EXPORT uint8_t *tycho_shader_read_file(
   free(buf);
   return out;
 }
+
+static int tycho_cmdline_match(const char *flag, char *out_val, size_t out_sz) {
+  FILE *f = fopen("/proc/self/cmdline", "rb");
+  if (!f) return 0;
+  char buf[4096];
+  size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+  fclose(f);
+  buf[n] = '\0';
+  size_t flen = strlen(flag);
+  size_t i = 0;
+  while (i < n) {
+    const char *arg = buf + i;
+    size_t alen = strlen(arg);
+    if (strcmp(arg, flag) == 0) {
+      if (out_val && out_sz > 0) {
+        size_t next = i + alen + 1;
+        if (next < n) {
+          snprintf(out_val, out_sz, "%s", buf + next);
+        } else {
+          out_val[0] = '\0';
+        }
+      }
+      return 1;
+    }
+    if (out_val && out_sz > 0 && strncmp(arg, flag, flen) == 0 && arg[flen] == '=') {
+      snprintf(out_val, out_sz, "%s", arg + flen + 1);
+      return 1;
+    }
+    i += alen + 1;
+  }
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_shader_want_window(void) {
+  const char *e = getenv("TYCHO_WINDOW");
+  if (e && (strcmp(e, "1") == 0 || strcmp(e, "true") == 0 || strcmp(e, "yes") == 0)) {
+    return 1;
+  }
+  if (tycho_cmdline_match("--window", NULL, 0) ||
+      tycho_cmdline_match("-w", NULL, 0) ||
+      tycho_cmdline_match("--screen", NULL, 0) ||
+      tycho_cmdline_match("--show", NULL, 0)) {
+    return 1;
+  }
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT uint8_t *tycho_shader_screenshot_path(void) {
+  char path[1024] = {0};
+  const char *e = getenv("TYCHO_SCREENSHOT");
+  if (e && *e) {
+    snprintf(path, sizeof(path), "%s", e);
+  } else {
+    tycho_cmdline_match("--screenshot", path, sizeof(path));
+  }
+  size_t len = strlen(path);
+  uint8_t *out = (uint8_t *)moonbit_make_bytes((int32_t)len, 0);
+  if (len > 0) memcpy(out, path, len);
+  return out;
+}
+
+static uint32_t tycho_crc32(const uint8_t *data, size_t len) {
+  uint32_t crc = 0xFFFFFFFFu;
+  for (size_t i = 0; i < len; i++) {
+    crc ^= data[i];
+    for (int k = 0; k < 8; k++) {
+      crc = (crc >> 1) ^ (0xEDB88320u & (uint32_t)(-(int32_t)(crc & 1u)));
+    }
+  }
+  return crc ^ 0xFFFFFFFFu;
+}
+
+static void png_write_be32(FILE *f, uint32_t v) {
+  uint8_t b[4] = {(uint8_t)(v >> 24), (uint8_t)(v >> 16), (uint8_t)(v >> 8), (uint8_t)v};
+  fwrite(b, 1, 4, f);
+}
+
+static void png_write_chunk(FILE *f, const char type[4], const uint8_t *data, uint32_t len) {
+  png_write_be32(f, len);
+  uint32_t crc = 0xFFFFFFFFu;
+  for (int i = 0; i < 4; i++) {
+    crc ^= (uint8_t)type[i];
+    for (int k = 0; k < 8; k++) crc = (crc >> 1) ^ (0xEDB88320u & (uint32_t)(-(int32_t)(crc & 1u)));
+  }
+  for (uint32_t i = 0; i < len; i++) {
+    crc ^= data[i];
+    for (int k = 0; k < 8; k++) crc = (crc >> 1) ^ (0xEDB88320u & (uint32_t)(-(int32_t)(crc & 1u)));
+  }
+  crc ^= 0xFFFFFFFFu;
+  fwrite(type, 1, 4, f);
+  if (len > 0) fwrite(data, 1, len, f);
+  png_write_be32(f, crc);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_shader_save_png(
+    const uint8_t *path, int32_t plen, int32_t w, int32_t h, const uint8_t *rgba, int32_t bgra) {
+  if (plen <= 0 || plen >= 1024 || w <= 0 || h <= 0) return 0;
+  char p[1024];
+  memcpy(p, path, plen);
+  p[plen] = '\0';
+  FILE *f = fopen(p, "wb");
+  if (!f) return 0;
+  static const uint8_t sig[8] = {137, 80, 78, 71, 13, 10, 26, 10};
+  fwrite(sig, 1, 8, f);
+  uint8_t ihdr[13] = {
+    (uint8_t)(w >> 24), (uint8_t)(w >> 16), (uint8_t)(w >> 8), (uint8_t)w,
+    (uint8_t)(h >> 24), (uint8_t)(h >> 16), (uint8_t)(h >> 8), (uint8_t)h,
+    8, 6, 0, 0, 0
+  };
+  png_write_chunk(f, "IHDR", ihdr, 13);
+
+  size_t row_bytes = 1 + (size_t)w * 4;
+  size_t raw_sz = row_bytes * (size_t)h;
+  size_t max_blocks = (raw_sz + 65534) / 65535;
+  size_t zlib_sz = 2 + raw_sz + max_blocks * 5 + 4;
+  uint8_t *zlib = (uint8_t *)malloc(zlib_sz);
+  if (!zlib) {
+    fclose(f);
+    return 0;
+  }
+  size_t zp = 0;
+  zlib[zp++] = 0x78;
+  zlib[zp++] = 0x01;
+  uint32_t s1 = 1, s2 = 0;
+  uint8_t *raw = (uint8_t *)malloc(raw_sz);
+  if (!raw) {
+    free(zlib);
+    fclose(f);
+    return 0;
+  }
+  for (int32_t y = 0; y < h; y++) {
+    uint8_t *dst = raw + (size_t)y * row_bytes;
+    dst[0] = 0;
+    const uint8_t *src = rgba + (size_t)y * (size_t)w * 4;
+    if (bgra) {
+      for (int32_t x = 0; x < w; x++) {
+        dst[1 + x * 4 + 0] = src[x * 4 + 2];
+        dst[1 + x * 4 + 1] = src[x * 4 + 1];
+        dst[1 + x * 4 + 2] = src[x * 4 + 0];
+        dst[1 + x * 4 + 3] = 255;
+      }
+    } else {
+      for (int32_t x = 0; x < w; x++) {
+        dst[1 + x * 4 + 0] = src[x * 4 + 0];
+        dst[1 + x * 4 + 1] = src[x * 4 + 1];
+        dst[1 + x * 4 + 2] = src[x * 4 + 2];
+        dst[1 + x * 4 + 3] = 255;
+      }
+    }
+  }
+  for (size_t i = 0; i < raw_sz; i++) {
+    s1 = (s1 + raw[i]) % 65521u;
+    s2 = (s2 + s1) % 65521u;
+  }
+  size_t off = 0;
+  while (off < raw_sz) {
+    size_t chunk = raw_sz - off;
+    if (chunk > 65535) chunk = 65535;
+    uint8_t bfinal = (off + chunk >= raw_sz) ? 1 : 0;
+    zlib[zp++] = bfinal;
+    zlib[zp++] = (uint8_t)(chunk & 0xFF);
+    zlib[zp++] = (uint8_t)((chunk >> 8) & 0xFF);
+    uint16_t nlen = (uint16_t)(~chunk);
+    zlib[zp++] = (uint8_t)(nlen & 0xFF);
+    zlib[zp++] = (uint8_t)((nlen >> 8) & 0xFF);
+    memcpy(zlib + zp, raw + off, chunk);
+    zp += chunk;
+    off += chunk;
+  }
+  uint32_t adler = (s2 << 16) | s1;
+  zlib[zp++] = (uint8_t)(adler >> 24);
+  zlib[zp++] = (uint8_t)(adler >> 16);
+  zlib[zp++] = (uint8_t)(adler >> 8);
+  zlib[zp++] = (uint8_t)adler;
+  free(raw);
+
+  (void)tycho_crc32;
+  png_write_chunk(f, "IDAT", zlib, (uint32_t)zp);
+  free(zlib);
+  png_write_chunk(f, "IEND", NULL, 0);
+  fclose(f);
+  return 1;
+}

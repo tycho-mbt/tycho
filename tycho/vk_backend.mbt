@@ -1934,9 +1934,12 @@ fn build_swapchain_resources(
   swci.set_imageExtent(extent)
   swci.set_imageArrayLayers((1 : UInt32))
   let img_usage = if enable_readback {
-    @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+    @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+    @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT
   } else {
-    @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+    @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+    @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT
   }
   swci.set_imageUsage(img_usage)
   swci.set_imageSharingMode(@vk.VK_SHARING_MODE_EXCLUSIVE)
@@ -4047,6 +4050,96 @@ fn vk_cmd_blit_texture(
     @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
   )
   dst.layout = @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+}
+
+///|
+fn vk_cmd_blit_to_swapchain(
+  c : VkCmdState,
+  src : VkTextureState,
+  sc : VkSwapchainState,
+) -> Unit {
+  let d = c.device
+  let dst_img = sc.images[sc.image_index]
+  cmd_image_barrier2(
+    d,
+    c.cmd,
+    src.image,
+    src.aspect,
+    @vk.VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+    @vk.VK_ACCESS_2_MEMORY_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_READ_BIT,
+    src.layout,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+  )
+  cmd_image_barrier2(
+    d,
+    c.cmd,
+    dst_img,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    @vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+    @vk.VK_ACCESS_2_NONE,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    @vk.VK_IMAGE_LAYOUT_UNDEFINED,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+  )
+  let src_sub = @vk.VkImageSubresourceLayers::new()
+  src_sub.set_aspectMask(src.aspect)
+  src_sub.set_layerCount((1 : UInt32))
+  let dst_sub = @vk.VkImageSubresourceLayers::new()
+  dst_sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+  dst_sub.set_layerCount((1 : UInt32))
+  let blit = @vk.VkImageBlit::new()
+  blit.set_srcSubresource(src_sub)
+  blit.set_dstSubresource(dst_sub)
+  blit.set_srcOffsets(blit_offsets_bytes(src.width, src.height))
+  blit.set_dstOffsets(blit_offsets_bytes(sc.width, sc.height))
+  (d.dfn.vkCmdBlitImage)(
+    c.cmd,
+    src.image,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    dst_img,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    (1 : UInt32),
+    blit,
+    @vk.VK_FILTER_LINEAR,
+  )
+  src_sub.free()
+  dst_sub.free()
+  blit.free()
+  let src_restore = if src.layout == @vk.VK_IMAGE_LAYOUT_UNDEFINED {
+    @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+  } else {
+    src.layout
+  }
+  cmd_image_barrier2(
+    d,
+    c.cmd,
+    src.image,
+    src.aspect,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_READ_BIT,
+    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    src_restore,
+  )
+  src.layout = src_restore
+  cmd_image_barrier2(
+    d,
+    c.cmd,
+    dst_img,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+    @vk.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    @vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+  )
+  c.swapchain_image_initialized = true
 }
 
 ///|
