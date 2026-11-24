@@ -32,6 +32,54 @@ pub(all) enum BackendKind {
 
 ///|
 #derive(Eq, Debug)
+pub(all) enum PresentMode {
+  Fifo
+  Mailbox
+  Immediate
+}
+
+///|
+#derive(Eq, Debug)
+pub(all) enum MemoryLocation {
+  GpuOnly
+  CpuToGpu
+  GpuToCpu
+}
+
+///|
+pub(all) struct DeviceDesc {
+  app_name : String
+  validation : Bool
+  headless : Bool
+}
+
+///|
+pub fn DeviceDesc::new(
+  app_name : String,
+  validation? : Bool = false,
+  headless? : Bool = false,
+) -> DeviceDesc {
+  { app_name, validation, headless }
+}
+
+///|
+pub(all) struct DeviceCapabilities {
+  device_name : String
+  is_discrete : Bool
+  api_version : UInt32
+  driver_version : UInt32
+  max_image_dimension_2d : Int
+  max_framebuffer_samples : Int
+  max_sampler_anisotropy : Float
+  supports_anisotropy : Bool
+  supports_indirect_draw : Bool
+  supports_bindless : Bool
+  supports_mesh_shader : Bool
+  supports_ray_query : Bool
+}
+
+///|
+#derive(Eq, Debug)
 pub(all) enum BufferKind {
   Vertex
   Index
@@ -352,6 +400,8 @@ pub(all) struct SwapchainDesc {
   height : Int
   depth : Bool
   clear_color : ClearColor
+  enable_readback : Bool
+  present_mode : PresentMode
 }
 
 ///|
@@ -361,8 +411,18 @@ pub fn SwapchainDesc::new(
   height : Int,
   depth? : Bool = false,
   clear_color? : ClearColor = ClearColor::black(),
+  enable_readback? : Bool = false,
+  present_mode? : PresentMode = PresentMode::Fifo,
 ) -> SwapchainDesc {
-  { title, width, height, depth, clear_color }
+  {
+    title,
+    width,
+    height,
+    depth,
+    clear_color,
+    enable_readback,
+    present_mode,
+  }
 }
 
 ///|

@@ -52,7 +52,17 @@ pub fn Device::new(
   app_name : String,
   validation : Bool,
 ) -> Device raise RhiError {
-  { inner: vk_device_create(app_name, validation) }
+  Device::new_desc(DeviceDesc::new(app_name, validation~, headless=false))
+}
+
+///|
+pub fn Device::new_desc(desc : DeviceDesc) -> Device raise RhiError {
+  { inner: vk_device_create(desc) }
+}
+
+///|
+pub fn Device::capabilities(self : Device) -> DeviceCapabilities {
+  self.inner.caps
 }
 
 ///|
@@ -79,6 +89,7 @@ pub fn Device::allocator_used_bytes(self : Device) -> UInt64 {
 ///|
 pub fn Device::wait_idle(self : Device) -> Unit {
   let _ = (self.inner.dfn.vkDeviceWaitIdle)(self.inner.dev)
+  flush_deletes(self.inner, true)
 }
 
 ///|
@@ -146,6 +157,28 @@ pub fn Swapchain::time() -> Double {
 ///|
 pub fn Swapchain::begin_frame(self : Swapchain) -> CommandBuffer raise RhiError {
   { inner: vk_swapchain_begin_frame(self.inner) }
+}
+
+///|
+pub fn Swapchain::begin_frame_commands(
+  self : Swapchain,
+) -> CommandBuffer raise RhiError {
+  { inner: vk_swapchain_begin_frame_commands(self.inner) }
+}
+
+///|
+pub fn CommandBuffer::begin_swapchain_pass(
+  self : CommandBuffer,
+  swapchain : Swapchain,
+  load_op? : LoadOp = LoadOp::Clear,
+  clear_color? : ClearColor? = None,
+) -> Unit {
+  vk_cmd_begin_swapchain_pass(self.inner, swapchain.inner, load_op, clear_color)
+}
+
+///|
+pub fn CommandBuffer::end_swapchain_pass(self : CommandBuffer) -> Unit {
+  vk_cmd_end_swapchain_pass(self.inner)
 }
 
 ///|
@@ -289,37 +322,61 @@ pub fn Device::create_buffer(
   size : Int,
   kind : BufferKind,
 ) -> Buffer raise RhiError {
-  { inner: vk_buffer_create(self.inner, size, kind) }
+  self.create_buffer_with(size, kind)
+}
+
+///|
+pub fn Device::create_buffer_with(
+  self : Device,
+  size : Int,
+  kind : BufferKind,
+  location? : MemoryLocation = MemoryLocation::CpuToGpu,
+) -> Buffer raise RhiError {
+  { inner: vk_buffer_create(self.inner, size, kind, location~) }
 }
 
 ///|
 pub fn Buffer::upload_bytes(
   self : Buffer,
   data : Bytes,
+  offset? : Int = 0,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_ptr(self.inner, @vk.bytes_ptr(data), data.length())
+  vk_buffer_upload_ptr(self.inner, @vk.bytes_ptr(data), data.length(), offset~)
 }
 
 ///|
 pub fn Buffer::upload_floats(
   self : Buffer,
   data : FixedArray[Float],
+  offset? : Int = 0,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_ptr(self.inner, @vk.float_ptr(data), data.length() * 4)
+  vk_buffer_upload_ptr(
+    self.inner,
+    @vk.float_ptr(data),
+    data.length() * 4,
+    offset~,
+  )
 }
 
 ///|
 pub fn Buffer::upload_uint32(
   self : Buffer,
   data : FixedArray[UInt32],
+  offset? : Int = 0,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_ptr(self.inner, @vk.uint32_ptr(data), data.length() * 4)
+  vk_buffer_upload_ptr(
+    self.inner,
+    @vk.uint32_ptr(data),
+    data.length() * 4,
+    offset~,
+  )
 }
 
 ///|
 pub fn Buffer::upload_uint16(
   self : Buffer,
   data : FixedArray[UInt16],
+  offset? : Int = 0,
 ) -> Unit raise RhiError {
   let bytes = Bytes::makei(data.length() * 2, fn(i) {
     let v = data[i / 2].to_int()
@@ -329,17 +386,12 @@ pub fn Buffer::upload_uint16(
       ((v >> 8) & 0xFF).to_byte()
     }
   })
-  self.upload_bytes(bytes)
+  self.upload_bytes(bytes, offset~)
 }
 
 ///|
-pub fn Buffer::download(self : Buffer) -> Bytes {
-  let b = self.inner
-  let out = FixedArray::make(b.size, (0 : Byte))
-  if b.size > 0 {
-    @vk.memcpy_ptr(@vk.byte_ptr(out), b.alloc.mapped, b.size)
-  }
-  Bytes::from_array(out[:])
+pub fn Buffer::download(self : Buffer) -> Bytes raise RhiError {
+  vk_buffer_download(self.inner)
 }
 
 ///|
@@ -524,12 +576,7 @@ pub fn Device::create_sampler_desc(
 ///|
 pub fn Sampler::destroy(self : Sampler) -> Unit {
   let s = self.inner
-  let _ = (s.device.dfn.vkDeviceWaitIdle)(s.device.dev)
-  (s.device.dfn.vkDestroySampler)(
-    s.device.dev,
-    s.sampler,
-    @vk.VkAllocationCallbacks::null(),
-  )
+  enqueue_delete(s.device, DeleteSampler(s.sampler))
 }
 
 ///|
@@ -548,7 +595,7 @@ pub fn Device::create_fence(
   if r != 0 {
     raise CommandFailed("vkCreateFence failed: \{r}")
   }
-  { inner: { device: d, fence: out[0] } }
+  { inner: { device: d, fence: out[0], submitted_gen: (0 : UInt64) } }
 }
 
 ///|
@@ -561,6 +608,11 @@ pub fn Fence::wait(self : Fence) -> Unit {
     (1 : UInt32),
     (0xFFFFFFFFFFFFFFFF : UInt64),
   )
+  let d = self.inner.device
+  if self.inner.submitted_gen > d.completed_gen {
+    d.completed_gen = self.inner.submitted_gen
+  }
+  flush_deletes(d, false)
 }
 
 ///|
@@ -629,13 +681,15 @@ pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
       device: d,
       cmd,
       frame_idx: 0,
-      frame_gen: (1 : UInt64),
+      frame_gen: d.current_gen,
       pending_uniforms: [],
       pending_textures: [],
       pending_storage: [],
       pending_storage_images: [],
       bound: None,
       active_render_targets: [],
+      in_swapchain_pass: false,
+      swapchain_image_initialized: false,
     },
   }
 }
@@ -646,6 +700,10 @@ pub fn Device::end_commands(
   cmd : CommandBuffer,
 ) -> Unit raise RhiError {
   end_one_time(self.inner, cmd.inner.cmd)
+  let d = self.inner
+  d.completed_gen = d.current_gen
+  d.current_gen = d.current_gen + (1 : UInt64)
+  flush_deletes(d, false)
 }
 
 ///|
@@ -670,6 +728,8 @@ pub fn Device::submit_commands(
   if sr != 0 {
     raise CommandFailed("vkQueueSubmit2 failed: \{sr}")
   }
+  fence.inner.submitted_gen = d.current_gen
+  d.current_gen = d.current_gen + (1 : UInt64)
 }
 
 ///|
@@ -796,9 +856,10 @@ pub fn CommandBuffer::bind_vertex(
   self : CommandBuffer,
   slot : Int,
   buffer : Buffer,
+  offset? : Int = 0,
 ) -> Unit {
   let buffers = FixedArray::make(1, buffer.inner.buffer)
-  let offsets = FixedArray::make(1, (0 : UInt64))
+  let offsets = FixedArray::make(1, offset.to_uint64())
   (self.inner.device.dfn.vkCmdBindVertexBuffers)(
     self.inner.cmd,
     slot.reinterpret_as_uint(),
@@ -813,6 +874,7 @@ pub fn CommandBuffer::bind_index(
   self : CommandBuffer,
   buffer : Buffer,
   index_type : IndexType,
+  offset? : Int = 0,
 ) -> Unit {
   let vk_ty = match index_type {
     IndexType::Uint16 => @vk.VK_INDEX_TYPE_UINT16
@@ -821,7 +883,7 @@ pub fn CommandBuffer::bind_index(
   (self.inner.device.dfn.vkCmdBindIndexBuffer)(
     self.inner.cmd,
     buffer.inner.buffer,
-    (0 : UInt64),
+    offset.to_uint64(),
     vk_ty,
   )
 }
