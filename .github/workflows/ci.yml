@@ -9,7 +9,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install native dependencies
         run: |
           sudo apt-get update
@@ -41,23 +41,37 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup MSVC x64
-        uses: ilammy/msvc-dev-cmd@v1
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) { throw "MSVC installation not found" }
+          $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat"
+          $tmp = [System.IO.Path]::GetTempFileName()
+          cmd.exe /c "call `"$vcvars`" >nul && set > `"$tmp`""
+          if ($LASTEXITCODE -ne 0) { throw "vcvars64.bat failed" }
+          Get-Content $tmp | ForEach-Object {
+            if ($_ -match "^(INCLUDE|LIB|LIBPATH)=(.*)$") {
+              "$($Matches[1])=$($Matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            } elseif ($_ -match "^Path=(.*)$") {
+              $Matches[1] -split ";" | Where-Object { $_ } | ForEach-Object {
+                $_ | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              }
+            }
+          }
+          Remove-Item $tmp
       - name: Install MoonBit
         shell: pwsh
         run: |
           irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
           "$env:USERPROFILE\.moon\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Install Mesa lavapipe, Vulkan loader, and glslang
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: false
-          install: mingw-w64-ucrt-x86_64-mesa mingw-w64-ucrt-x86_64-vulkan-loader mingw-w64-ucrt-x86_64-glslang
-      - name: Configure Vulkan runtime & lavapipe ICD
         shell: pwsh
         run: |
+          C:\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -Sy && pacman --noconfirm -S --needed mingw-w64-ucrt-x86_64-mesa mingw-w64-ucrt-x86_64-vulkan-loader mingw-w64-ucrt-x86_64-glslang"
+          if ($LASTEXITCODE -ne 0) { throw "MSYS2 pacman install failed" }
           "C:\msys64\ucrt64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           $icdOut = Join-Path $env:RUNNER_TEMP "lvp_icd.json"
           @{
@@ -69,18 +83,22 @@ jobs:
           } | ConvertTo-Json -Depth 4 | Set-Content -Path $icdOut -Encoding ascii
           "VK_DRIVER_FILES=$icdOut" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Update MoonBit registry
+        shell: pwsh
         run: moon update
       - name: Build
+        shell: pwsh
         run: moon build --target native
       - name: Unit tests
+        shell: pwsh
         run: moon test --target native
       - name: Run examples on lavapipe
+        shell: pwsh
         run: python tools/run-ci-suite.py --mode all --skip 07-slang,51-wayland-window --require-pass 35
 
   macos:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install MoonBit
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
