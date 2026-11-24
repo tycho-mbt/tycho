@@ -94,27 +94,44 @@ fn main {
       mb >= 115 &&
       mb <= 140
 
-    // Sampler locked to mip level 4 (1x1 average)
-    let samp = dev.create_sampler_desc(
-      @tycho.SamplerDesc::new(
-        mag=@tycho.Filter::Linear,
-        min=@tycho.Filter::Linear,
-        mipmap=@tycho.Filter::Linear,
-        address=@tycho.AddressMode::ClampToEdge,
-        min_lod=(4.0 : Float),
-        max_lod=(4.0 : Float),
-      ),
-    )
+    // 5 samplers locked to mip levels 0..4 (16x16 down to 1x1 average)
+    let samps : Array[@tycho.Sampler] = []
+    for lod = 0; lod < 5; lod = lod + 1 {
+      let lf = Float::from_int(lod)
+      samps.push(
+        dev.create_sampler_desc(
+          @tycho.SamplerDesc::new(
+            mag=@tycho.Filter::Nearest,
+            min=@tycho.Filter::Nearest,
+            mipmap=@tycho.Filter::Nearest,
+            address=@tycho.AddressMode::ClampToEdge,
+            min_lod=lf,
+            max_lod=lf,
+          ),
+        ),
+      )
+    }
 
-    // Fullscreen quad: (vec2 pos, vec2 uv)
-    let verts : FixedArray[Float] = [
-      -1.0, -1.0, 0.0, 0.0,
-      1.0, -1.0, 1.0, 0.0,
-      1.0, 1.0, 1.0, 1.0,
-      -1.0, -1.0, 0.0, 0.0,
-      1.0, 1.0, 1.0, 1.0,
-      -1.0, 1.0, 0.0, 1.0,
-    ]
+    // 5 side-by-side 144x144 square panels (x stride 0.39, y in [-0.24, +0.24])
+    let vdata : Array[Float] = []
+    for lod = 0; lod < 5; lod = lod + 1 {
+      let x0 = (-0.96 : Float) + Float::from_int(lod) * (0.39 : Float)
+      let x1 = x0 + (0.36 : Float)
+      let y0 : Float = -0.24
+      let y1 : Float = 0.24
+      let q : Array[Float] = [
+        x0, y0, 0.0, 0.0,
+        x1, y0, 1.0, 0.0,
+        x1, y1, 1.0, 1.0,
+        x0, y0, 0.0, 0.0,
+        x1, y1, 1.0, 1.0,
+        x0, y1, 0.0, 1.0,
+      ]
+      for v in q {
+        vdata.push(v)
+      }
+    }
+    let verts = FixedArray::makei(vdata.length(), fn(i) { vdata[i] })
     let vbuf = dev.create_buffer(verts.length() * 4, @tycho.BufferKind::Vertex)
     vbuf.upload_floats(verts)
     let tint : FixedArray[Float] = [1.0, 1.0, 1.0, 1.0]
@@ -129,6 +146,7 @@ fn main {
           800,
           600,
           enable_readback=true,
+          clear_color=@tycho.ClearColor::rgba(0.08, 0.09, 0.12, 1.0),
         ),
       )
       is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
@@ -136,10 +154,12 @@ fn main {
       while !should_quit(sc) {
         let cmd = sc.begin_frame()
         cmd.bind_pipeline(pipe)
-        cmd.bind_texture(pipe, 0, tex, samp)
         cmd.push_constants_floats(pipe, tint)
-        cmd.bind_vertex(0, vbuf)
-        cmd.draw(6, 1)
+        for lod = 0; lod < 5; lod = lod + 1 {
+          cmd.bind_vertex(0, vbuf, offset=lod * 96)
+          cmd.bind_texture(pipe, 0, tex, samps[lod])
+          cmd.draw(6, 1)
+        }
         sc.end_frame(cmd)
         if frames == 0 {
           pixels = sc.readback()
@@ -161,12 +181,19 @@ fn main {
         ),
       )
       let cmd = dev.begin_commands()
-      cmd.begin_render_pass([@tycho.RenderTargetDesc::new(rt)])
+      cmd.begin_render_pass([
+        @tycho.RenderTargetDesc::new(
+          rt,
+          clear_color=@tycho.ClearColor::rgba(0.08, 0.09, 0.12, 1.0),
+        ),
+      ])
       cmd.bind_pipeline(pipe)
-      cmd.bind_texture(pipe, 0, tex, samp)
       cmd.push_constants_floats(pipe, tint)
-      cmd.bind_vertex(0, vbuf)
-      cmd.draw(6, 1)
+      for lod = 0; lod < 5; lod = lod + 1 {
+        cmd.bind_vertex(0, vbuf, offset=lod * 96)
+        cmd.bind_texture(pipe, 0, tex, samps[lod])
+        cmd.draw(6, 1)
+      }
       cmd.end_render_pass()
       dev.end_commands(cmd)
       pixels = rt.readback()
@@ -178,13 +205,23 @@ fn main {
       rt.destroy()
     }
 
-    let c = (300 * 800 + 400) * 4
-    let (sr, sg, sb) = if is_bgra {
-      (pixels[c + 2].to_int(), pixels[c + 1].to_int(), pixels[c].to_int())
-    } else {
-      (pixels[c].to_int(), pixels[c + 1].to_int(), pixels[c + 2].to_int())
+    let read_rgb = fn(px_x : Int, px_y : Int) {
+      let c = (px_y * 800 + px_x) * 4
+      if is_bgra {
+        (pixels[c + 2].to_int(), pixels[c + 1].to_int(), pixels[c].to_int())
+      } else {
+        (pixels[c].to_int(), pixels[c + 1].to_int(), pixels[c + 2].to_int())
+      }
     }
-    let sc_ok = sr >= 115 &&
+    let (r0, g0, b0) = read_rgb(52, 264)
+    let (r1, g1, b1) = read_rgb(124, 264)
+    let (r2, g2, b2) = read_rgb(52, 336)
+    let (sr, sg, sb) = read_rgb(712, 300)
+    let lod0_ok = r0 > 220 && g0 < 30 && b0 < 30 &&
+      g1 > 220 && r1 < 30 && b1 < 30 &&
+      b2 > 220 && r2 < 30 && g2 < 30
+    let sc_ok = lod0_ok &&
+      sr >= 115 &&
       sr <= 140 &&
       sg >= 115 &&
       sg <= 140 &&
@@ -193,7 +230,9 @@ fn main {
     let errs = dev.validation_errors()
 
     vbuf.destroy()
-    samp.destroy()
+    for samp in samps {
+      samp.destroy()
+    }
     tex.destroy()
     dev.destroy()
 
