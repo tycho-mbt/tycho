@@ -47,6 +47,12 @@ extern "c" fn win_is_fullscreen_ffi(win : UInt64) -> Int32 = "tycho_win_is_fulls
 
 extern "c" fn win_content_scale_ffi(win : UInt64) -> Double = "tycho_win_content_scale"
 
+extern "c" fn win_is_wayland_ffi() -> Int32 = "tycho_win_is_wayland"
+
+extern "c" fn wl_surface_ci_new_ffi(dpy : UInt64, surf : UInt64) -> UInt64 = "tycho_wl_surface_ci_new"
+
+extern "c" fn wl_surface_ci_free_ffi(p : UInt64) = "tycho_wl_surface_ci_free"
+
 ///|
 pub const KEY_ESCAPE : Int = 0xff1b
 
@@ -388,21 +394,38 @@ pub fn time() -> Double {
 }
 
 ///|
+pub fn is_wayland() -> Bool {
+  win_is_wayland_ffi() != 0
+}
+
+///|
 // Creates a Vulkan surface for the window using pure MoonBit @vk structs &
-// InstanceFn dispatch (VK_KHR_xlib_surface on Linux).
+// InstanceFn dispatch (VK_KHR_wayland_surface or VK_KHR_xlib_surface on Linux).
 pub fn create_surface(inst : @vk.VkInstance, win : UInt64) -> @vk.VkSurfaceKHR {
   let ifn = @vk.InstanceFn::load(inst)
-  let ci = @vk.VkXlibSurfaceCreateInfoKHR::new()
-  ci.set_dpy(win_display_ffi(win))
-  ci.set_window(win_handle_ffi(win))
   let out = FixedArray::make(1, @vk.VkSurfaceKHR::null())
-  let _ = (ifn.vkCreateXlibSurfaceKHR)(
-    inst,
-    ci,
-    @vk.VkAllocationCallbacks::null(),
-    out,
-  )
-  ci.free()
+  if win_is_wayland_ffi() != 0 {
+    let ci_ptr = wl_surface_ci_new_ffi(win_display_ffi(win), win_handle_ffi(win))
+    let ci = @vk.VkWaylandSurfaceCreateInfoKHR::from_ptr(ci_ptr)
+    let _ = (ifn.vkCreateWaylandSurfaceKHR)(
+      inst,
+      ci,
+      @vk.VkAllocationCallbacks::null(),
+      out,
+    )
+    wl_surface_ci_free_ffi(ci_ptr)
+  } else {
+    let ci = @vk.VkXlibSurfaceCreateInfoKHR::new()
+    ci.set_dpy(win_display_ffi(win))
+    ci.set_window(win_handle_ffi(win))
+    let _ = (ifn.vkCreateXlibSurfaceKHR)(
+      inst,
+      ci,
+      @vk.VkAllocationCallbacks::null(),
+      out,
+    )
+    ci.free()
+  }
   out[0]
 }
 
@@ -441,12 +464,18 @@ pub fn surface_extensions() -> FixedArray[String] {
       a[2] = "VK_KHR_portability_enumeration"
       a
     }
-    Platform::Linux => {
-      let a = FixedArray::make(3, "")
-      a[0] = "VK_KHR_surface"
-      a[1] = "VK_KHR_xlib_surface"
-      a[2] = "VK_KHR_xcb_surface"
-      a
-    }
+    Platform::Linux =>
+      if win_is_wayland_ffi() != 0 {
+        let a = FixedArray::make(2, "")
+        a[0] = "VK_KHR_surface"
+        a[1] = "VK_KHR_wayland_surface"
+        a
+      } else {
+        let a = FixedArray::make(3, "")
+        a[0] = "VK_KHR_surface"
+        a[1] = "VK_KHR_xlib_surface"
+        a[2] = "VK_KHR_xcb_surface"
+        a
+      }
   }
 }

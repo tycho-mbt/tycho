@@ -27,6 +27,7 @@ fn main {
   let want_iext = [
     "VK_KHR_surface",
     "VK_KHR_xlib_surface",
+    "VK_KHR_wayland_surface",
     "VK_EXT_debug_utils",
     "VK_KHR_get_surface_capabilities2",
     "VK_KHR_surface_maintenance1",

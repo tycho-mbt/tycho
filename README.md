@@ -11,11 +11,11 @@
 | Module (`mooncakes.io`) | Directory | Purpose | Native Link Deps |
 |---|---|---|---|
 | `laplaceliu/tycho_vulkan` | `vulkan/` | Pure-MoonBit Vulkan bindings generated from `vk.xml` 1.4.363 (root package, headers vendored in-package: no Vulkan SDK needed; runtime needs a 1.3+ loader/driver) | `-lvulkan` |
-| `laplaceliu/tycho_window` | `window/` | Thin native window + input events + Vulkan WSI surface helper (Xlib on Linux, zero GLFW dependency) | `-lX11 -lvulkan` |
+| `laplaceliu/tycho_window` | `window/` | Thin native window + input events + Vulkan WSI surface helper (Xlib + runtime-loaded Wayland on Linux, zero GLFW or `libwayland-dev` dependency) | `-lX11 -lvulkan` |
 | `laplaceliu/tycho_shader` | `shader/` | GLSL (`glslangValidator`), Slang (`slangc`), pure-MoonBit SPIR-V reflection (`reflect_spirv`), & PPM/BMP/PNG/HDR image helpers | *(none)* |
 | `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, free-list sub-allocator, auto-reflected pipelines (`from_spirv`), MRT, mipmaps, storage images, bindless, mesh shaders, and GPU timestamps | `-lvulkan -lX11` |
 | `laplaceliu/tycho_codegen` *(private)* | `codegen/` | Khronos `vk.xml` → MoonBit + C shim generator | *(none)* |
-| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | 50 pure-MoonBit examples (31 low-level Vulkan API suites at **100.0%** reachable Linux coverage + 19 unified `@tycho` demos & benchmarks) | `-lvulkan` (`-lX11` for WSI) |
+| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | 51 pure-MoonBit examples (31 low-level Vulkan API suites at **100.0%** reachable Linux coverage + 20 unified `@tycho` demos & benchmarks) | `-lvulkan` (`-lX11` for WSI) |
 
 Documentation:
 - [Architecture Overview](docs/architecture.md)

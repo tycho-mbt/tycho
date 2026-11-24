@@ -151,6 +151,8 @@ pub fn is_fullscreen(UInt64) -> Bool
 
 pub fn is_mouse_down(UInt64, Int32) -> Bool
 
+pub fn is_wayland() -> Bool
+
 pub fn mouse_pos(UInt64) -> (Double, Double)
 
 pub fn platform() -> Platform

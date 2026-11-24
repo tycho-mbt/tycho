@@ -1,13 +1,14 @@
 # laplaceliu/tycho_window
 
-Thin pure-MoonBit native windowing, input event queue, and Vulkan WSI surface wrapper (Xlib on Linux — zero GLFW dependency) for the Tycho graphics stack.
+Thin pure-MoonBit native windowing, input event queue, and Vulkan WSI surface wrapper (Linux X11/Xlib + runtime-loaded Wayland — zero GLFW or `libwayland-dev` dependency) for the Tycho graphics stack.
 
 ## Features
 
-- Window lifecycle: `initialize`, `create`, `destroy`, `terminate`, `should_close`, `set_should_close`, `set_title`
-- Resize & geometry: `width`, `height`, `framebuffer_size`, `take_resized`
-- Event & input queries: `poll`, `poll_events` (`Event::CloseRequested`, `Resized`, `KeyDown`, `KeyUp`, `MouseMove`, `MouseDown`, `MouseUp`, `MouseScroll`, `FocusChanged`), `mouse_pos`, `is_mouse_down`, X11 KeySym constants (`KEY_ESCAPE`, `KEY_W`, `KEY_A`, `KEY_S`, `KEY_D`, etc.)
-- Vulkan WSI surface creation: `create_surface`, `surface_extensions`, `platform`
+- Dual Linux display backends: automatic `WAYLAND_DISPLAY` detection (`xdg-shell`, `zxdg_decoration_manager_v1`, `zwp_pointer_constraints_v1`, `zwp_relative_pointer_manager_v1`, `libxkbcommon`, `libwayland-cursor` via `dlopen`) with Xlib fallback; override with `TYCHO_WINDOW_BACKEND=wayland|x11`
+- Window lifecycle: `initialize`, `create`, `destroy`, `terminate`, `should_close`, `set_should_close`, `set_title`, `is_wayland`
+- Resize & geometry: `width`, `height`, `framebuffer_size`, `take_resized`, `content_scale`, `set_fullscreen`, `is_fullscreen`
+- Event & input queries: `poll`, `poll_events` (`Event::CloseRequested`, `Resized`, `KeyDown`, `KeyUp`, `MouseMove`, `MouseDown`, `MouseUp`, `MouseScroll`, `FocusChanged`), `mouse_pos`, `is_mouse_down`, `set_cursor_mode`, KeySym constants (`KEY_ESCAPE`, `KEY_W`, `KEY_A`, `KEY_S`, `KEY_D`, etc.)
+- Vulkan WSI surface creation: `create_surface` (`VK_KHR_wayland_surface` / `VK_KHR_xlib_surface`), `surface_extensions`, `platform`
 
 ## Link flags
 

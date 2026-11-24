@@ -1848,6 +1848,18 @@ fn build_swapchain_resources(
   MemAlloc?,
 ) raise RhiError {
   let na = @vk.VkAllocationCallbacks::null()
+  let supp = FixedArray::make(1, (0 : UInt32))
+  let sr = (d.ifn.vkGetPhysicalDeviceSurfaceSupportKHR)(
+    d.phys,
+    d.queue_family,
+    surface,
+    supp,
+  )
+  if sr != 0 || supp[0] == (0 : UInt32) {
+    raise SwapchainFailed(
+      "Physical device does not support presentation to this surface",
+    )
+  }
   let caps = @vk.VkSurfaceCapabilitiesKHR::new()
   let cr = (d.ifn.vkGetPhysicalDeviceSurfaceCapabilitiesKHR)(
     d.phys,
@@ -2047,6 +2059,11 @@ fn vk_swapchain_create(
     desc.title,
   )
   let surface = @win.create_surface(d.inst, window)
+  errdefer {
+    (d.ifn.vkDestroySurfaceKHR)(d.inst, surface, na)
+    @win.destroy(window)
+    @win.terminate()
+  }
   let (
     swapchain,
     format,

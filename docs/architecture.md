@@ -9,11 +9,11 @@ codegen/ (laplaceliu/tycho_codegen, private)
    └── generates 6 files in vulkan/ from codegen/registry/vk.xml
 
 vulkan/  (laplaceliu/tycho_vulkan)     ── links -lvulkan (vendored 1.4.363 headers)
-window/  (laplaceliu/tycho_window)     ── links -lX11 -lvulkan (Xlib + WSI surface)
+window/  (laplaceliu/tycho_window)     ── links -lX11 -lvulkan (Xlib + runtime-loaded Wayland WSI)
 shader/  (laplaceliu/tycho_shader)     ── GLSL/Slang compile, SPIR-V reflect, image I/O
 
 tycho/   (laplaceliu/tycho)            ── imports vulkan, window, shader; links -lvulkan -lX11
-examples/(laplaceliu/tycho_vulkan_examples) ── 50 pure-MoonBit examples & suites
+examples/(laplaceliu/tycho_vulkan_examples) ── 51 pure-MoonBit examples & suites
 ```
 
 ### Design Invariants

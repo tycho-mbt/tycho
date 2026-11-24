@@ -13,10 +13,11 @@ fn main {
   let app = @vk.VkApplicationInfo::new()
   app.set_pApplicationName(@vk.cstr("Hello Triangle"))
   app.set_apiVersion((4194304 : UInt32))
+  let se = @win.surface_extensions()
   let ici = @vk.VkInstanceCreateInfo::new()
   ici.set_pApplicationInfo(app)
-  ici.set_enabledExtensionCount((3 : UInt32))
-  ici.set_ppEnabledExtensionNames(@vk.cstr_array(@win.surface_extensions()))
+  ici.set_enabledExtensionCount(se.length().reinterpret_as_uint())
+  ici.set_ppEnabledExtensionNames(@vk.cstr_array(se))
   let inst_out = FixedArray::make(1, @vk.VkInstance::null())
   let ir = @vk.vkCreateInstance(ici, @vk.VkAllocationCallbacks::null(), inst_out)
   let inst = inst_out[0]
@@ -80,6 +81,20 @@ fn main {
   let scr = (dfn.vkCreateSwapchainKHR)(dev, swci, @vk.VkAllocationCallbacks::null(), sc_out)
   let swapchain = sc_out[0]
   println("[02-present] vkCreateSwapchainKHR = \{scr}")
+  if scr != 0 {
+    (ifn.vkDestroySurfaceKHR)(inst, surface, @vk.VkAllocationCallbacks::null())
+    (dfn.vkDestroyDevice)(dev, @vk.VkAllocationCallbacks::null())
+    (ifn.vkDestroyInstance)(inst, @vk.VkAllocationCallbacks::null())
+    @win.destroy(win)
+    @win.terminate()
+    swci.free()
+    extent.free()
+    formats.free()
+    caps.free()
+    dci.free()
+    println("[02-present] SKIP — swapchain creation unsupported on this driver/display (\{scr})")
+    return
+  }
 
   // --- Swap chain images + image views ---
   let ic = FixedArray::make(1, (8 : UInt32))

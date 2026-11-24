@@ -5,11 +5,11 @@ import {
 pkgtype(kind: "foreign_library")
 
 options(
-  "native-stub": [ "window_stub.c" ],
+  "native-stub": [ "window_stub.c", "window_wayland.c" ],
   "link": {
     "native": {
       "cc": "cc",
-      "cc-link-flags": "-lX11 -lvulkan",
+      "cc-link-flags": "-lX11 -lvulkan -ldl",
     },
   },
 )
