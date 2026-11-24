@@ -1,0 +1,19 @@
+#version 450
+struct DrawCmd {
+    uint vertexCount;
+    uint instanceCount;
+    uint firstVertex;
+    uint firstInstance;
+};
+layout(local_size_x = 1) in;
+layout(binding = 0) buffer IndirectOut { DrawCmd cmds[2]; } out_buf;
+void main() {
+    out_buf.cmds[0].vertexCount = 3;
+    out_buf.cmds[0].instanceCount = 1;
+    out_buf.cmds[0].firstVertex = 0;
+    out_buf.cmds[0].firstInstance = 0;
+    out_buf.cmds[1].vertexCount = 3;
+    out_buf.cmds[1].instanceCount = 1;
+    out_buf.cmds[1].firstVertex = 3;
+    out_buf.cmds[1].firstInstance = 0;
+}
