@@ -319,7 +319,15 @@ fn vk_device_create(
   ici.free()
   app.free()
   if ir != 0 {
-    raise InitFailed("vkCreateInstance failed with code \{ir}")
+    // Distinguish "loader too old" from generic failures: the most common
+    // cause of this error is a loader older than 1.3 (e.g. Ubuntu 20.04),
+    // and installing a newer Vulkan SDK does not upgrade the driver.
+    let hint = if ir == @vk.VK_ERROR_INCOMPATIBLE_DRIVER.reinterpret_as_int() {
+      " (VK_ERROR_INCOMPATIBLE_DRIVER: the Vulkan loader/driver is older than 1.3; Tycho needs a 1.3+ loader and driver at runtime — a newer Vulkan SDK does not upgrade the driver)"
+    } else {
+      ""
+    }
+    raise InitFailed("vkCreateInstance failed with code \{ir}\{hint}")
   }
   let inst = inst_out[0]
   let ifn = @vk.InstanceFn::load(inst)
