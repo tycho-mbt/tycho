@@ -58,7 +58,16 @@ static void tycho_temp_path(char *out, size_t n, const char *suffix) {
   pid = (unsigned long)getpid();
 #endif
   const char *tmp = getenv("TMPDIR");
-  snprintf(out, n, "%stycho_%lu_%lu%s", tmp ? tmp : "/tmp/", pid, seq, suffix);
+#ifdef _WIN32
+  if (!tmp || !*tmp) tmp = getenv("TEMP");
+  if (!tmp || !*tmp) tmp = getenv("TMP");
+#endif
+  if (!tmp || !*tmp) tmp = "/tmp";
+  /* TMPDIR is usually set without a trailing slash ("/tmp"), so appending the
+     filename directly would produce "/tmptycho_..." in the filesystem root. */
+  size_t len = strlen(tmp);
+  const char *sep = (tmp[len - 1] == '/' || tmp[len - 1] == '\\') ? "" : "/";
+  snprintf(out, n, "%s%stycho_%lu_%lu%s", tmp, sep, pid, seq, suffix);
 }
 
 static int tycho_resolve_path(const char *rel, char *out, size_t outsz) {
@@ -256,8 +265,12 @@ MOONBIT_FFI_EXPORT uint32_t *tycho_shader_compile_file(
 static const char *tycho_slangc(void) {
   const char *e = getenv("TYCHO_SLANGC");
   if (e && *e) return e;
-  static const char *local = "third_party/slang/bin/slangc";
-  if (TYCHO_EXEC_OK(local)) return local;
+  /* Search like every other input path (CWD, then upward from the executable)
+     instead of only the CWD, so examples run from any directory. */
+  static char local[1024];
+  if (tycho_resolve_path("third_party/slang/bin/slangc", local, sizeof local) &&
+      TYCHO_EXEC_OK(local))
+    return local;
   return "slangc";
 }
 
