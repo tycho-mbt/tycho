@@ -28,8 +28,8 @@ Debian/Ubuntu). No Vulkan SDK, `-I`, or env var is needed at build time.
 
 ## Features (Vulkan 1.3 Backend)
 
-- Backend-opaque handles: `Device`, `Swapchain`, `Pipeline`, `Buffer`, `Texture`, `Sampler`, `CommandBuffer`, `Fence`, `TimestampPool`
-- Vulkan 1.3 **Dynamic Rendering** + **Synchronization2**, **2 frames-in-flight**, and automatic swapchain recreation on resize / `OUT_OF_DATE`
-- Pure-MoonBit free-list GPU memory sub-allocator (`RegionPool` / `SubAllocator`) with persistent mapping for host-visible buffers and separated buffer/image blocks
-- **SPIR-V Auto-Reflection**: `PipelineDesc::from_spirv` and `Device::create_compute_pipeline_auto` derive vertex layouts, descriptor bindings, push constant ranges, and MRT attachment counts directly from SPIR-V bytecode
-- **Multiple Render Targets (MRT)**, **4x MSAA Offscreen Resolve**, **Hardware Mipmap Generation** (`create_texture_mipmapped`, `readback_mip`, sampler LOD control), **Compute Storage Images** (`create_storage_texture`, `bind_storage_image`), and **GPU Timestamp Queries** (`TimestampPool`)
+- Backend-opaque handles: `Device`, `Swapchain`, `Pipeline`, `Buffer`, `Texture`, `Sampler`, `CommandBuffer`, `Fence`, `TimestampPool`, `BindlessHeap`, `AccelStruct`
+- Vulkan 1.3 **Dynamic Rendering** + **Synchronization2**, **2 frames-in-flight**, X11 + runtime-loaded Wayland swapchains, and automatic recreation on resize / `OUT_OF_DATE`
+- Pure-MoonBit free-list GPU memory sub-allocator (`RegionPool` / `SubAllocator`) with `GpuOnly`/`CpuToGpu`/`GpuToCpu` tiers, deferred deletion queue, and `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT` when Ray Query is supported
+- **SPIR-V Auto-Reflection**: `PipelineDesc::from_spirv` and `Device::create_compute_pipeline_auto` derive vertex layouts, descriptor bindings (UBO, texture, SSBO, storage image, `OpTypeAccelerationStructureKHR`), push constant ranges, and MRT attachment counts directly from SPIR-V bytecode
+- **Modern GPU Features**: **MRT**, **4x MSAA Offscreen Resolve**, **Hardware Mipmap Generation**, **Compute Storage Images**, **Indirect / Indirect-Count Draw**, **Bindless Heap**, **Mesh Shaders**, **StencilState + dynamic `set_stencil_reference`**, **Inline Ray Query (`create_blas` / `create_tlas` / `bind_accel_struct`)**, and **GPU Timestamp Queries** (`TimestampPool`)

@@ -13,7 +13,7 @@ window/  (laplaceliu/tycho_window)     ── links -lX11 -lvulkan (Xlib + runti
 shader/  (laplaceliu/tycho_shader)     ── GLSL/Slang compile, SPIR-V reflect, image I/O
 
 tycho/   (laplaceliu/tycho)            ── imports vulkan, window, shader; links -lvulkan -lX11
-examples/(laplaceliu/tycho_vulkan_examples) ── 51 pure-MoonBit examples & suites
+examples/(laplaceliu/tycho_vulkan_examples) ── 52 pure-MoonBit examples & suites
 ```
 
 ### Design Invariants
@@ -43,9 +43,13 @@ examples/(laplaceliu/tycho_vulkan_examples) ── 51 pure-MoonBit examples & su
   - `destroy()` on buffers, textures, samplers, pipelines, and heaps enqueues GPU handles alongside the active submission generation (`current_gen`) instead of blocking with `vkDeviceWaitIdle`.
   - Resources are reclaimed automatically once `completed_gen` advances via `Fence::wait()`, `Swapchain::end_frame()`, or `Device::wait_idle()`.
 - **Pipeline Reflection & Descriptor Scaling**:
-  - `PipelineDesc::from_spirv` and `Device::create_compute_pipeline_auto` invoke `@shader.reflect_spirv` on SPIR-V bytecode to deduce descriptor bindings (UBO, combined image sampler, SSBO, storage image), push constant sizes, and vertex input attributes (`vec2`/`vec3`/`vec4`).
+  - `PipelineDesc::from_spirv` and `Device::create_compute_pipeline_auto` invoke `@shader.reflect_spirv` on SPIR-V bytecode to deduce descriptor bindings (UBO, combined image sampler, SSBO, storage image, acceleration structure), push constant sizes, and vertex input attributes (`vec2`/`vec3`/`vec4`).
   - Per-pipeline descriptor pools expand dynamically when draw counts exceed a single pool's capacity.
   - Optional `BindlessHeap` binds a descriptor-indexed texture array (`set=1` by default) via `CommandBuffer::bind_bindless_heap`.
+- **Stencil, Indirect-Count & Inline Ray Query**:
+  - `PipelineDesc.stencil` (`StencilState` / `StencilFaceState`) pairs with `DepthTargetDesc` stencil load/store ops on `Depth24Stencil8` targets and dynamic `CommandBuffer::set_stencil_reference`.
+  - `draw_indirect_count` / `draw_indexed_indirect_count` use Vulkan 1.2 `drawIndirectCount`.
+  - When `DeviceCapabilities.supports_ray_query` is true, `Device::create_blas` / `Device::create_tlas` build device-local acceleration structures (`AccelStruct`) backed by device-address-enabled `SubAllocator` blocks and bound via `CommandBuffer::bind_accel_struct`.
 
 ## Verification Architecture
 

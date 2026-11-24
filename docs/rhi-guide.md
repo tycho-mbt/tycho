@@ -118,7 +118,27 @@ fence.wait() // flushes generation-eligible deferred deletions
 let gpu_ms = ts.elapsed_ms(0, 1)
 ```
 
-Additional commands: `draw_instanced`, `draw_indirect`, `draw_indexed_indirect`, `dispatch`, `dispatch_indirect`, `draw_mesh_tasks`, `draw_mesh_tasks_indirect`, `bind_bindless_heap`, `copy_buffer`, `blit_texture`, `blit_to_swapchain`, `barrier`.
+Additional commands: `draw_instanced`, `draw_indirect`, `draw_indexed_indirect`, `draw_indirect_count`, `draw_indexed_indirect_count`, `dispatch`, `dispatch_indirect`, `draw_mesh_tasks`, `draw_mesh_tasks_indirect`, `set_stencil_reference`, `bind_accel_struct`, `bind_bindless_heap`, `copy_buffer`, `blit_texture`, `blit_to_swapchain`, `barrier`.
+
+### Inline Ray Query (BLAS / TLAS)
+
+```moonbit
+if dev.capabilities().supports_ray_query {
+  let blas = dev.create_blas([
+    @tycho.RayGeometryDesc::new(vbuf, vertex_count, index_buffer=Some(ibuf), index_count=index_count),
+  ])
+  let tlas = dev.create_tlas([@tycho.RayInstanceDesc::new(blas)])
+  // In compute/fragment shader: layout(binding = 0) uniform accelerationStructureEXT tlas;
+  let pipe = dev.create_compute_pipeline_auto(comp_spv)
+  let cmd = dev.begin_commands()
+  cmd.bind_pipeline(pipe)
+  cmd.bind_accel_struct(pipe, 0, tlas)
+  cmd.dispatch(16, 16, 1)
+  dev.end_commands(cmd)
+  tlas.destroy()
+  blas.destroy()
+}
+```
 
 ## 5. Key RHI Examples
 
@@ -138,3 +158,5 @@ Additional commands: `draw_instanced`, `draw_indirect`, `draw_indexed_indirect`,
 | `48-rhi-shadow-hdr` | Shadow mapping (`CompareOp::LessEqual`) + `RGBA16F` HDR + bloom |
 | `49-rhi-pbr-showcase` | Flagship Cook-Torrance GGX PBR + Cubemap IBL + 3×3 PCF shadow + Bloom + ACES |
 | `50-rhi-bench` | 500 allocs, 500 push-constant draws, 20-frame deferred deletion leak gate |
+| `51-wayland-window` | Linux Wayland WSI (`xdg-shell` + `VK_KHR_wayland_surface`) |
+| `52-rhi-rayquery-stencil` | `StencilState` + `set_stencil_reference`, `draw_indirect_count`, Inline Ray Query (`create_blas`/`create_tlas`) |
