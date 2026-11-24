@@ -4,10 +4,24 @@
 // Reports SKIP if no Wayland compositor is running in the current session.
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
   try {
     if @win.initialize() == 0 || !@win.is_wayland() {
-      println("[51-wayland-window] SKIP — no Wayland compositor active (WAYLAND_DISPLAY unset)")
+      println("[51-wayland-window] SKIP — no Wayland compositor active (check WAYLAND_DISPLAY / XDG_RUNTIME_DIR)")
       return
     }
 
@@ -61,6 +75,16 @@ fn main {
     let g = px[mid + 1].to_int()
     let b = if is_bgra { px[mid].to_int() } else { px[mid + 2].to_int() }
     let pixel_ok = px.length() == w * h * 4 && r < 80 && g > 100 && b > 180
+
+    if @tycho.want_window() {
+      while !should_quit(sc) {
+        let cmd = sc.begin_frame_commands()
+        cmd.begin_swapchain_pass(sc)
+        cmd.end_swapchain_pass()
+        sc.end_frame(cmd)
+        frames = frames + 1
+      }
+    }
 
     sc.destroy()
     let errs = dev.validation_errors()
