@@ -48,6 +48,9 @@ jobs:
           C:\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -Sy && pacman --noconfirm -S --needed mingw-w64-ucrt-x86_64-mesa mingw-w64-ucrt-x86_64-vulkan-loader mingw-w64-ucrt-x86_64-vulkan-validation-layers mingw-w64-ucrt-x86_64-glslang"
           if ($LASTEXITCODE -ne 0) { throw "MSYS2 pacman install failed" }
           "C:\msys64\ucrt64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $vkLoader = "C:\msys64\ucrt64\bin\vulkan-1.dll"
+          if (-not (Test-Path $vkLoader)) { throw "Missing $vkLoader" }
+          "TYCHO_VULKAN_LIB=$vkLoader" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $lvpDll = "C:\msys64\ucrt64\bin\vulkan_lvp.dll"
           if (-not (Test-Path $lvpDll)) { throw "Missing $lvpDll" }
           $apiVer = "1.4.0"
@@ -65,9 +68,11 @@ jobs:
             }
           } | ConvertTo-Json -Depth 4 | Set-Content -Path $icdOut -Encoding ascii
           "VK_DRIVER_FILES=$icdOut" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "VK_ICD_FILENAMES=$icdOut" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $valJson = Get-ChildItem -Path "C:\msys64\ucrt64" -Filter "VkLayer_khronos_validation.json" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $valJson) { throw "Missing VkLayer_khronos_validation.json" }
           "VK_LAYER_PATH=$($valJson.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Loader: $vkLoader"
           Write-Host "ICD: $icdOut (api_version=$apiVer)"
           Write-Host "VK_LAYER_PATH: $($valJson.DirectoryName)"
       - name: Setup MSVC x64
@@ -112,6 +117,7 @@ jobs:
           python --version
           moon version
           glslangValidator --version
+          python -c "import ctypes, os; ctypes.WinDLL(r'C:\msys64\ucrt64\bin\vulkan_lvp.dll'); vk = ctypes.WinDLL(os.environ['TYCHO_VULKAN_LIB']); ver = ctypes.c_uint32(); vk.vkEnumerateInstanceVersion(ctypes.byref(ver)); print(f'Vulkan loader version: {ver.value >> 22}.{(ver.value >> 12) & 0x3ff}.{ver.value & 0xfff}')"
       - name: Update MoonBit registry
         shell: pwsh
         run: moon update
@@ -155,6 +161,10 @@ jobs:
           echo "Using MoltenVK ICD: $ICD"
           cat "$ICD"
           echo "VK_DRIVER_FILES=$ICD" >> "$GITHUB_ENV"
+          echo "VK_ICD_FILENAMES=$ICD" >> "$GITHUB_ENV"
+          if [ -f "$PREFIX/lib/libvulkan.1.dylib" ]; then
+            echo "TYCHO_VULKAN_LIB=$PREFIX/lib/libvulkan.1.dylib" >> "$GITHUB_ENV"
+          fi
           echo "DYLD_LIBRARY_PATH=$PREFIX/lib" >> "$GITHUB_ENV"
           echo "MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0" >> "$GITHUB_ENV"
           echo "MVK_CONFIG_LOG_LEVEL=1" >> "$GITHUB_ENV"
