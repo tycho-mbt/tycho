@@ -175,6 +175,26 @@ pub fn Swapchain::set_title(self : Swapchain, title : String) -> Unit {
 }
 
 ///|
+pub fn Swapchain::set_cursor_mode(self : Swapchain, mode : CursorMode) -> Unit {
+  @win.set_cursor_mode(self.inner.window, mode)
+}
+
+///|
+pub fn Swapchain::set_fullscreen(self : Swapchain, fullscreen : Bool) -> Unit {
+  @win.set_fullscreen(self.inner.window, fullscreen)
+}
+
+///|
+pub fn Swapchain::is_fullscreen(self : Swapchain) -> Bool {
+  @win.is_fullscreen(self.inner.window)
+}
+
+///|
+pub fn Swapchain::content_scale(self : Swapchain) -> Double {
+  @win.content_scale(self.inner.window)
+}
+
+///|
 pub fn Swapchain::time() -> Double {
   @win.time()
 }

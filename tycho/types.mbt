@@ -616,16 +616,25 @@ pub fn DepthTargetDesc::new(
   { texture, load_op, store_op, clear_depth }
 }
 
-// Re-export window events and key codes so users only need `@tycho`.
+// Re-export window events, cursor mode, and key codes so users only need `@tycho`.
 
 ///|
 pub type Event = @win.Event
+
+///|
+pub type CursorMode = @win.CursorMode
 
 ///|
 pub const KEY_ESCAPE : Int = @win.KEY_ESCAPE
 
 ///|
 pub const KEY_RETURN : Int = @win.KEY_RETURN
+
+///|
+pub const KEY_TAB : Int = @win.KEY_TAB
+
+///|
+pub const KEY_BACKSPACE : Int = @win.KEY_BACKSPACE
 
 ///|
 pub const KEY_SPACE : Int = @win.KEY_SPACE
@@ -643,16 +652,166 @@ pub const KEY_RIGHT : Int = @win.KEY_RIGHT
 pub const KEY_DOWN : Int = @win.KEY_DOWN
 
 ///|
-pub const KEY_W : Int = @win.KEY_W
+pub const KEY_0 : Int = @win.KEY_0
+
+///|
+pub const KEY_1 : Int = @win.KEY_1
+
+///|
+pub const KEY_2 : Int = @win.KEY_2
+
+///|
+pub const KEY_3 : Int = @win.KEY_3
+
+///|
+pub const KEY_4 : Int = @win.KEY_4
+
+///|
+pub const KEY_5 : Int = @win.KEY_5
+
+///|
+pub const KEY_6 : Int = @win.KEY_6
+
+///|
+pub const KEY_7 : Int = @win.KEY_7
+
+///|
+pub const KEY_8 : Int = @win.KEY_8
+
+///|
+pub const KEY_9 : Int = @win.KEY_9
 
 ///|
 pub const KEY_A : Int = @win.KEY_A
 
 ///|
-pub const KEY_S : Int = @win.KEY_S
+pub const KEY_B : Int = @win.KEY_B
+
+///|
+pub const KEY_C : Int = @win.KEY_C
 
 ///|
 pub const KEY_D : Int = @win.KEY_D
+
+///|
+pub const KEY_E : Int = @win.KEY_E
+
+///|
+pub const KEY_F : Int = @win.KEY_F
+
+///|
+pub const KEY_G : Int = @win.KEY_G
+
+///|
+pub const KEY_H : Int = @win.KEY_H
+
+///|
+pub const KEY_I : Int = @win.KEY_I
+
+///|
+pub const KEY_J : Int = @win.KEY_J
+
+///|
+pub const KEY_K : Int = @win.KEY_K
+
+///|
+pub const KEY_L : Int = @win.KEY_L
+
+///|
+pub const KEY_M : Int = @win.KEY_M
+
+///|
+pub const KEY_N : Int = @win.KEY_N
+
+///|
+pub const KEY_O : Int = @win.KEY_O
+
+///|
+pub const KEY_P : Int = @win.KEY_P
+
+///|
+pub const KEY_Q : Int = @win.KEY_Q
+
+///|
+pub const KEY_R : Int = @win.KEY_R
+
+///|
+pub const KEY_S : Int = @win.KEY_S
+
+///|
+pub const KEY_T : Int = @win.KEY_T
+
+///|
+pub const KEY_U : Int = @win.KEY_U
+
+///|
+pub const KEY_V : Int = @win.KEY_V
+
+///|
+pub const KEY_W : Int = @win.KEY_W
+
+///|
+pub const KEY_X : Int = @win.KEY_X
+
+///|
+pub const KEY_Y : Int = @win.KEY_Y
+
+///|
+pub const KEY_Z : Int = @win.KEY_Z
+
+///|
+pub const KEY_F1 : Int = @win.KEY_F1
+
+///|
+pub const KEY_F2 : Int = @win.KEY_F2
+
+///|
+pub const KEY_F3 : Int = @win.KEY_F3
+
+///|
+pub const KEY_F4 : Int = @win.KEY_F4
+
+///|
+pub const KEY_F5 : Int = @win.KEY_F5
+
+///|
+pub const KEY_F6 : Int = @win.KEY_F6
+
+///|
+pub const KEY_F7 : Int = @win.KEY_F7
+
+///|
+pub const KEY_F8 : Int = @win.KEY_F8
+
+///|
+pub const KEY_F9 : Int = @win.KEY_F9
+
+///|
+pub const KEY_F10 : Int = @win.KEY_F10
+
+///|
+pub const KEY_F11 : Int = @win.KEY_F11
+
+///|
+pub const KEY_F12 : Int = @win.KEY_F12
+
+///|
+pub const KEY_LSHIFT : Int = @win.KEY_LSHIFT
+
+///|
+pub const KEY_RSHIFT : Int = @win.KEY_RSHIFT
+
+///|
+pub const KEY_LCTRL : Int = @win.KEY_LCTRL
+
+///|
+pub const KEY_RCTRL : Int = @win.KEY_RCTRL
+
+///|
+pub const KEY_LALT : Int = @win.KEY_LALT
+
+///|
+pub const KEY_RALT : Int = @win.KEY_RALT
 
 // Shader compilation, SPIR-V reflection & image loading helpers (via laplaceliu/tycho_shader).
 

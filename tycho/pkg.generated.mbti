@@ -8,27 +8,131 @@ import {
 }
 
 // Values
+pub const KEY_0 : Int32 = 0x0030
+
+pub const KEY_1 : Int32 = 0x0031
+
+pub const KEY_2 : Int32 = 0x0032
+
+pub const KEY_3 : Int32 = 0x0033
+
+pub const KEY_4 : Int32 = 0x0034
+
+pub const KEY_5 : Int32 = 0x0035
+
+pub const KEY_6 : Int32 = 0x0036
+
+pub const KEY_7 : Int32 = 0x0037
+
+pub const KEY_8 : Int32 = 0x0038
+
+pub const KEY_9 : Int32 = 0x0039
+
 pub const KEY_A : Int32 = 0x0061
+
+pub const KEY_B : Int32 = 0x0062
+
+pub const KEY_BACKSPACE : Int32 = 0xff08
+
+pub const KEY_C : Int32 = 0x0063
 
 pub const KEY_D : Int32 = 0x0064
 
 pub const KEY_DOWN : Int32 = 0xff54
 
+pub const KEY_E : Int32 = 0x0065
+
 pub const KEY_ESCAPE : Int32 = 0xff1b
 
+pub const KEY_F : Int32 = 0x0066
+
+pub const KEY_F1 : Int32 = 0xffbe
+
+pub const KEY_F10 : Int32 = 0xffc7
+
+pub const KEY_F11 : Int32 = 0xffc8
+
+pub const KEY_F12 : Int32 = 0xffc9
+
+pub const KEY_F2 : Int32 = 0xffbf
+
+pub const KEY_F3 : Int32 = 0xffc0
+
+pub const KEY_F4 : Int32 = 0xffc1
+
+pub const KEY_F5 : Int32 = 0xffc2
+
+pub const KEY_F6 : Int32 = 0xffc3
+
+pub const KEY_F7 : Int32 = 0xffc4
+
+pub const KEY_F8 : Int32 = 0xffc5
+
+pub const KEY_F9 : Int32 = 0xffc6
+
+pub const KEY_G : Int32 = 0x0067
+
+pub const KEY_H : Int32 = 0x0068
+
+pub const KEY_I : Int32 = 0x0069
+
+pub const KEY_J : Int32 = 0x006a
+
+pub const KEY_K : Int32 = 0x006b
+
+pub const KEY_L : Int32 = 0x006c
+
+pub const KEY_LALT : Int32 = 0xffe9
+
+pub const KEY_LCTRL : Int32 = 0xffe3
+
 pub const KEY_LEFT : Int32 = 0xff51
+
+pub const KEY_LSHIFT : Int32 = 0xffe1
+
+pub const KEY_M : Int32 = 0x006d
+
+pub const KEY_N : Int32 = 0x006e
+
+pub const KEY_O : Int32 = 0x006f
+
+pub const KEY_P : Int32 = 0x0070
+
+pub const KEY_Q : Int32 = 0x0071
+
+pub const KEY_R : Int32 = 0x0072
+
+pub const KEY_RALT : Int32 = 0xffea
+
+pub const KEY_RCTRL : Int32 = 0xffe4
 
 pub const KEY_RETURN : Int32 = 0xff0d
 
 pub const KEY_RIGHT : Int32 = 0xff53
 
+pub const KEY_RSHIFT : Int32 = 0xffe2
+
 pub const KEY_S : Int32 = 0x0073
 
 pub const KEY_SPACE : Int32 = 0x0020
 
+pub const KEY_T : Int32 = 0x0074
+
+pub const KEY_TAB : Int32 = 0xff09
+
+pub const KEY_U : Int32 = 0x0075
+
 pub const KEY_UP : Int32 = 0xff52
 
+pub const KEY_V : Int32 = 0x0076
+
 pub const KEY_W : Int32 = 0x0077
+
+pub const KEY_X : Int32 = 0x0078
+
+pub const KEY_Y : Int32 = 0x0079
+
+pub const KEY_Z : Int32 = 0x007a
 
 pub fn compile_glsl(String, ShaderStage) -> FixedArray[UInt32]
 
@@ -376,13 +480,17 @@ pub struct Swapchain {
 pub fn Swapchain::begin_frame(Self) -> CommandBuffer raise RhiError
 pub fn Swapchain::begin_frame_commands(Self) -> CommandBuffer raise RhiError
 pub fn Swapchain::color_format(Self) -> TextureFormat
+pub fn Swapchain::content_scale(Self) -> Double
 pub fn Swapchain::create_pipeline(Self, FixedArray[UInt32], FixedArray[UInt32], Int32) -> Pipeline raise RhiError
 pub fn Swapchain::create_pipeline_desc(Self, PipelineDesc) -> Pipeline raise RhiError
 pub fn Swapchain::destroy(Self) -> Unit
 pub fn Swapchain::end_frame(Self, CommandBuffer) -> Unit raise RhiError
 pub fn Swapchain::height(Self) -> Int32
+pub fn Swapchain::is_fullscreen(Self) -> Bool
 pub fn Swapchain::poll_events(Self) -> Array[@tycho_window.Event]
 pub fn Swapchain::readback(Self) -> FixedArray[Byte]
+pub fn Swapchain::set_cursor_mode(Self, @tycho_window.CursorMode) -> Unit
+pub fn Swapchain::set_fullscreen(Self, Bool) -> Unit
 pub fn Swapchain::set_title(Self, String) -> Unit
 pub fn Swapchain::should_close(Self) -> Bool
 pub fn Swapchain::time() -> Double
@@ -460,6 +568,8 @@ pub(all) enum VertexStepMode {
 }
 
 // Type aliases
+pub using @tycho_window {type CursorMode}
+
 pub using @tycho_window {type Event}
 
 pub using @tycho_shader {type ReflectedBinding}

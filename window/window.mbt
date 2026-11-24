@@ -39,11 +39,25 @@ extern "c" fn win_display_ffi(win : UInt64) -> UInt64 = "tycho_win_display"
 
 extern "c" fn win_handle_ffi(win : UInt64) -> UInt64 = "tycho_win_handle"
 
+extern "c" fn win_set_cursor_mode_ffi(win : UInt64, mode : Int32) = "tycho_win_set_cursor_mode"
+
+extern "c" fn win_set_fullscreen_ffi(win : UInt64, fs : Int32) = "tycho_win_set_fullscreen"
+
+extern "c" fn win_is_fullscreen_ffi(win : UInt64) -> Int32 = "tycho_win_is_fullscreen"
+
+extern "c" fn win_content_scale_ffi(win : UInt64) -> Double = "tycho_win_content_scale"
+
 ///|
 pub const KEY_ESCAPE : Int = 0xff1b
 
 ///|
 pub const KEY_RETURN : Int = 0xff0d
+
+///|
+pub const KEY_TAB : Int = 0xff09
+
+///|
+pub const KEY_BACKSPACE : Int = 0xff08
 
 ///|
 pub const KEY_SPACE : Int = 0x0020
@@ -61,16 +75,174 @@ pub const KEY_RIGHT : Int = 0xff53
 pub const KEY_DOWN : Int = 0xff54
 
 ///|
-pub const KEY_W : Int = 0x0077
+pub const KEY_0 : Int = 0x0030
+
+///|
+pub const KEY_1 : Int = 0x0031
+
+///|
+pub const KEY_2 : Int = 0x0032
+
+///|
+pub const KEY_3 : Int = 0x0033
+
+///|
+pub const KEY_4 : Int = 0x0034
+
+///|
+pub const KEY_5 : Int = 0x0035
+
+///|
+pub const KEY_6 : Int = 0x0036
+
+///|
+pub const KEY_7 : Int = 0x0037
+
+///|
+pub const KEY_8 : Int = 0x0038
+
+///|
+pub const KEY_9 : Int = 0x0039
 
 ///|
 pub const KEY_A : Int = 0x0061
 
 ///|
-pub const KEY_S : Int = 0x0073
+pub const KEY_B : Int = 0x0062
+
+///|
+pub const KEY_C : Int = 0x0063
 
 ///|
 pub const KEY_D : Int = 0x0064
+
+///|
+pub const KEY_E : Int = 0x0065
+
+///|
+pub const KEY_F : Int = 0x0066
+
+///|
+pub const KEY_G : Int = 0x0067
+
+///|
+pub const KEY_H : Int = 0x0068
+
+///|
+pub const KEY_I : Int = 0x0069
+
+///|
+pub const KEY_J : Int = 0x006a
+
+///|
+pub const KEY_K : Int = 0x006b
+
+///|
+pub const KEY_L : Int = 0x006c
+
+///|
+pub const KEY_M : Int = 0x006d
+
+///|
+pub const KEY_N : Int = 0x006e
+
+///|
+pub const KEY_O : Int = 0x006f
+
+///|
+pub const KEY_P : Int = 0x0070
+
+///|
+pub const KEY_Q : Int = 0x0071
+
+///|
+pub const KEY_R : Int = 0x0072
+
+///|
+pub const KEY_S : Int = 0x0073
+
+///|
+pub const KEY_T : Int = 0x0074
+
+///|
+pub const KEY_U : Int = 0x0075
+
+///|
+pub const KEY_V : Int = 0x0076
+
+///|
+pub const KEY_W : Int = 0x0077
+
+///|
+pub const KEY_X : Int = 0x0078
+
+///|
+pub const KEY_Y : Int = 0x0079
+
+///|
+pub const KEY_Z : Int = 0x007a
+
+///|
+pub const KEY_F1 : Int = 0xffbe
+
+///|
+pub const KEY_F2 : Int = 0xffbf
+
+///|
+pub const KEY_F3 : Int = 0xffc0
+
+///|
+pub const KEY_F4 : Int = 0xffc1
+
+///|
+pub const KEY_F5 : Int = 0xffc2
+
+///|
+pub const KEY_F6 : Int = 0xffc3
+
+///|
+pub const KEY_F7 : Int = 0xffc4
+
+///|
+pub const KEY_F8 : Int = 0xffc5
+
+///|
+pub const KEY_F9 : Int = 0xffc6
+
+///|
+pub const KEY_F10 : Int = 0xffc7
+
+///|
+pub const KEY_F11 : Int = 0xffc8
+
+///|
+pub const KEY_F12 : Int = 0xffc9
+
+///|
+pub const KEY_LSHIFT : Int = 0xffe1
+
+///|
+pub const KEY_RSHIFT : Int = 0xffe2
+
+///|
+pub const KEY_LCTRL : Int = 0xffe3
+
+///|
+pub const KEY_RCTRL : Int = 0xffe4
+
+///|
+pub const KEY_LALT : Int = 0xffe9
+
+///|
+pub const KEY_RALT : Int = 0xffea
+
+///|
+#derive(Eq, Debug)
+pub(all) enum CursorMode {
+  Normal
+  Hidden
+  Locked
+}
 
 ///|
 #derive(Eq, Debug)
@@ -141,6 +313,31 @@ pub fn set_title(win : UInt64, title : String) -> Unit {
   let s = @vk.cstr(title)
   win_set_title_ffi(win, s)
   @vk.free_ptr(s)
+}
+
+///|
+pub fn set_cursor_mode(win : UInt64, mode : CursorMode) -> Unit {
+  let m : Int32 = match mode {
+    CursorMode::Normal => 0
+    CursorMode::Hidden => 1
+    CursorMode::Locked => 2
+  }
+  win_set_cursor_mode_ffi(win, m)
+}
+
+///|
+pub fn set_fullscreen(win : UInt64, fullscreen : Bool) -> Unit {
+  win_set_fullscreen_ffi(win, if fullscreen { (1 : Int32) } else { (0 : Int32) })
+}
+
+///|
+pub fn is_fullscreen(win : UInt64) -> Bool {
+  win_is_fullscreen_ffi(win) != 0
+}
+
+///|
+pub fn content_scale(win : UInt64) -> Double {
+  win_content_scale_ffi(win)
 }
 
 ///|

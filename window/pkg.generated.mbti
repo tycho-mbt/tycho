@@ -7,27 +7,133 @@ import {
 }
 
 // Values
+pub const KEY_0 : Int32 = 0x0030
+
+pub const KEY_1 : Int32 = 0x0031
+
+pub const KEY_2 : Int32 = 0x0032
+
+pub const KEY_3 : Int32 = 0x0033
+
+pub const KEY_4 : Int32 = 0x0034
+
+pub const KEY_5 : Int32 = 0x0035
+
+pub const KEY_6 : Int32 = 0x0036
+
+pub const KEY_7 : Int32 = 0x0037
+
+pub const KEY_8 : Int32 = 0x0038
+
+pub const KEY_9 : Int32 = 0x0039
+
 pub const KEY_A : Int32 = 0x0061
+
+pub const KEY_B : Int32 = 0x0062
+
+pub const KEY_BACKSPACE : Int32 = 0xff08
+
+pub const KEY_C : Int32 = 0x0063
 
 pub const KEY_D : Int32 = 0x0064
 
 pub const KEY_DOWN : Int32 = 0xff54
 
+pub const KEY_E : Int32 = 0x0065
+
 pub const KEY_ESCAPE : Int32 = 0xff1b
 
+pub const KEY_F : Int32 = 0x0066
+
+pub const KEY_F1 : Int32 = 0xffbe
+
+pub const KEY_F10 : Int32 = 0xffc7
+
+pub const KEY_F11 : Int32 = 0xffc8
+
+pub const KEY_F12 : Int32 = 0xffc9
+
+pub const KEY_F2 : Int32 = 0xffbf
+
+pub const KEY_F3 : Int32 = 0xffc0
+
+pub const KEY_F4 : Int32 = 0xffc1
+
+pub const KEY_F5 : Int32 = 0xffc2
+
+pub const KEY_F6 : Int32 = 0xffc3
+
+pub const KEY_F7 : Int32 = 0xffc4
+
+pub const KEY_F8 : Int32 = 0xffc5
+
+pub const KEY_F9 : Int32 = 0xffc6
+
+pub const KEY_G : Int32 = 0x0067
+
+pub const KEY_H : Int32 = 0x0068
+
+pub const KEY_I : Int32 = 0x0069
+
+pub const KEY_J : Int32 = 0x006a
+
+pub const KEY_K : Int32 = 0x006b
+
+pub const KEY_L : Int32 = 0x006c
+
+pub const KEY_LALT : Int32 = 0xffe9
+
+pub const KEY_LCTRL : Int32 = 0xffe3
+
 pub const KEY_LEFT : Int32 = 0xff51
+
+pub const KEY_LSHIFT : Int32 = 0xffe1
+
+pub const KEY_M : Int32 = 0x006d
+
+pub const KEY_N : Int32 = 0x006e
+
+pub const KEY_O : Int32 = 0x006f
+
+pub const KEY_P : Int32 = 0x0070
+
+pub const KEY_Q : Int32 = 0x0071
+
+pub const KEY_R : Int32 = 0x0072
+
+pub const KEY_RALT : Int32 = 0xffea
+
+pub const KEY_RCTRL : Int32 = 0xffe4
 
 pub const KEY_RETURN : Int32 = 0xff0d
 
 pub const KEY_RIGHT : Int32 = 0xff53
 
+pub const KEY_RSHIFT : Int32 = 0xffe2
+
 pub const KEY_S : Int32 = 0x0073
 
 pub const KEY_SPACE : Int32 = 0x0020
 
+pub const KEY_T : Int32 = 0x0074
+
+pub const KEY_TAB : Int32 = 0xff09
+
+pub const KEY_U : Int32 = 0x0075
+
 pub const KEY_UP : Int32 = 0xff52
 
+pub const KEY_V : Int32 = 0x0076
+
 pub const KEY_W : Int32 = 0x0077
+
+pub const KEY_X : Int32 = 0x0078
+
+pub const KEY_Y : Int32 = 0x0079
+
+pub const KEY_Z : Int32 = 0x007a
+
+pub fn content_scale(UInt64) -> Double
 
 pub fn create(Int32, Int32, String) -> UInt64
 
@@ -41,6 +147,8 @@ pub fn height(UInt64) -> Int32
 
 pub fn initialize() -> Int32
 
+pub fn is_fullscreen(UInt64) -> Bool
+
 pub fn is_mouse_down(UInt64, Int32) -> Bool
 
 pub fn mouse_pos(UInt64) -> (Double, Double)
@@ -50,6 +158,10 @@ pub fn platform() -> Platform
 pub fn poll() -> Unit
 
 pub fn poll_events(UInt64) -> Array[Event]
+
+pub fn set_cursor_mode(UInt64, CursorMode) -> Unit
+
+pub fn set_fullscreen(UInt64, Bool) -> Unit
 
 pub fn set_should_close(UInt64, Bool) -> Unit
 
@@ -70,6 +182,13 @@ pub fn width(UInt64) -> Int32
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum CursorMode {
+  Normal
+  Hidden
+  Locked
+}
+
 #derive(Eq, @debug.Debug)
 pub(all) enum Event {
   CloseRequested
