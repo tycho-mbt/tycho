@@ -1,0 +1,94 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_window"
+
+import {
+  "laplaceliu/tycho_vulkan",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const KEY_A : Int32 = 0x0061
+
+pub const KEY_D : Int32 = 0x0064
+
+pub const KEY_DOWN : Int32 = 0xff54
+
+pub const KEY_ESCAPE : Int32 = 0xff1b
+
+pub const KEY_LEFT : Int32 = 0xff51
+
+pub const KEY_RETURN : Int32 = 0xff0d
+
+pub const KEY_RIGHT : Int32 = 0xff53
+
+pub const KEY_S : Int32 = 0x0073
+
+pub const KEY_SPACE : Int32 = 0x0020
+
+pub const KEY_UP : Int32 = 0xff52
+
+pub const KEY_W : Int32 = 0x0077
+
+pub fn create(Int32, Int32, String) -> UInt64
+
+pub fn create_surface(@tycho_vulkan.VkInstance, UInt64) -> @tycho_vulkan.VkSurfaceKHR
+
+pub fn destroy(UInt64) -> Unit
+
+pub fn framebuffer_size(UInt64) -> (Int32, Int32)
+
+pub fn height(UInt64) -> Int32
+
+pub fn initialize() -> Int32
+
+pub fn is_mouse_down(UInt64, Int32) -> Bool
+
+pub fn mouse_pos(UInt64) -> (Double, Double)
+
+pub fn platform() -> Platform
+
+pub fn poll() -> Unit
+
+pub fn poll_events(UInt64) -> Array[Event]
+
+pub fn set_should_close(UInt64, Bool) -> Unit
+
+pub fn set_title(UInt64, String) -> Unit
+
+pub fn should_close(UInt64) -> Int32
+
+pub fn surface_extensions() -> FixedArray[String]
+
+pub fn take_resized(UInt64) -> Bool
+
+pub fn terminate() -> Unit
+
+pub fn time() -> Double
+
+pub fn width(UInt64) -> Int32
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum Event {
+  CloseRequested
+  Resized(Int32, Int32)
+  KeyDown(Int32, Int32)
+  KeyUp(Int32, Int32)
+  MouseMove(Int32, Int32)
+  MouseDown(Int32, Int32, Int32)
+  MouseUp(Int32, Int32, Int32)
+  MouseScroll(Int32)
+  FocusChanged(Bool)
+}
+
+pub(all) enum Platform {
+  Linux
+  Windows
+  MacOS
+}
+
+// Type aliases
+
+// Traits

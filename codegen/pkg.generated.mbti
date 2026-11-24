@@ -1,0 +1,93 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_codegen"
+
+import {
+  "Milky2018/xml",
+  "moonbitlang/core/hashmap",
+}
+
+// Values
+pub fn base_type(String) -> String
+
+pub fn build_dom(Array[@xml.Event]) -> XmlNode
+
+pub fn classify(VkCommand) -> DispatchLevel
+
+pub fn emit_dispatch(Array[VkCommand], VkTypes) -> String
+
+pub fn emit_dispatch_stub(Array[VkCommand], VkTypes, @hashmap.HashMap[String, Unit]) -> String
+
+pub fn emit_structs(XmlNode, Array[String], VkTypes, @hashmap.HashMap[String, Unit], @hashmap.HashMap[String, String], @hashmap.HashMap[String, String]) -> (String, String)
+
+pub fn emit_types(VkTypes) -> String
+
+pub fn funcref_type(VkCommand, VkTypes) -> String
+
+pub fn header_defined_types(String) -> Array[String]
+
+pub fn header_flags64(Array[String]) -> Array[String]
+
+pub fn parse_commands(XmlNode) -> Array[VkCommand]
+
+pub fn parse_funcpointers(XmlNode) -> Array[VkFuncPointer]
+
+pub fn parse_struct_members(XmlNode, String) -> Array[VkMember]
+
+pub fn parse_types(XmlNode) -> VkTypes
+
+// Errors
+
+// Types and methods
+pub enum DispatchLevel {
+  Entry
+  Instance
+  Device
+}
+
+pub struct VkCommand {
+  name : String
+  ret : String
+  params : Array[VkParam]
+  alias_of : String?
+}
+
+pub struct VkFuncPointer {
+  name : String
+  ret : String
+  params : Array[VkParam]
+}
+
+pub struct VkMember {
+  ctype : String
+  name : String
+  stype : String?
+  is_array : Bool
+}
+
+pub struct VkParam {
+  ctype : String
+  name : String
+}
+
+pub struct VkTypes {
+  handles : Array[String]
+  structs : Array[String]
+  unions : Array[String]
+  enums : Array[String]
+  bitmasks : Array[String]
+  flags64 : Array[String]
+}
+
+pub struct XmlNode {
+  name : String
+  attrs : Array[(String, String)]
+  children : Array[XmlNode]
+  text : String
+}
+pub fn XmlNode::attr(Self, String) -> String?
+pub fn XmlNode::child(Self, String) -> Self?
+pub fn XmlNode::inner_text(Self) -> String
+
+// Type aliases
+
+// Traits
