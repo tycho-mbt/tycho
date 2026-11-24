@@ -59,6 +59,7 @@ pub impl Show for RhiError
 pub(all) enum AddressMode {
   Repeat
   ClampToEdge
+  ClampToBorder
 }
 
 #derive(Eq, @debug.Debug)
@@ -73,6 +74,13 @@ pub(all) enum BlendMode {
   Additive
   Premultiplied
   Multiply
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum BorderColor {
+  TransparentBlack
+  OpaqueBlack
+  OpaqueWhite
 }
 
 pub struct Buffer {
@@ -116,6 +124,7 @@ pub fn CommandBuffer::bind_storage_image(Self, Pipeline, Int32, Texture) -> Unit
 pub fn CommandBuffer::bind_texture(Self, Pipeline, Int32, Texture, Sampler) -> Unit
 pub fn CommandBuffer::bind_uniform(Self, Pipeline, Int32, Buffer) -> Unit
 pub fn CommandBuffer::bind_vertex(Self, Int32, Buffer, offset? : Int32) -> Unit
+pub fn CommandBuffer::blit_texture(Self, Texture, Texture, filter? : Filter) -> Unit
 pub fn CommandBuffer::copy_buffer(Self, Buffer, Buffer, Int32) -> Unit
 pub fn CommandBuffer::dispatch(Self, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::draw(Self, Int32, Int32) -> Unit
@@ -172,7 +181,9 @@ pub fn Device::create_buffer(Self, Int32, BufferKind) -> Buffer raise RhiError
 pub fn Device::create_buffer_with(Self, Int32, BufferKind, location? : MemoryLocation) -> Buffer raise RhiError
 pub fn Device::create_compute_pipeline(Self, FixedArray[UInt32], Int32, Int32, storage_image_slots? : Int32, push_constant_size? : Int32) -> Pipeline raise RhiError
 pub fn Device::create_compute_pipeline_auto(Self, FixedArray[UInt32]) -> Pipeline raise RhiError
+pub fn Device::create_cubemap(Self, Int32, TextureFormat, Array[Bytes]) -> Texture raise RhiError
 pub fn Device::create_depth_texture(Self, Int32, Int32, samples? : SampleCount) -> Texture raise RhiError
+pub fn Device::create_depth_texture_format(Self, Int32, Int32, TextureFormat, samples? : SampleCount) -> Texture raise RhiError
 pub fn Device::create_fence(Self, Bool) -> Fence raise RhiError
 pub fn Device::create_graphics_pipeline(Self, PipelineDesc) -> Pipeline raise RhiError
 pub fn Device::create_render_target(Self, Int32, Int32, TextureFormat, samples? : SampleCount) -> Texture raise RhiError
@@ -182,6 +193,7 @@ pub fn Device::create_storage_texture(Self, Int32, Int32, TextureFormat) -> Text
 pub fn Device::create_swapchain(Self, String, Int32, Int32) -> Swapchain raise RhiError
 pub fn Device::create_swapchain_desc(Self, SwapchainDesc) -> Swapchain raise RhiError
 pub fn Device::create_texture(Self, Int32, Int32, Bytes) -> Texture raise RhiError
+pub fn Device::create_texture_array(Self, Int32, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
 pub fn Device::create_texture_format(Self, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
 pub fn Device::create_texture_mipmapped(Self, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
 pub fn Device::create_timestamp_pool(Self, Int32) -> TimestampPool raise RhiError
@@ -336,11 +348,14 @@ pub(all) struct SamplerDesc {
   min : Filter
   mipmap : Filter
   address : AddressMode
+  border_color : BorderColor
   min_lod : Float
   max_lod : Float
   mip_lod_bias : Float
+  anisotropy : Float
+  compare_op : CompareOp?
 }
-pub fn SamplerDesc::new(mag? : Filter, min? : Filter, mipmap? : Filter, address? : AddressMode, min_lod? : Float, max_lod? : Float, mip_lod_bias? : Float) -> Self
+pub fn SamplerDesc::new(mag? : Filter, min? : Filter, mipmap? : Filter, address? : AddressMode, border_color? : BorderColor, min_lod? : Float, max_lod? : Float, mip_lod_bias? : Float, anisotropy? : Float, compare_op? : CompareOp?) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum ShaderStage {
@@ -389,17 +404,25 @@ pub struct Texture {
 }
 pub fn Texture::destroy(Self) -> Unit
 pub fn Texture::height(Self) -> Int32
+pub fn Texture::layers(Self) -> Int32
 pub fn Texture::mip_levels(Self) -> Int32
 pub fn Texture::readback(Self) -> FixedArray[Byte] raise RhiError
 pub fn Texture::readback_mip(Self, Int32) -> FixedArray[Byte] raise RhiError
+pub fn Texture::upload_subregion(Self, Int32, Int32, Int32, Int32, Bytes, layer? : Int32, mip_level? : Int32) -> Unit raise RhiError
 pub fn Texture::width(Self) -> Int32
 
 #derive(Eq, @debug.Debug)
 pub(all) enum TextureFormat {
   RGBA8
   BGRA8
+  RGBA8Srgb
+  BGRA8Srgb
+  RGBA16F
+  RG16F
+  R8
   RGBA32F
   Depth32F
+  Depth24Stencil8
 }
 
 pub struct TimestampPool {

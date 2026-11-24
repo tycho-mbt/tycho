@@ -131,6 +131,8 @@ priv struct VkTextureState {
   width : Int
   height : Int
   mip_levels : Int
+  layers : Int
+  aspect : UInt32
   mut layout : UInt32
 }
 
@@ -166,6 +168,7 @@ priv struct VkCmdState {
   pending_storage_images : Array[(Pipeline, Int, Texture)]
   mut bound : Pipeline?
   mut active_render_targets : Array[RenderTargetDesc]
+  mut active_depth_target : DepthTargetDesc?
   mut in_swapchain_pass : Bool
   mut swapchain_image_initialized : Bool
 }
@@ -193,8 +196,14 @@ fn vk_texture_format(f : TextureFormat) -> UInt32 {
   match f {
     TextureFormat::RGBA8 => @vk.VK_FORMAT_R8G8B8A8_UNORM
     TextureFormat::BGRA8 => @vk.VK_FORMAT_B8G8R8A8_UNORM
+    TextureFormat::RGBA8Srgb => @vk.VK_FORMAT_R8G8B8A8_SRGB
+    TextureFormat::BGRA8Srgb => @vk.VK_FORMAT_B8G8R8A8_SRGB
+    TextureFormat::RGBA16F => @vk.VK_FORMAT_R16G16B16A16_SFLOAT
+    TextureFormat::RG16F => @vk.VK_FORMAT_R16G16_SFLOAT
+    TextureFormat::R8 => @vk.VK_FORMAT_R8_UNORM
     TextureFormat::RGBA32F => @vk.VK_FORMAT_R32G32B32A32_SFLOAT
     TextureFormat::Depth32F => @vk.VK_FORMAT_D32_SFLOAT
+    TextureFormat::Depth24Stencil8 => @vk.VK_FORMAT_D24_UNORM_S8_UINT
   }
 }
 
@@ -203,8 +212,28 @@ fn texture_format_bytes(f : TextureFormat) -> Int {
   match f {
     TextureFormat::RGBA8 => 4
     TextureFormat::BGRA8 => 4
+    TextureFormat::RGBA8Srgb => 4
+    TextureFormat::BGRA8Srgb => 4
+    TextureFormat::RGBA16F => 8
+    TextureFormat::RG16F => 4
+    TextureFormat::R8 => 1
     TextureFormat::RGBA32F => 16
     TextureFormat::Depth32F => 4
+    TextureFormat::Depth24Stencil8 => 4
+  }
+}
+
+///|
+fn is_depth_format(f : TextureFormat) -> Bool {
+  f == TextureFormat::Depth32F || f == TextureFormat::Depth24Stencil8
+}
+
+///|
+fn depth_barrier_aspect(f : TextureFormat) -> UInt32 {
+  match f {
+    TextureFormat::Depth24Stencil8 =>
+      @vk.VK_IMAGE_ASPECT_DEPTH_BIT | @vk.VK_IMAGE_ASPECT_STENCIL_BIT
+    _ => @vk.VK_IMAGE_ASPECT_DEPTH_BIT
   }
 }
 
@@ -221,6 +250,16 @@ fn vk_address(a : AddressMode) -> UInt32 {
   match a {
     AddressMode::Repeat => @vk.VK_SAMPLER_ADDRESS_MODE_REPEAT
     AddressMode::ClampToEdge => @vk.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+    AddressMode::ClampToBorder => @vk.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER
+  }
+}
+
+///|
+fn vk_border_color(b : BorderColor) -> UInt32 {
+  match b {
+    BorderColor::TransparentBlack => @vk.VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK
+    BorderColor::OpaqueBlack => @vk.VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK
+    BorderColor::OpaqueWhite => @vk.VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE
   }
 }
 
@@ -671,10 +710,18 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   let f13 = @vk.VkPhysicalDeviceVulkan13Features::new()
   f13.set_dynamicRendering((1 : UInt32))
   f13.set_synchronization2((1 : UInt32))
+  let enabled_feats = @vk.VkPhysicalDeviceFeatures::new()
+  if supports_anisotropy {
+    enabled_feats.set_samplerAnisotropy((1 : UInt32))
+  }
+  if supports_indirect_draw {
+    enabled_feats.set_multiDrawIndirect((1 : UInt32))
+  }
   let dci = @vk.VkDeviceCreateInfo::new()
   dci.set_pNext(f13.as_ptr())
   dci.set_queueCreateInfoCount((1 : UInt32))
   dci.set_pQueueCreateInfos(qci)
+  dci.set_pEnabledFeatures(enabled_feats)
   if !desc.headless {
     dci.set_enabledExtensionCount((1 : UInt32))
     dci.set_ppEnabledExtensionNames(@vk.cstr_array(["VK_KHR_swapchain"]))
@@ -682,6 +729,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   let dev_out = FixedArray::make(1, @vk.VkDevice::null())
   let dr = (ifn.vkCreateDevice)(chosen_phys, dci, na, dev_out)
   dci.free()
+  enabled_feats.free()
   f13.free()
   qci.free()
   if dr != 0 {
@@ -835,12 +883,13 @@ fn cmd_image_barrier2_mips(
   dst_access : UInt64,
   old_layout : UInt32,
   new_layout : UInt32,
+  layer_count? : Int = 1,
 ) -> Unit {
   let range = @vk.VkImageSubresourceRange::new()
   range.set_aspectMask(aspect)
   range.set_baseMipLevel(base_mip.reinterpret_as_uint())
   range.set_levelCount(mip_count.reinterpret_as_uint())
-  range.set_layerCount((1 : UInt32))
+  range.set_layerCount(layer_count.reinterpret_as_uint())
   let b2 = @vk.VkImageMemoryBarrier2::new()
   b2.set_srcStageMask(src_stage)
   b2.set_srcAccessMask(src_access)
@@ -1060,9 +1109,12 @@ fn create_image_and_view(
   samples : SampleCount,
   format : TextureFormat,
   mip_levels? : Int = 1,
+  layers? : Int = 1,
+  flags? : UInt32 = (0 : UInt32),
+  view_type? : UInt32 = @vk.VK_IMAGE_VIEW_TYPE_2D,
 ) -> VkTextureState raise RhiError {
-  if width <= 0 || height <= 0 {
-    raise InvalidArgument("Texture dimensions must be positive")
+  if width <= 0 || height <= 0 || layers <= 0 {
+    raise InvalidArgument("Texture dimensions and layers must be positive")
   }
   let levels = if mip_levels < 1 { 1 } else { mip_levels }
   let na = @vk.VkAllocationCallbacks::null()
@@ -1071,11 +1123,12 @@ fn create_image_and_view(
   extent.set_height(height.reinterpret_as_uint())
   extent.set_depth((1 : UInt32))
   let ici = @vk.VkImageCreateInfo::new()
+  ici.set_flags(flags)
   ici.set_imageType(@vk.VK_IMAGE_TYPE_2D)
   ici.set_format(vk_format)
   ici.set_extent(extent)
   ici.set_mipLevels(levels.reinterpret_as_uint())
-  ici.set_arrayLayers((1 : UInt32))
+  ici.set_arrayLayers(layers.reinterpret_as_uint())
   ici.set_samples(vk_samples(samples))
   ici.set_tiling(@vk.VK_IMAGE_TILING_OPTIMAL)
   ici.set_usage(usage)
@@ -1104,14 +1157,19 @@ fn create_image_and_view(
     (d.dfn.vkDestroyImage)(d.dev, image, na)
     raise AllocationFailed("vkBindImageMemory failed with code \{br}")
   }
+  let view_aspect = if is_depth_format(format) {
+    @vk.VK_IMAGE_ASPECT_DEPTH_BIT
+  } else {
+    aspect
+  }
   let range = @vk.VkImageSubresourceRange::new()
-  range.set_aspectMask(aspect)
+  range.set_aspectMask(view_aspect)
   range.set_baseMipLevel((0 : UInt32))
   range.set_levelCount(levels.reinterpret_as_uint())
-  range.set_layerCount((1 : UInt32))
+  range.set_layerCount(layers.reinterpret_as_uint())
   let ivci = @vk.VkImageViewCreateInfo::new()
   ivci.set_image(image)
-  ivci.set_viewType(@vk.VK_IMAGE_VIEW_TYPE_2D)
+  ivci.set_viewType(view_type)
   ivci.set_format(vk_format)
   ivci.set_subresourceRange(range)
   let view_out = FixedArray::make(1, @vk.VkImageView::null())
@@ -1133,6 +1191,8 @@ fn create_image_and_view(
     width,
     height,
     mip_levels: levels,
+    layers,
+    aspect,
     layout: @vk.VK_IMAGE_LAYOUT_UNDEFINED,
   }
 }
@@ -1145,12 +1205,34 @@ fn vk_texture_create_uploaded(
   format : TextureFormat,
   pixels : Bytes,
 ) -> VkTextureState raise RhiError {
-  if format == TextureFormat::Depth32F {
-    raise InvalidArgument(
-      "Use create_depth_texture for Depth32F textures",
-    )
+  vk_texture_create_layered(
+    d,
+    width,
+    height,
+    1,
+    format,
+    pixels,
+    (0 : UInt32),
+    @vk.VK_IMAGE_VIEW_TYPE_2D,
+  )
+}
+
+///|
+fn vk_texture_create_layered(
+  d : VkDeviceState,
+  width : Int,
+  height : Int,
+  layers : Int,
+  format : TextureFormat,
+  pixels : Bytes,
+  flags : UInt32,
+  view_type : UInt32,
+) -> VkTextureState raise RhiError {
+  if is_depth_format(format) {
+    raise InvalidArgument("Use create_depth_texture for depth textures")
   }
-  let expected_bytes = width * height * texture_format_bytes(format)
+  let layer_bytes = width * height * texture_format_bytes(format)
+  let expected_bytes = layer_bytes * layers
   if pixels.length() < expected_bytes {
     raise InvalidArgument(
       "Texture upload bytes (\{pixels.length()}) smaller than \{expected_bytes}",
@@ -1169,19 +1251,25 @@ fn vk_texture_create_uploaded(
     @vk.VK_IMAGE_ASPECT_COLOR_BIT,
     SampleCount::X1,
     format,
+    layers~,
+    flags~,
+    view_type~,
   )
   let cmd = begin_one_time(d)
-  cmd_image_barrier2(
+  cmd_image_barrier2_mips(
     d,
     cmd,
     tex.image,
     @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    0,
+    1,
     @vk.VK_PIPELINE_STAGE_2_NONE,
     @vk.VK_ACCESS_2_NONE,
     @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
     @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
     @vk.VK_IMAGE_LAYOUT_UNDEFINED,
     @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    layer_count=layers,
   )
   let extent = @vk.VkExtent3D::new()
   extent.set_width(width.reinterpret_as_uint())
@@ -1190,7 +1278,7 @@ fn vk_texture_create_uploaded(
   let region = @vk.VkBufferImageCopy::new()
   let sub = @vk.VkImageSubresourceLayers::new()
   sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
-  sub.set_layerCount((1 : UInt32))
+  sub.set_layerCount(layers.reinterpret_as_uint())
   region.set_imageSubresource(sub)
   region.set_imageExtent(extent)
   (d.dfn.vkCmdCopyBufferToImage)(
@@ -1201,11 +1289,13 @@ fn vk_texture_create_uploaded(
     (1 : UInt32),
     region,
   )
-  cmd_image_barrier2(
+  cmd_image_barrier2_mips(
     d,
     cmd,
     tex.image,
     @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    0,
+    1,
     @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
     @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
     @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
@@ -1213,6 +1303,7 @@ fn vk_texture_create_uploaded(
     @vk.VK_ACCESS_2_SHADER_READ_BIT,
     @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
     @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    layer_count=layers,
   )
   end_one_time(d, cmd)
   extent.free()
@@ -1221,6 +1312,107 @@ fn vk_texture_create_uploaded(
   vk_buffer_destroy(staging)
   tex.layout = @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
   tex
+}
+
+///|
+fn vk_texture_upload_subregion(
+  t : VkTextureState,
+  x : Int,
+  y : Int,
+  width : Int,
+  height : Int,
+  pixels : Bytes,
+  layer : Int,
+  mip_level : Int,
+) -> Unit raise RhiError {
+  if is_depth_format(t.format) {
+    raise InvalidArgument("Cannot upload pixels to a depth texture")
+  }
+  if x < 0 || y < 0 || width <= 0 || height <= 0 {
+    raise InvalidArgument("Subregion offset/size invalid")
+  }
+  if layer < 0 || layer >= t.layers || mip_level < 0 || mip_level >= t.mip_levels {
+    raise InvalidArgument("Subregion layer or mip_level out of range")
+  }
+  let expected_bytes = width * height * texture_format_bytes(t.format)
+  if pixels.length() < expected_bytes {
+    raise InvalidArgument(
+      "Subregion bytes (\{pixels.length()}) smaller than \{expected_bytes}",
+    )
+  }
+  let d = t.device
+  let staging = vk_buffer_create(d, expected_bytes, BufferKind::Staging)
+  vk_buffer_upload_ptr(staging, @vk.bytes_ptr(pixels), expected_bytes)
+  let cmd = begin_one_time(d)
+  let prev_layout = t.layout
+  cmd_image_barrier2_mips(
+    d,
+    cmd,
+    t.image,
+    t.aspect,
+    mip_level,
+    1,
+    @vk.VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    prev_layout,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    layer_count=t.layers,
+  )
+  let offset = @vk.VkOffset3D::new()
+  offset.set_x(x)
+  offset.set_y(y)
+  offset.set_z(0)
+  let extent = @vk.VkExtent3D::new()
+  extent.set_width(width.reinterpret_as_uint())
+  extent.set_height(height.reinterpret_as_uint())
+  extent.set_depth((1 : UInt32))
+  let sub = @vk.VkImageSubresourceLayers::new()
+  sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+  sub.set_mipLevel(mip_level.reinterpret_as_uint())
+  sub.set_baseArrayLayer(layer.reinterpret_as_uint())
+  sub.set_layerCount((1 : UInt32))
+  let region = @vk.VkBufferImageCopy::new()
+  region.set_imageSubresource(sub)
+  region.set_imageOffset(offset)
+  region.set_imageExtent(extent)
+  (d.dfn.vkCmdCopyBufferToImage)(
+    cmd,
+    staging.buffer,
+    t.image,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    (1 : UInt32),
+    region,
+  )
+  let restore_layout = if prev_layout == @vk.VK_IMAGE_LAYOUT_UNDEFINED {
+    @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+  } else {
+    prev_layout
+  }
+  cmd_image_barrier2_mips(
+    d,
+    cmd,
+    t.image,
+    t.aspect,
+    mip_level,
+    1,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    restore_layout,
+    layer_count=t.layers,
+  )
+  end_one_time(d, cmd)
+  offset.free()
+  extent.free()
+  sub.free()
+  region.free()
+  execute_delete(d, DeleteBuffer(staging.buffer, staging.alloc))
+  t.layout = restore_layout
 }
 
 ///|
@@ -2046,6 +2238,7 @@ fn vk_swapchain_begin_frame_commands(
     pending_storage_images: [],
     bound: None,
     active_render_targets: [],
+    active_depth_target: None,
     in_swapchain_pass: false,
     swapchain_image_initialized: false,
   }
@@ -3496,9 +3689,10 @@ fn vk_cmd_begin_render_pass(
         d,
         c.cmd,
         ds.image,
-        @vk.VK_IMAGE_ASPECT_DEPTH_BIT,
+        ds.aspect,
         @vk.VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-        @vk.VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        @vk.VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+        @vk.VK_ACCESS_2_SHADER_READ_BIT,
         @vk.VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
         @vk.VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
         @vk.VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
@@ -3572,6 +3766,7 @@ fn vk_cmd_begin_render_pass(
   ri.free()
   set_dynamic_viewport_scissor(d, c.cmd, w, h)
   c.active_render_targets = colors
+  c.active_depth_target = depth
 }
 
 ///|
@@ -3619,5 +3814,119 @@ fn vk_cmd_end_render_pass(c : VkCmdState) -> Unit {
       None => ()
     }
   }
+  match c.active_depth_target {
+    Some(dt) =>
+      if dt.store_op == StoreOp::Store {
+        let ds = dt.texture.inner
+        cmd_image_barrier2(
+          d,
+          c.cmd,
+          ds.image,
+          ds.aspect,
+          @vk.VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+          @vk.VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+          @vk.VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+          @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+          @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+          @vk.VK_ACCESS_2_SHADER_READ_BIT,
+          @vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+          @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        )
+        ds.layout = @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+      }
+    None => ()
+  }
   c.active_render_targets = []
+  c.active_depth_target = None
+}
+
+///|
+fn vk_cmd_blit_texture(
+  c : VkCmdState,
+  src : VkTextureState,
+  dst : VkTextureState,
+  filter : Filter,
+) -> Unit {
+  let d = c.device
+  cmd_image_barrier2(
+    d,
+    c.cmd,
+    src.image,
+    src.aspect,
+    @vk.VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+    @vk.VK_ACCESS_2_MEMORY_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_READ_BIT,
+    src.layout,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+  )
+  cmd_image_barrier2(
+    d,
+    c.cmd,
+    dst.image,
+    dst.aspect,
+    @vk.VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    dst.layout,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+  )
+  let src_sub = @vk.VkImageSubresourceLayers::new()
+  src_sub.set_aspectMask(src.aspect)
+  src_sub.set_layerCount((1 : UInt32))
+  let dst_sub = @vk.VkImageSubresourceLayers::new()
+  dst_sub.set_aspectMask(dst.aspect)
+  dst_sub.set_layerCount((1 : UInt32))
+  let blit = @vk.VkImageBlit::new()
+  blit.set_srcSubresource(src_sub)
+  blit.set_dstSubresource(dst_sub)
+  blit.set_srcOffsets(blit_offsets_bytes(src.width, src.height))
+  blit.set_dstOffsets(blit_offsets_bytes(dst.width, dst.height))
+  (d.dfn.vkCmdBlitImage)(
+    c.cmd,
+    src.image,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    dst.image,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    (1 : UInt32),
+    blit,
+    vk_filter(filter),
+  )
+  src_sub.free()
+  dst_sub.free()
+  blit.free()
+  let src_restore = if src.layout == @vk.VK_IMAGE_LAYOUT_UNDEFINED {
+    @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+  } else {
+    src.layout
+  }
+  cmd_image_barrier2(
+    d,
+    c.cmd,
+    src.image,
+    src.aspect,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_READ_BIT,
+    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    src_restore,
+  )
+  src.layout = src_restore
+  cmd_image_barrier2(
+    d,
+    c.cmd,
+    dst.image,
+    dst.aspect,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+  )
+  dst.layout = @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 }

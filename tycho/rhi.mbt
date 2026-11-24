@@ -469,6 +469,63 @@ pub fn Device::create_storage_texture(
 }
 
 ///|
+pub fn Device::create_cubemap(
+  self : Device,
+  size : Int,
+  format : TextureFormat,
+  faces : Array[Bytes],
+) -> Texture raise RhiError {
+  if faces.length() != 6 {
+    raise InvalidArgument("Cubemap requires exactly 6 face byte buffers")
+  }
+  let face_bytes = size * size * texture_format_bytes(format)
+  let total = Bytes::makei(face_bytes * 6, fn(i) {
+    let f = i / face_bytes
+    let off = i % face_bytes
+    if off < faces[f].length() {
+      faces[f][off]
+    } else {
+      (0 : Byte)
+    }
+  })
+  {
+    inner: vk_texture_create_layered(
+      self.inner,
+      size,
+      size,
+      6,
+      format,
+      total,
+      @vk.VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+      @vk.VK_IMAGE_VIEW_TYPE_CUBE,
+    ),
+  }
+}
+
+///|
+pub fn Device::create_texture_array(
+  self : Device,
+  width : Int,
+  height : Int,
+  layers : Int,
+  format : TextureFormat,
+  pixels : Bytes,
+) -> Texture raise RhiError {
+  {
+    inner: vk_texture_create_layered(
+      self.inner,
+      width,
+      height,
+      layers,
+      format,
+      pixels,
+      (0 : UInt32),
+      @vk.VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+    ),
+  }
+}
+
+///|
 pub fn Device::create_render_target(
   self : Device,
   width : Int,
@@ -476,14 +533,15 @@ pub fn Device::create_render_target(
   format : TextureFormat,
   samples? : SampleCount = SampleCount::X1,
 ) -> Texture raise RhiError {
-  if format == TextureFormat::Depth32F {
-    raise InvalidArgument("Use create_depth_texture for Depth32F targets")
+  if is_depth_format(format) {
+    raise InvalidArgument("Use create_depth_texture for depth targets")
   }
   let usage = match samples {
     SampleCount::X1 =>
       @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
       @vk.VK_IMAGE_USAGE_SAMPLED_BIT |
-      @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+      @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+      @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT
     SampleCount::X4 => @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
   }
   {
@@ -507,16 +565,37 @@ pub fn Device::create_depth_texture(
   height : Int,
   samples? : SampleCount = SampleCount::X1,
 ) -> Texture raise RhiError {
+  self.create_depth_texture_format(
+    width,
+    height,
+    TextureFormat::Depth32F,
+    samples~,
+  )
+}
+
+///|
+pub fn Device::create_depth_texture_format(
+  self : Device,
+  width : Int,
+  height : Int,
+  format : TextureFormat,
+  samples? : SampleCount = SampleCount::X1,
+) -> Texture raise RhiError {
+  if !is_depth_format(format) {
+    raise InvalidArgument("Expected Depth32F or Depth24Stencil8 format")
+  }
+  let usage = @vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+    @vk.VK_IMAGE_USAGE_SAMPLED_BIT
   {
     inner: create_image_and_view(
       self.inner,
       width,
       height,
-      @vk.VK_FORMAT_D32_SFLOAT,
-      @vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-      @vk.VK_IMAGE_ASPECT_DEPTH_BIT,
+      vk_texture_format(format),
+      usage,
+      depth_barrier_aspect(format),
       samples,
-      TextureFormat::Depth32F,
+      format,
     ),
   }
 }
@@ -534,6 +613,34 @@ pub fn Texture::height(self : Texture) -> Int {
 ///|
 pub fn Texture::mip_levels(self : Texture) -> Int {
   self.inner.mip_levels
+}
+
+///|
+pub fn Texture::layers(self : Texture) -> Int {
+  self.inner.layers
+}
+
+///|
+pub fn Texture::upload_subregion(
+  self : Texture,
+  x : Int,
+  y : Int,
+  width : Int,
+  height : Int,
+  pixels : Bytes,
+  layer? : Int = 0,
+  mip_level? : Int = 0,
+) -> Unit raise RhiError {
+  vk_texture_upload_subregion(
+    self.inner,
+    x,
+    y,
+    width,
+    height,
+    pixels,
+    layer,
+    mip_level,
+  )
 }
 
 ///|
@@ -571,10 +678,27 @@ pub fn Device::create_sampler_desc(
   ci.set_addressModeU(vk_address(desc.address))
   ci.set_addressModeV(vk_address(desc.address))
   ci.set_addressModeW(vk_address(desc.address))
-  ci.set_anisotropyEnable((0 : UInt32))
-  ci.set_maxAnisotropy((1.0 : Float))
+  ci.set_borderColor(vk_border_color(desc.border_color))
+  if desc.anisotropy > (1.0 : Float) && d.caps.supports_anisotropy {
+    let clamped = if desc.anisotropy > d.caps.max_sampler_anisotropy {
+      d.caps.max_sampler_anisotropy
+    } else {
+      desc.anisotropy
+    }
+    ci.set_anisotropyEnable((1 : UInt32))
+    ci.set_maxAnisotropy(clamped)
+  } else {
+    ci.set_anisotropyEnable((0 : UInt32))
+    ci.set_maxAnisotropy((1.0 : Float))
+  }
   ci.set_unnormalizedCoordinates((0 : UInt32))
-  ci.set_compareEnable((0 : UInt32))
+  match desc.compare_op {
+    Some(op) => {
+      ci.set_compareEnable((1 : UInt32))
+      ci.set_compareOp(vk_compare_op(op))
+    }
+    None => ci.set_compareEnable((0 : UInt32))
+  }
   ci.set_mipmapMode(
     match desc.mipmap {
       Filter::Nearest => @vk.VK_SAMPLER_MIPMAP_MODE_NEAREST
@@ -713,6 +837,7 @@ pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
       pending_storage_images: [],
       bound: None,
       active_render_targets: [],
+      active_depth_target: None,
       in_swapchain_pass: false,
       swapchain_image_initialized: false,
     },
@@ -841,6 +966,16 @@ pub fn CommandBuffer::transition_for_sampling(
   texture : Texture,
 ) -> Unit {
   vk_cmd_transition_for_sampling(self.inner, texture.inner)
+}
+
+///|
+pub fn CommandBuffer::blit_texture(
+  self : CommandBuffer,
+  src : Texture,
+  dst : Texture,
+  filter? : Filter = Filter::Linear,
+) -> Unit {
+  vk_cmd_blit_texture(self.inner, src.inner, dst.inner, filter)
 }
 
 ///|

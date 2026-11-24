@@ -118,8 +118,14 @@ pub(all) enum VertexFormat {
 pub(all) enum TextureFormat {
   RGBA8
   BGRA8
+  RGBA8Srgb
+  BGRA8Srgb
+  RGBA16F
+  RG16F
+  R8
   RGBA32F
   Depth32F
+  Depth24Stencil8
 }
 
 ///|
@@ -134,6 +140,15 @@ pub(all) enum Filter {
 pub(all) enum AddressMode {
   Repeat
   ClampToEdge
+  ClampToBorder
+}
+
+///|
+#derive(Eq, Debug)
+pub(all) enum BorderColor {
+  TransparentBlack
+  OpaqueBlack
+  OpaqueWhite
 }
 
 ///|
@@ -269,9 +284,12 @@ pub(all) struct SamplerDesc {
   min : Filter
   mipmap : Filter
   address : AddressMode
+  border_color : BorderColor
   min_lod : Float
   max_lod : Float
   mip_lod_bias : Float
+  anisotropy : Float
+  compare_op : CompareOp?
 }
 
 ///|
@@ -280,11 +298,25 @@ pub fn SamplerDesc::new(
   min? : Filter = Filter::Linear,
   mipmap? : Filter = Filter::Linear,
   address? : AddressMode = AddressMode::Repeat,
+  border_color? : BorderColor = BorderColor::TransparentBlack,
   min_lod? : Float = (0.0 : Float),
   max_lod? : Float = (1000.0 : Float),
   mip_lod_bias? : Float = (0.0 : Float),
+  anisotropy? : Float = (1.0 : Float),
+  compare_op? : CompareOp? = None,
 ) -> SamplerDesc {
-  { mag, min, mipmap, address, min_lod, max_lod, mip_lod_bias }
+  {
+    mag,
+    min,
+    mipmap,
+    address,
+    border_color,
+    min_lod,
+    max_lod,
+    mip_lod_bias,
+    anisotropy,
+    compare_op,
+  }
 }
 
 ///|
