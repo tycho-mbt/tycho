@@ -142,6 +142,7 @@ priv struct SubAllocator {
   dfn : @vk.DeviceFn
   ifn : @vk.InstanceFn
   phys : @vk.VkPhysicalDevice
+  enable_device_address : Bool
   blocks : Array[MemBlock]
   mut active_allocs : Int
 }
@@ -152,8 +153,9 @@ fn SubAllocator::new(
   dfn : @vk.DeviceFn,
   ifn : @vk.InstanceFn,
   phys : @vk.VkPhysicalDevice,
+  enable_device_address? : Bool = false,
 ) -> SubAllocator {
-  { dev, dfn, ifn, phys, blocks: [], active_allocs: 0 }
+  { dev, dfn, ifn, phys, enable_device_address, blocks: [], active_allocs: 0 }
 }
 
 ///|
@@ -189,6 +191,11 @@ fn SubAllocator::allocate_block(
   let mai = @vk.VkMemoryAllocateInfo::new()
   mai.set_allocationSize(block_size)
   mai.set_memoryTypeIndex(mem_type.reinterpret_as_uint())
+  let maf = @vk.VkMemoryAllocateFlagsInfo::new()
+  if self.enable_device_address {
+    maf.set_flags(@vk.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT)
+    mai.set_pNext(maf.as_ptr())
+  }
   let mem_out = FixedArray::make(1, @vk.VkDeviceMemory::null())
   let r = (self.dfn.vkAllocateMemory)(
     self.dev,
@@ -196,6 +203,7 @@ fn SubAllocator::allocate_block(
     @vk.VkAllocationCallbacks::null(),
     mem_out,
   )
+  maf.free()
   mai.free()
   if r != 0 {
     raise AllocationFailed("vkAllocateMemory failed with code \{r}")

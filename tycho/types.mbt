@@ -334,10 +334,12 @@ pub(all) struct PipelineDesc {
   texture_slots : Int
   storage_slots : Int
   storage_image_slots : Int
+  accel_slots : Int
   uniform_bindings : Array[Int]
   texture_bindings : Array[Int]
   storage_bindings : Array[Int]
   storage_image_bindings : Array[Int]
+  accel_bindings : Array[Int]
   push_constant_size : Int
   topology : PrimitiveTopology
   depth_test : Bool
@@ -348,6 +350,7 @@ pub(all) struct PipelineDesc {
   depth_bias : Bool
   depth_bias_constant : Float
   depth_bias_slope : Float
+  stencil : StencilState?
   cull_mode : CullMode
   front_face : FrontFace
   blend : Bool
@@ -356,6 +359,111 @@ pub(all) struct PipelineDesc {
   color_format : TextureFormat?
   color_formats : Array[TextureFormat]
   bindless_heap : BindlessHeap?
+}
+
+///|
+#derive(Eq, Debug)
+pub(all) enum StencilOp {
+  Keep
+  Zero
+  Replace
+  IncrementAndClamp
+  DecrementAndClamp
+  Invert
+  IncrementAndWrap
+  DecrementAndWrap
+}
+
+///|
+pub(all) struct StencilFaceState {
+  fail_op : StencilOp
+  pass_op : StencilOp
+  depth_fail_op : StencilOp
+  compare_op : CompareOp
+}
+
+///|
+pub fn StencilFaceState::new(
+  fail_op? : StencilOp = StencilOp::Keep,
+  pass_op? : StencilOp = StencilOp::Keep,
+  depth_fail_op? : StencilOp = StencilOp::Keep,
+  compare_op? : CompareOp = CompareOp::Always,
+) -> StencilFaceState {
+  { fail_op, pass_op, depth_fail_op, compare_op }
+}
+
+///|
+pub(all) struct StencilState {
+  front : StencilFaceState
+  back : StencilFaceState
+  compare_mask : UInt32
+  write_mask : UInt32
+  reference : UInt32
+}
+
+///|
+pub fn StencilState::new(
+  front? : StencilFaceState = StencilFaceState::new(),
+  back? : StencilFaceState = StencilFaceState::new(),
+  compare_mask? : UInt32 = (0xFF : UInt32),
+  write_mask? : UInt32 = (0xFF : UInt32),
+  reference? : UInt32 = (0 : UInt32),
+) -> StencilState {
+  { front, back, compare_mask, write_mask, reference }
+}
+
+///|
+pub(all) struct RayGeometryDesc {
+  vertex_buffer : Buffer
+  vertex_count : Int
+  vertex_stride : Int
+  index_buffer : Buffer?
+  index_count : Int
+  index_type : IndexType
+  is_opaque : Bool
+}
+
+///|
+pub fn RayGeometryDesc::new(
+  vertex_buffer : Buffer,
+  vertex_count : Int,
+  vertex_stride? : Int = 12,
+  index_buffer? : Buffer? = None,
+  index_count? : Int = 0,
+  index_type? : IndexType = IndexType::Uint32,
+  is_opaque? : Bool = true,
+) -> RayGeometryDesc {
+  {
+    vertex_buffer,
+    vertex_count,
+    vertex_stride,
+    index_buffer,
+    index_count,
+    index_type,
+    is_opaque,
+  }
+}
+
+///|
+pub(all) struct RayInstanceDesc {
+  blas : AccelStruct
+  transform : FixedArray[Float]
+  custom_index : Int
+  mask : Int
+}
+
+///|
+pub fn RayInstanceDesc::new(
+  blas : AccelStruct,
+  transform? : FixedArray[Float] = [
+    (1.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float),
+    (0.0 : Float), (1.0 : Float), (0.0 : Float), (0.0 : Float),
+    (0.0 : Float), (0.0 : Float), (1.0 : Float), (0.0 : Float),
+  ],
+  custom_index? : Int = 0,
+  mask? : Int = 0xFF,
+) -> RayInstanceDesc {
+  { blas, transform, custom_index, mask }
 }
 
 ///|
@@ -370,10 +478,12 @@ pub fn PipelineDesc::new(
   texture_slots? : Int = 0,
   storage_slots? : Int = 0,
   storage_image_slots? : Int = 0,
+  accel_slots? : Int = 0,
   uniform_bindings? : Array[Int] = [],
   texture_bindings? : Array[Int] = [],
   storage_bindings? : Array[Int] = [],
   storage_image_bindings? : Array[Int] = [],
+  accel_bindings? : Array[Int] = [],
   push_constant_size? : Int = 0,
   topology? : PrimitiveTopology = PrimitiveTopology::TriangleList,
   depth_test? : Bool = false,
@@ -384,6 +494,7 @@ pub fn PipelineDesc::new(
   depth_bias? : Bool = false,
   depth_bias_constant? : Float = (0.0 : Float),
   depth_bias_slope? : Float = (0.0 : Float),
+  stencil? : StencilState? = None,
   cull_mode? : CullMode = CullMode::None,
   front_face? : FrontFace = FrontFace::Clockwise,
   blend? : Bool = false,
@@ -404,10 +515,12 @@ pub fn PipelineDesc::new(
     texture_slots,
     storage_slots,
     storage_image_slots,
+    accel_slots,
     uniform_bindings,
     texture_bindings,
     storage_bindings,
     storage_image_bindings,
+    accel_bindings,
     push_constant_size,
     topology,
     depth_test,
@@ -418,6 +531,7 @@ pub fn PipelineDesc::new(
     depth_bias,
     depth_bias_constant,
     depth_bias_slope,
+    stencil,
     cull_mode,
     front_face,
     blend,
@@ -454,6 +568,7 @@ pub fn PipelineDesc::from_spirv(
   depth_bias? : Bool = false,
   depth_bias_constant? : Float = (0.0 : Float),
   depth_bias_slope? : Float = (0.0 : Float),
+  stencil? : StencilState? = None,
   cull_mode? : CullMode = CullMode::None,
   front_face? : FrontFace = FrontFace::Clockwise,
   blend? : Bool = false,
@@ -484,6 +599,7 @@ pub fn PipelineDesc::from_spirv(
   let t_binds : Array[Int] = []
   let s_binds : Array[Int] = []
   let si_binds : Array[Int] = []
+  let a_binds : Array[Int] = []
   let all_b : Array[@shader.ReflectedBinding] = []
   for b in vr.bindings {
     all_b.push(b)
@@ -505,6 +621,8 @@ pub fn PipelineDesc::from_spirv(
         push_unique_int(s_binds, b.binding)
       @shader.ReflectedDescriptorKind::StorageImage =>
         push_unique_int(si_binds, b.binding)
+      @shader.ReflectedDescriptorKind::AccelerationStructure =>
+        push_unique_int(a_binds, b.binding)
       @shader.ReflectedDescriptorKind::Sampler => ()
     }
   }
@@ -512,6 +630,7 @@ pub fn PipelineDesc::from_spirv(
   t_binds.sort_by(fn(a, b) { a - b })
   s_binds.sort_by(fn(a, b) { a - b })
   si_binds.sort_by(fn(a, b) { a - b })
+  a_binds.sort_by(fn(a, b) { a - b })
   let push_constant_size = if vr.push_constant_size > fr.push_constant_size {
     vr.push_constant_size
   } else {
@@ -539,10 +658,12 @@ pub fn PipelineDesc::from_spirv(
     texture_slots=t_binds.length(),
     storage_slots=s_binds.length(),
     storage_image_slots=si_binds.length(),
+    accel_slots=a_binds.length(),
     uniform_bindings=u_binds,
     texture_bindings=t_binds,
     storage_bindings=s_binds,
     storage_image_bindings=si_binds,
+    accel_bindings=a_binds,
     push_constant_size~,
     topology~,
     depth_test~,
@@ -553,6 +674,7 @@ pub fn PipelineDesc::from_spirv(
     depth_bias~,
     depth_bias_constant~,
     depth_bias_slope~,
+    stencil~,
     cull_mode~,
     front_face~,
     blend~,
@@ -714,6 +836,9 @@ pub(all) struct DepthTargetDesc {
   load_op : LoadOp
   store_op : StoreOp
   clear_depth : Float
+  stencil_load_op : LoadOp
+  stencil_store_op : StoreOp
+  clear_stencil : Int
 }
 
 ///|
@@ -722,8 +847,19 @@ pub fn DepthTargetDesc::new(
   load_op? : LoadOp = LoadOp::Clear,
   store_op? : StoreOp = StoreOp::DontCare,
   clear_depth? : Float = (1.0 : Float),
+  stencil_load_op? : LoadOp = LoadOp::DontCare,
+  stencil_store_op? : StoreOp = StoreOp::DontCare,
+  clear_stencil? : Int = 0,
 ) -> DepthTargetDesc {
-  { texture, load_op, store_op, clear_depth }
+  {
+    texture,
+    load_op,
+    store_op,
+    clear_depth,
+    stencil_load_op,
+    stencil_store_op,
+    clear_stencil,
+  }
 }
 
 // Re-export window events, cursor mode, and key codes so users only need `@tycho`.

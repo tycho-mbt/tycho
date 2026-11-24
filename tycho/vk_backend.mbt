@@ -24,6 +24,7 @@ priv enum DeleteKind {
   )
   DeleteTimestampPool(@vk.VkQueryPool)
   DeleteBindlessHeap(@vk.VkDescriptorPool, @vk.VkDescriptorSetLayout)
+  DeleteAccelStruct(@vk.VkAccelerationStructureKHR, @vk.VkBuffer, MemAlloc)
 }
 
 ///|
@@ -106,15 +107,19 @@ priv struct VkPipelineState {
   texture_slots : Int
   storage_slots : Int
   storage_image_slots : Int
+  accel_slots : Int
   uniform_bindings : FixedArray[Int]
   texture_bindings : FixedArray[Int]
   storage_bindings : FixedArray[Int]
   storage_image_bindings : FixedArray[Int]
+  accel_bindings : FixedArray[Int]
   compute : Bool
+  stencil_ref : UInt32?
   cur_uniforms : FixedArray[Buffer?]
   cur_textures : FixedArray[(Texture, Sampler)?]
   cur_storage : FixedArray[Buffer?]
   cur_storage_images : FixedArray[Texture?]
+  cur_accel : FixedArray[AccelStruct?]
 }
 
 ///|
@@ -173,6 +178,15 @@ priv struct VkBindlessHeapState {
 }
 
 ///|
+priv struct VkAccelStructState {
+  device : VkDeviceState
+  accel : @vk.VkAccelerationStructureKHR
+  buffer : @vk.VkBuffer
+  alloc : MemAlloc
+  device_address : UInt64
+}
+
+///|
 priv struct VkCmdState {
   device : VkDeviceState
   cmd : @vk.VkCommandBuffer
@@ -182,6 +196,7 @@ priv struct VkCmdState {
   pending_textures : Array[(Pipeline, Int, Texture, Sampler)]
   pending_storage : Array[(Pipeline, Int, Buffer)]
   pending_storage_images : Array[(Pipeline, Int, Texture)]
+  pending_accel : Array[(Pipeline, Int, AccelStruct)]
   mut bound : Pipeline?
   mut active_render_targets : Array[RenderTargetDesc]
   mut active_depth_target : DepthTargetDesc?
@@ -493,6 +508,11 @@ fn execute_delete(d : VkDeviceState, item : DeleteKind) -> Unit {
       (d.dfn.vkDestroyDescriptorPool)(d.dev, pool, na)
       (d.dfn.vkDestroyDescriptorSetLayout)(d.dev, set_layout, na)
     }
+    DeleteAccelStruct(accel, buf, alloc) => {
+      (d.dfn.vkDestroyAccelerationStructureKHR)(d.dev, accel, na)
+      (d.dfn.vkDestroyBuffer)(d.dev, buf, na)
+      d.alloc.free(alloc)
+    }
   }
 }
 
@@ -720,8 +740,10 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     ifn, chosen_phys, "VK_EXT_mesh_shader",
   )
   let supports_ray_query = has_device_extension(
-    ifn, chosen_phys, "VK_KHR_ray_query",
-  )
+      ifn, chosen_phys, "VK_KHR_ray_query",
+    ) &&
+    has_device_extension(ifn, chosen_phys, "VK_KHR_acceleration_structure") &&
+    has_device_extension(ifn, chosen_phys, "VK_KHR_deferred_host_operations")
 
   let caps : DeviceCapabilities = {
     device_name,
@@ -750,13 +772,22 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     f12.set_runtimeDescriptorArray((1 : UInt32))
     f12.set_shaderSampledImageArrayNonUniformIndexing((1 : UInt32))
   }
+  if supports_ray_query {
+    f12.set_bufferDeviceAddress((1 : UInt32))
+  }
+  if supports_indirect_draw {
+    f12.set_drawIndirectCount((1 : UInt32))
+  }
+  let as_feat = @vk.VkPhysicalDeviceAccelerationStructureFeaturesKHR::new()
+  let rq_feat = @vk.VkPhysicalDeviceRayQueryFeaturesKHR::new()
   let mesh_feat = @vk.VkPhysicalDeviceMeshShaderFeaturesEXT::new()
   if supports_mesh_shader {
     mesh_feat.set_meshShader((1 : UInt32))
     mesh_feat.set_taskShader((1 : UInt32))
-    if supports_bindless {
-      f12.set_pNext(mesh_feat.as_ptr())
-    }
+  }
+  if supports_ray_query {
+    as_feat.set_accelerationStructure((1 : UInt32))
+    rq_feat.set_rayQuery((1 : UInt32))
   }
   let f13 = @vk.VkPhysicalDeviceVulkan13Features::new()
   f13.set_dynamicRendering((1 : UInt32))
@@ -764,11 +795,21 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   if has_maint4 {
     f13.set_maintenance4((1 : UInt32))
   }
-  if supports_bindless {
-    f13.set_pNext(f12.as_ptr())
-  } else if supports_mesh_shader {
-    f13.set_pNext(mesh_feat.as_ptr())
+  let mut pnext_tail = (0 : UInt64)
+  if supports_ray_query {
+    rq_feat.set_pNext(pnext_tail)
+    as_feat.set_pNext(rq_feat.as_ptr())
+    pnext_tail = as_feat.as_ptr()
   }
+  if supports_mesh_shader {
+    mesh_feat.set_pNext(pnext_tail)
+    pnext_tail = mesh_feat.as_ptr()
+  }
+  if supports_bindless || supports_ray_query || supports_indirect_draw {
+    f12.set_pNext(pnext_tail)
+    pnext_tail = f12.as_ptr()
+  }
+  f13.set_pNext(pnext_tail)
   let enabled_feats = @vk.VkPhysicalDeviceFeatures::new()
   if supports_anisotropy {
     enabled_feats.set_samplerAnisotropy((1 : UInt32))
@@ -782,6 +823,11 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   }
   if supports_mesh_shader {
     dev_exts.push("VK_EXT_mesh_shader")
+  }
+  if supports_ray_query {
+    dev_exts.push("VK_KHR_acceleration_structure")
+    dev_exts.push("VK_KHR_ray_query")
+    dev_exts.push("VK_KHR_deferred_host_operations")
   }
   let dci = @vk.VkDeviceCreateInfo::new()
   dci.set_pNext(f13.as_ptr())
@@ -799,6 +845,8 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   enabled_feats.free()
   f13.free()
   mesh_feat.free()
+  rq_feat.free()
+  as_feat.free()
   f12.free()
   qci.free()
   if dr != 0 {
@@ -842,7 +890,13 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     @vk.VkPipelineCache::null()
   }
 
-  let alloc = SubAllocator::new(dev, dfn, ifn, chosen_phys)
+  let alloc = SubAllocator::new(
+    dev,
+    dfn,
+    ifn,
+    chosen_phys,
+    enable_device_address=supports_ray_query,
+  )
   {
     inst,
     ifn,
@@ -1032,6 +1086,15 @@ fn vk_buffer_create(
     usage = usage |
       @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT |
       @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+  }
+  if d.caps.supports_ray_query {
+    usage = usage | @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+    match kind {
+      BufferKind::Vertex | BufferKind::Index | BufferKind::Storage =>
+        usage = usage |
+          @vk.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
+      _ => ()
+    }
   }
   let bci = @vk.VkBufferCreateInfo::new()
   bci.set_size(size.to_uint64())
@@ -2332,6 +2395,7 @@ fn vk_swapchain_begin_frame_commands(
     pending_textures: [],
     pending_storage: [],
     pending_storage_images: [],
+    pending_accel: [],
     bound: None,
     active_render_targets: [],
     active_depth_target: None,
@@ -2676,13 +2740,15 @@ fn alloc_descriptor_pool_chunk(
   texture_slots : Int,
   storage_slots : Int,
   storage_image_slots : Int,
+  accel_slots : Int,
   count : Int,
 ) -> (@vk.VkDescriptorPool, Array[@vk.VkDescriptorSet]) raise RhiError {
   let na = @vk.VkAllocationCallbacks::null()
   let nsizes = (if uniform_slots > 0 { 1 } else { 0 }) +
     (if texture_slots > 0 { 1 } else { 0 }) +
     (if storage_slots > 0 { 1 } else { 0 }) +
-    (if storage_image_slots > 0 { 1 } else { 0 })
+    (if storage_image_slots > 0 { 1 } else { 0 }) +
+    (if accel_slots > 0 { 1 } else { 0 })
   let sizes = @vk.VkDescriptorPoolSize::array(nsizes)
   let mut si = 0
   if uniform_slots > 0 {
@@ -2714,6 +2780,14 @@ fn alloc_descriptor_pool_chunk(
     sizes.set_descriptorCount_at(
       si,
       (storage_image_slots * count).reinterpret_as_uint(),
+    )
+    si = si + 1
+  }
+  if accel_slots > 0 {
+    sizes.set_type_at(si, @vk.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
+    sizes.set_descriptorCount_at(
+      si,
+      (accel_slots * count).reinterpret_as_uint(),
     )
   }
   let dpci = @vk.VkDescriptorPoolCreateInfo::new()
@@ -2754,6 +2828,7 @@ fn alloc_pipeline_descriptors(
   t_bindings : FixedArray[Int],
   s_bindings : FixedArray[Int],
   si_bindings : FixedArray[Int],
+  a_bindings : FixedArray[Int],
   stages : UInt32,
 ) -> (
   @vk.VkDescriptorSetLayout,
@@ -2765,7 +2840,12 @@ fn alloc_pipeline_descriptors(
   let texture_slots = t_bindings.length()
   let storage_slots = s_bindings.length()
   let storage_image_slots = si_bindings.length()
-  let total = uniform_slots + texture_slots + storage_slots + storage_image_slots
+  let accel_slots = a_bindings.length()
+  let total = uniform_slots +
+    texture_slots +
+    storage_slots +
+    storage_image_slots +
+    accel_slots
   let bindings = @vk.VkDescriptorSetLayoutBinding::array(total)
   let mut bi = 0
   for i = 0; i < uniform_slots; i = i + 1 {
@@ -2806,6 +2886,16 @@ fn alloc_pipeline_descriptors(
     bindings.set_stageFlags_at(bi, stages | @vk.VK_SHADER_STAGE_COMPUTE_BIT)
     bi = bi + 1
   }
+  for i = 0; i < accel_slots; i = i + 1 {
+    bindings.set_binding_at(bi, a_bindings[i].reinterpret_as_uint())
+    bindings.set_descriptorType_at(
+      bi,
+      @vk.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+    )
+    bindings.set_descriptorCount_at(bi, (1 : UInt32))
+    bindings.set_stageFlags_at(bi, stages | @vk.VK_SHADER_STAGE_COMPUTE_BIT)
+    bi = bi + 1
+  }
   let dslci = @vk.VkDescriptorSetLayoutCreateInfo::new()
   dslci.set_bindingCount(total.reinterpret_as_uint())
   dslci.set_pBindings(bindings)
@@ -2830,7 +2920,7 @@ fn alloc_pipeline_descriptors(
   for f = 0; f < MAX_FRAMES; f = f + 1 {
     let (pool, chunk) = alloc_descriptor_pool_chunk(
       d, set_layout, uniform_slots, texture_slots, storage_slots, storage_image_slots,
-      SETS_PER_FRAME,
+      accel_slots, SETS_PER_FRAME,
     ) catch {
       err => {
         for p in pools {
@@ -2962,10 +3052,15 @@ fn vk_graphics_pipeline_create(
   viewport_state.set_viewportCount((1 : UInt32))
   viewport_state.set_scissorCount((1 : UInt32))
 
-  let dyn_states = FixedArray::make(2, @vk.VK_DYNAMIC_STATE_VIEWPORT)
+  let has_stencil = desc.stencil is Some(_)
+  let dyn_count = if has_stencil { 3 } else { 2 }
+  let dyn_states = FixedArray::make(dyn_count, @vk.VK_DYNAMIC_STATE_VIEWPORT)
   dyn_states[1] = @vk.VK_DYNAMIC_STATE_SCISSOR
+  if has_stencil {
+    dyn_states[2] = @vk.VK_DYNAMIC_STATE_STENCIL_REFERENCE
+  }
   let dyn_ci = @vk.VkPipelineDynamicStateCreateInfo::new()
-  dyn_ci.set_dynamicStateCount((2 : UInt32))
+  dyn_ci.set_dynamicStateCount(dyn_count.reinterpret_as_uint())
   dyn_ci.set_pDynamicStates(dyn_states)
 
   let rasterizer = @vk.VkPipelineRasterizationStateCreateInfo::new()
@@ -2990,6 +3085,20 @@ fn vk_graphics_pipeline_create(
     if desc.depth_write { (1 : UInt32) } else { (0 : UInt32) },
   )
   depth_stencil.set_depthCompareOp(vk_compare_op(desc.depth_compare))
+  let mut stencil_ref_opt : UInt32? = None
+  match desc.stencil {
+    Some(st) => {
+      depth_stencil.set_stencilTestEnable((1 : UInt32))
+      let f_st = vk_stencil_op_state(st.front, st.compare_mask, st.write_mask, st.reference)
+      let b_st = vk_stencil_op_state(st.back, st.compare_mask, st.write_mask, st.reference)
+      depth_stencil.set_front(f_st)
+      depth_stencil.set_back(b_st)
+      f_st.free()
+      b_st.free()
+      stencil_ref_opt = Some(st.reference)
+    }
+    None => ()
+  }
 
   let color_vk_fmts : FixedArray[UInt32] = if desc.depth_only {
     FixedArray::make(0, (0 : UInt32))
@@ -3099,6 +3208,14 @@ fn vk_graphics_pipeline_create(
     desc.storage_image_bindings,
     desc.uniform_slots + desc.texture_slots + desc.storage_slots,
   )
+  let a_bindings = resolve_slot_bindings(
+    desc.accel_slots,
+    desc.accel_bindings,
+    desc.uniform_slots +
+    desc.texture_slots +
+    desc.storage_slots +
+    desc.storage_image_slots,
+  )
 
   let (set_layout, pools, frame_sets) = alloc_pipeline_descriptors(
     d,
@@ -3106,13 +3223,15 @@ fn vk_graphics_pipeline_create(
     t_bindings,
     s_bindings,
     si_bindings,
+    a_bindings,
     stage_flags,
   )
 
   let total_slots = desc.uniform_slots +
     desc.texture_slots +
     desc.storage_slots +
-    desc.storage_image_slots
+    desc.storage_image_slots +
+    desc.accel_slots
   let plci = @vk.VkPipelineLayoutCreateInfo::new()
   match desc.bindless_heap {
     Some(heap) => {
@@ -3167,7 +3286,13 @@ fn vk_graphics_pipeline_create(
     prci.set_pColorAttachmentFormats(color_vk_fmts)
   }
   match desc.depth_format {
-    Some(f) => prci.set_depthAttachmentFormat(vk_texture_format(f))
+    Some(f) => {
+      let vk_df = vk_texture_format(f)
+      prci.set_depthAttachmentFormat(vk_df)
+      if f == TextureFormat::Depth24Stencil8 {
+        prci.set_stencilAttachmentFormat(vk_df)
+      }
+    }
     None =>
       if desc.depth_test || desc.depth_write {
         prci.set_depthAttachmentFormat(@vk.VK_FORMAT_D32_SFLOAT)
@@ -3241,15 +3366,19 @@ fn vk_graphics_pipeline_create(
     texture_slots: desc.texture_slots,
     storage_slots: desc.storage_slots,
     storage_image_slots: desc.storage_image_slots,
+    accel_slots: desc.accel_slots,
     uniform_bindings: u_bindings,
     texture_bindings: t_bindings,
     storage_bindings: s_bindings,
     storage_image_bindings: si_bindings,
+    accel_bindings: a_bindings,
     compute: false,
+    stencil_ref: stencil_ref_opt,
     cur_uniforms: FixedArray::make(desc.uniform_slots, None),
     cur_textures: FixedArray::make(desc.texture_slots, None),
     cur_storage: FixedArray::make(desc.storage_slots, None),
     cur_storage_images: FixedArray::make(desc.storage_image_slots, None),
+    cur_accel: FixedArray::make(desc.accel_slots, None),
   }
 }
 
@@ -3261,6 +3390,7 @@ fn vk_compute_pipeline_create(
   t_bindings : FixedArray[Int],
   s_bindings : FixedArray[Int],
   si_bindings : FixedArray[Int],
+  a_bindings : FixedArray[Int],
   push_constant_size : Int,
 ) -> VkPipelineState raise RhiError {
   if spv.length() == 0 {
@@ -3287,16 +3417,19 @@ fn vk_compute_pipeline_create(
     t_bindings,
     s_bindings,
     si_bindings,
+    a_bindings,
     @vk.VK_SHADER_STAGE_COMPUTE_BIT,
   )
   let uniform_slots = u_bindings.length()
   let texture_slots = t_bindings.length()
   let storage_slots = s_bindings.length()
   let storage_image_slots = si_bindings.length()
+  let accel_slots = a_bindings.length()
   let total_slots = uniform_slots +
     texture_slots +
     storage_slots +
-    storage_image_slots
+    storage_image_slots +
+    accel_slots
   let plci = @vk.VkPipelineLayoutCreateInfo::new()
   if total_slots > 0 {
     plci.set_setLayoutCount((1 : UInt32))
@@ -3366,15 +3499,19 @@ fn vk_compute_pipeline_create(
     texture_slots,
     storage_slots,
     storage_image_slots,
+    accel_slots,
     uniform_bindings: u_bindings,
     texture_bindings: t_bindings,
     storage_bindings: s_bindings,
     storage_image_bindings: si_bindings,
+    accel_bindings: a_bindings,
     compute: true,
+    stencil_ref: None,
     cur_uniforms: FixedArray::make(uniform_slots, None),
     cur_textures: FixedArray::make(texture_slots, None),
     cur_storage: FixedArray::make(storage_slots, None),
     cur_storage_images: FixedArray::make(storage_image_slots, None),
+    cur_accel: FixedArray::make(accel_slots, None),
   }
 }
 
@@ -3484,6 +3621,35 @@ fn write_descriptor_storage_image(
 }
 
 ///|
+fn write_descriptor_accel_struct(
+  d : VkDeviceState,
+  dset : @vk.VkDescriptorSet,
+  binding : Int,
+  accel : VkAccelStructState,
+) -> Unit {
+  let as_arr = FixedArray::make(1, accel.accel)
+  let was = @vk.VkWriteDescriptorSetAccelerationStructureKHR::new()
+  was.set_accelerationStructureCount((1 : UInt32))
+  was.set_pAccelerationStructures(as_arr)
+  let write = @vk.VkWriteDescriptorSet::new()
+  write.set_pNext(was.as_ptr())
+  write.set_dstSet(dset)
+  write.set_dstBinding(binding.reinterpret_as_uint())
+  write.set_dstArrayElement((0 : UInt32))
+  write.set_descriptorCount((1 : UInt32))
+  write.set_descriptorType(@vk.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
+  (d.dfn.vkUpdateDescriptorSets)(
+    d.dev,
+    (1 : UInt32),
+    write,
+    (0 : UInt32),
+    @vk.VkCopyDescriptorSet::null(),
+  )
+  write.free()
+  was.free()
+}
+
+///|
 fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
   let f = c.frame_idx % MAX_FRAMES
   for entry in c.pending_uniforms {
@@ -3548,6 +3714,21 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
     }
   }
   c.pending_storage_images.clear()
+  for entry in c.pending_accel {
+    let (p, slot, accel) = entry
+    let ps = p.inner
+    if slot >= 0 && slot < ps.accel_slots {
+      let same = match ps.cur_accel[slot] {
+        Some(pa) => pa.inner.accel.as_ptr() == accel.inner.accel.as_ptr()
+        None => false
+      }
+      if !same {
+        ps.cur_accel[slot] = Some(accel)
+        ps.slot_dirty[f] = true
+      }
+    }
+  }
+  c.pending_accel.clear()
 
   match c.bound {
     Some(p) => {
@@ -3555,7 +3736,8 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
       let total = ps.uniform_slots +
         ps.texture_slots +
         ps.storage_slots +
-        ps.storage_image_slots
+        ps.storage_image_slots +
+        ps.accel_slots
       if total > 0 {
         if ps.last_gen[f] != c.frame_gen {
           ps.last_gen[f] = c.frame_gen
@@ -3572,6 +3754,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
               ps.texture_slots,
               ps.storage_slots,
               ps.storage_image_slots,
+              ps.accel_slots,
               SETS_PER_FRAME,
             ) catch {
               _ => return
@@ -3631,6 +3814,18 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
                   set_handle,
                   ps.storage_image_bindings[i],
                   tex.inner,
+                )
+              None => ()
+            }
+          }
+          for i = 0; i < ps.accel_slots; i = i + 1 {
+            match ps.cur_accel[i] {
+              Some(accel) =>
+                write_descriptor_accel_struct(
+                  c.device,
+                  set_handle,
+                  ps.accel_bindings[i],
+                  accel.inner,
                 )
               None => ()
             }
@@ -3883,15 +4078,24 @@ fn vk_cmd_begin_render_pass(
     ri.set_pColorAttachments(catts)
   }
   let datt = @vk.VkRenderingAttachmentInfo::new()
+  let satt = @vk.VkRenderingAttachmentInfo::new()
   match depth {
     Some(dt) => {
-      cv.set_depth_stencil(dt.clear_depth, (0 : UInt32))
+      cv.set_depth_stencil(dt.clear_depth, dt.clear_stencil.reinterpret_as_uint())
       datt.set_imageView(dt.texture.inner.view)
       datt.set_imageLayout(@vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       datt.set_loadOp(vk_load_op(dt.load_op))
       datt.set_storeOp(vk_store_op(dt.store_op))
       datt.set_clearValue(cv)
       ri.set_pDepthAttachment(datt)
+      if dt.texture.inner.format == TextureFormat::Depth24Stencil8 {
+        satt.set_imageView(dt.texture.inner.view)
+        satt.set_imageLayout(@vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+        satt.set_loadOp(vk_load_op(dt.stencil_load_op))
+        satt.set_storeOp(vk_store_op(dt.stencil_store_op))
+        satt.set_clearValue(cv)
+        ri.set_pStencilAttachment(satt)
+      }
     }
     None => ()
   }
@@ -3901,6 +4105,7 @@ fn vk_cmd_begin_render_pass(
   cv.free()
   catts.free()
   datt.free()
+  satt.free()
   ri.free()
   set_dynamic_viewport_scissor(d, c.cmd, w, h)
   c.active_render_targets = colors
@@ -4470,7 +4675,7 @@ fn vk_mesh_pipeline_create(
   let s_bindings = resolve_slot_bindings(desc.storage_slots, desc.storage_bindings, desc.uniform_slots + desc.texture_slots)
   let si_bindings = resolve_slot_bindings(desc.storage_image_slots, desc.storage_image_bindings, desc.uniform_slots + desc.texture_slots + desc.storage_slots)
   let (set_layout, pools, frame_sets) = alloc_pipeline_descriptors(
-    d, u_bindings, t_bindings, s_bindings, si_bindings, stage_flags,
+    d, u_bindings, t_bindings, s_bindings, si_bindings, FixedArray::make(0, 0), stage_flags,
   )
   let total_slots = desc.uniform_slots + desc.texture_slots + desc.storage_slots + desc.storage_image_slots
   let plci = @vk.VkPipelineLayoutCreateInfo::new()
@@ -4524,7 +4729,13 @@ fn vk_mesh_pipeline_create(
   prci.set_colorAttachmentCount(n_colors.reinterpret_as_uint())
   prci.set_pColorAttachmentFormats(color_vk_fmts)
   match desc.depth_format {
-    Some(f) => prci.set_depthAttachmentFormat(vk_texture_format(f))
+    Some(f) => {
+      let vk_df = vk_texture_format(f)
+      prci.set_depthAttachmentFormat(vk_df)
+      if f == TextureFormat::Depth24Stencil8 {
+        prci.set_stencilAttachmentFormat(vk_df)
+      }
+    }
     None =>
       if desc.depth_test || desc.depth_write {
         prci.set_depthAttachmentFormat(@vk.VK_FORMAT_D32_SFLOAT)
@@ -4589,15 +4800,19 @@ fn vk_mesh_pipeline_create(
     texture_slots: desc.texture_slots,
     storage_slots: desc.storage_slots,
     storage_image_slots: desc.storage_image_slots,
+    accel_slots: 0,
     uniform_bindings: u_bindings,
     texture_bindings: t_bindings,
     storage_bindings: s_bindings,
     storage_image_bindings: si_bindings,
+    accel_bindings: FixedArray::make(0, 0),
     compute: false,
+    stencil_ref: None,
     cur_uniforms: FixedArray::make(desc.uniform_slots, None),
     cur_textures: FixedArray::make(desc.texture_slots, None),
     cur_storage: FixedArray::make(desc.storage_slots, None),
     cur_storage_images: FixedArray::make(desc.storage_image_slots, None),
+    cur_accel: FixedArray::make(0, None),
   }
 }
 
@@ -4914,6 +5129,15 @@ fn vk_cmd_bind_pipeline(c : VkCmdState, pipeline : Pipeline) -> Unit {
     @vk.VK_PIPELINE_BIND_POINT_GRAPHICS
   }
   (c.device.dfn.vkCmdBindPipeline)(c.cmd, point, pipeline.inner.pipeline)
+  match pipeline.inner.stencil_ref {
+    Some(r) =>
+      (c.device.dfn.vkCmdSetStencilReference)(
+        c.cmd,
+        @vk.VK_STENCIL_FACE_FRONT_AND_BACK,
+        r,
+      )
+    None => ()
+  }
   c.bound = Some(pipeline)
 }
 
@@ -5255,4 +5479,453 @@ fn vk_cmd_barrier(c : VkCmdState) -> Unit {
   (c.device.dfn.vkCmdPipelineBarrier2)(c.cmd, dep)
   dep.free()
   mb.free()
+}
+
+///|
+fn vk_stencil_op(op : StencilOp) -> UInt32 {
+  match op {
+    StencilOp::Keep => @vk.VK_STENCIL_OP_KEEP
+    StencilOp::Zero => @vk.VK_STENCIL_OP_ZERO
+    StencilOp::Replace => @vk.VK_STENCIL_OP_REPLACE
+    StencilOp::IncrementAndClamp => @vk.VK_STENCIL_OP_INCREMENT_AND_CLAMP
+    StencilOp::DecrementAndClamp => @vk.VK_STENCIL_OP_DECREMENT_AND_CLAMP
+    StencilOp::Invert => @vk.VK_STENCIL_OP_INVERT
+    StencilOp::IncrementAndWrap => @vk.VK_STENCIL_OP_INCREMENT_AND_WRAP
+    StencilOp::DecrementAndWrap => @vk.VK_STENCIL_OP_DECREMENT_AND_WRAP
+  }
+}
+
+///|
+fn vk_stencil_op_state(
+  face : StencilFaceState,
+  compare_mask : UInt32,
+  write_mask : UInt32,
+  reference : UInt32,
+) -> @vk.VkStencilOpState {
+  let st = @vk.VkStencilOpState::new()
+  st.set_failOp(vk_stencil_op(face.fail_op))
+  st.set_passOp(vk_stencil_op(face.pass_op))
+  st.set_depthFailOp(vk_stencil_op(face.depth_fail_op))
+  st.set_compareOp(vk_compare_op(face.compare_op))
+  st.set_compareMask(compare_mask)
+  st.set_writeMask(write_mask)
+  st.set_reference(reference)
+  st
+}
+
+///|
+fn vk_cmd_set_stencil_reference(c : VkCmdState, reference : Int) -> Unit {
+  (c.device.dfn.vkCmdSetStencilReference)(
+    c.cmd,
+    @vk.VK_STENCIL_FACE_FRONT_AND_BACK,
+    reference.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_draw_indirect_count(
+  c : VkCmdState,
+  buf : VkBufferState,
+  count_buf : VkBufferState,
+  max_draw_count : Int,
+  offset : Int,
+  count_offset : Int,
+  stride : Int,
+) -> Unit {
+  vk_cmd_flush_slots(c)
+  (c.device.dfn.vkCmdDrawIndirectCount)(
+    c.cmd,
+    buf.buffer,
+    offset.to_uint64(),
+    count_buf.buffer,
+    count_offset.to_uint64(),
+    max_draw_count.reinterpret_as_uint(),
+    stride.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_draw_indexed_indirect_count(
+  c : VkCmdState,
+  buf : VkBufferState,
+  count_buf : VkBufferState,
+  max_draw_count : Int,
+  offset : Int,
+  count_offset : Int,
+  stride : Int,
+) -> Unit {
+  vk_cmd_flush_slots(c)
+  (c.device.dfn.vkCmdDrawIndexedIndirectCount)(
+    c.cmd,
+    buf.buffer,
+    offset.to_uint64(),
+    count_buf.buffer,
+    count_offset.to_uint64(),
+    max_draw_count.reinterpret_as_uint(),
+    stride.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_buffer_device_address(d : VkDeviceState, buf : @vk.VkBuffer) -> UInt64 {
+  let info = @vk.VkBufferDeviceAddressInfo::new()
+  info.set_buffer(buf)
+  let addr = (d.dfn.vkGetBufferDeviceAddress)(d.dev, info)
+  info.free()
+  addr
+}
+
+///|
+fn vk_alloc_raw_buffer(
+  d : VkDeviceState,
+  size : UInt64,
+  usage : UInt32,
+  host_visible : Bool,
+) -> (@vk.VkBuffer, MemAlloc) raise RhiError {
+  let na = @vk.VkAllocationCallbacks::null()
+  let bci = @vk.VkBufferCreateInfo::new()
+  bci.set_size(if size == (0 : UInt64) { (64 : UInt64) } else { size })
+  bci.set_usage(usage)
+  bci.set_sharingMode(@vk.VK_SHARING_MODE_EXCLUSIVE)
+  let buf_out = FixedArray::make(1, @vk.VkBuffer::null())
+  let br = (d.dfn.vkCreateBuffer)(d.dev, bci, na, buf_out)
+  bci.free()
+  if br != 0 {
+    raise AllocationFailed("vkCreateBuffer (AS) failed: \{br}")
+  }
+  let buffer = buf_out[0]
+  let req = @vk.VkMemoryRequirements::new()
+  (d.dfn.vkGetBufferMemoryRequirements)(d.dev, buffer, req)
+  let flags = if host_visible {
+    @vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+    @vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+  } else {
+    @vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+  }
+  let alloc = d.alloc.alloc(req, flags, host_visible, false)
+  req.free()
+  let bir = (d.dfn.vkBindBufferMemory)(d.dev, buffer, alloc.memory, alloc.offset)
+  if bir != 0 {
+    d.alloc.free(alloc)
+    (d.dfn.vkDestroyBuffer)(d.dev, buffer, na)
+    raise AllocationFailed("vkBindBufferMemory (AS) failed: \{bir}")
+  }
+  (buffer, alloc)
+}
+
+///|
+fn floats_to_bytes_le(floats : FixedArray[Float], count : Int) -> Bytes {
+  let arr : Array[Byte] = []
+  for i = 0; i < count; i = i + 1 {
+    let f = if i < floats.length() { floats[i] } else { (0.0 : Float) }
+    let bits = f.reinterpret_as_int()
+    arr.push((bits & 0xFF).to_byte())
+    arr.push(((bits >> 8) & 0xFF).to_byte())
+    arr.push(((bits >> 16) & 0xFF).to_byte())
+    arr.push(((bits >> 24) & 0xFF).to_byte())
+  }
+  Bytes::from_array(arr)
+}
+
+///|
+fn vk_create_blas(
+  d : VkDeviceState,
+  geometries : Array[RayGeometryDesc],
+) -> VkAccelStructState raise RhiError {
+  if !d.caps.supports_ray_query {
+    raise DeviceFailed("VK_KHR_ray_query / VK_KHR_acceleration_structure not supported")
+  }
+  if geometries.length() == 0 {
+    raise InvalidArgument("create_blas requires at least one geometry")
+  }
+  let na = @vk.VkAllocationCallbacks::null()
+  let n = geometries.length()
+  let vk_geos = @vk.VkAccelerationStructureGeometryKHR::array(n)
+  let prim_counts = FixedArray::make(n, (0 : UInt32))
+  let tris_keep : Array[@vk.VkAccelerationStructureGeometryTrianglesDataKHR] = []
+  let gdatas_keep : Array[@vk.VkAccelerationStructureGeometryDataKHR] = []
+  let addrs_keep : Array[@vk.VkDeviceOrHostAddressConstKHR] = []
+  for i = 0; i < n; i = i + 1 {
+    let g = geometries[i]
+    let vaddr = vk_buffer_device_address(d, g.vertex_buffer.inner.buffer)
+    let vdev = @vk.VkDeviceOrHostAddressConstKHR::new()
+    vdev.set_deviceAddress(vaddr)
+    addrs_keep.push(vdev)
+    let tri = @vk.VkAccelerationStructureGeometryTrianglesDataKHR::new()
+    tri.set_vertexFormat(@vk.VK_FORMAT_R32G32B32_SFLOAT)
+    tri.set_vertexData(vdev)
+    tri.set_vertexStride(g.vertex_stride.to_uint64())
+    tri.set_maxVertex(
+      (if g.vertex_count > 0 { g.vertex_count - 1 } else { 0 }).reinterpret_as_uint(),
+    )
+    let prim_cnt = match g.index_buffer {
+      Some(ib) => {
+        let iaddr = vk_buffer_device_address(d, ib.inner.buffer)
+        let idev = @vk.VkDeviceOrHostAddressConstKHR::new()
+        idev.set_deviceAddress(iaddr)
+        addrs_keep.push(idev)
+        tri.set_indexType(
+          match g.index_type {
+            IndexType::Uint16 => @vk.VK_INDEX_TYPE_UINT16
+            IndexType::Uint32 => @vk.VK_INDEX_TYPE_UINT32
+          },
+        )
+        tri.set_indexData(idev)
+        g.index_count / 3
+      }
+      None => {
+        tri.set_indexType(@vk.VK_INDEX_TYPE_NONE_KHR)
+        g.vertex_count / 3
+      }
+    }
+    prim_counts[i] = prim_cnt.reinterpret_as_uint()
+    tris_keep.push(tri)
+    let gdata = @vk.VkAccelerationStructureGeometryDataKHR::new()
+    gdata.set_triangles(tri)
+    gdatas_keep.push(gdata)
+    vk_geos.set_geometryType_at(i, @vk.VK_GEOMETRY_TYPE_TRIANGLES_KHR)
+    vk_geos.set_flags_at(
+      i,
+      if g.is_opaque { @vk.VK_GEOMETRY_OPAQUE_BIT_KHR } else { (0 : UInt32) },
+    )
+    vk_geos.set_geometry_at(i, gdata)
+  }
+
+  let binfo = @vk.VkAccelerationStructureBuildGeometryInfoKHR::new()
+  binfo.set_type(@vk.VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR)
+  binfo.set_flags(@vk.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR)
+  binfo.set_mode(@vk.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR)
+  binfo.set_geometryCount(n.reinterpret_as_uint())
+  binfo.set_pGeometries(vk_geos)
+  let sizes = @vk.VkAccelerationStructureBuildSizesInfoKHR::new()
+  (d.dfn.vkGetAccelerationStructureBuildSizesKHR)(
+    d.dev,
+    @vk.VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+    binfo,
+    prim_counts,
+    sizes,
+  )
+  let as_size = sizes.get_accelerationStructureSize()
+  let scratch_size = sizes.get_buildScratchSize()
+  sizes.free()
+
+  let (as_buf, as_alloc) = vk_alloc_raw_buffer(
+    d,
+    as_size,
+    @vk.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+    @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    false,
+  )
+  let asci = @vk.VkAccelerationStructureCreateInfoKHR::new()
+  asci.set_buffer(as_buf)
+  asci.set_size(as_size)
+  asci.set_type(@vk.VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR)
+  let as_out = FixedArray::make(1, @vk.VkAccelerationStructureKHR::null())
+  let acr = (d.dfn.vkCreateAccelerationStructureKHR)(d.dev, asci, na, as_out)
+  asci.free()
+  if acr != 0 {
+    (d.dfn.vkDestroyBuffer)(d.dev, as_buf, na)
+    d.alloc.free(as_alloc)
+    binfo.free()
+    vk_geos.free()
+    for t in tris_keep { t.free() }
+    for gd in gdatas_keep { gd.free() }
+    for a in addrs_keep { a.free() }
+    raise AllocationFailed("vkCreateAccelerationStructureKHR (BLAS) failed: \{acr}")
+  }
+  let blas = as_out[0]
+
+  let (scratch_buf, scratch_alloc) = vk_alloc_raw_buffer(
+    d,
+    scratch_size,
+    @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+    @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    false,
+  )
+  let scratch_dev = @vk.VkDeviceOrHostAddressKHR::new()
+  scratch_dev.set_deviceAddress(vk_buffer_device_address(d, scratch_buf))
+  binfo.set_dstAccelerationStructure(blas)
+  binfo.set_scratchData(scratch_dev)
+
+  let ranges_keep : Array[@vk.VkAccelerationStructureBuildRangeInfoKHR] = []
+  let range_ptrs = FixedArray::make(n, (0 : UInt64))
+  for i = 0; i < n; i = i + 1 {
+    let ri = @vk.VkAccelerationStructureBuildRangeInfoKHR::new()
+    ri.set_primitiveCount(prim_counts[i])
+    ranges_keep.push(ri)
+    range_ptrs[i] = ri.as_ptr()
+  }
+
+  let cmd = begin_one_time(d)
+  (d.dfn.vkCmdBuildAccelerationStructuresKHR)(
+    cmd,
+    (1 : UInt32),
+    binfo,
+    range_ptrs,
+  )
+  end_one_time(d, cmd)
+
+  (d.dfn.vkDestroyBuffer)(d.dev, scratch_buf, na)
+  d.alloc.free(scratch_alloc)
+  scratch_dev.free()
+  binfo.free()
+  vk_geos.free()
+  for ri in ranges_keep { ri.free() }
+  for t in tris_keep { t.free() }
+  for gd in gdatas_keep { gd.free() }
+  for a in addrs_keep { a.free() }
+
+  let addr_i = @vk.VkAccelerationStructureDeviceAddressInfoKHR::new()
+  addr_i.set_accelerationStructure(blas)
+  let device_address = (d.dfn.vkGetAccelerationStructureDeviceAddressKHR)(
+    d.dev, addr_i,
+  )
+  addr_i.free()
+  { device: d, accel: blas, buffer: as_buf, alloc: as_alloc, device_address }
+}
+
+///|
+fn vk_create_tlas(
+  d : VkDeviceState,
+  instances : Array[RayInstanceDesc],
+) -> VkAccelStructState raise RhiError {
+  if !d.caps.supports_ray_query {
+    raise DeviceFailed("VK_KHR_ray_query / VK_KHR_acceleration_structure not supported")
+  }
+  if instances.length() == 0 {
+    raise InvalidArgument("create_tlas requires at least one instance")
+  }
+  let na = @vk.VkAllocationCallbacks::null()
+  let n = instances.length()
+  let inst_bytes = (n * 64).to_uint64()
+  let insts = @vk.rt_instance_array(n)
+  for i = 0; i < n; i = i + 1 {
+    let inst = instances[i]
+    let xform = @vk.VkTransformMatrixKHR::new()
+    xform.set_matrix(floats_to_bytes_le(inst.transform, 12))
+    @vk.rt_instance_set(
+      insts,
+      i,
+      xform,
+      inst.custom_index.reinterpret_as_uint(),
+      inst.mask.reinterpret_as_uint(),
+      (0 : UInt32),
+      @vk.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+      inst.blas.inner.device_address,
+    )
+    xform.free()
+  }
+  let (inst_buf, inst_alloc) = vk_alloc_raw_buffer(
+    d,
+    inst_bytes,
+    @vk.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+    @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    true,
+  )
+  @vk.memcpy_ptr(inst_alloc.mapped, insts, n * 64)
+  @vk.free_ptr(insts)
+
+  let inst_dev = @vk.VkDeviceOrHostAddressConstKHR::new()
+  inst_dev.set_deviceAddress(vk_buffer_device_address(d, inst_buf))
+  let tgeo = @vk.VkAccelerationStructureGeometryInstancesDataKHR::new()
+  tgeo.set_data(inst_dev)
+  let tdata = @vk.VkAccelerationStructureGeometryDataKHR::new()
+  tdata.set_instances(tgeo)
+  let tgeoi = @vk.VkAccelerationStructureGeometryKHR::new()
+  tgeoi.set_geometryType(@vk.VK_GEOMETRY_TYPE_INSTANCES_KHR)
+  tgeoi.set_geometry(tdata)
+
+  let tinfo = @vk.VkAccelerationStructureBuildGeometryInfoKHR::new()
+  tinfo.set_type(@vk.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR)
+  tinfo.set_flags(@vk.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR)
+  tinfo.set_mode(@vk.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR)
+  tinfo.set_geometryCount((1 : UInt32))
+  tinfo.set_pGeometries(tgeoi)
+  let prim_cnt = FixedArray::make(1, n.reinterpret_as_uint())
+  let tsizes = @vk.VkAccelerationStructureBuildSizesInfoKHR::new()
+  (d.dfn.vkGetAccelerationStructureBuildSizesKHR)(
+    d.dev,
+    @vk.VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+    tinfo,
+    prim_cnt,
+    tsizes,
+  )
+  let as_size = tsizes.get_accelerationStructureSize()
+  let scratch_size = tsizes.get_buildScratchSize()
+  tsizes.free()
+
+  let (as_buf, as_alloc) = vk_alloc_raw_buffer(
+    d,
+    as_size,
+    @vk.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+    @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    false,
+  )
+  let tci = @vk.VkAccelerationStructureCreateInfoKHR::new()
+  tci.set_buffer(as_buf)
+  tci.set_size(as_size)
+  tci.set_type(@vk.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR)
+  let tlas_out = FixedArray::make(1, @vk.VkAccelerationStructureKHR::null())
+  let tcr = (d.dfn.vkCreateAccelerationStructureKHR)(d.dev, tci, na, tlas_out)
+  tci.free()
+  if tcr != 0 {
+    (d.dfn.vkDestroyBuffer)(d.dev, as_buf, na)
+    d.alloc.free(as_alloc)
+    (d.dfn.vkDestroyBuffer)(d.dev, inst_buf, na)
+    d.alloc.free(inst_alloc)
+    tinfo.free()
+    tgeoi.free()
+    tdata.free()
+    tgeo.free()
+    inst_dev.free()
+    raise AllocationFailed("vkCreateAccelerationStructureKHR (TLAS) failed: \{tcr}")
+  }
+  let tlas = tlas_out[0]
+
+  let (scratch_buf, scratch_alloc) = vk_alloc_raw_buffer(
+    d,
+    scratch_size,
+    @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+    @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    false,
+  )
+  let scratch_dev = @vk.VkDeviceOrHostAddressKHR::new()
+  scratch_dev.set_deviceAddress(vk_buffer_device_address(d, scratch_buf))
+  tinfo.set_dstAccelerationStructure(tlas)
+  tinfo.set_scratchData(scratch_dev)
+  let trange = @vk.VkAccelerationStructureBuildRangeInfoKHR::new()
+  trange.set_primitiveCount(n.reinterpret_as_uint())
+  let tranges = FixedArray::make(1, trange.as_ptr())
+
+  let cmd = begin_one_time(d)
+  (d.dfn.vkCmdBuildAccelerationStructuresKHR)(cmd, (1 : UInt32), tinfo, tranges)
+  end_one_time(d, cmd)
+
+  (d.dfn.vkDestroyBuffer)(d.dev, scratch_buf, na)
+  d.alloc.free(scratch_alloc)
+  (d.dfn.vkDestroyBuffer)(d.dev, inst_buf, na)
+  d.alloc.free(inst_alloc)
+  scratch_dev.free()
+  trange.free()
+  tinfo.free()
+  tgeoi.free()
+  tdata.free()
+  tgeo.free()
+  inst_dev.free()
+
+  let addr_i = @vk.VkAccelerationStructureDeviceAddressInfoKHR::new()
+  addr_i.set_accelerationStructure(tlas)
+  let device_address = (d.dfn.vkGetAccelerationStructureDeviceAddressKHR)(
+    d.dev, addr_i,
+  )
+  addr_i.free()
+  { device: d, accel: tlas, buffer: as_buf, alloc: as_alloc, device_address }
+}
+
+///|
+fn vk_accel_struct_destroy(a : VkAccelStructState) -> Unit {
+  enqueue_delete(
+    a.device,
+    DeleteAccelStruct(a.accel, a.buffer, a.alloc),
+  )
 }

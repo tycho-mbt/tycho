@@ -169,6 +169,11 @@ pub suberror RhiError {
 pub impl Show for RhiError
 
 // Types and methods
+pub struct AccelStruct {
+  // private fields
+}
+pub fn AccelStruct::destroy(Self) -> Unit
+
 #derive(Eq, @debug.Debug)
 pub(all) enum AddressMode {
   Repeat
@@ -239,6 +244,7 @@ pub struct CommandBuffer {
 pub fn CommandBuffer::barrier(Self) -> Unit
 pub fn CommandBuffer::begin_render_pass(Self, Array[RenderTargetDesc], depth? : DepthTargetDesc?) -> Unit raise RhiError
 pub fn CommandBuffer::begin_swapchain_pass(Self, Swapchain, load_op? : LoadOp, clear_color? : ClearColor?) -> Unit
+pub fn CommandBuffer::bind_accel_struct(Self, Pipeline, Int32, AccelStruct) -> Unit
 pub fn CommandBuffer::bind_bindless_heap(Self, Pipeline, BindlessHeap, set_index? : Int32) -> Unit
 pub fn CommandBuffer::bind_index(Self, Buffer, IndexType, offset? : Int32) -> Unit
 pub fn CommandBuffer::bind_pipeline(Self, Pipeline) -> Unit
@@ -256,7 +262,9 @@ pub fn CommandBuffer::draw(Self, Int32, Int32) -> Unit
 pub fn CommandBuffer::draw_indexed(Self, Int32, instances? : Int32) -> Unit
 pub fn CommandBuffer::draw_indexed_full(Self, Int32, Int32, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::draw_indexed_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
+pub fn CommandBuffer::draw_indexed_indirect_count(Self, Buffer, Buffer, Int32, offset? : Int32, count_offset? : Int32, stride? : Int32) -> Unit
 pub fn CommandBuffer::draw_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
+pub fn CommandBuffer::draw_indirect_count(Self, Buffer, Buffer, Int32, offset? : Int32, count_offset? : Int32, stride? : Int32) -> Unit
 pub fn CommandBuffer::draw_instanced(Self, Int32, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::draw_mesh_tasks(Self, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::draw_mesh_tasks_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
@@ -266,6 +274,7 @@ pub fn CommandBuffer::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int3
 pub fn CommandBuffer::push_constants_floats(Self, Pipeline, FixedArray[Float], offset? : Int32) -> Unit
 pub fn CommandBuffer::reset_timestamps(Self, TimestampPool) -> Unit
 pub fn CommandBuffer::set_scissor(Self, Int32, Int32, Int32, Int32) -> Unit
+pub fn CommandBuffer::set_stencil_reference(Self, Int32) -> Unit
 pub fn CommandBuffer::set_viewport(Self, Float, Float, Float, Float) -> Unit
 pub fn CommandBuffer::transition_for_compute(Self, Texture) -> Unit
 pub fn CommandBuffer::transition_for_sampling(Self, Texture) -> Unit
@@ -295,8 +304,11 @@ pub(all) struct DepthTargetDesc {
   load_op : LoadOp
   store_op : StoreOp
   clear_depth : Float
+  stencil_load_op : LoadOp
+  stencil_store_op : StoreOp
+  clear_stencil : Int32
 }
-pub fn DepthTargetDesc::new(Texture, load_op? : LoadOp, store_op? : StoreOp, clear_depth? : Float) -> Self
+pub fn DepthTargetDesc::new(Texture, load_op? : LoadOp, store_op? : StoreOp, clear_depth? : Float, stencil_load_op? : LoadOp, stencil_store_op? : StoreOp, clear_stencil? : Int32) -> Self
 
 pub struct Device {
   // private fields
@@ -307,9 +319,10 @@ pub fn Device::backend(Self) -> BackendKind
 pub fn Device::begin_commands(Self) -> CommandBuffer raise RhiError
 pub fn Device::capabilities(Self) -> DeviceCapabilities
 pub fn Device::create_bindless_heap(Self, max_textures? : Int32) -> BindlessHeap raise RhiError
+pub fn Device::create_blas(Self, Array[RayGeometryDesc]) -> AccelStruct raise RhiError
 pub fn Device::create_buffer(Self, Int32, BufferKind) -> Buffer raise RhiError
 pub fn Device::create_buffer_with(Self, Int32, BufferKind, location? : MemoryLocation) -> Buffer raise RhiError
-pub fn Device::create_compute_pipeline(Self, FixedArray[UInt32], Int32, Int32, storage_image_slots? : Int32, push_constant_size? : Int32) -> Pipeline raise RhiError
+pub fn Device::create_compute_pipeline(Self, FixedArray[UInt32], Int32, Int32, storage_image_slots? : Int32, accel_slots? : Int32, push_constant_size? : Int32) -> Pipeline raise RhiError
 pub fn Device::create_compute_pipeline_auto(Self, FixedArray[UInt32]) -> Pipeline raise RhiError
 pub fn Device::create_cubemap(Self, Int32, TextureFormat, Array[Bytes]) -> Texture raise RhiError
 pub fn Device::create_depth_texture(Self, Int32, Int32, samples? : SampleCount) -> Texture raise RhiError
@@ -328,6 +341,7 @@ pub fn Device::create_texture_array(Self, Int32, Int32, Int32, TextureFormat, By
 pub fn Device::create_texture_format(Self, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
 pub fn Device::create_texture_mipmapped(Self, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
 pub fn Device::create_timestamp_pool(Self, Int32) -> TimestampPool raise RhiError
+pub fn Device::create_tlas(Self, Array[RayInstanceDesc]) -> AccelStruct raise RhiError
 pub fn Device::destroy(Self) -> Unit
 pub fn Device::end_commands(Self, CommandBuffer) -> Unit raise RhiError
 pub fn Device::new(String, Bool) -> Self raise RhiError
@@ -446,10 +460,12 @@ pub(all) struct PipelineDesc {
   texture_slots : Int32
   storage_slots : Int32
   storage_image_slots : Int32
+  accel_slots : Int32
   uniform_bindings : Array[Int32]
   texture_bindings : Array[Int32]
   storage_bindings : Array[Int32]
   storage_image_bindings : Array[Int32]
+  accel_bindings : Array[Int32]
   push_constant_size : Int32
   topology : PrimitiveTopology
   depth_test : Bool
@@ -460,6 +476,7 @@ pub(all) struct PipelineDesc {
   depth_bias : Bool
   depth_bias_constant : Float
   depth_bias_slope : Float
+  stencil : StencilState?
   cull_mode : CullMode
   front_face : FrontFace
   blend : Bool
@@ -469,8 +486,8 @@ pub(all) struct PipelineDesc {
   color_formats : Array[TextureFormat]
   bindless_heap : BindlessHeap?
 }
-pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout], bindless_heap? : BindlessHeap?) -> Self
-pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], push_constant_size? : Int32, topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap?) -> Self
+pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState?, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout], bindless_heap? : BindlessHeap?) -> Self
+pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, accel_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], accel_bindings? : Array[Int32], push_constant_size? : Int32, topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState?, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap?) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum PresentMode {
@@ -487,6 +504,25 @@ pub(all) enum PrimitiveTopology {
   LineStrip
   PointList
 }
+
+pub(all) struct RayGeometryDesc {
+  vertex_buffer : Buffer
+  vertex_count : Int32
+  vertex_stride : Int32
+  index_buffer : Buffer?
+  index_count : Int32
+  index_type : IndexType
+  is_opaque : Bool
+}
+pub fn RayGeometryDesc::new(Buffer, Int32, vertex_stride? : Int32, index_buffer? : Buffer?, index_count? : Int32, index_type? : IndexType, is_opaque? : Bool) -> Self
+
+pub(all) struct RayInstanceDesc {
+  blas : AccelStruct
+  transform : FixedArray[Float]
+  custom_index : Int32
+  mask : Int32
+}
+pub fn RayInstanceDesc::new(AccelStruct, transform? : FixedArray[Float], custom_index? : Int32, mask? : Int32) -> Self
 
 pub(all) struct RenderTargetDesc {
   texture : Texture
@@ -530,6 +566,35 @@ pub(all) enum ShaderStage {
   Task
   Mesh
 }
+
+pub(all) struct StencilFaceState {
+  fail_op : StencilOp
+  pass_op : StencilOp
+  depth_fail_op : StencilOp
+  compare_op : CompareOp
+}
+pub fn StencilFaceState::new(fail_op? : StencilOp, pass_op? : StencilOp, depth_fail_op? : StencilOp, compare_op? : CompareOp) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum StencilOp {
+  Keep
+  Zero
+  Replace
+  IncrementAndClamp
+  DecrementAndClamp
+  Invert
+  IncrementAndWrap
+  DecrementAndWrap
+}
+
+pub(all) struct StencilState {
+  front : StencilFaceState
+  back : StencilFaceState
+  compare_mask : UInt32
+  write_mask : UInt32
+  reference : UInt32
+}
+pub fn StencilState::new(front? : StencilFaceState, back? : StencilFaceState, compare_mask? : UInt32, write_mask? : UInt32, reference? : UInt32) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum StoreOp {

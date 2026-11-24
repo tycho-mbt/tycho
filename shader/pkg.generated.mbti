@@ -84,6 +84,7 @@ pub(all) enum ReflectedDescriptorKind {
   StorageImage
   SampledImage
   Sampler
+  AccelerationStructure
 }
 
 #derive(Eq, @debug.Debug)

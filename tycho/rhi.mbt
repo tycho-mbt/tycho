@@ -48,6 +48,11 @@ pub struct BindlessHeap {
 }
 
 ///|
+pub struct AccelStruct {
+  priv inner : VkAccelStructState
+}
+
+///|
 pub struct CommandBuffer {
   priv inner : VkCmdState
 }
@@ -306,6 +311,7 @@ pub fn Device::create_compute_pipeline(
   uniform_slots : Int,
   storage_slots : Int,
   storage_image_slots? : Int = 0,
+  accel_slots? : Int = 0,
   push_constant_size? : Int = 0,
 ) -> Pipeline raise RhiError {
   let u_binds = resolve_slot_bindings(uniform_slots, [], 0)
@@ -316,6 +322,11 @@ pub fn Device::create_compute_pipeline(
     [],
     uniform_slots + storage_slots,
   )
+  let a_binds = resolve_slot_bindings(
+    accel_slots,
+    [],
+    uniform_slots + storage_slots + storage_image_slots,
+  )
   {
     inner: vk_compute_pipeline_create(
       self.inner,
@@ -324,6 +335,7 @@ pub fn Device::create_compute_pipeline(
       t_binds,
       s_binds,
       si_binds,
+      a_binds,
       push_constant_size,
     ),
   }
@@ -339,6 +351,7 @@ pub fn Device::create_compute_pipeline_auto(
   let t_arr : Array[Int] = []
   let s_arr : Array[Int] = []
   let si_arr : Array[Int] = []
+  let a_arr : Array[Int] = []
   for b in refl.bindings {
     if b.set != 0 {
       continue
@@ -353,6 +366,8 @@ pub fn Device::create_compute_pipeline_auto(
         push_unique_int(s_arr, b.binding)
       @shader.ReflectedDescriptorKind::StorageImage =>
         push_unique_int(si_arr, b.binding)
+      @shader.ReflectedDescriptorKind::AccelerationStructure =>
+        push_unique_int(a_arr, b.binding)
       @shader.ReflectedDescriptorKind::Sampler => ()
     }
   }
@@ -360,6 +375,7 @@ pub fn Device::create_compute_pipeline_auto(
   t_arr.sort_by(fn(a, b) { a - b })
   s_arr.sort_by(fn(a, b) { a - b })
   si_arr.sort_by(fn(a, b) { a - b })
+  a_arr.sort_by(fn(a, b) { a - b })
   {
     inner: vk_compute_pipeline_create(
       self.inner,
@@ -368,6 +384,7 @@ pub fn Device::create_compute_pipeline_auto(
       FixedArray::makei(t_arr.length(), fn(i) { t_arr[i] }),
       FixedArray::makei(s_arr.length(), fn(i) { s_arr[i] }),
       FixedArray::makei(si_arr.length(), fn(i) { si_arr[i] }),
+      FixedArray::makei(a_arr.length(), fn(i) { a_arr[i] }),
       refl.push_constant_size,
     ),
   }
@@ -780,6 +797,7 @@ pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
       pending_textures: [],
       pending_storage: [],
       pending_storage_images: [],
+      pending_accel: [],
       bound: None,
       active_render_targets: [],
       active_depth_target: None,
@@ -983,6 +1001,45 @@ pub fn CommandBuffer::set_scissor(
 }
 
 ///|
+pub fn CommandBuffer::set_stencil_reference(
+  self : CommandBuffer,
+  reference : Int,
+) -> Unit {
+  vk_cmd_set_stencil_reference(self.inner, reference)
+}
+
+///|
+pub fn CommandBuffer::bind_accel_struct(
+  self : CommandBuffer,
+  pipeline : Pipeline,
+  slot : Int,
+  accel : AccelStruct,
+) -> Unit {
+  self.inner.pending_accel.push((pipeline, slot, accel))
+}
+
+///|
+pub fn Device::create_blas(
+  self : Device,
+  geometries : Array[RayGeometryDesc],
+) -> AccelStruct raise RhiError {
+  { inner: vk_create_blas(self.inner, geometries) }
+}
+
+///|
+pub fn Device::create_tlas(
+  self : Device,
+  instances : Array[RayInstanceDesc],
+) -> AccelStruct raise RhiError {
+  { inner: vk_create_tlas(self.inner, instances) }
+}
+
+///|
+pub fn AccelStruct::destroy(self : AccelStruct) -> Unit {
+  vk_accel_struct_destroy(self.inner)
+}
+
+///|
 pub fn CommandBuffer::draw(
   self : CommandBuffer,
   vertices : Int,
@@ -1070,6 +1127,48 @@ pub fn CommandBuffer::draw_indexed_indirect(
     buffer.inner,
     draw_count,
     offset,
+    stride,
+  )
+}
+
+///|
+pub fn CommandBuffer::draw_indirect_count(
+  self : CommandBuffer,
+  buffer : Buffer,
+  count_buffer : Buffer,
+  max_draw_count : Int,
+  offset? : Int = 0,
+  count_offset? : Int = 0,
+  stride? : Int = 16,
+) -> Unit {
+  vk_cmd_draw_indirect_count(
+    self.inner,
+    buffer.inner,
+    count_buffer.inner,
+    max_draw_count,
+    offset,
+    count_offset,
+    stride,
+  )
+}
+
+///|
+pub fn CommandBuffer::draw_indexed_indirect_count(
+  self : CommandBuffer,
+  buffer : Buffer,
+  count_buffer : Buffer,
+  max_draw_count : Int,
+  offset? : Int = 0,
+  count_offset? : Int = 0,
+  stride? : Int = 20,
+) -> Unit {
+  vk_cmd_draw_indexed_indirect_count(
+    self.inner,
+    buffer.inner,
+    count_buffer.inner,
+    max_draw_count,
+    offset,
+    count_offset,
     stride,
   )
 }

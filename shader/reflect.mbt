@@ -21,6 +21,7 @@ pub(all) enum ReflectedDescriptorKind {
   StorageImage
   SampledImage
   Sampler
+  AccelerationStructure
 }
 
 ///|
@@ -77,6 +78,7 @@ priv enum SpvType {
   TRuntimeArray(Int) // elem_type_id
   TStruct(Array[Int]) // member type ids
   TPointer(Int) // pointee_type_id
+  TAccelStruct
 }
 
 ///|
@@ -335,6 +337,11 @@ pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
           }
           types.set(id, TStruct(members))
         }
+      5341 => // OpTypeAccelerationStructureKHR
+        if count >= 2 {
+          let id = spv[idx + 1].reinterpret_as_int()
+          types.set(id, TAccelStruct)
+        }
       32 => // OpTypePointer
         if count >= 4 {
           let id = spv[idx + 1].reinterpret_as_int()
@@ -484,6 +491,8 @@ pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
                   } else {
                     Some(ReflectedDescriptorKind::SampledImage)
                   }
+                Some(TAccelStruct) =>
+                  Some(ReflectedDescriptorKind::AccelerationStructure)
                 _ => None
               }
             }
