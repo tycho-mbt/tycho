@@ -1,32 +1,21 @@
 # laplaceliu/tycho_window
 
-Thin pure-MoonBit native windowing, input event queue, and Vulkan WSI surface wrapper (Linux X11/Xlib + runtime-loaded Wayland — zero GLFW or `libwayland-dev` dependency) for the Tycho graphics stack.
+Thin pure-MoonBit native windowing, input event queue, and Vulkan WSI surface wrapper across **Linux** (Wayland + X11 via `dlopen`), **Windows** (Win32 via `LoadLibraryA`), and **macOS** (Cocoa + `CAMetalLayer` via `dlopen`) — zero GLFW, `libwayland-dev`, `libx11-dev`, or link-flag dependencies.
 
 ## Features
 
-- Dual Linux display backends: automatic `WAYLAND_DISPLAY` detection (`xdg-shell`, `zxdg_decoration_manager_v1`, `zwp_pointer_constraints_v1`, `zwp_relative_pointer_manager_v1`, `libxkbcommon`, `libwayland-cursor` via `dlopen`) with Xlib fallback; override with `TYCHO_WINDOW_BACKEND=wayland|x11`
+- **Cross-platform window backends** (zero native `cc-link-flags` required):
+  - **Linux**: automatic `WAYLAND_DISPLAY` detection (`xdg-shell`, `zxdg_decoration_manager_v1`, `zwp_pointer_constraints_v1`, `zwp_relative_pointer_manager_v1`, `libxkbcommon`, `libwayland-cursor` via `dlopen`) with `dlopen("libX11.so.6")` Xlib fallback; override with `TYCHO_WINDOW_BACKEND=wayland|x11`
+  - **Windows**: pure-C Win32 (`user32.dll` via `LoadLibraryA`), HiDPI `GetDpiForWindow` scaling, borderless fullscreen, cursor lock/hide, `VK_KHR_win32_surface`
+  - **macOS**: pure-C Cocoa (`NSWindow`) + `CAMetalLayer` via `libobjc.A.dylib` runtime dispatch, Retina `backingScaleFactor`, `VK_EXT_metal_surface`
 - Window lifecycle: `initialize`, `create`, `destroy`, `terminate`, `should_close`, `set_should_close`, `set_title`, `is_wayland`
 - Resize & geometry: `width`, `height`, `framebuffer_size`, `take_resized`, `content_scale`, `set_fullscreen`, `is_fullscreen`
 - Event & input queries: `poll`, `poll_events` (`Event::CloseRequested`, `Resized`, `KeyDown`, `KeyUp`, `MouseMove`, `MouseDown`, `MouseUp`, `MouseScroll`, `FocusChanged`), `mouse_pos`, `is_mouse_down`, `set_cursor_mode`, KeySym constants (`KEY_ESCAPE`, `KEY_W`, `KEY_A`, `KEY_S`, `KEY_D`, etc.)
-- Vulkan WSI surface creation: `create_surface` (`VK_KHR_wayland_surface` / `VK_KHR_xlib_surface`), `surface_extensions`, `platform`
+- Vulkan WSI surface creation: `create_surface` (`VK_KHR_wayland_surface`, `VK_KHR_xlib_surface`, `VK_KHR_win32_surface`, `VK_EXT_metal_surface`), `surface_extensions`, `platform`
 
 ## Link flags
 
-Link flags are not transitive in MoonBit; the executable package must declare them:
-
-```moonbit
-// moon.pkg of your executable
-options(
-  "link": {
-    "native": {
-      "cc": "cc",
-      "cc-link-flags": "-lX11 -lvulkan",
-    },
-  },
-)
-```
-
-Requires `libx11-dev` and a Vulkan 1.3 loader (`libvulkan-dev`) at link time.
+None required! Downstream `moon.pkg` files only need to import `laplaceliu/tycho_window`.
 
 ## Previewing Wayland on X11
 

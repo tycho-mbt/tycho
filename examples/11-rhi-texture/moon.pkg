@@ -3,12 +3,3 @@ import {
 }
 
 pkgtype(kind: "executable")
-
-options(
-  "link": {
-    "native": {
-      "cc": "cc",
-      "cc-link-flags": "-lvulkan -lX11",
-    },
-  },
-)

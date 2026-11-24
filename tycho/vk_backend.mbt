@@ -54,6 +54,7 @@ priv struct VkDeviceState {
   mut completed_gen : UInt64
   mut active_recordings : Int
   pending_deletes : Array[DeferredDelete]
+  depth_stencil_vk_format : UInt32
 }
 
 ///|
@@ -235,6 +236,14 @@ fn vk_texture_format(f : TextureFormat) -> UInt32 {
     TextureFormat::RGBA32F => @vk.VK_FORMAT_R32G32B32A32_SFLOAT
     TextureFormat::Depth32F => @vk.VK_FORMAT_D32_SFLOAT
     TextureFormat::Depth24Stencil8 => @vk.VK_FORMAT_D24_UNORM_S8_UINT
+  }
+}
+
+///|
+fn vk_texture_format_for(d : VkDeviceState, f : TextureFormat) -> UInt32 {
+  match f {
+    TextureFormat::Depth24Stencil8 => d.depth_stencil_vk_format
+    _ => vk_texture_format(f)
   }
 }
 
@@ -558,16 +567,24 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   app.set_pApplicationName(@vk.cstr(desc.app_name))
   app.set_apiVersion((4206592 : UInt32)) // VK_MAKE_API_VERSION(0, 1, 3, 0)
   let ext_arr : Array[String] = []
+  let push_ext = fn(e : String) {
+    if !ext_arr.contains(e) {
+      ext_arr.push(e)
+    }
+  }
   if !desc.headless {
     let se = @win.surface_extensions()
     for i = 0; i < se.length(); i = i + 1 {
-      ext_arr.push(se[i])
+      push_ext(se[i])
     }
+  }
+  if has_instance_extension("VK_KHR_portability_enumeration") {
+    push_ext("VK_KHR_portability_enumeration")
   }
   let use_debug = desc.validation &&
     has_instance_extension("VK_EXT_debug_utils")
   if use_debug {
-    ext_arr.push("VK_EXT_debug_utils")
+    push_ext("VK_EXT_debug_utils")
   }
   let exts = FixedArray::makei(ext_arr.length(), fn(i) { ext_arr[i] })
   let ici = @vk.VkInstanceCreateInfo::new()
@@ -580,12 +597,8 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     ici.set_enabledLayerCount((1 : UInt32))
     ici.set_ppEnabledLayerNames(@vk.cstr_array(["VK_LAYER_KHRONOS_validation"]))
   }
-  if !desc.headless {
-    match @win.platform() {
-      @win.Platform::MacOS =>
-        ici.set_flags(@vk.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR)
-      _ => ()
-    }
+  if ext_arr.contains("VK_KHR_portability_enumeration") {
+    ici.set_flags(@vk.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR)
   }
   let inst_out = FixedArray::make(1, @vk.VkInstance::null())
   let ir = @vk.vkCreateInstance(ici, na, inst_out)
@@ -708,9 +721,31 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     raise DeviceFailed("No physical device with GRAPHICS|COMPUTE queue family")
   }
 
+  let has_mesh_ext = has_device_extension(
+    ifn, chosen_phys, "VK_EXT_mesh_shader",
+  )
+  let has_rq_ext = has_device_extension(
+      ifn, chosen_phys, "VK_KHR_ray_query",
+    ) &&
+    has_device_extension(ifn, chosen_phys, "VK_KHR_acceleration_structure") &&
+    has_device_extension(ifn, chosen_phys, "VK_KHR_deferred_host_operations")
+
   let f13q = @vk.VkPhysicalDeviceVulkan13Features::new()
   let f12q = @vk.VkPhysicalDeviceVulkan12Features::new()
-  f12q.set_pNext(f13q.as_ptr())
+  let as_q = @vk.VkPhysicalDeviceAccelerationStructureFeaturesKHR::new()
+  let rq_q = @vk.VkPhysicalDeviceRayQueryFeaturesKHR::new()
+  let mesh_q = @vk.VkPhysicalDeviceMeshShaderFeaturesEXT::new()
+  let mut q_tail = f13q.as_ptr()
+  if has_mesh_ext {
+    mesh_q.set_pNext(q_tail)
+    q_tail = mesh_q.as_ptr()
+  }
+  if has_rq_ext {
+    rq_q.set_pNext(q_tail)
+    as_q.set_pNext(rq_q.as_ptr())
+    q_tail = as_q.as_ptr()
+  }
+  f12q.set_pNext(q_tail)
   let f2 = @vk.VkPhysicalDeviceFeatures2::new()
   f2.set_pNext(f12q.as_ptr())
   (ifn.vkGetPhysicalDeviceFeatures2)(chosen_phys, f2)
@@ -719,11 +754,25 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   let has_maint4 = f13q.get_maintenance4() != (0 : UInt32)
   let core_feat = f2.get_features()
   let supports_anisotropy = core_feat.get_samplerAnisotropy() != (0 : UInt32)
-  let supports_indirect_draw = core_feat.get_multiDrawIndirect() != (0 : UInt32)
+  let has_draw_indirect_count = f12q.get_drawIndirectCount() != (0 : UInt32)
+  let supports_indirect_draw = core_feat.get_multiDrawIndirect() != (0 : UInt32) &&
+    has_draw_indirect_count
   let supports_bindless = f12q.get_descriptorBindingSampledImageUpdateAfterBind() !=
     (0 : UInt32) &&
-    f12q.get_runtimeDescriptorArray() != (0 : UInt32)
+    f12q.get_descriptorBindingPartiallyBound() != (0 : UInt32) &&
+    f12q.get_runtimeDescriptorArray() != (0 : UInt32) &&
+    f12q.get_shaderSampledImageArrayNonUniformIndexing() != (0 : UInt32)
+  let supports_mesh_shader = has_mesh_ext &&
+    mesh_q.get_meshShader() != (0 : UInt32) &&
+    mesh_q.get_taskShader() != (0 : UInt32)
+  let supports_ray_query = has_rq_ext &&
+    f12q.get_bufferDeviceAddress() != (0 : UInt32) &&
+    as_q.get_accelerationStructure() != (0 : UInt32) &&
+    rq_q.get_rayQuery() != (0 : UInt32)
   f2.free()
+  mesh_q.free()
+  rq_q.free()
+  as_q.free()
   f12q.free()
   f13q.free()
   if has_dyn == (0 : UInt32) || has_sync2 == (0 : UInt32) {
@@ -736,14 +785,21 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     )
   }
 
-  let supports_mesh_shader = has_device_extension(
-    ifn, chosen_phys, "VK_EXT_mesh_shader",
+  let fmt_props = @vk.VkFormatProperties::new()
+  (ifn.vkGetPhysicalDeviceFormatProperties)(
+    chosen_phys,
+    @vk.VK_FORMAT_D24_UNORM_S8_UINT,
+    fmt_props,
   )
-  let supports_ray_query = has_device_extension(
-      ifn, chosen_phys, "VK_KHR_ray_query",
-    ) &&
-    has_device_extension(ifn, chosen_phys, "VK_KHR_acceleration_structure") &&
-    has_device_extension(ifn, chosen_phys, "VK_KHR_deferred_host_operations")
+  let depth_stencil_vk_format = if (
+      fmt_props.get_optimalTilingFeatures() &
+      @vk.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+    ) != (0 : UInt32) {
+    @vk.VK_FORMAT_D24_UNORM_S8_UINT
+  } else {
+    @vk.VK_FORMAT_D32_SFLOAT_S8_UINT
+  }
+  fmt_props.free()
 
   let caps : DeviceCapabilities = {
     device_name,
@@ -775,7 +831,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   if supports_ray_query {
     f12.set_bufferDeviceAddress((1 : UInt32))
   }
-  if supports_indirect_draw {
+  if has_draw_indirect_count {
     f12.set_drawIndirectCount((1 : UInt32))
   }
   let as_feat = @vk.VkPhysicalDeviceAccelerationStructureFeaturesKHR::new()
@@ -805,7 +861,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     mesh_feat.set_pNext(pnext_tail)
     pnext_tail = mesh_feat.as_ptr()
   }
-  if supports_bindless || supports_ray_query || supports_indirect_draw {
+  if supports_bindless || supports_ray_query || has_draw_indirect_count {
     f12.set_pNext(pnext_tail)
     pnext_tail = f12.as_ptr()
   }
@@ -814,10 +870,13 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   if supports_anisotropy {
     enabled_feats.set_samplerAnisotropy((1 : UInt32))
   }
-  if supports_indirect_draw {
+  if core_feat.get_multiDrawIndirect() != (0 : UInt32) {
     enabled_feats.set_multiDrawIndirect((1 : UInt32))
   }
   let dev_exts : Array[String] = []
+  if has_device_extension(ifn, chosen_phys, "VK_KHR_portability_subset") {
+    dev_exts.push("VK_KHR_portability_subset")
+  }
   if !desc.headless {
     dev_exts.push("VK_KHR_swapchain")
   }
@@ -917,6 +976,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     completed_gen: (0 : UInt64),
     active_recordings: 0,
     pending_deletes: [],
+    depth_stencil_vk_format,
   }
 }
 
@@ -1382,7 +1442,7 @@ fn vk_texture_create_layered(
     d,
     width,
     height,
-    vk_texture_format(format),
+    vk_texture_format_for(d, format),
     @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT |
     @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
     @vk.VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -1577,7 +1637,7 @@ fn vk_texture_create_mipmapped(
     d,
     width,
     height,
-    vk_texture_format(format),
+    vk_texture_format_for(d, format),
     @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT |
     @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
     @vk.VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -1722,7 +1782,7 @@ fn vk_texture_create_storage(
     d,
     width,
     height,
-    vk_texture_format(format),
+    vk_texture_format_for(d, format),
     @vk.VK_IMAGE_USAGE_STORAGE_BIT |
     @vk.VK_IMAGE_USAGE_SAMPLED_BIT |
     @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
@@ -3104,11 +3164,11 @@ fn vk_graphics_pipeline_create(
     FixedArray::make(0, (0 : UInt32))
   } else if desc.color_formats.length() > 0 {
     FixedArray::makei(desc.color_formats.length(), fn(i) {
-      vk_texture_format(desc.color_formats[i])
+      vk_texture_format_for(d, desc.color_formats[i])
     })
   } else {
     let single = match desc.color_format {
-      Some(f) => vk_texture_format(f)
+      Some(f) => vk_texture_format_for(d, f)
       None => default_color_vk_fmt
     }
     FixedArray::make(1, single)
@@ -3287,7 +3347,7 @@ fn vk_graphics_pipeline_create(
   }
   match desc.depth_format {
     Some(f) => {
-      let vk_df = vk_texture_format(f)
+      let vk_df = vk_texture_format_for(d, f)
       prci.set_depthAttachmentFormat(vk_df)
       if f == TextureFormat::Depth24Stencil8 {
         prci.set_stencilAttachmentFormat(vk_df)
@@ -4605,11 +4665,11 @@ fn vk_mesh_pipeline_create(
 
   let color_vk_fmts : FixedArray[UInt32] = if desc.color_formats.length() > 0 {
     FixedArray::makei(desc.color_formats.length(), fn(i) {
-      vk_texture_format(desc.color_formats[i])
+      vk_texture_format_for(d, desc.color_formats[i])
     })
   } else {
     let single = match desc.color_format {
-      Some(f) => vk_texture_format(f)
+      Some(f) => vk_texture_format_for(d, f)
       None => default_color_vk_fmt
     }
     FixedArray::make(1, single)
@@ -4730,7 +4790,7 @@ fn vk_mesh_pipeline_create(
   prci.set_pColorAttachmentFormats(color_vk_fmts)
   match desc.depth_format {
     Some(f) => {
-      let vk_df = vk_texture_format(f)
+      let vk_df = vk_texture_format_for(d, f)
       prci.set_depthAttachmentFormat(vk_df)
       if f == TextureFormat::Depth24Stencil8 {
         prci.set_stencilAttachmentFormat(vk_df)
@@ -4958,7 +5018,7 @@ fn vk_texture_create_render_target(
     d,
     width,
     height,
-    vk_texture_format(format),
+    vk_texture_format_for(d, format),
     usage,
     @vk.VK_IMAGE_ASPECT_COLOR_BIT,
     samples,
@@ -4980,7 +5040,7 @@ fn vk_texture_create_depth_target(
     d,
     width,
     height,
-    vk_texture_format(format),
+    vk_texture_format_for(d, format),
     usage,
     depth_barrier_aspect(format),
     samples,

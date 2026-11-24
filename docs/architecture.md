@@ -8,11 +8,11 @@ Tycho is a pure-MoonBit native Vulkan & RHI graphics stack designed so downstrea
 codegen/ (laplaceliu/tycho_codegen, private)
    └── generates 6 files in vulkan/ from codegen/registry/vk.xml
 
-vulkan/  (laplaceliu/tycho_vulkan)     ── links -lvulkan (vendored 1.4.363 headers)
-window/  (laplaceliu/tycho_window)     ── links -lX11 -lvulkan (Xlib + runtime-loaded Wayland WSI)
+vulkan/  (laplaceliu/tycho_vulkan)     ── dynamic Vulkan loader + vendored 1.4.363 headers (zero link flags)
+window/  (laplaceliu/tycho_window)     ── Linux (Wayland/X11), Windows (Win32), macOS (Cocoa+Metal) via dlopen/LoadLibraryA
 shader/  (laplaceliu/tycho_shader)     ── GLSL/Slang compile, SPIR-V reflect, image I/O
 
-tycho/   (laplaceliu/tycho)            ── imports vulkan, window, shader; links -lvulkan -lX11
+tycho/   (laplaceliu/tycho)            ── imports vulkan, window, shader; zero link flags
 examples/(laplaceliu/tycho_vulkan_examples) ── 52 pure-MoonBit examples & suites
 ```
 
@@ -54,4 +54,4 @@ examples/(laplaceliu/tycho_vulkan_examples) ── 52 pure-MoonBit examples & su
 ## Verification Architecture
 
 - **Headless-by-default**: Rendering examples default to `DeviceDesc::new(..., headless=true)` and execute offscreen passes with pixel/buffer assertions, optional `--window` interactive rendering (`want_window()`), and `--screenshot <path>` PNG capture (`screenshot_path()`).
-- **Dual-driver CI matrix**: `tools/run-all.sh` runs all examples on both Mesa `lavapipe` and native `nvidia` hardware, failing on non-zero exit codes, `FAIL` markers, validation errors, or vacuous `0`-command passes (`SKIP` is reserved for drivers missing optional hardware extensions).
+- **Cross-platform CI matrix**: `.github/workflows/ci.yml` runs on **Linux** (`ubuntu-latest`, Mesa `lavapipe` + `tools/run-all.sh`), **Windows** (`windows-latest`, MSVC + Mesa `lavapipe` via `tools/run-ci-suite.py`), and **macOS** (`macos-15`, MoltenVK via `tools/run-ci-suite.py`). Locally, `tools/run-all.sh both` verifies both Mesa `lavapipe` and native `nvidia` hardware, failing on non-zero exit codes, `FAIL` markers, validation errors, or vacuous `0`-command passes (`SKIP` is reserved for drivers missing optional hardware extensions).

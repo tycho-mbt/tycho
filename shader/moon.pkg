@@ -6,9 +6,4 @@ import {
 
 options(
   "native-stub": [ "shader_stub.c" ],
-  "link": {
-    "native": {
-      "cc": "cc",
-    },
-  },
 )

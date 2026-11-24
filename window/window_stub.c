@@ -1,14 +1,22 @@
 // Native window shim for laplaceliu/tycho_window.
-// On Linux, backed directly by Xlib (libX11) — zero GLFW dependency.
+// On Linux, backed by Wayland (window_wayland.c) and X11 (dlopen libX11.so.6);
+// on Windows by window_win32.c; on macOS by window_macos.c — zero GLFW and
+// zero OS link flags required.
 #include "moonbit.h"
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #if defined(__linux__)
+#include <dlfcn.h>
+#if !defined(__has_include) || __has_include(<X11/Xlib.h>)
+#define TYCHO_HAVE_XLIB 1
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <string.h>
+#else
+#define TYCHO_HAVE_XLIB 0
+#endif
 
 #define TYCHO_MAX_WINDOWS 16
 #define TYCHO_MAX_EVENTS 128
@@ -19,6 +27,82 @@ typedef struct TychoEvent {
   int32_t b;
   int32_t c;
 } TychoEvent;
+
+#if TYCHO_HAVE_XLIB
+static struct {
+  void *lib;
+  int tried;
+  Display *(*XOpenDisplay)(const char *);
+  Window (*XCreateSimpleWindow)(Display *, Window, int, int, unsigned int,
+                                unsigned int, unsigned int, unsigned long,
+                                unsigned long);
+  int (*XStoreName)(Display *, Window, const char *);
+  Atom (*XInternAtom)(Display *, const char *, Bool);
+  Status (*XSetWMProtocols)(Display *, Window, Atom *, int);
+  int (*XSelectInput)(Display *, Window, long);
+  int (*XMapWindow)(Display *, Window);
+  int (*XSync)(Display *, Bool);
+  int (*XFlush)(Display *);
+  int (*XPending)(Display *);
+  int (*XNextEvent)(Display *, XEvent *);
+  KeySym (*XLookupKeysym)(XKeyEvent *, int);
+  int (*XWarpPointer)(Display *, Window, Window, int, int, unsigned int,
+                      unsigned int, int, int);
+  Pixmap (*XCreateBitmapFromData)(Display *, Drawable, const char *,
+                                  unsigned int, unsigned int);
+  Cursor (*XCreatePixmapCursor)(Display *, Pixmap, Pixmap, XColor *, XColor *,
+                                unsigned int, unsigned int);
+  int (*XFreePixmap)(Display *, Pixmap);
+  int (*XFreeCursor)(Display *, Cursor);
+  int (*XDefineCursor)(Display *, Window, Cursor);
+  int (*XUndefineCursor)(Display *, Window);
+  int (*XGrabPointer)(Display *, Window, Bool, unsigned int, int, int, Window,
+                      Cursor, Time);
+  int (*XUngrabPointer)(Display *, Time);
+  int (*XDestroyWindow)(Display *, Window);
+  Status (*XSendEvent)(Display *, Window, Bool, long, XEvent *);
+  char *(*XResourceManagerString)(Display *);
+} X11;
+
+static int tycho_x11_load(void) {
+  if (X11.tried) return X11.lib != NULL;
+  X11.tried = 1;
+  void *lib = dlopen("libX11.so.6", RTLD_NOW | RTLD_LOCAL);
+  if (!lib) lib = dlopen("libX11.so", RTLD_NOW | RTLD_LOCAL);
+  if (!lib) return 0;
+#define XLOAD(sym) *(void **)&X11.sym = dlsym(lib, #sym)
+  XLOAD(XOpenDisplay);
+  XLOAD(XCreateSimpleWindow);
+  XLOAD(XStoreName);
+  XLOAD(XInternAtom);
+  XLOAD(XSetWMProtocols);
+  XLOAD(XSelectInput);
+  XLOAD(XMapWindow);
+  XLOAD(XSync);
+  XLOAD(XFlush);
+  XLOAD(XPending);
+  XLOAD(XNextEvent);
+  XLOAD(XLookupKeysym);
+  XLOAD(XWarpPointer);
+  XLOAD(XCreateBitmapFromData);
+  XLOAD(XCreatePixmapCursor);
+  XLOAD(XFreePixmap);
+  XLOAD(XFreeCursor);
+  XLOAD(XDefineCursor);
+  XLOAD(XUndefineCursor);
+  XLOAD(XGrabPointer);
+  XLOAD(XUngrabPointer);
+  XLOAD(XDestroyWindow);
+  XLOAD(XSendEvent);
+  XLOAD(XResourceManagerString);
+#undef XLOAD
+  if (!X11.XOpenDisplay || !X11.XCreateSimpleWindow || !X11.XPending || !X11.XNextEvent) {
+    dlclose(lib);
+    return 0;
+  }
+  X11.lib = lib;
+  return 1;
+}
 
 typedef struct TychoWindow {
   Display *dpy;
@@ -44,6 +128,7 @@ typedef struct TychoWindow {
 
 static Display *g_dpy = NULL;
 static TychoWindow *g_windows[TYCHO_MAX_WINDOWS] = {0};
+#endif
 static double g_start_time = 0.0;
 static int g_init_done = 0;
 static int g_use_wayland = 0;
@@ -74,6 +159,11 @@ static double now_sec(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+}
+
+#if TYCHO_HAVE_XLIB
+static Display *open_x11_display(void) {
+  return tycho_x11_load() ? X11.XOpenDisplay(NULL) : NULL;
 }
 
 static void register_window(TychoWindow *tw) {
@@ -116,6 +206,7 @@ static void push_event(TychoWindow *tw, int32_t kind, int32_t a, int32_t b, int3
   tw->ev_tail = (tw->ev_tail + 1) % TYCHO_MAX_EVENTS;
   tw->ev_count++;
 }
+#endif
 
 MOONBIT_FFI_EXPORT int32_t tycho_win_init(void) {
   if (!g_init_done) {
@@ -129,24 +220,32 @@ MOONBIT_FFI_EXPORT int32_t tycho_win_init(void) {
       }
       return 0;
     }
+#if TYCHO_HAVE_XLIB
     if (pref && strcmp(pref, "x11") == 0) {
-      g_dpy = XOpenDisplay(NULL);
+      g_dpy = open_x11_display();
       return g_dpy ? 1 : 0;
     }
+#endif
     const char *wl = getenv("WAYLAND_DISPLAY");
     if (wl && wl[0] != '\0' && tycho_wl_connect()) {
       g_use_wayland = 1;
       return 1;
     }
-    g_dpy = XOpenDisplay(NULL);
+#if TYCHO_HAVE_XLIB
+    g_dpy = open_x11_display();
     if (g_dpy) return 1;
+#endif
     if (tycho_wl_connect()) {
       g_use_wayland = 1;
       return 1;
     }
     return 0;
   }
+#if TYCHO_HAVE_XLIB
   return (g_use_wayland || g_dpy) ? 1 : 0;
+#else
+  return g_use_wayland ? 1 : 0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_win_is_wayland(void) {
@@ -166,26 +265,27 @@ MOONBIT_FFI_EXPORT uint64_t tycho_win_create(int32_t w, int32_t h, uint64_t titl
   if (g_use_wayland) {
     return tycho_wl_create(w, h, title);
   }
+#if TYCHO_HAVE_XLIB
   if (!g_dpy) {
-    g_dpy = XOpenDisplay(NULL);
+    g_dpy = open_x11_display();
   }
   if (!g_dpy) return 0;
   int screen = DefaultScreen(g_dpy);
   Window root = RootWindow(g_dpy, screen);
-  Window win = XCreateSimpleWindow(
+  Window win = X11.XCreateSimpleWindow(
       g_dpy, root, 0, 0, (unsigned int)w, (unsigned int)h, 0,
       BlackPixel(g_dpy, screen), BlackPixel(g_dpy, screen));
   if (title) {
-    XStoreName(g_dpy, win, title);
+    X11.XStoreName(g_dpy, win, title);
   }
-  Atom wm_delete = XInternAtom(g_dpy, "WM_DELETE_WINDOW", False);
-  XSetWMProtocols(g_dpy, win, &wm_delete, 1);
-  XSelectInput(g_dpy, win,
-               StructureNotifyMask | KeyPressMask | KeyReleaseMask |
-                   ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
-                   FocusChangeMask | ExposureMask);
-  XMapWindow(g_dpy, win);
-  XSync(g_dpy, False);
+  Atom wm_delete = X11.XInternAtom(g_dpy, "WM_DELETE_WINDOW", False);
+  X11.XSetWMProtocols(g_dpy, win, &wm_delete, 1);
+  X11.XSelectInput(g_dpy, win,
+                   StructureNotifyMask | KeyPressMask | KeyReleaseMask |
+                       ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
+                       FocusChangeMask | ExposureMask);
+  X11.XMapWindow(g_dpy, win);
+  X11.XSync(g_dpy, False);
 
   TychoWindow *tw = (TychoWindow *)calloc(1, sizeof(TychoWindow));
   tw->dpy = g_dpy;
@@ -197,94 +297,139 @@ MOONBIT_FFI_EXPORT uint64_t tycho_win_create(int32_t w, int32_t h, uint64_t titl
   tw->focused = 1;
   register_window(tw);
   return (uint64_t)(uintptr_t)tw;
+#else
+  (void)w; (void)h;
+  return 0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT void tycho_win_destroy(uint64_t p) {
   if (g_use_wayland) { tycho_wl_destroy(p); return; }
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   if (!tw) return;
   unregister_window(tw);
   if (tw->dpy) {
     if (tw->cursor_mode == 2) {
-      XUngrabPointer(tw->dpy, CurrentTime);
+      X11.XUngrabPointer(tw->dpy, CurrentTime);
     }
     if (tw->hidden_cursor) {
-      XFreeCursor(tw->dpy, tw->hidden_cursor);
+      X11.XFreeCursor(tw->dpy, tw->hidden_cursor);
       tw->hidden_cursor = 0;
     }
     if (tw->win) {
-      XSync(tw->dpy, False);
-      XDestroyWindow(tw->dpy, tw->win);
-      XFlush(tw->dpy);
+      X11.XSync(tw->dpy, False);
+      X11.XDestroyWindow(tw->dpy, tw->win);
+      X11.XFlush(tw->dpy);
     }
   }
   free(tw);
+#else
+  (void)p;
+#endif
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_win_should_close(uint64_t p) {
   if (g_use_wayland) return tycho_wl_should_close(p);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   return tw ? tw->should_close : 1;
+#else
+  (void)p; return 1;
+#endif
 }
 
 MOONBIT_FFI_EXPORT void tycho_win_set_should_close(uint64_t p, int32_t v) {
   if (g_use_wayland) { tycho_wl_set_should_close(p, v); return; }
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   if (tw) tw->should_close = v ? 1 : 0;
+#else
+  (void)p; (void)v;
+#endif
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_win_width(uint64_t p) {
   if (g_use_wayland) return tycho_wl_width(p);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   return tw ? tw->width : 0;
+#else
+  (void)p; return 0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_win_height(uint64_t p) {
   if (g_use_wayland) return tycho_wl_height(p);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   return tw ? tw->height : 0;
+#else
+  (void)p; return 0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_win_take_resized(uint64_t p) {
   if (g_use_wayland) return tycho_wl_take_resized(p);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   if (!tw) return 0;
   int32_t r = tw->resized;
   tw->resized = 0;
   return r;
+#else
+  (void)p; return 0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT void tycho_win_set_title(uint64_t p, uint64_t title_ptr) {
   const char *title = (const char *)(uintptr_t)title_ptr;
   if (g_use_wayland) { tycho_wl_set_title(p, title); return; }
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   if (tw && tw->dpy && tw->win && title) {
-    XStoreName(tw->dpy, tw->win, title);
-    XFlush(tw->dpy);
+    X11.XStoreName(tw->dpy, tw->win, title);
+    X11.XFlush(tw->dpy);
   }
+#else
+  (void)p; (void)title;
+#endif
 }
 
 MOONBIT_FFI_EXPORT double tycho_win_mouse_x(uint64_t p) {
   if (g_use_wayland) return tycho_wl_mouse_x(p);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   return tw ? tw->mouse_x : 0.0;
+#else
+  (void)p; return 0.0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT double tycho_win_mouse_y(uint64_t p) {
   if (g_use_wayland) return tycho_wl_mouse_y(p);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   return tw ? tw->mouse_y : 0.0;
+#else
+  (void)p; return 0.0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_win_mouse_button(uint64_t p, int32_t btn) {
   if (g_use_wayland) return tycho_wl_mouse_button(p, btn);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   if (!tw || btn < 1 || btn >= 32) return 0;
   return (tw->mouse_buttons & (1u << (uint32_t)btn)) ? 1 : 0;
+#else
+  (void)p; (void)btn; return 0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_win_next_event(uint64_t p, int32_t *out4) {
   if (g_use_wayland) return tycho_wl_next_event(p, out4);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   if (!tw || tw->ev_count <= 0) return 0;
   TychoEvent ev = tw->events[tw->ev_head];
@@ -295,14 +440,18 @@ MOONBIT_FFI_EXPORT int32_t tycho_win_next_event(uint64_t p, int32_t *out4) {
   out4[2] = ev.b;
   out4[3] = ev.c;
   return 1;
+#else
+  (void)p; (void)out4; return 0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT void tycho_win_poll(void) {
   if (g_use_wayland) { tycho_wl_poll(); return; }
+#if TYCHO_HAVE_XLIB
   if (!g_dpy) return;
-  while (XPending(g_dpy) > 0) {
+  while (X11.XPending(g_dpy) > 0) {
     XEvent ev;
-    XNextEvent(g_dpy, &ev);
+    X11.XNextEvent(g_dpy, &ev);
     TychoWindow *tw = find_window(ev.xany.window);
     if (!tw) continue;
     switch (ev.type) {
@@ -328,12 +477,12 @@ MOONBIT_FFI_EXPORT void tycho_win_poll(void) {
         }
         break;
       case KeyPress: {
-        KeySym ks = XLookupKeysym(&ev.xkey, 0);
+        KeySym ks = X11.XLookupKeysym(&ev.xkey, 0);
         push_event(tw, 3, (int32_t)ks, (int32_t)ev.xkey.state, 0);
         break;
       }
       case KeyRelease: {
-        KeySym ks = XLookupKeysym(&ev.xkey, 0);
+        KeySym ks = X11.XLookupKeysym(&ev.xkey, 0);
         push_event(tw, 4, (int32_t)ks, (int32_t)ev.xkey.state, 0);
         break;
       }
@@ -352,8 +501,8 @@ MOONBIT_FFI_EXPORT void tycho_win_poll(void) {
           push_event(tw, 5, (int32_t)tw->mouse_x, (int32_t)tw->mouse_y, 0);
           if (dx != 0 || dy != 0) {
             tw->ignore_warp = 1;
-            XWarpPointer(tw->dpy, None, tw->win, 0, 0, 0, 0, cx, cy);
-            XFlush(tw->dpy);
+            X11.XWarpPointer(tw->dpy, None, tw->win, 0, 0, 0, 0, cx, cy);
+            X11.XFlush(tw->dpy);
           }
         } else {
           tw->mouse_x = (double)ev.xmotion.x;
@@ -393,6 +542,7 @@ MOONBIT_FFI_EXPORT void tycho_win_poll(void) {
         break;
     }
   }
+#endif
 }
 
 MOONBIT_FFI_EXPORT double tycho_win_time(void) {
@@ -401,61 +551,76 @@ MOONBIT_FFI_EXPORT double tycho_win_time(void) {
 
 MOONBIT_FFI_EXPORT uint64_t tycho_win_display(uint64_t p) {
   if (g_use_wayland) return tycho_wl_display();
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   return tw ? (uint64_t)(uintptr_t)tw->dpy : 0;
+#else
+  (void)p; return 0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT uint64_t tycho_win_handle(uint64_t p) {
   if (g_use_wayland) return tycho_wl_surface(p);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   return tw ? (uint64_t)tw->win : 0;
+#else
+  (void)p; return 0;
+#endif
 }
 
+#if TYCHO_HAVE_XLIB
 static Cursor ensure_hidden_cursor(TychoWindow *tw) {
   if (!tw->hidden_cursor && tw->dpy && tw->win) {
     char blank[1] = {0};
     XColor dummy;
     memset(&dummy, 0, sizeof(dummy));
-    Pixmap pm = XCreateBitmapFromData(tw->dpy, tw->win, blank, 1, 1);
-    tw->hidden_cursor = XCreatePixmapCursor(tw->dpy, pm, pm, &dummy, &dummy, 0, 0);
-    XFreePixmap(tw->dpy, pm);
+    Pixmap pm = X11.XCreateBitmapFromData(tw->dpy, tw->win, blank, 1, 1);
+    tw->hidden_cursor = X11.XCreatePixmapCursor(tw->dpy, pm, pm, &dummy, &dummy, 0, 0);
+    X11.XFreePixmap(tw->dpy, pm);
   }
   return tw->hidden_cursor;
 }
+#endif
 
 MOONBIT_FFI_EXPORT void tycho_win_set_cursor_mode(uint64_t p, int32_t mode) {
   if (g_use_wayland) { tycho_wl_set_cursor_mode(p, mode); return; }
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   if (!tw || !tw->dpy || !tw->win) return;
   if (tw->cursor_mode == 2 && mode != 2) {
-    XUngrabPointer(tw->dpy, CurrentTime);
+    X11.XUngrabPointer(tw->dpy, CurrentTime);
   }
   tw->cursor_mode = mode;
   if (mode == 0) {
-    XUndefineCursor(tw->dpy, tw->win);
+    X11.XUndefineCursor(tw->dpy, tw->win);
   } else {
     Cursor c = ensure_hidden_cursor(tw);
-    if (c) XDefineCursor(tw->dpy, tw->win, c);
+    if (c) X11.XDefineCursor(tw->dpy, tw->win, c);
     if (mode == 2) {
-      XGrabPointer(tw->dpy, tw->win, True,
-                   ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
-                   GrabModeAsync, GrabModeAsync, tw->win, None, CurrentTime);
+      X11.XGrabPointer(tw->dpy, tw->win, True,
+                       ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
+                       GrabModeAsync, GrabModeAsync, tw->win, None, CurrentTime);
       tw->ignore_warp = 1;
-      XWarpPointer(tw->dpy, None, tw->win, 0, 0, 0, 0, tw->width / 2, tw->height / 2);
+      X11.XWarpPointer(tw->dpy, None, tw->win, 0, 0, 0, 0, tw->width / 2, tw->height / 2);
     }
   }
-  XFlush(tw->dpy);
+  X11.XFlush(tw->dpy);
+#else
+  (void)p; (void)mode;
+#endif
 }
 
 MOONBIT_FFI_EXPORT void tycho_win_set_fullscreen(uint64_t p, int32_t fs) {
   if (g_use_wayland) { tycho_wl_set_fullscreen(p, fs); return; }
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   if (!tw || !tw->dpy || !tw->win) return;
   int want = fs ? 1 : 0;
   if (tw->fullscreen == want) return;
   tw->fullscreen = want;
-  Atom wm_state = XInternAtom(tw->dpy, "_NET_WM_STATE", False);
-  Atom wm_fs = XInternAtom(tw->dpy, "_NET_WM_STATE_FULLSCREEN", False);
+  Atom wm_state = X11.XInternAtom(tw->dpy, "_NET_WM_STATE", False);
+  Atom wm_fs = X11.XInternAtom(tw->dpy, "_NET_WM_STATE_FULLSCREEN", False);
   if (wm_state != None && wm_fs != None) {
     XEvent xev;
     memset(&xev, 0, sizeof(xev));
@@ -467,23 +632,31 @@ MOONBIT_FFI_EXPORT void tycho_win_set_fullscreen(uint64_t p, int32_t fs) {
     xev.xclient.data.l[1] = (long)wm_fs;
     xev.xclient.data.l[2] = 0;
     xev.xclient.data.l[3] = 1;
-    XSendEvent(tw->dpy, DefaultRootWindow(tw->dpy), False,
-               SubstructureRedirectMask | SubstructureNotifyMask, &xev);
-    XFlush(tw->dpy);
+    X11.XSendEvent(tw->dpy, DefaultRootWindow(tw->dpy), False,
+                   SubstructureRedirectMask | SubstructureNotifyMask, &xev);
+    X11.XFlush(tw->dpy);
   }
+#else
+  (void)p; (void)fs;
+#endif
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_win_is_fullscreen(uint64_t p) {
   if (g_use_wayland) return tycho_wl_is_fullscreen(p);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   return tw ? tw->fullscreen : 0;
+#else
+  (void)p; return 0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT double tycho_win_content_scale(uint64_t p) {
   if (g_use_wayland) return tycho_wl_content_scale(p);
+#if TYCHO_HAVE_XLIB
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   if (!tw || !tw->dpy) return 1.0;
-  const char *xrm = XResourceManagerString(tw->dpy);
+  const char *xrm = X11.XResourceManagerString(tw->dpy);
   if (xrm) {
     const char *hit = strstr(xrm, "Xft.dpi:");
     if (hit) {
@@ -491,9 +664,12 @@ MOONBIT_FFI_EXPORT double tycho_win_content_scale(uint64_t p) {
       if (dpi > 0.0) return dpi / 96.0;
     }
   }
+#else
+  (void)p;
+#endif
   return 1.0;
 }
-#else
+#elif !defined(_WIN32) && !defined(__APPLE__)
 MOONBIT_FFI_EXPORT int32_t tycho_win_init(void) { return 0; }
 MOONBIT_FFI_EXPORT void tycho_win_terminate(void) {}
 MOONBIT_FFI_EXPORT uint64_t tycho_win_create(int32_t w, int32_t h, uint64_t t) {
@@ -519,9 +695,84 @@ MOONBIT_FFI_EXPORT void tycho_win_set_fullscreen(uint64_t p, int32_t f) { (void)
 MOONBIT_FFI_EXPORT int32_t tycho_win_is_fullscreen(uint64_t p) { (void)p; return 0; }
 MOONBIT_FFI_EXPORT double tycho_win_content_scale(uint64_t p) { (void)p; return 1.0; }
 MOONBIT_FFI_EXPORT int32_t tycho_win_is_wayland(void) { return 0; }
-MOONBIT_FFI_EXPORT uint64_t tycho_wl_surface_ci_new(uint64_t d, uint64_t s) { (void)d; (void)s; return 0; }
-MOONBIT_FFI_EXPORT void tycho_wl_surface_ci_free(uint64_t p) { (void)p; }
 #endif
+
+// ABI-matched WSI Vk*SurfaceCreateInfo* constructors (compile cleanly on every
+// OS regardless of which platform headers vulkan/structs_stub.c enabled).
+struct TychoVkXlibSurfaceCreateInfoKHR {
+  int32_t sType;
+  const void *pNext;
+  uint32_t flags;
+  void *dpy;
+  unsigned long window;
+};
+struct TychoVkWaylandSurfaceCreateInfoKHR {
+  int32_t sType;
+  const void *pNext;
+  uint32_t flags;
+  void *display;
+  void *surface;
+};
+struct TychoVkWin32SurfaceCreateInfoKHR {
+  int32_t sType;
+  const void *pNext;
+  uint32_t flags;
+  void *hinstance;
+  void *hwnd;
+};
+struct TychoVkMetalSurfaceCreateInfoEXT {
+  int32_t sType;
+  const void *pNext;
+  uint32_t flags;
+  const void *pLayer;
+};
+
+MOONBIT_FFI_EXPORT uint64_t tycho_xlib_surface_ci_new(uint64_t dpy, uint64_t win) {
+  struct TychoVkXlibSurfaceCreateInfoKHR *ci =
+      (struct TychoVkXlibSurfaceCreateInfoKHR *)calloc(1, sizeof(*ci));
+  ci->sType = 1000004000; // VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR
+  ci->dpy = (void *)(uintptr_t)dpy;
+  ci->window = (unsigned long)win;
+  return (uint64_t)(uintptr_t)ci;
+}
+MOONBIT_FFI_EXPORT void tycho_xlib_surface_ci_free(uint64_t p) {
+  free((void *)(uintptr_t)p);
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_wl_surface_ci_new(uint64_t dpy, uint64_t surf) {
+  struct TychoVkWaylandSurfaceCreateInfoKHR *ci =
+      (struct TychoVkWaylandSurfaceCreateInfoKHR *)calloc(1, sizeof(*ci));
+  ci->sType = 1000006000; // VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR
+  ci->display = (void *)(uintptr_t)dpy;
+  ci->surface = (void *)(uintptr_t)surf;
+  return (uint64_t)(uintptr_t)ci;
+}
+MOONBIT_FFI_EXPORT void tycho_wl_surface_ci_free(uint64_t p) {
+  free((void *)(uintptr_t)p);
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_win32_surface_ci_new(uint64_t hinst, uint64_t hwnd) {
+  struct TychoVkWin32SurfaceCreateInfoKHR *ci =
+      (struct TychoVkWin32SurfaceCreateInfoKHR *)calloc(1, sizeof(*ci));
+  ci->sType = 1000009000; // VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR
+  ci->hinstance = (void *)(uintptr_t)hinst;
+  ci->hwnd = (void *)(uintptr_t)hwnd;
+  return (uint64_t)(uintptr_t)ci;
+}
+MOONBIT_FFI_EXPORT void tycho_win32_surface_ci_free(uint64_t p) {
+  free((void *)(uintptr_t)p);
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_metal_surface_ci_new(uint64_t layer) {
+  struct TychoVkMetalSurfaceCreateInfoEXT *ci =
+      (struct TychoVkMetalSurfaceCreateInfoEXT *)calloc(1, sizeof(*ci));
+  ci->sType = 1000217000; // VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT
+  ci->pLayer = (const void *)(uintptr_t)layer;
+  return (uint64_t)(uintptr_t)ci;
+}
+MOONBIT_FFI_EXPORT void tycho_metal_surface_ci_free(uint64_t p) {
+  free((void *)(uintptr_t)p);
+}
 
 MOONBIT_FFI_EXPORT int tycho_window_platform(void) {
 #if defined(_WIN32)

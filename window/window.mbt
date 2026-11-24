@@ -49,9 +49,21 @@ extern "c" fn win_content_scale_ffi(win : UInt64) -> Double = "tycho_win_content
 
 extern "c" fn win_is_wayland_ffi() -> Int32 = "tycho_win_is_wayland"
 
+extern "c" fn xlib_surface_ci_new_ffi(dpy : UInt64, win : UInt64) -> UInt64 = "tycho_xlib_surface_ci_new"
+
+extern "c" fn xlib_surface_ci_free_ffi(p : UInt64) = "tycho_xlib_surface_ci_free"
+
 extern "c" fn wl_surface_ci_new_ffi(dpy : UInt64, surf : UInt64) -> UInt64 = "tycho_wl_surface_ci_new"
 
 extern "c" fn wl_surface_ci_free_ffi(p : UInt64) = "tycho_wl_surface_ci_free"
+
+extern "c" fn win32_surface_ci_new_ffi(hinst : UInt64, hwnd : UInt64) -> UInt64 = "tycho_win32_surface_ci_new"
+
+extern "c" fn win32_surface_ci_free_ffi(p : UInt64) = "tycho_win32_surface_ci_free"
+
+extern "c" fn metal_surface_ci_new_ffi(layer : UInt64) -> UInt64 = "tycho_metal_surface_ci_new"
+
+extern "c" fn metal_surface_ci_free_ffi(p : UInt64) = "tycho_metal_surface_ci_free"
 
 ///|
 pub const KEY_ESCAPE : Int = 0xff1b
@@ -400,31 +412,55 @@ pub fn is_wayland() -> Bool {
 
 ///|
 // Creates a Vulkan surface for the window using pure MoonBit @vk structs &
-// InstanceFn dispatch (VK_KHR_wayland_surface or VK_KHR_xlib_surface on Linux).
+// InstanceFn dispatch across Linux (Wayland/Xlib), Windows (Win32), and macOS (Metal).
 pub fn create_surface(inst : @vk.VkInstance, win : UInt64) -> @vk.VkSurfaceKHR {
   let ifn = @vk.InstanceFn::load(inst)
   let out = FixedArray::make(1, @vk.VkSurfaceKHR::null())
-  if win_is_wayland_ffi() != 0 {
-    let ci_ptr = wl_surface_ci_new_ffi(win_display_ffi(win), win_handle_ffi(win))
-    let ci = @vk.VkWaylandSurfaceCreateInfoKHR::from_ptr(ci_ptr)
-    let _ = (ifn.vkCreateWaylandSurfaceKHR)(
-      inst,
-      ci,
-      @vk.VkAllocationCallbacks::null(),
-      out,
-    )
-    wl_surface_ci_free_ffi(ci_ptr)
-  } else {
-    let ci = @vk.VkXlibSurfaceCreateInfoKHR::new()
-    ci.set_dpy(win_display_ffi(win))
-    ci.set_window(win_handle_ffi(win))
-    let _ = (ifn.vkCreateXlibSurfaceKHR)(
-      inst,
-      ci,
-      @vk.VkAllocationCallbacks::null(),
-      out,
-    )
-    ci.free()
+  match platform() {
+    Platform::Windows => {
+      let ci_ptr = win32_surface_ci_new_ffi(win_display_ffi(win), win_handle_ffi(win))
+      let ci = @vk.VkWin32SurfaceCreateInfoKHR::from_ptr(ci_ptr)
+      let _ = (ifn.vkCreateWin32SurfaceKHR)(
+        inst,
+        ci,
+        @vk.VkAllocationCallbacks::null(),
+        out,
+      )
+      win32_surface_ci_free_ffi(ci_ptr)
+    }
+    Platform::MacOS => {
+      let ci_ptr = metal_surface_ci_new_ffi(win_handle_ffi(win))
+      let ci = @vk.VkMetalSurfaceCreateInfoEXT::from_ptr(ci_ptr)
+      let _ = (ifn.vkCreateMetalSurfaceEXT)(
+        inst,
+        ci,
+        @vk.VkAllocationCallbacks::null(),
+        out,
+      )
+      metal_surface_ci_free_ffi(ci_ptr)
+    }
+    Platform::Linux =>
+      if win_is_wayland_ffi() != 0 {
+        let ci_ptr = wl_surface_ci_new_ffi(win_display_ffi(win), win_handle_ffi(win))
+        let ci = @vk.VkWaylandSurfaceCreateInfoKHR::from_ptr(ci_ptr)
+        let _ = (ifn.vkCreateWaylandSurfaceKHR)(
+          inst,
+          ci,
+          @vk.VkAllocationCallbacks::null(),
+          out,
+        )
+        wl_surface_ci_free_ffi(ci_ptr)
+      } else {
+        let ci_ptr = xlib_surface_ci_new_ffi(win_display_ffi(win), win_handle_ffi(win))
+        let ci = @vk.VkXlibSurfaceCreateInfoKHR::from_ptr(ci_ptr)
+        let _ = (ifn.vkCreateXlibSurfaceKHR)(
+          inst,
+          ci,
+          @vk.VkAllocationCallbacks::null(),
+          out,
+        )
+        xlib_surface_ci_free_ffi(ci_ptr)
+      }
   }
   out[0]
 }

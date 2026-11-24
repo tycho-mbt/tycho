@@ -1136,26 +1136,4 @@ double tycho_wl_content_scale(uint64_t p) {
   if (best == 0 && g_n_outputs > 0) best = g_outputs[0].scale;
   return best > 0 ? (double)best : 1.0;
 }
-
-// ABI-matched VkWaylandSurfaceCreateInfoKHR (zero <wayland-client.h> compile dep).
-struct TychoVkWaylandSurfaceCreateInfoKHR {
-  int32_t sType;
-  const void *pNext;
-  uint32_t flags;
-  void *display;
-  void *surface;
-};
-
-MOONBIT_FFI_EXPORT uint64_t tycho_wl_surface_ci_new(uint64_t dpy, uint64_t surf) {
-  struct TychoVkWaylandSurfaceCreateInfoKHR *ci =
-      (struct TychoVkWaylandSurfaceCreateInfoKHR *)calloc(1, sizeof(*ci));
-  ci->sType = 1000006000; // VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR
-  ci->display = (void *)(uintptr_t)dpy;
-  ci->surface = (void *)(uintptr_t)surf;
-  return (uint64_t)(uintptr_t)ci;
-}
-
-MOONBIT_FFI_EXPORT void tycho_wl_surface_ci_free(uint64_t p) {
-  free((void *)(uintptr_t)p);
-}
 #endif

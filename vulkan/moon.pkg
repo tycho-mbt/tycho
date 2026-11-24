@@ -6,12 +6,6 @@ import {
 
 options(
   "native-stub": [ "dispatch_stub.c", "structs_stub.c" ],
-  "link": {
-    "native": {
-      "cc": "cc",
-      "cc-link-flags": "-lvulkan",
-    },
-  },
 )
 
 warnings = "-6-1-29-55"

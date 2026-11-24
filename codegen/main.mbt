@@ -257,6 +257,9 @@ async fn main raise {
   // Platform of a type is decided by the header that declares it, not by its
   // name (e.g. VkD3D12FenceSubmitInfoKHR lives in vulkan_win32.h).
   let platforms : @hashmap.HashMap[String, String] = @hashmap.HashMap::new()
+  for tn in header_defined_types(xlib_text) {
+    platforms.set(tn, "VK_USE_PLATFORM_XLIB_KHR")
+  }
   for tn in header_defined_types(win32_text) {
     platforms.set(tn, "VK_USE_PLATFORM_WIN32_KHR")
   }

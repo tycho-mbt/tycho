@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <io.h>
 #include <direct.h>
 #include <windows.h>
@@ -17,6 +19,7 @@
 #endif
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
+#include <crt_externs.h>
 #endif
 #include "moonbit.h"
 
@@ -56,7 +59,9 @@ static void tycho_temp_path(char *out, size_t n, const char *suffix) {
   static unsigned long seq = 0;
   seq++;
   unsigned long pid = 0;
-#ifndef _WIN32
+#ifdef _WIN32
+  pid = (unsigned long)GetCurrentProcessId();
+#else
   pid = (unsigned long)getpid();
 #endif
   const char *tmp = getenv("TMPDIR");
@@ -373,9 +378,15 @@ static uint32_t *tycho_glsl_run(const char *in, uint32_t kind, uint32_t env) {
   tycho_temp_path(out, sizeof out, ".spv");
   tycho_temp_path(err, sizeof err, ".log");
   char cmd[2048];
+#ifdef _WIN32
+  snprintf(cmd, sizeof cmd,
+           "\"\"%s\" -V --target-env %s -S %s \"%s\" -o \"%s\" >\"%s\" 2>&1\"",
+           tycho_glslang(), tycho_env_flag(env), tycho_stage_flag(kind), in, out, err);
+#else
   snprintf(cmd, sizeof cmd,
            "\"%s\" -V --target-env %s -S %s \"%s\" -o \"%s\" >\"%s\" 2>&1",
            tycho_glslang(), tycho_env_flag(env), tycho_stage_flag(kind), in, out, err);
+#endif
   int rc = system(cmd);
   uint32_t *arr;
   if (rc != 0) {
@@ -442,6 +453,11 @@ static const char *tycho_slangc(void) {
   /* Search like every other input path (CWD, then upward from the executable)
      instead of only the CWD, so examples run from any directory. */
   static char local[1024];
+#ifdef _WIN32
+  if (tycho_resolve_path("third_party/slang/bin/slangc.exe", local, sizeof local) &&
+      TYCHO_EXEC_OK(local))
+    return local;
+#endif
   if (tycho_resolve_path("third_party/slang/bin/slangc", local, sizeof local) &&
       TYCHO_EXEC_OK(local))
     return local;
@@ -474,9 +490,15 @@ static uint32_t *tycho_slang_run(const char *in, const char *entry) {
   tycho_temp_path(out, sizeof out, ".spv");
   tycho_temp_path(err, sizeof err, ".log");
   char cmd[2048];
+#ifdef _WIN32
+  snprintf(cmd, sizeof cmd,
+           "\"\"%s\" \"%s\" -target spirv -entry \"%s\" -o \"%s\" 2>\"%s\"\"",
+           tycho_slangc(), in, entry, out, err);
+#else
   snprintf(cmd, sizeof cmd,
            "\"%s\" \"%s\" -target spirv -entry \"%s\" -o \"%s\" 2>\"%s\"",
            tycho_slangc(), in, entry, out, err);
+#endif
   int rc = system(cmd);
   uint32_t *arr;
   if (rc != 0) {
@@ -557,7 +579,63 @@ MOONBIT_FFI_EXPORT uint8_t *tycho_shader_read_file(
   return out;
 }
 
+static int tycho_cmdline_match_argv(int argc, char **argv, const char *flag, char *out_val, size_t out_sz) {
+  size_t flen = strlen(flag);
+  for (int i = 0; i < argc; i++) {
+    const char *arg = argv[i];
+    if (!arg) continue;
+    if (strcmp(arg, flag) == 0) {
+      if (out_val && out_sz > 0) {
+        if (i + 1 < argc && argv[i + 1]) {
+          snprintf(out_val, out_sz, "%s", argv[i + 1]);
+        } else {
+          out_val[0] = '\0';
+        }
+      }
+      return 1;
+    }
+    if (out_val && out_sz > 0 && strncmp(arg, flag, flen) == 0 && arg[flen] == '=') {
+      snprintf(out_val, out_sz, "%s", arg + flen + 1);
+      return 1;
+    }
+  }
+  return 0;
+}
+
 static int tycho_cmdline_match(const char *flag, char *out_val, size_t out_sz) {
+#if defined(_WIN32)
+  const char *cmd = GetCommandLineA();
+  if (!cmd) return 0;
+  char storage[4096];
+  char *argv[256];
+  int argc = 0;
+  size_t si = 0;
+  const char *p = cmd;
+  while (*p && argc < 256) {
+    while (*p == ' ' || *p == '\t') p++;
+    if (!*p) break;
+    argv[argc++] = storage + si;
+    int in_q = 0;
+    while (*p && (in_q || (*p != ' ' && *p != '\t'))) {
+      if (*p == '"') {
+        in_q = !in_q;
+        p++;
+        continue;
+      }
+      if (si + 1 < sizeof(storage)) storage[si++] = *p;
+      p++;
+    }
+    if (si < sizeof(storage)) storage[si++] = '\0';
+    else storage[sizeof(storage) - 1] = '\0';
+  }
+  return tycho_cmdline_match_argv(argc, argv, flag, out_val, out_sz);
+#elif defined(__APPLE__)
+  (void)tycho_cmdline_match_argv;
+  int argc = *_NSGetArgc();
+  char **argv = *_NSGetArgv();
+  return tycho_cmdline_match_argv(argc, argv, flag, out_val, out_sz);
+#else
+  (void)tycho_cmdline_match_argv;
   FILE *f = fopen("/proc/self/cmdline", "rb");
   if (!f) return 0;
   char buf[4096];
@@ -587,6 +665,7 @@ static int tycho_cmdline_match(const char *flag, char *out_val, size_t out_sz) {
     i += alen + 1;
   }
   return 0;
+#endif
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_shader_want_window(void) {

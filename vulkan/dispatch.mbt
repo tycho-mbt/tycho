@@ -1,12 +1,12 @@
 // Generated three-layer dispatch (ash-style). Entry = global linked symbols;
 // Instance/Device = FuncRef tables loaded via per-command C wrappers.
 
-pub extern "c" fn vkCreateInstance(pCreateInfo : VkInstanceCreateInfo, pAllocator : VkAllocationCallbacks, pInstance : FixedArray[VkInstance]) -> Int32 = "vkCreateInstance"
-pub extern "c" fn vkGetInstanceProcAddr(instance : VkInstance, pName : UInt64) -> UInt64 = "vkGetInstanceProcAddr"
-pub extern "c" fn vkEnumerateInstanceVersion(pApiVersion : FixedArray[UInt32]) -> Int32 = "vkEnumerateInstanceVersion"
-pub extern "c" fn vkEnumerateInstanceLayerProperties(pPropertyCount : FixedArray[UInt32], pProperties : VkLayerProperties) -> Int32 = "vkEnumerateInstanceLayerProperties"
-pub extern "c" fn vkEnumerateInstanceExtensionProperties(pLayerName : UInt64, pPropertyCount : FixedArray[UInt32], pProperties : VkExtensionProperties) -> Int32 = "vkEnumerateInstanceExtensionProperties"
-pub extern "c" fn vkGetExternalComputeQueueDataNV(externalQueue : VkExternalComputeQueueNV, params : VkExternalComputeQueueDataParamsNV, pData : UInt64) -> Unit = "vkGetExternalComputeQueueDataNV"
+pub extern "c" fn vkCreateInstance(pCreateInfo : VkInstanceCreateInfo, pAllocator : VkAllocationCallbacks, pInstance : FixedArray[VkInstance]) -> Int32 = "tycho_entry_vkCreateInstance"
+pub extern "c" fn vkGetInstanceProcAddr(instance : VkInstance, pName : UInt64) -> UInt64 = "tycho_entry_vkGetInstanceProcAddr"
+pub extern "c" fn vkEnumerateInstanceVersion(pApiVersion : FixedArray[UInt32]) -> Int32 = "tycho_entry_vkEnumerateInstanceVersion"
+pub extern "c" fn vkEnumerateInstanceLayerProperties(pPropertyCount : FixedArray[UInt32], pProperties : VkLayerProperties) -> Int32 = "tycho_entry_vkEnumerateInstanceLayerProperties"
+pub extern "c" fn vkEnumerateInstanceExtensionProperties(pLayerName : UInt64, pPropertyCount : FixedArray[UInt32], pProperties : VkExtensionProperties) -> Int32 = "tycho_entry_vkEnumerateInstanceExtensionProperties"
+pub extern "c" fn vkGetExternalComputeQueueDataNV(externalQueue : VkExternalComputeQueueNV, params : VkExternalComputeQueueDataParamsNV, pData : UInt64) -> Unit = "tycho_entry_vkGetExternalComputeQueueDataNV"
 
 pub struct InstanceFn {
   vkDestroyInstance : FuncRef[(VkInstance, VkAllocationCallbacks) -> Unit]

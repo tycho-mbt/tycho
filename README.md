@@ -10,12 +10,12 @@
 
 | Module (`mooncakes.io`) | Directory | Purpose | Native Link Deps |
 |---|---|---|---|
-| `laplaceliu/tycho_vulkan` | `vulkan/` | Pure-MoonBit Vulkan bindings generated from `vk.xml` 1.4.363 (root package, headers vendored in-package: no Vulkan SDK needed; runtime needs a 1.3+ loader/driver) | `-lvulkan` |
-| `laplaceliu/tycho_window` | `window/` | Thin native window + input events + Vulkan WSI surface helper (Xlib + runtime-loaded Wayland on Linux, zero GLFW or `libwayland-dev` dependency) | `-lX11 -lvulkan` |
+| `laplaceliu/tycho_vulkan` | `vulkan/` | Pure-MoonBit Vulkan bindings generated from `vk.xml` 1.4.363 (root package, headers vendored in-package: no Vulkan SDK needed; runtime loads `libvulkan.so.1` / `vulkan-1.dll` / `libvulkan.1.dylib` / `MoltenVK` dynamically) | *(none)* |
+| `laplaceliu/tycho_window` | `window/` | Thin native window + input events + Vulkan WSI surface helper across Linux (Wayland/X11 via `dlopen`), Windows (Win32 via `LoadLibraryA`), and macOS (Cocoa + `CAMetalLayer` via `dlopen`) | *(none)* |
 | `laplaceliu/tycho_shader` | `shader/` | GLSL (`glslangValidator`), Slang (`slangc`), pure-MoonBit SPIR-V reflection (`reflect_spirv`), & PPM/BMP/PNG/HDR image helpers | *(none)* |
-| `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, free-list sub-allocator, auto-reflected pipelines (`from_spirv`), MRT, mipmaps, storage images, bindless, mesh shaders, inline Ray Query (BLAS/TLAS), stencil state, and GPU timestamps | `-lvulkan -lX11` |
+| `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, free-list sub-allocator, auto-reflected pipelines (`from_spirv`), MRT, mipmaps, storage images, bindless, mesh shaders, inline Ray Query (BLAS/TLAS), stencil state, and GPU timestamps | *(none)* |
 | `laplaceliu/tycho_codegen` *(private)* | `codegen/` | Khronos `vk.xml` → MoonBit + C shim generator | *(none)* |
-| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | 52 pure-MoonBit examples (31 low-level Vulkan API suites at **100.0%** reachable Linux coverage + 21 unified `@tycho` demos, Wayland check & benchmarks) | `-lvulkan` (`-lX11` for WSI) |
+| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | 52 pure-MoonBit examples (31 low-level Vulkan API suites at **100.0%** reachable Linux coverage + 21 unified `@tycho` demos, Wayland check & benchmarks) | *(none)* |
 
 Documentation:
 - [Architecture Overview](docs/architecture.md)
@@ -28,8 +28,8 @@ Planned next phase:
 
 1. **Clean root package import**: users import `"laplaceliu/tycho_vulkan" @vk` or `"laplaceliu/tycho" @tycho` directly (no `/generated` subpackage).
 2. **Self-contained vendored headers**: Vulkan 1.4.363 C headers (including `vk_video/`) live inside `vulkan/include/vulkan/` and are included via relative `#include "include/vulkan/vulkan.h"` — requiring **zero `-I` flags** and **zero Vulkan SDK** for downstream consumers. `1.4.363` is only the Khronos header/spec revision shipped with the package: it never forces a matching loader, because every command is fetched through `vkGetInstanceProcAddr` / `vkGetDeviceProcAddr` and the RHI requests API version **1.3**.
-3. **Minimal native coupling**: `laplaceliu/tycho_vulkan` links **only `-lvulkan`** (no `shaderc`, `stb`, `glfw`, or `X11` required). `vk.xml` stays in `codegen/registry/` so the published `laplaceliu/tycho_vulkan` tarball stays compact (~1.3 MB).
-4. **Compile-time ABI audit**: generated stubs embed thousands of `_Static_assert` checks enforcing `sizeof(C type) <= MoonBit type width` across all generated struct fields and scalar command parameters.
+3. **Zero link flags across Linux, Windows & macOS**: `laplaceliu/tycho_vulkan` and `laplaceliu/tycho_window` load Vulkan (`libvulkan.so.1` / `vulkan-1.dll` / `libvulkan.1.dylib` / `libMoltenVK.dylib`) and windowing libraries (`libwayland-client.so.0`, `libX11.so.6`, `user32.dll`, `AppKit` + `QuartzCore`) dynamically at runtime, so downstream executables need **no `cc-link-flags`** (`-lvulkan`, `-lX11`, `vulkan-1.lib`, or `-framework`). `vk.xml` stays in `codegen/registry/` so the published `laplaceliu/tycho_vulkan` tarball stays compact (~1.3 MB).
+4. **Compile-time ABI audit**: generated stubs embed thousands of static-assert checks (`_Static_assert` / C89 fallback for MSVC) enforcing `sizeof(C type) <= MoonBit type width` across all generated struct fields and scalar command parameters.
 
 ## Runtime Requirements (downstream users)
 
@@ -37,9 +37,9 @@ The `1.4.363` number is the Khronos header/spec revision used **at generation ti
 
 | Requirement | Why | Not required |
 |---|---|---|
-| Vulkan loader (`libvulkan.so.1`) ≥ 1.3 | RHI creates the instance with `apiVersion = 1.3` (`tycho/vk_backend.mbt`) | LunarG **Vulkan SDK** |
-| GPU driver supporting Vulkan 1.3 (`dynamicRendering` + `synchronization2`) | RHI core path; checked explicitly, missing support raises `DeviceFailed` instead of crashing | matching 1.4.363 headers on the system |
-| `-lvulkan` at link time (`libvulkan-dev` on Debian/Ubuntu) | link flag declared in `vulkan/moon.pkg` | `-I`, `VULKAN_SDK`, or any SDK env var |
+| Vulkan loader (`libvulkan.so.1` / `vulkan-1.dll` / `libvulkan.1.dylib` or `libMoltenVK.dylib`) ≥ 1.3 | RHI creates the instance with `apiVersion = 1.3` (`tycho/vk_backend.mbt`) | LunarG **Vulkan SDK** at build time |
+| GPU driver supporting Vulkan 1.3 (`dynamicRendering` + `synchronization2`, e.g. NVIDIA, AMD, Mesa `lavapipe`, MoltenVK) | RHI core path; checked explicitly, missing support raises `DeviceFailed` instead of crashing | matching 1.4.363 headers on the system |
+| Zero `cc-link-flags` in `moon.pkg` | Dynamic runtime loading (`dlopen` / `LoadLibraryA`) replaces `-lvulkan`, `-lX11`, `-framework Cocoa`, and `vulkan-1.lib` | `-I`, `VULKAN_SDK`, `-lX11`, or `libx11-dev` / `libvulkan-dev` |
 
 Bindings never reference 1.4-only entry points: all 813 commands go through `vkGetInstanceProcAddr` / `vkGetDeviceProcAddr`, so an older 1.3 loader is enough (verified against `libvulkan.so.1.3.204` on Ubuntu 22.04, which does not even export 1.4 or `NV` extension symbols). On a pre-1.3 loader the RHI reports `VK_ERROR_INCOMPATIBLE_DRIVER` with an explicit hint.
 
@@ -115,21 +115,7 @@ moon add laplaceliu/tycho_window
 moon add laplaceliu/tycho
 ```
 
-Link flags do **not** propagate from a dependency package in MoonBit, so the
-consuming executable must declare them in its own `moon.pkg`:
-
-```moonbit
-options(
-  "link": {
-    "native": {
-      "cc": "cc",
-      "cc-link-flags": "-lvulkan -lX11", // drop -lX11 if you never create a window
-    },
-  },
-)
-```
-
-(Every example under `examples/` does this; it is why they link without extra flags.)
+No native `cc-link-flags` are needed in downstream `moon.pkg` files on Linux, Windows, or macOS — Vulkan and OS windowing APIs are resolved dynamically at runtime.
 
 Or publish from source in dependency order (after `moon login` as `laplaceliu`):
 
