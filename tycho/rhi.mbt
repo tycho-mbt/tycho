@@ -72,27 +72,7 @@ pub fn Device::capabilities(self : Device) -> DeviceCapabilities {
 
 ///|
 pub fn Device::pipeline_cache_data(self : Device) -> Bytes {
-  let d = self.inner
-  if d.pipeline_cache.as_ptr() == (0 : UInt64) {
-    return b""
-  }
-  let sz = FixedArray::make(1, (0 : UInt64))
-  let r0 = (d.dfn.vkGetPipelineCacheData)(d.dev, d.pipeline_cache, sz, (0 : UInt64))
-  if r0 != 0 || sz[0] == (0 : UInt64) {
-    return b""
-  }
-  let n = sz[0].to_int()
-  let out = FixedArray::make(n, (0 : Byte))
-  let r1 = (d.dfn.vkGetPipelineCacheData)(
-    d.dev,
-    d.pipeline_cache,
-    sz,
-    @vk.byte_ptr(out),
-  )
-  if r1 != 0 {
-    return b""
-  }
-  Bytes::from_array(out[:])
+  vk_device_pipeline_cache_data(self.inner)
 }
 
 ///|
@@ -118,8 +98,7 @@ pub fn Device::allocator_used_bytes(self : Device) -> UInt64 {
 
 ///|
 pub fn Device::wait_idle(self : Device) -> Unit {
-  let _ = (self.inner.dfn.vkDeviceWaitIdle)(self.inner.dev)
-  flush_deletes(self.inner, true)
+  vk_device_wait_idle(self.inner)
 }
 
 ///|
@@ -157,11 +136,7 @@ pub fn Swapchain::height(self : Swapchain) -> Int {
 
 ///|
 pub fn Swapchain::color_format(self : Swapchain) -> TextureFormat {
-  if self.inner.format == @vk.VK_FORMAT_B8G8R8A8_UNORM {
-    TextureFormat::BGRA8
-  } else {
-    TextureFormat::RGBA8
-  }
+  vk_swapchain_color_format(self.inner)
 }
 
 ///|
@@ -299,13 +274,7 @@ pub fn Device::create_graphics_pipeline(
   self : Device,
   desc : PipelineDesc,
 ) -> Pipeline raise RhiError {
-  {
-    inner: vk_graphics_pipeline_create(
-      self.inner,
-      desc,
-      @vk.VK_FORMAT_R8G8B8A8_UNORM,
-    ),
-  }
+  { inner: vk_graphics_pipeline_create_default(self.inner, desc) }
 }
 
 ///|
@@ -313,13 +282,7 @@ pub fn Device::create_mesh_pipeline(
   self : Device,
   desc : MeshPipelineDesc,
 ) -> Pipeline raise RhiError {
-  {
-    inner: vk_mesh_pipeline_create(
-      self.inner,
-      desc,
-      @vk.VK_FORMAT_R8G8B8A8_UNORM,
-    ),
-  }
+  { inner: vk_mesh_pipeline_create_default(self.inner, desc) }
 }
 
 ///|
@@ -440,7 +403,7 @@ pub fn Buffer::upload_bytes(
   data : Bytes,
   offset? : Int = 0,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_ptr(self.inner, @vk.bytes_ptr(data), data.length(), offset~)
+  vk_buffer_upload_bytes(self.inner, data, offset)
 }
 
 ///|
@@ -449,12 +412,7 @@ pub fn Buffer::upload_floats(
   data : FixedArray[Float],
   offset? : Int = 0,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_ptr(
-    self.inner,
-    @vk.float_ptr(data),
-    data.length() * 4,
-    offset~,
-  )
+  vk_buffer_upload_floats(self.inner, data, offset)
 }
 
 ///|
@@ -463,12 +421,7 @@ pub fn Buffer::upload_uint32(
   data : FixedArray[UInt32],
   offset? : Int = 0,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_ptr(
-    self.inner,
-    @vk.uint32_ptr(data),
-    data.length() * 4,
-    offset~,
-  )
+  vk_buffer_upload_uint32(self.inner, data, offset)
 }
 
 ///|
@@ -562,18 +515,7 @@ pub fn Device::create_cubemap(
       (0 : Byte)
     }
   })
-  {
-    inner: vk_texture_create_layered(
-      self.inner,
-      size,
-      size,
-      6,
-      format,
-      total,
-      @vk.VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
-      @vk.VK_IMAGE_VIEW_TYPE_CUBE,
-    ),
-  }
+  { inner: vk_texture_create_cubemap(self.inner, size, format, total) }
 }
 
 ///|
@@ -586,15 +528,13 @@ pub fn Device::create_texture_array(
   pixels : Bytes,
 ) -> Texture raise RhiError {
   {
-    inner: vk_texture_create_layered(
+    inner: vk_texture_create_2d_array(
       self.inner,
       width,
       height,
       layers,
       format,
       pixels,
-      (0 : UInt32),
-      @vk.VK_IMAGE_VIEW_TYPE_2D_ARRAY,
     ),
   }
 }
@@ -610,24 +550,13 @@ pub fn Device::create_render_target(
   if is_depth_format(format) {
     raise InvalidArgument("Use create_depth_texture for depth targets")
   }
-  let usage = match samples {
-    SampleCount::X1 =>
-      @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-      @vk.VK_IMAGE_USAGE_SAMPLED_BIT |
-      @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-      @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT
-    SampleCount::X4 => @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-  }
   {
-    inner: create_image_and_view(
+    inner: vk_texture_create_render_target(
       self.inner,
       width,
       height,
-      vk_texture_format(format),
-      usage,
-      @vk.VK_IMAGE_ASPECT_COLOR_BIT,
-      samples,
       format,
+      samples,
     ),
   }
 }
@@ -658,18 +587,13 @@ pub fn Device::create_depth_texture_format(
   if !is_depth_format(format) {
     raise InvalidArgument("Expected Depth32F or Depth24Stencil8 format")
   }
-  let usage = @vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-    @vk.VK_IMAGE_USAGE_SAMPLED_BIT
   {
-    inner: create_image_and_view(
+    inner: vk_texture_create_depth_target(
       self.inner,
       width,
       height,
-      vk_texture_format(format),
-      usage,
-      depth_barrier_aspect(format),
-      samples,
       format,
+      samples,
     ),
   }
 }
@@ -745,55 +669,7 @@ pub fn Device::create_sampler_desc(
   self : Device,
   desc : SamplerDesc,
 ) -> Sampler raise RhiError {
-  let d = self.inner
-  let ci = @vk.VkSamplerCreateInfo::new()
-  ci.set_magFilter(vk_filter(desc.mag))
-  ci.set_minFilter(vk_filter(desc.min))
-  ci.set_addressModeU(vk_address(desc.address))
-  ci.set_addressModeV(vk_address(desc.address))
-  ci.set_addressModeW(vk_address(desc.address))
-  ci.set_borderColor(vk_border_color(desc.border_color))
-  if desc.anisotropy > (1.0 : Float) && d.caps.supports_anisotropy {
-    let clamped = if desc.anisotropy > d.caps.max_sampler_anisotropy {
-      d.caps.max_sampler_anisotropy
-    } else {
-      desc.anisotropy
-    }
-    ci.set_anisotropyEnable((1 : UInt32))
-    ci.set_maxAnisotropy(clamped)
-  } else {
-    ci.set_anisotropyEnable((0 : UInt32))
-    ci.set_maxAnisotropy((1.0 : Float))
-  }
-  ci.set_unnormalizedCoordinates((0 : UInt32))
-  match desc.compare_op {
-    Some(op) => {
-      ci.set_compareEnable((1 : UInt32))
-      ci.set_compareOp(vk_compare_op(op))
-    }
-    None => ci.set_compareEnable((0 : UInt32))
-  }
-  ci.set_mipmapMode(
-    match desc.mipmap {
-      Filter::Nearest => @vk.VK_SAMPLER_MIPMAP_MODE_NEAREST
-      Filter::Linear => @vk.VK_SAMPLER_MIPMAP_MODE_LINEAR
-    },
-  )
-  ci.set_mipLodBias(desc.mip_lod_bias)
-  ci.set_minLod(desc.min_lod)
-  ci.set_maxLod(desc.max_lod)
-  let out = FixedArray::make(1, @vk.VkSampler::null())
-  let r = (d.dfn.vkCreateSampler)(
-    d.dev,
-    ci,
-    @vk.VkAllocationCallbacks::null(),
-    out,
-  )
-  ci.free()
-  if r != 0 {
-    raise AllocationFailed("vkCreateSampler failed: \{r}")
-  }
-  { inner: { device: d, sampler: out[0] } }
+  { inner: vk_sampler_create(self.inner, desc) }
 }
 
 ///|
@@ -807,55 +683,22 @@ pub fn Device::create_fence(
   self : Device,
   signaled : Bool,
 ) -> Fence raise RhiError {
-  let d = self.inner
-  let ci = @vk.VkFenceCreateInfo::new()
-  if signaled {
-    ci.set_flags(@vk.VK_FENCE_CREATE_SIGNALED_BIT)
-  }
-  let out = FixedArray::make(1, @vk.VkFence::null())
-  let r = (d.dfn.vkCreateFence)(d.dev, ci, @vk.VkAllocationCallbacks::null(), out)
-  ci.free()
-  if r != 0 {
-    raise CommandFailed("vkCreateFence failed: \{r}")
-  }
-  { inner: { device: d, fence: out[0], submitted_gen: (0 : UInt64) } }
+  { inner: vk_fence_create(self.inner, signaled) }
 }
 
 ///|
 pub fn Fence::wait(self : Fence) -> Unit {
-  let f = FixedArray::make(1, self.inner.fence)
-  let _ = (self.inner.device.dfn.vkWaitForFences)(
-    self.inner.device.dev,
-    (1 : UInt32),
-    f,
-    (1 : UInt32),
-    (0xFFFFFFFFFFFFFFFF : UInt64),
-  )
-  let d = self.inner.device
-  if self.inner.submitted_gen > d.completed_gen {
-    d.completed_gen = self.inner.submitted_gen
-  }
-  flush_deletes(d, false)
+  vk_fence_wait(self.inner)
 }
 
 ///|
 pub fn Fence::reset(self : Fence) -> Unit {
-  let f = FixedArray::make(1, self.inner.fence)
-  let _ = (self.inner.device.dfn.vkResetFences)(
-    self.inner.device.dev,
-    (1 : UInt32),
-    f,
-  )
+  vk_fence_reset(self.inner)
 }
 
 ///|
 pub fn Fence::destroy(self : Fence) -> Unit {
-  let f = self.inner
-  (f.device.dfn.vkDestroyFence)(
-    f.device.dev,
-    f.fence,
-    @vk.VkAllocationCallbacks::null(),
-  )
+  vk_fence_destroy(self.inner)
 }
 
 ///|
@@ -967,27 +810,7 @@ pub fn Device::submit_commands(
   cmd : CommandBuffer,
   fence : Fence,
 ) -> Unit raise RhiError {
-  let d = self.inner
-  let er = (d.dfn.vkEndCommandBuffer)(cmd.inner.cmd)
-  if d.active_recordings > 0 {
-    d.active_recordings = d.active_recordings - 1
-  }
-  if er != 0 {
-    raise CommandFailed("vkEndCommandBuffer failed: \{er}")
-  }
-  let cmd_si = @vk.VkCommandBufferSubmitInfo::new()
-  cmd_si.set_commandBuffer(cmd.inner.cmd)
-  let si2 = @vk.VkSubmitInfo2::new()
-  si2.set_commandBufferInfoCount((1 : UInt32))
-  si2.set_pCommandBufferInfos(cmd_si)
-  let sr = (d.dfn.vkQueueSubmit2)(d.queue, (1 : UInt32), si2, fence.inner.fence)
-  si2.free()
-  cmd_si.free()
-  if sr != 0 {
-    raise CommandFailed("vkQueueSubmit2 failed: \{sr}")
-  }
-  fence.inner.submitted_gen = d.current_gen
-  d.current_gen = d.current_gen + (1 : UInt64)
+  vk_device_submit_commands(self.inner, cmd.inner, fence.inner)
 }
 
 ///|
@@ -1009,14 +832,7 @@ pub fn CommandBuffer::bind_pipeline(
   self : CommandBuffer,
   pipeline : Pipeline,
 ) -> Unit {
-  let c = self.inner
-  let point = if pipeline.inner.compute {
-    @vk.VK_PIPELINE_BIND_POINT_COMPUTE
-  } else {
-    @vk.VK_PIPELINE_BIND_POINT_GRAPHICS
-  }
-  (c.device.dfn.vkCmdBindPipeline)(c.cmd, point, pipeline.inner.pipeline)
-  c.bound = Some(pipeline)
+  vk_cmd_bind_pipeline(self.inner, pipeline)
 }
 
 ///|
@@ -1091,12 +907,7 @@ pub fn CommandBuffer::reset_timestamps(
   self : CommandBuffer,
   pool : TimestampPool,
 ) -> Unit {
-  (self.inner.device.dfn.vkCmdResetQueryPool)(
-    self.inner.cmd,
-    pool.inner.pool,
-    (0 : UInt32),
-    pool.inner.count.reinterpret_as_uint(),
-  )
+  vk_cmd_reset_timestamps(self.inner, pool.inner)
 }
 
 ///|
@@ -1106,17 +917,7 @@ pub fn CommandBuffer::write_timestamp(
   index : Int,
   at_start? : Bool = false,
 ) -> Unit {
-  let stage = if at_start {
-    @vk.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
-  } else {
-    @vk.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
-  }
-  (self.inner.device.dfn.vkCmdWriteTimestamp)(
-    self.inner.cmd,
-    stage,
-    pool.inner.pool,
-    index.reinterpret_as_uint(),
-  )
+  vk_cmd_write_timestamp(self.inner, pool.inner, index, at_start)
 }
 
 ///|
@@ -1126,15 +927,7 @@ pub fn CommandBuffer::bind_vertex(
   buffer : Buffer,
   offset? : Int = 0,
 ) -> Unit {
-  let buffers = FixedArray::make(1, buffer.inner.buffer)
-  let offsets = FixedArray::make(1, offset.to_uint64())
-  (self.inner.device.dfn.vkCmdBindVertexBuffers)(
-    self.inner.cmd,
-    slot.reinterpret_as_uint(),
-    (1 : UInt32),
-    buffers,
-    offsets,
-  )
+  vk_cmd_bind_vertex(self.inner, slot, buffer.inner, offset)
 }
 
 ///|
@@ -1144,16 +937,7 @@ pub fn CommandBuffer::bind_index(
   index_type : IndexType,
   offset? : Int = 0,
 ) -> Unit {
-  let vk_ty = match index_type {
-    IndexType::Uint16 => @vk.VK_INDEX_TYPE_UINT16
-    IndexType::Uint32 => @vk.VK_INDEX_TYPE_UINT32
-  }
-  (self.inner.device.dfn.vkCmdBindIndexBuffer)(
-    self.inner.cmd,
-    buffer.inner.buffer,
-    offset.to_uint64(),
-    vk_ty,
-  )
+  vk_cmd_bind_index(self.inner, buffer.inner, index_type, offset)
 }
 
 ///|
@@ -1163,14 +947,7 @@ pub fn CommandBuffer::push_constants_floats(
   data : FixedArray[Float],
   offset? : Int = 0,
 ) -> Unit {
-  (self.inner.device.dfn.vkCmdPushConstants)(
-    self.inner.cmd,
-    pipeline.inner.layout,
-    pipeline.inner.stage_flags,
-    offset.reinterpret_as_uint(),
-    (data.length() * 4).reinterpret_as_uint(),
-    @vk.float_ptr(data),
-  )
+  vk_cmd_push_constants_floats(self.inner, pipeline.inner, data, offset)
 }
 
 ///|
@@ -1180,14 +957,7 @@ pub fn CommandBuffer::push_constants_bytes(
   data : Bytes,
   offset? : Int = 0,
 ) -> Unit {
-  (self.inner.device.dfn.vkCmdPushConstants)(
-    self.inner.cmd,
-    pipeline.inner.layout,
-    pipeline.inner.stage_flags,
-    offset.reinterpret_as_uint(),
-    data.length().reinterpret_as_uint(),
-    @vk.bytes_ptr(data),
-  )
+  vk_cmd_push_constants_bytes(self.inner, pipeline.inner, data, offset)
 }
 
 ///|
@@ -1198,20 +968,7 @@ pub fn CommandBuffer::set_viewport(
   w : Float,
   h : Float,
 ) -> Unit {
-  let vp = @vk.VkViewport::new()
-  vp.set_x(x)
-  vp.set_y(y)
-  vp.set_width(w)
-  vp.set_height(h)
-  vp.set_minDepth((0.0 : Float))
-  vp.set_maxDepth((1.0 : Float))
-  (self.inner.device.dfn.vkCmdSetViewport)(
-    self.inner.cmd,
-    (0 : UInt32),
-    (1 : UInt32),
-    vp,
-  )
-  vp.free()
+  vk_cmd_set_viewport(self.inner, x, y, w, h)
 }
 
 ///|
@@ -1222,24 +979,7 @@ pub fn CommandBuffer::set_scissor(
   w : Int,
   h : Int,
 ) -> Unit {
-  let off = @vk.VkOffset2D::new()
-  off.set_x(x)
-  off.set_y(y)
-  let ext = @vk.VkExtent2D::new()
-  ext.set_width(w.reinterpret_as_uint())
-  ext.set_height(h.reinterpret_as_uint())
-  let rect = @vk.VkRect2D::new()
-  rect.set_offset(off)
-  rect.set_extent(ext)
-  (self.inner.device.dfn.vkCmdSetScissor)(
-    self.inner.cmd,
-    (0 : UInt32),
-    (1 : UInt32),
-    rect,
-  )
-  off.free()
-  ext.free()
-  rect.free()
+  vk_cmd_set_scissor(self.inner, x, y, w, h)
 }
 
 ///|
@@ -1259,13 +999,12 @@ pub fn CommandBuffer::draw_instanced(
   first_vertex : Int,
   first_instance : Int,
 ) -> Unit {
-  vk_cmd_flush_slots(self.inner)
-  (self.inner.device.dfn.vkCmdDraw)(
-    self.inner.cmd,
-    vertices.reinterpret_as_uint(),
-    instances.reinterpret_as_uint(),
-    first_vertex.reinterpret_as_uint(),
-    first_instance.reinterpret_as_uint(),
+  vk_cmd_draw_instanced(
+    self.inner,
+    vertices,
+    instances,
+    first_vertex,
+    first_instance,
   )
 }
 
@@ -1287,14 +1026,13 @@ pub fn CommandBuffer::draw_indexed_full(
   vertex_offset : Int,
   first_instance : Int,
 ) -> Unit {
-  vk_cmd_flush_slots(self.inner)
-  (self.inner.device.dfn.vkCmdDrawIndexed)(
-    self.inner.cmd,
-    index_count.reinterpret_as_uint(),
-    instances.reinterpret_as_uint(),
-    first_index.reinterpret_as_uint(),
+  vk_cmd_draw_indexed_full(
+    self.inner,
+    index_count,
+    instances,
+    first_index,
     vertex_offset,
-    first_instance.reinterpret_as_uint(),
+    first_instance,
   )
 }
 
@@ -1305,13 +1043,7 @@ pub fn CommandBuffer::dispatch(
   y : Int,
   z : Int,
 ) -> Unit {
-  vk_cmd_flush_slots(self.inner)
-  (self.inner.device.dfn.vkCmdDispatch)(
-    self.inner.cmd,
-    x.reinterpret_as_uint(),
-    y.reinterpret_as_uint(),
-    z.reinterpret_as_uint(),
-  )
+  vk_cmd_dispatch(self.inner, x, y, z)
 }
 
 ///|
@@ -1322,14 +1054,7 @@ pub fn CommandBuffer::draw_indirect(
   offset? : Int = 0,
   stride? : Int = 16,
 ) -> Unit {
-  vk_cmd_flush_slots(self.inner)
-  (self.inner.device.dfn.vkCmdDrawIndirect)(
-    self.inner.cmd,
-    buffer.inner.buffer,
-    offset.to_uint64(),
-    draw_count.reinterpret_as_uint(),
-    stride.reinterpret_as_uint(),
-  )
+  vk_cmd_draw_indirect(self.inner, buffer.inner, draw_count, offset, stride)
 }
 
 ///|
@@ -1340,13 +1065,12 @@ pub fn CommandBuffer::draw_indexed_indirect(
   offset? : Int = 0,
   stride? : Int = 20,
 ) -> Unit {
-  vk_cmd_flush_slots(self.inner)
-  (self.inner.device.dfn.vkCmdDrawIndexedIndirect)(
-    self.inner.cmd,
-    buffer.inner.buffer,
-    offset.to_uint64(),
-    draw_count.reinterpret_as_uint(),
-    stride.reinterpret_as_uint(),
+  vk_cmd_draw_indexed_indirect(
+    self.inner,
+    buffer.inner,
+    draw_count,
+    offset,
+    stride,
   )
 }
 
@@ -1356,12 +1080,7 @@ pub fn CommandBuffer::dispatch_indirect(
   buffer : Buffer,
   offset? : Int = 0,
 ) -> Unit {
-  vk_cmd_flush_slots(self.inner)
-  (self.inner.device.dfn.vkCmdDispatchIndirect)(
-    self.inner.cmd,
-    buffer.inner.buffer,
-    offset.to_uint64(),
-  )
+  vk_cmd_dispatch_indirect(self.inner, buffer.inner, offset)
 }
 
 ///|
@@ -1371,13 +1090,7 @@ pub fn CommandBuffer::draw_mesh_tasks(
   y : Int,
   z : Int,
 ) -> Unit {
-  vk_cmd_flush_slots(self.inner)
-  (self.inner.device.dfn.vkCmdDrawMeshTasksEXT)(
-    self.inner.cmd,
-    x.reinterpret_as_uint(),
-    y.reinterpret_as_uint(),
-    z.reinterpret_as_uint(),
-  )
+  vk_cmd_draw_mesh_tasks(self.inner, x, y, z)
 }
 
 ///|
@@ -1388,13 +1101,12 @@ pub fn CommandBuffer::draw_mesh_tasks_indirect(
   offset? : Int = 0,
   stride? : Int = 12,
 ) -> Unit {
-  vk_cmd_flush_slots(self.inner)
-  (self.inner.device.dfn.vkCmdDrawMeshTasksIndirectEXT)(
-    self.inner.cmd,
-    buffer.inner.buffer,
-    offset.to_uint64(),
-    draw_count.reinterpret_as_uint(),
-    stride.reinterpret_as_uint(),
+  vk_cmd_draw_mesh_tasks_indirect(
+    self.inner,
+    buffer.inner,
+    draw_count,
+    offset,
+    stride,
   )
 }
 
@@ -1405,22 +1117,7 @@ pub fn CommandBuffer::bind_bindless_heap(
   heap : BindlessHeap,
   set_index? : Int = 1,
 ) -> Unit {
-  let point = if pipeline.inner.compute {
-    @vk.VK_PIPELINE_BIND_POINT_COMPUTE
-  } else {
-    @vk.VK_PIPELINE_BIND_POINT_GRAPHICS
-  }
-  let sets = FixedArray::make(1, heap.inner.set)
-  (self.inner.device.dfn.vkCmdBindDescriptorSets)(
-    self.inner.cmd,
-    point,
-    pipeline.inner.layout,
-    set_index.reinterpret_as_uint(),
-    (1 : UInt32),
-    sets,
-    (0 : UInt32),
-    FixedArray::make(0, (0 : UInt32)),
-  )
+  vk_cmd_bind_bindless_heap(self.inner, pipeline.inner, heap.inner, set_index)
 }
 
 ///|
@@ -1430,48 +1127,10 @@ pub fn CommandBuffer::copy_buffer(
   dst : Buffer,
   size : Int,
 ) -> Unit {
-  let region = @vk.VkBufferCopy::new()
-  region.set_srcOffset((0 : UInt64))
-  region.set_dstOffset((0 : UInt64))
-  region.set_size(size.to_uint64())
-  (self.inner.device.dfn.vkCmdCopyBuffer)(
-    self.inner.cmd,
-    src.inner.buffer,
-    dst.inner.buffer,
-    (1 : UInt32),
-    region,
-  )
-  region.free()
+  vk_cmd_copy_buffer(self.inner, src.inner, dst.inner, size)
 }
 
 ///|
 pub fn CommandBuffer::barrier(self : CommandBuffer) -> Unit {
-  let mb = @vk.VkMemoryBarrier2::new()
-  mb.set_srcStageMask(
-    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
-    @vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-  )
-  mb.set_srcAccessMask(
-    @vk.VK_ACCESS_2_SHADER_WRITE_BIT |
-    @vk.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-  )
-  mb.set_dstStageMask(
-    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT |
-    @vk.VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT |
-    @vk.VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT |
-    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
-    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-  )
-  mb.set_dstAccessMask(
-    @vk.VK_ACCESS_2_TRANSFER_READ_BIT |
-    @vk.VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT |
-    @vk.VK_ACCESS_2_SHADER_READ_BIT |
-    @vk.VK_ACCESS_2_UNIFORM_READ_BIT,
-  )
-  let dep = @vk.VkDependencyInfo::new()
-  dep.set_memoryBarrierCount((1 : UInt32))
-  dep.set_pMemoryBarriers(mb)
-  (self.inner.device.dfn.vkCmdPipelineBarrier2)(self.inner.cmd, dep)
-  dep.free()
-  mb.free()
+  vk_cmd_barrier(self.inner)
 }

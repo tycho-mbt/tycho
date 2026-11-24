@@ -3149,12 +3149,12 @@ fn vk_graphics_pipeline_create(
   if n_colors > 0 {
     prci.set_pColorAttachmentFormats(color_vk_fmts)
   }
-  if desc.depth_test || desc.depth_write {
-    let dfmt = match desc.depth_format {
-      Some(f) => vk_texture_format(f)
-      None => @vk.VK_FORMAT_D32_SFLOAT
-    }
-    prci.set_depthAttachmentFormat(dfmt)
+  match desc.depth_format {
+    Some(f) => prci.set_depthAttachmentFormat(vk_texture_format(f))
+    None =>
+      if desc.depth_test || desc.depth_write {
+        prci.set_depthAttachmentFormat(@vk.VK_FORMAT_D32_SFLOAT)
+      }
   }
 
   let gpci = @vk.VkGraphicsPipelineCreateInfo::new()
@@ -4506,12 +4506,12 @@ fn vk_mesh_pipeline_create(
   let prci = @vk.VkPipelineRenderingCreateInfo::new()
   prci.set_colorAttachmentCount(n_colors.reinterpret_as_uint())
   prci.set_pColorAttachmentFormats(color_vk_fmts)
-  if desc.depth_test || desc.depth_write {
-    let dfmt = match desc.depth_format {
-      Some(f) => vk_texture_format(f)
-      None => @vk.VK_FORMAT_D32_SFLOAT
-    }
-    prci.set_depthAttachmentFormat(dfmt)
+  match desc.depth_format {
+    Some(f) => prci.set_depthAttachmentFormat(vk_texture_format(f))
+    None =>
+      if desc.depth_test || desc.depth_write {
+        prci.set_depthAttachmentFormat(@vk.VK_FORMAT_D32_SFLOAT)
+      }
   }
   let gpci = @vk.VkGraphicsPipelineCreateInfo::new()
   gpci.set_pNext(prci.as_ptr())
@@ -4582,4 +4582,660 @@ fn vk_mesh_pipeline_create(
     cur_storage: FixedArray::make(desc.storage_slots, None),
     cur_storage_images: FixedArray::make(desc.storage_image_slots, None),
   }
+}
+
+///|
+fn vk_device_pipeline_cache_data(d : VkDeviceState) -> Bytes {
+  if d.pipeline_cache.as_ptr() == (0 : UInt64) {
+    return b""
+  }
+  let sz = FixedArray::make(1, (0 : UInt64))
+  let r0 = (d.dfn.vkGetPipelineCacheData)(d.dev, d.pipeline_cache, sz, (0 : UInt64))
+  if r0 != 0 || sz[0] == (0 : UInt64) {
+    return b""
+  }
+  let n = sz[0].to_int()
+  let out = FixedArray::make(n, (0 : Byte))
+  let r1 = (d.dfn.vkGetPipelineCacheData)(
+    d.dev,
+    d.pipeline_cache,
+    sz,
+    @vk.byte_ptr(out),
+  )
+  if r1 != 0 {
+    return b""
+  }
+  Bytes::from_array(out[:])
+}
+
+///|
+fn vk_device_wait_idle(d : VkDeviceState) -> Unit {
+  let _ = (d.dfn.vkDeviceWaitIdle)(d.dev)
+  flush_deletes(d, true)
+}
+
+///|
+fn vk_swapchain_color_format(s : VkSwapchainState) -> TextureFormat {
+  if s.format == @vk.VK_FORMAT_B8G8R8A8_UNORM {
+    TextureFormat::BGRA8
+  } else {
+    TextureFormat::RGBA8
+  }
+}
+
+///|
+fn vk_graphics_pipeline_create_default(
+  d : VkDeviceState,
+  desc : PipelineDesc,
+) -> VkPipelineState raise RhiError {
+  vk_graphics_pipeline_create(d, desc, @vk.VK_FORMAT_R8G8B8A8_UNORM)
+}
+
+///|
+fn vk_mesh_pipeline_create_default(
+  d : VkDeviceState,
+  desc : MeshPipelineDesc,
+) -> VkPipelineState raise RhiError {
+  vk_mesh_pipeline_create(d, desc, @vk.VK_FORMAT_R8G8B8A8_UNORM)
+}
+
+///|
+fn vk_buffer_upload_bytes(
+  b : VkBufferState,
+  data : Bytes,
+  offset : Int,
+) -> Unit raise RhiError {
+  vk_buffer_upload_ptr(b, @vk.bytes_ptr(data), data.length(), offset~)
+}
+
+///|
+fn vk_buffer_upload_floats(
+  b : VkBufferState,
+  data : FixedArray[Float],
+  offset : Int,
+) -> Unit raise RhiError {
+  vk_buffer_upload_ptr(b, @vk.float_ptr(data), data.length() * 4, offset~)
+}
+
+///|
+fn vk_buffer_upload_uint32(
+  b : VkBufferState,
+  data : FixedArray[UInt32],
+  offset : Int,
+) -> Unit raise RhiError {
+  vk_buffer_upload_ptr(b, @vk.uint32_ptr(data), data.length() * 4, offset~)
+}
+
+///|
+fn vk_texture_create_cubemap(
+  d : VkDeviceState,
+  size : Int,
+  format : TextureFormat,
+  total : Bytes,
+) -> VkTextureState raise RhiError {
+  vk_texture_create_layered(
+    d,
+    size,
+    size,
+    6,
+    format,
+    total,
+    @vk.VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+    @vk.VK_IMAGE_VIEW_TYPE_CUBE,
+  )
+}
+
+///|
+fn vk_texture_create_2d_array(
+  d : VkDeviceState,
+  width : Int,
+  height : Int,
+  layers : Int,
+  format : TextureFormat,
+  pixels : Bytes,
+) -> VkTextureState raise RhiError {
+  vk_texture_create_layered(
+    d,
+    width,
+    height,
+    layers,
+    format,
+    pixels,
+    (0 : UInt32),
+    @vk.VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+  )
+}
+
+///|
+fn vk_texture_create_render_target(
+  d : VkDeviceState,
+  width : Int,
+  height : Int,
+  format : TextureFormat,
+  samples : SampleCount,
+) -> VkTextureState raise RhiError {
+  let usage = match samples {
+    SampleCount::X1 =>
+      @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+      @vk.VK_IMAGE_USAGE_SAMPLED_BIT |
+      @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+      @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT
+    SampleCount::X4 => @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+  }
+  create_image_and_view(
+    d,
+    width,
+    height,
+    vk_texture_format(format),
+    usage,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    samples,
+    format,
+  )
+}
+
+///|
+fn vk_texture_create_depth_target(
+  d : VkDeviceState,
+  width : Int,
+  height : Int,
+  format : TextureFormat,
+  samples : SampleCount,
+) -> VkTextureState raise RhiError {
+  let usage = @vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+    @vk.VK_IMAGE_USAGE_SAMPLED_BIT
+  create_image_and_view(
+    d,
+    width,
+    height,
+    vk_texture_format(format),
+    usage,
+    depth_barrier_aspect(format),
+    samples,
+    format,
+  )
+}
+
+///|
+fn vk_sampler_create(
+  d : VkDeviceState,
+  desc : SamplerDesc,
+) -> VkSamplerState raise RhiError {
+  let ci = @vk.VkSamplerCreateInfo::new()
+  ci.set_magFilter(vk_filter(desc.mag))
+  ci.set_minFilter(vk_filter(desc.min))
+  ci.set_addressModeU(vk_address(desc.address))
+  ci.set_addressModeV(vk_address(desc.address))
+  ci.set_addressModeW(vk_address(desc.address))
+  ci.set_borderColor(vk_border_color(desc.border_color))
+  if desc.anisotropy > (1.0 : Float) && d.caps.supports_anisotropy {
+    let clamped = if desc.anisotropy > d.caps.max_sampler_anisotropy {
+      d.caps.max_sampler_anisotropy
+    } else {
+      desc.anisotropy
+    }
+    ci.set_anisotropyEnable((1 : UInt32))
+    ci.set_maxAnisotropy(clamped)
+  } else {
+    ci.set_anisotropyEnable((0 : UInt32))
+    ci.set_maxAnisotropy((1.0 : Float))
+  }
+  ci.set_unnormalizedCoordinates((0 : UInt32))
+  match desc.compare_op {
+    Some(op) => {
+      ci.set_compareEnable((1 : UInt32))
+      ci.set_compareOp(vk_compare_op(op))
+    }
+    None => ci.set_compareEnable((0 : UInt32))
+  }
+  ci.set_mipmapMode(
+    match desc.mipmap {
+      Filter::Nearest => @vk.VK_SAMPLER_MIPMAP_MODE_NEAREST
+      Filter::Linear => @vk.VK_SAMPLER_MIPMAP_MODE_LINEAR
+    },
+  )
+  ci.set_mipLodBias(desc.mip_lod_bias)
+  ci.set_minLod(desc.min_lod)
+  ci.set_maxLod(desc.max_lod)
+  let out = FixedArray::make(1, @vk.VkSampler::null())
+  let r = (d.dfn.vkCreateSampler)(
+    d.dev,
+    ci,
+    @vk.VkAllocationCallbacks::null(),
+    out,
+  )
+  ci.free()
+  if r != 0 {
+    raise AllocationFailed("vkCreateSampler failed: \{r}")
+  }
+  { device: d, sampler: out[0] }
+}
+
+///|
+fn vk_fence_create(
+  d : VkDeviceState,
+  signaled : Bool,
+) -> VkFenceState raise RhiError {
+  let ci = @vk.VkFenceCreateInfo::new()
+  if signaled {
+    ci.set_flags(@vk.VK_FENCE_CREATE_SIGNALED_BIT)
+  }
+  let out = FixedArray::make(1, @vk.VkFence::null())
+  let r = (d.dfn.vkCreateFence)(d.dev, ci, @vk.VkAllocationCallbacks::null(), out)
+  ci.free()
+  if r != 0 {
+    raise CommandFailed("vkCreateFence failed: \{r}")
+  }
+  { device: d, fence: out[0], submitted_gen: (0 : UInt64) }
+}
+
+///|
+fn vk_fence_wait(f : VkFenceState) -> Unit {
+  let arr = FixedArray::make(1, f.fence)
+  let _ = (f.device.dfn.vkWaitForFences)(
+    f.device.dev,
+    (1 : UInt32),
+    arr,
+    (1 : UInt32),
+    (0xFFFFFFFFFFFFFFFF : UInt64),
+  )
+  let d = f.device
+  if f.submitted_gen > d.completed_gen {
+    d.completed_gen = f.submitted_gen
+  }
+  flush_deletes(d, false)
+}
+
+///|
+fn vk_fence_reset(f : VkFenceState) -> Unit {
+  let arr = FixedArray::make(1, f.fence)
+  let _ = (f.device.dfn.vkResetFences)(f.device.dev, (1 : UInt32), arr)
+}
+
+///|
+fn vk_fence_destroy(f : VkFenceState) -> Unit {
+  (f.device.dfn.vkDestroyFence)(
+    f.device.dev,
+    f.fence,
+    @vk.VkAllocationCallbacks::null(),
+  )
+}
+
+///|
+fn vk_device_submit_commands(
+  d : VkDeviceState,
+  cmd : VkCmdState,
+  fence : VkFenceState,
+) -> Unit raise RhiError {
+  let er = (d.dfn.vkEndCommandBuffer)(cmd.cmd)
+  if d.active_recordings > 0 {
+    d.active_recordings = d.active_recordings - 1
+  }
+  if er != 0 {
+    raise CommandFailed("vkEndCommandBuffer failed: \{er}")
+  }
+  let cmd_si = @vk.VkCommandBufferSubmitInfo::new()
+  cmd_si.set_commandBuffer(cmd.cmd)
+  let si2 = @vk.VkSubmitInfo2::new()
+  si2.set_commandBufferInfoCount((1 : UInt32))
+  si2.set_pCommandBufferInfos(cmd_si)
+  let sr = (d.dfn.vkQueueSubmit2)(d.queue, (1 : UInt32), si2, fence.fence)
+  si2.free()
+  cmd_si.free()
+  if sr != 0 {
+    raise CommandFailed("vkQueueSubmit2 failed: \{sr}")
+  }
+  fence.submitted_gen = d.current_gen
+  d.current_gen = d.current_gen + (1 : UInt64)
+}
+
+///|
+fn vk_cmd_bind_pipeline(c : VkCmdState, pipeline : Pipeline) -> Unit {
+  let point = if pipeline.inner.compute {
+    @vk.VK_PIPELINE_BIND_POINT_COMPUTE
+  } else {
+    @vk.VK_PIPELINE_BIND_POINT_GRAPHICS
+  }
+  (c.device.dfn.vkCmdBindPipeline)(c.cmd, point, pipeline.inner.pipeline)
+  c.bound = Some(pipeline)
+}
+
+///|
+fn vk_cmd_reset_timestamps(c : VkCmdState, pool : VkTimestampPoolState) -> Unit {
+  (c.device.dfn.vkCmdResetQueryPool)(
+    c.cmd,
+    pool.pool,
+    (0 : UInt32),
+    pool.count.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_write_timestamp(
+  c : VkCmdState,
+  pool : VkTimestampPoolState,
+  index : Int,
+  at_start : Bool,
+) -> Unit {
+  let stage = if at_start {
+    @vk.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
+  } else {
+    @vk.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
+  }
+  (c.device.dfn.vkCmdWriteTimestamp)(
+    c.cmd,
+    stage,
+    pool.pool,
+    index.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_bind_vertex(
+  c : VkCmdState,
+  slot : Int,
+  buf : VkBufferState,
+  offset : Int,
+) -> Unit {
+  let buffers = FixedArray::make(1, buf.buffer)
+  let offsets = FixedArray::make(1, offset.to_uint64())
+  (c.device.dfn.vkCmdBindVertexBuffers)(
+    c.cmd,
+    slot.reinterpret_as_uint(),
+    (1 : UInt32),
+    buffers,
+    offsets,
+  )
+}
+
+///|
+fn vk_cmd_bind_index(
+  c : VkCmdState,
+  buf : VkBufferState,
+  index_type : IndexType,
+  offset : Int,
+) -> Unit {
+  let vk_ty = match index_type {
+    IndexType::Uint16 => @vk.VK_INDEX_TYPE_UINT16
+    IndexType::Uint32 => @vk.VK_INDEX_TYPE_UINT32
+  }
+  (c.device.dfn.vkCmdBindIndexBuffer)(c.cmd, buf.buffer, offset.to_uint64(), vk_ty)
+}
+
+///|
+fn vk_cmd_push_constants_floats(
+  c : VkCmdState,
+  pipe : VkPipelineState,
+  data : FixedArray[Float],
+  offset : Int,
+) -> Unit {
+  (c.device.dfn.vkCmdPushConstants)(
+    c.cmd,
+    pipe.layout,
+    pipe.stage_flags,
+    offset.reinterpret_as_uint(),
+    (data.length() * 4).reinterpret_as_uint(),
+    @vk.float_ptr(data),
+  )
+}
+
+///|
+fn vk_cmd_push_constants_bytes(
+  c : VkCmdState,
+  pipe : VkPipelineState,
+  data : Bytes,
+  offset : Int,
+) -> Unit {
+  (c.device.dfn.vkCmdPushConstants)(
+    c.cmd,
+    pipe.layout,
+    pipe.stage_flags,
+    offset.reinterpret_as_uint(),
+    data.length().reinterpret_as_uint(),
+    @vk.bytes_ptr(data),
+  )
+}
+
+///|
+fn vk_cmd_set_viewport(
+  c : VkCmdState,
+  x : Float,
+  y : Float,
+  w : Float,
+  h : Float,
+) -> Unit {
+  let vp = @vk.VkViewport::new()
+  vp.set_x(x)
+  vp.set_y(y)
+  vp.set_width(w)
+  vp.set_height(h)
+  vp.set_minDepth((0.0 : Float))
+  vp.set_maxDepth((1.0 : Float))
+  (c.device.dfn.vkCmdSetViewport)(c.cmd, (0 : UInt32), (1 : UInt32), vp)
+  vp.free()
+}
+
+///|
+fn vk_cmd_set_scissor(
+  c : VkCmdState,
+  x : Int,
+  y : Int,
+  w : Int,
+  h : Int,
+) -> Unit {
+  let off = @vk.VkOffset2D::new()
+  off.set_x(x)
+  off.set_y(y)
+  let ext = @vk.VkExtent2D::new()
+  ext.set_width(w.reinterpret_as_uint())
+  ext.set_height(h.reinterpret_as_uint())
+  let rect = @vk.VkRect2D::new()
+  rect.set_offset(off)
+  rect.set_extent(ext)
+  (c.device.dfn.vkCmdSetScissor)(c.cmd, (0 : UInt32), (1 : UInt32), rect)
+  off.free()
+  ext.free()
+  rect.free()
+}
+
+///|
+fn vk_cmd_draw_instanced(
+  c : VkCmdState,
+  vertices : Int,
+  instances : Int,
+  first_vertex : Int,
+  first_instance : Int,
+) -> Unit {
+  vk_cmd_flush_slots(c)
+  (c.device.dfn.vkCmdDraw)(
+    c.cmd,
+    vertices.reinterpret_as_uint(),
+    instances.reinterpret_as_uint(),
+    first_vertex.reinterpret_as_uint(),
+    first_instance.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_draw_indexed_full(
+  c : VkCmdState,
+  index_count : Int,
+  instances : Int,
+  first_index : Int,
+  vertex_offset : Int,
+  first_instance : Int,
+) -> Unit {
+  vk_cmd_flush_slots(c)
+  (c.device.dfn.vkCmdDrawIndexed)(
+    c.cmd,
+    index_count.reinterpret_as_uint(),
+    instances.reinterpret_as_uint(),
+    first_index.reinterpret_as_uint(),
+    vertex_offset,
+    first_instance.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_dispatch(c : VkCmdState, x : Int, y : Int, z : Int) -> Unit {
+  vk_cmd_flush_slots(c)
+  (c.device.dfn.vkCmdDispatch)(
+    c.cmd,
+    x.reinterpret_as_uint(),
+    y.reinterpret_as_uint(),
+    z.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_draw_indirect(
+  c : VkCmdState,
+  buf : VkBufferState,
+  draw_count : Int,
+  offset : Int,
+  stride : Int,
+) -> Unit {
+  vk_cmd_flush_slots(c)
+  (c.device.dfn.vkCmdDrawIndirect)(
+    c.cmd,
+    buf.buffer,
+    offset.to_uint64(),
+    draw_count.reinterpret_as_uint(),
+    stride.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_draw_indexed_indirect(
+  c : VkCmdState,
+  buf : VkBufferState,
+  draw_count : Int,
+  offset : Int,
+  stride : Int,
+) -> Unit {
+  vk_cmd_flush_slots(c)
+  (c.device.dfn.vkCmdDrawIndexedIndirect)(
+    c.cmd,
+    buf.buffer,
+    offset.to_uint64(),
+    draw_count.reinterpret_as_uint(),
+    stride.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_dispatch_indirect(
+  c : VkCmdState,
+  buf : VkBufferState,
+  offset : Int,
+) -> Unit {
+  vk_cmd_flush_slots(c)
+  (c.device.dfn.vkCmdDispatchIndirect)(c.cmd, buf.buffer, offset.to_uint64())
+}
+
+///|
+fn vk_cmd_draw_mesh_tasks(c : VkCmdState, x : Int, y : Int, z : Int) -> Unit {
+  vk_cmd_flush_slots(c)
+  (c.device.dfn.vkCmdDrawMeshTasksEXT)(
+    c.cmd,
+    x.reinterpret_as_uint(),
+    y.reinterpret_as_uint(),
+    z.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_draw_mesh_tasks_indirect(
+  c : VkCmdState,
+  buf : VkBufferState,
+  draw_count : Int,
+  offset : Int,
+  stride : Int,
+) -> Unit {
+  vk_cmd_flush_slots(c)
+  (c.device.dfn.vkCmdDrawMeshTasksIndirectEXT)(
+    c.cmd,
+    buf.buffer,
+    offset.to_uint64(),
+    draw_count.reinterpret_as_uint(),
+    stride.reinterpret_as_uint(),
+  )
+}
+
+///|
+fn vk_cmd_bind_bindless_heap(
+  c : VkCmdState,
+  pipe : VkPipelineState,
+  heap : VkBindlessHeapState,
+  set_index : Int,
+) -> Unit {
+  let point = if pipe.compute {
+    @vk.VK_PIPELINE_BIND_POINT_COMPUTE
+  } else {
+    @vk.VK_PIPELINE_BIND_POINT_GRAPHICS
+  }
+  let sets = FixedArray::make(1, heap.set)
+  (c.device.dfn.vkCmdBindDescriptorSets)(
+    c.cmd,
+    point,
+    pipe.layout,
+    set_index.reinterpret_as_uint(),
+    (1 : UInt32),
+    sets,
+    (0 : UInt32),
+    FixedArray::make(0, (0 : UInt32)),
+  )
+}
+
+///|
+fn vk_cmd_copy_buffer(
+  c : VkCmdState,
+  src : VkBufferState,
+  dst : VkBufferState,
+  size : Int,
+) -> Unit {
+  let region = @vk.VkBufferCopy::new()
+  region.set_srcOffset((0 : UInt64))
+  region.set_dstOffset((0 : UInt64))
+  region.set_size(size.to_uint64())
+  (c.device.dfn.vkCmdCopyBuffer)(
+    c.cmd,
+    src.buffer,
+    dst.buffer,
+    (1 : UInt32),
+    region,
+  )
+  region.free()
+}
+
+///|
+fn vk_cmd_barrier(c : VkCmdState) -> Unit {
+  let mb = @vk.VkMemoryBarrier2::new()
+  mb.set_srcStageMask(
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+  )
+  mb.set_srcAccessMask(
+    @vk.VK_ACCESS_2_SHADER_WRITE_BIT |
+    @vk.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+  )
+  mb.set_dstStageMask(
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT |
+    @vk.VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+  )
+  mb.set_dstAccessMask(
+    @vk.VK_ACCESS_2_TRANSFER_READ_BIT |
+    @vk.VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT |
+    @vk.VK_ACCESS_2_SHADER_READ_BIT |
+    @vk.VK_ACCESS_2_UNIFORM_READ_BIT,
+  )
+  let dep = @vk.VkDependencyInfo::new()
+  dep.set_memoryBarrierCount((1 : UInt32))
+  dep.set_pMemoryBarriers(mb)
+  (c.device.dfn.vkCmdPipelineBarrier2)(c.cmd, dep)
+  dep.free()
+  mb.free()
 }
