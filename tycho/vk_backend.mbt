@@ -11,7 +11,7 @@ let g_rhi_validation_errors : Ref[Int] = Ref(0)
 ///|
 priv enum DeleteKind {
   DeleteBuffer(@vk.VkBuffer, MemAlloc)
-  DeleteTexture(@vk.VkImageView, @vk.VkImage, MemAlloc)
+  DeleteTexture(@vk.VkImageView, @vk.VkImageView, @vk.VkImage, MemAlloc)
   DeleteSampler(@vk.VkSampler)
   DeletePipeline(
     @vk.VkPipeline,
@@ -48,6 +48,7 @@ priv struct VkDeviceState {
   messenger : @vk.VkDebugUtilsMessengerEXT
   error_baseline : Int
   timestamp_period_ns : Float
+  supports_timestamps : Bool
   headless : Bool
   caps : DeviceCapabilities
   mut current_gen : UInt64
@@ -137,6 +138,7 @@ priv struct VkTextureState {
   image : @vk.VkImage
   alloc : MemAlloc
   view : @vk.VkImageView
+  attachment_view : @vk.VkImageView
   format : TextureFormat
   samples : SampleCount
   width : Int
@@ -483,7 +485,11 @@ fn execute_delete(d : VkDeviceState, item : DeleteKind) -> Unit {
       (d.dfn.vkDestroyBuffer)(d.dev, buf, na)
       d.alloc.free(alloc)
     }
-    DeleteTexture(view, image, alloc) => {
+    DeleteTexture(view, attachment_view, image, alloc) => {
+      if attachment_view.as_ptr() != view.as_ptr() &&
+        attachment_view.as_ptr() != (0 : UInt64) {
+        (d.dfn.vkDestroyImageView)(d.dev, attachment_view, na)
+      }
       (d.dfn.vkDestroyImageView)(d.dev, view, na)
       (d.dfn.vkDestroyImage)(d.dev, image, na)
       d.alloc.free(alloc)
@@ -658,6 +664,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   let mut found_device = false
   let mut is_discrete = false
   let mut timestamp_period_ns : Float = (1.0 : Float)
+  let mut timestamp_valid_bits : UInt32 = (0 : UInt32)
   let mut device_name = ""
   let mut api_version : UInt32 = (0 : UInt32)
   let mut driver_version : UInt32 = (0 : UInt32)
@@ -701,6 +708,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
           found_device = true
           is_discrete = discrete
           timestamp_period_ns = ts_period
+          timestamp_valid_bits = qprops.get_timestampValidBits_at(qi)
           device_name = dname
           api_version = api_v
           driver_version = drv_v
@@ -970,6 +978,8 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     messenger,
     error_baseline,
     timestamp_period_ns,
+    supports_timestamps: timestamp_valid_bits > (0 : UInt32) &&
+    timestamp_period_ns > (0.0 : Float),
     headless: desc.headless,
     caps,
     current_gen: (1 : UInt64),
@@ -1372,18 +1382,33 @@ fn create_image_and_view(
   ivci.set_subresourceRange(range)
   let view_out = FixedArray::make(1, @vk.VkImageView::null())
   let vr = (d.dfn.vkCreateImageView)(d.dev, ivci, na, view_out)
-  range.free()
-  ivci.free()
   if vr != 0 {
+    range.free()
+    ivci.free()
     (d.dfn.vkDestroyImage)(d.dev, image, na)
     d.alloc.free(alloc)
     raise AllocationFailed("vkCreateImageView failed with code \{vr}")
   }
+  let mut attachment_view = view_out[0]
+  if format == TextureFormat::Depth24Stencil8 {
+    range.set_aspectMask(
+      @vk.VK_IMAGE_ASPECT_DEPTH_BIT | @vk.VK_IMAGE_ASPECT_STENCIL_BIT,
+    )
+    ivci.set_subresourceRange(range)
+    let av_out = FixedArray::make(1, @vk.VkImageView::null())
+    let avr = (d.dfn.vkCreateImageView)(d.dev, ivci, na, av_out)
+    if avr == 0 {
+      attachment_view = av_out[0]
+    }
+  }
+  range.free()
+  ivci.free()
   {
     device: d,
     image,
     alloc,
     view: view_out[0],
+    attachment_view,
     format,
     samples,
     width,
@@ -1812,7 +1837,7 @@ fn vk_texture_create_storage(
 
 ///|
 fn vk_texture_destroy(t : VkTextureState) -> Unit {
-  enqueue_delete(t.device, DeleteTexture(t.view, t.image, t.alloc))
+  enqueue_delete(t.device, DeleteTexture(t.view, t.attachment_view, t.image, t.alloc))
 }
 
 ///|
@@ -3974,6 +3999,9 @@ fn vk_timestamp_pool_create(
   if count <= 0 {
     raise InvalidArgument("TimestampPool count must be positive")
   }
+  if !d.supports_timestamps {
+    return { device: d, pool: @vk.VkQueryPool::null(), count }
+  }
   let qpci = @vk.VkQueryPoolCreateInfo::new()
   qpci.set_queryType(@vk.VK_QUERY_TYPE_TIMESTAMP)
   qpci.set_queryCount(count.reinterpret_as_uint())
@@ -3997,6 +4025,9 @@ fn vk_timestamp_pool_resolve_ns(
 ) -> FixedArray[Double] raise RhiError {
   let d = tp.device
   let _ = (d.dfn.vkQueueWaitIdle)(d.queue)
+  if !d.supports_timestamps || tp.pool.as_ptr() == (0 : UInt64) {
+    return FixedArray::make(tp.count, 0.0)
+  }
   let raw = FixedArray::make(tp.count, (0 : UInt64))
   let r = (d.dfn.vkGetQueryPoolResults)(
     d.dev,
@@ -4017,7 +4048,9 @@ fn vk_timestamp_pool_resolve_ns(
 
 ///|
 fn vk_timestamp_pool_destroy(tp : VkTimestampPoolState) -> Unit {
-  enqueue_delete(tp.device, DeleteTimestampPool(tp.pool))
+  if tp.pool.as_ptr() != (0 : UInt64) {
+    enqueue_delete(tp.device, DeleteTimestampPool(tp.pool))
+  }
 }
 
 ///|
@@ -4142,14 +4175,14 @@ fn vk_cmd_begin_render_pass(
   match depth {
     Some(dt) => {
       cv.set_depth_stencil(dt.clear_depth, dt.clear_stencil.reinterpret_as_uint())
-      datt.set_imageView(dt.texture.inner.view)
+      datt.set_imageView(dt.texture.inner.attachment_view)
       datt.set_imageLayout(@vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       datt.set_loadOp(vk_load_op(dt.load_op))
       datt.set_storeOp(vk_store_op(dt.store_op))
       datt.set_clearValue(cv)
       ri.set_pDepthAttachment(datt)
       if dt.texture.inner.format == TextureFormat::Depth24Stencil8 {
-        satt.set_imageView(dt.texture.inner.view)
+        satt.set_imageView(dt.texture.inner.attachment_view)
         satt.set_imageLayout(@vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
         satt.set_loadOp(vk_load_op(dt.stencil_load_op))
         satt.set_storeOp(vk_store_op(dt.stencil_store_op))
@@ -5203,6 +5236,9 @@ fn vk_cmd_bind_pipeline(c : VkCmdState, pipeline : Pipeline) -> Unit {
 
 ///|
 fn vk_cmd_reset_timestamps(c : VkCmdState, pool : VkTimestampPoolState) -> Unit {
+  if !c.device.supports_timestamps || pool.pool.as_ptr() == (0 : UInt64) {
+    return
+  }
   (c.device.dfn.vkCmdResetQueryPool)(
     c.cmd,
     pool.pool,
@@ -5218,6 +5254,9 @@ fn vk_cmd_write_timestamp(
   index : Int,
   at_start : Bool,
 ) -> Unit {
+  if !c.device.supports_timestamps || pool.pool.as_ptr() == (0 : UInt64) {
+    return
+  }
   let stage = if at_start {
     @vk.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
   } else {

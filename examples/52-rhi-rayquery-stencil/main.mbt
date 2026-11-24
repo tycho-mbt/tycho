@@ -159,30 +159,35 @@ fn main {
         color_format=Some(@tycho.TextureFormat::RGBA8),
       ),
     )
-    let cmd2 = dev.begin_commands()
-    cmd2.begin_render_pass([
-      @tycho.RenderTargetDesc::new(
-        rt,
-        load_op=@tycho.LoadOp::Clear,
-        store_op=@tycho.StoreOp::Store,
-        clear_color=@tycho.ClearColor::black(),
-      ),
-    ])
-    cmd2.set_viewport(0.0, 0.0, 256.0, 256.0)
-    cmd2.set_scissor(0, 0, 256, 256)
-    cmd2.bind_vertex(0, vbuf)
-    cmd2.bind_pipeline(pipe_plain)
-    cmd2.push_constants_floats(pipe_plain, [(0.2 : Float), (0.9 : Float), (0.3 : Float), (1.0 : Float)])
-    cmd2.draw_indirect_count(ind_buf, cnt_buf, 2)
-    cmd2.end_render_pass()
-    dev.end_commands(cmd2)
+    let mut indirect_count_ok = true
+    let mut ic_ran = false
+    if dev.capabilities().supports_indirect_draw {
+      ic_ran = true
+      let cmd2 = dev.begin_commands()
+      cmd2.begin_render_pass([
+        @tycho.RenderTargetDesc::new(
+          rt,
+          load_op=@tycho.LoadOp::Clear,
+          store_op=@tycho.StoreOp::Store,
+          clear_color=@tycho.ClearColor::black(),
+        ),
+      ])
+      cmd2.set_viewport(0.0, 0.0, 256.0, 256.0)
+      cmd2.set_scissor(0, 0, 256, 256)
+      cmd2.bind_vertex(0, vbuf)
+      cmd2.bind_pipeline(pipe_plain)
+      cmd2.push_constants_floats(pipe_plain, [(0.2 : Float), (0.9 : Float), (0.3 : Float), (1.0 : Float)])
+      cmd2.draw_indirect_count(ind_buf, cnt_buf, 2)
+      cmd2.end_render_pass()
+      dev.end_commands(cmd2)
 
-    let ic_px = rt.readback()
-    // Left triangle centroid ~(x=-0.65, y=0.0) -> px ~ (44, 128); Right ~(x=0.65, y=0.0) -> px ~ (211, 128)
-    let left_idx = (128 * 256 + 44) * 4
-    let right_idx = (128 * 256 + 211) * 4
-    let indirect_count_ok = ic_px[left_idx + 1].to_int() > 200 &&
-      ic_px[right_idx + 1].to_int() < 5
+      let ic_px = rt.readback()
+      // Left triangle centroid ~(x=-0.65, y=0.0) -> px ~ (44, 128); Right ~(x=0.65, y=0.0) -> px ~ (211, 128)
+      let left_idx = (128 * 256 + 44) * 4
+      let right_idx = (128 * 256 + 211) * 4
+      indirect_count_ok = ic_px[left_idx + 1].to_int() > 200 &&
+        ic_px[right_idx + 1].to_int() < 5
+    }
 
     // --- 3. Inline Ray Query (BLAS + TLAS + Compute) ---
     let mut rq_ok = true
@@ -283,9 +288,10 @@ fn main {
     dev.destroy()
 
     if stencil_ok && indirect_count_ok && rq_ok && errs == 0 && used == (0 : UInt64) {
+      let ic_str = if ic_ran { "draw_indirect_count=OK" } else { "draw_indirect_count=skipped" }
       let rq_str = if rq_ran { "ray_query=OK" } else { "ray_query=skipped" }
       println(
-        "[52-rhi-rayquery-stencil] OK — stencil=OK, draw_indirect_count=OK, \{rq_str} (0 validation errors)",
+        "[52-rhi-rayquery-stencil] OK — stencil=OK, \{ic_str}, \{rq_str} (0 validation errors)",
       )
     } else {
       println(

@@ -30,9 +30,10 @@ fn main {
         headless=!show_win,
       ),
     )
-    if !dev.capabilities().supports_bindless {
+    if !dev.capabilities().supports_bindless ||
+      !dev.capabilities().supports_indirect_draw {
       println(
-        "[46-rhi-indirect-bindless] SKIP — device lacks bindless support",
+        "[46-rhi-indirect-bindless] SKIP — device lacks bindless or multiDrawIndirect support",
       )
       dev.destroy()
       return

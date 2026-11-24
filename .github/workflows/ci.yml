@@ -42,9 +42,41 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Install Mesa lavapipe, Vulkan loader, validation layers, and glslang
+        shell: pwsh
+        run: |
+          C:\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -Sy && pacman --noconfirm -S --needed mingw-w64-ucrt-x86_64-mesa mingw-w64-ucrt-x86_64-vulkan-loader mingw-w64-ucrt-x86_64-vulkan-validation-layers mingw-w64-ucrt-x86_64-glslang"
+          if ($LASTEXITCODE -ne 0) { throw "MSYS2 pacman install failed" }
+          "C:\msys64\ucrt64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $lvpDll = "C:\msys64\ucrt64\bin\vulkan_lvp.dll"
+          if (-not (Test-Path $lvpDll)) { throw "Missing $lvpDll" }
+          $apiVer = "1.4.0"
+          $srcIcd = "C:\msys64\ucrt64\share\vulkan\icd.d\lvp_icd.x86_64.json"
+          if (Test-Path $srcIcd) {
+            $parsed = Get-Content $srcIcd -Raw | ConvertFrom-Json
+            if ($parsed.ICD.api_version) { $apiVer = $parsed.ICD.api_version }
+          }
+          $icdOut = Join-Path $env:RUNNER_TEMP "lvp_icd.json"
+          @{
+            file_format_version = "1.0.0"
+            ICD = @{
+              library_path = $lvpDll
+              api_version = $apiVer
+            }
+          } | ConvertTo-Json -Depth 4 | Set-Content -Path $icdOut -Encoding ascii
+          "VK_DRIVER_FILES=$icdOut" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $valJson = Get-ChildItem -Path "C:\msys64\ucrt64" -Filter "VkLayer_khronos_validation.json" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $valJson) { throw "Missing VkLayer_khronos_validation.json" }
+          "VK_LAYER_PATH=$($valJson.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "ICD: $icdOut (api_version=$apiVer)"
+          Write-Host "VK_LAYER_PATH: $($valJson.DirectoryName)"
       - name: Setup MSVC x64
         shell: pwsh
         run: |
+          $oldSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+          foreach ($p in ($env:Path -split ";")) {
+            if ($p) { [void]$oldSet.Add($p.TrimEnd("\")) }
+          }
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if (-not $vsPath) { throw "MSVC installation not found" }
@@ -56,32 +88,30 @@ jobs:
             if ($_ -match "^(INCLUDE|LIB|LIBPATH)=(.*)$") {
               "$($Matches[1])=$($Matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             } elseif ($_ -match "^Path=(.*)$") {
-              $Matches[1] -split ";" | Where-Object { $_ } | ForEach-Object {
-                $_ | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              foreach ($dir in ($Matches[1] -split ";")) {
+                $norm = $dir.TrimEnd("\")
+                if ($norm -and -not $oldSet.Contains($norm) -and ($norm -notmatch "WindowsApps")) {
+                  $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                }
               }
             }
           }
           Remove-Item $tmp
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
       - name: Install MoonBit
         shell: pwsh
         run: |
           irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
           "$env:USERPROFILE\.moon\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Install Mesa lavapipe, Vulkan loader, and glslang
+      - name: Verify Windows toolchain
         shell: pwsh
         run: |
-          C:\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -Sy && pacman --noconfirm -S --needed mingw-w64-ucrt-x86_64-mesa mingw-w64-ucrt-x86_64-vulkan-loader mingw-w64-ucrt-x86_64-glslang"
-          if ($LASTEXITCODE -ne 0) { throw "MSYS2 pacman install failed" }
-          "C:\msys64\ucrt64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          $icdOut = Join-Path $env:RUNNER_TEMP "lvp_icd.json"
-          @{
-            file_format_version = "1.0.0"
-            ICD = @{
-              library_path = "C:\msys64\ucrt64\bin\vulkan_lvp.dll"
-              api_version = "1.4.0"
-            }
-          } | ConvertTo-Json -Depth 4 | Set-Content -Path $icdOut -Encoding ascii
-          "VK_DRIVER_FILES=$icdOut" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          python --version
+          moon version
+          glslangValidator --version
       - name: Update MoonBit registry
         shell: pwsh
         run: moon update
@@ -107,8 +137,27 @@ jobs:
         run: |
           brew install molten-vk vulkan-loader glslang
           PREFIX="$(brew --prefix)"
-          echo "VK_DRIVER_FILES=$PREFIX/share/vulkan/icd.d/MoltenVK_icd.json" >> "$GITHUB_ENV"
+          ICD=""
+          for cand in \
+            "$PREFIX/etc/vulkan/icd.d/MoltenVK_icd.json" \
+            "$(brew --prefix molten-vk)/etc/vulkan/icd.d/MoltenVK_icd.json" \
+            "$PREFIX/share/vulkan/icd.d/MoltenVK_icd.json"; do
+            if [ -f "$cand" ]; then
+              ICD="$cand"
+              break
+            fi
+          done
+          if [ -z "$ICD" ]; then
+            echo "ERROR: MoltenVK_icd.json not found under $PREFIX" >&2
+            find "$PREFIX" -name "*MoltenVK*" 2>/dev/null || true
+            exit 1
+          fi
+          echo "Using MoltenVK ICD: $ICD"
+          cat "$ICD"
+          echo "VK_DRIVER_FILES=$ICD" >> "$GITHUB_ENV"
           echo "DYLD_LIBRARY_PATH=$PREFIX/lib" >> "$GITHUB_ENV"
+          echo "MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0" >> "$GITHUB_ENV"
+          echo "MVK_CONFIG_LOG_LEVEL=1" >> "$GITHUB_ENV"
       - name: Update MoonBit registry
         run: moon update
       - name: Build

@@ -73,7 +73,11 @@ static void tycho_temp_path(char *out, size_t n, const char *suffix) {
   /* TMPDIR is usually set without a trailing slash ("/tmp"), so appending the
      filename directly would produce "/tmptycho_..." in the filesystem root. */
   size_t len = strlen(tmp);
-  const char *sep = (tmp[len - 1] == '/' || tmp[len - 1] == '\\') ? "" : "/";
+#ifdef _WIN32
+  const char *sep = (len > 0 && (tmp[len - 1] == '/' || tmp[len - 1] == '\\')) ? "" : "\\";
+#else
+  const char *sep = (len > 0 && (tmp[len - 1] == '/' || tmp[len - 1] == '\\')) ? "" : "/";
+#endif
   snprintf(out, n, "%s%stycho_%lu_%lu%s", tmp, sep, pid, seq, suffix);
 }
 
@@ -122,15 +126,19 @@ static void tycho_cache_path(char *out, size_t n, uint64_t hash) {
 #endif
   if (!tmp || !*tmp) tmp = "/tmp";
   size_t len = strlen(tmp);
+#ifdef _WIN32
+  const char *sep = (len > 0 && (tmp[len - 1] == '/' || tmp[len - 1] == '\\')) ? "" : "\\";
+  char dir[512];
+  snprintf(dir, sizeof dir, "%s%stycho_spv_cache", tmp, sep);
+  _mkdir(dir);
+  snprintf(out, n, "%s\\%016llx.spv", dir, (unsigned long long)hash);
+#else
   const char *sep = (len > 0 && (tmp[len - 1] == '/' || tmp[len - 1] == '\\')) ? "" : "/";
   char dir[512];
   snprintf(dir, sizeof dir, "%s%stycho_spv_cache", tmp, sep);
-#ifdef _WIN32
-  _mkdir(dir);
-#else
   mkdir(dir, 0755);
-#endif
   snprintf(out, n, "%s/%016llx.spv", dir, (unsigned long long)hash);
+#endif
 }
 
 static uint32_t *tycho_read_spv(const char *p) {
