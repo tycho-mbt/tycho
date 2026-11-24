@@ -343,6 +343,8 @@ pub(all) struct PipelineDesc {
   depth_test : Bool
   depth_write : Bool
   depth_compare : CompareOp
+  depth_format : TextureFormat?
+  depth_only : Bool
   depth_bias : Bool
   depth_bias_constant : Float
   depth_bias_slope : Float
@@ -377,6 +379,8 @@ pub fn PipelineDesc::new(
   depth_test? : Bool = false,
   depth_write? : Bool = false,
   depth_compare? : CompareOp = CompareOp::Less,
+  depth_format? : TextureFormat? = None,
+  depth_only? : Bool = false,
   depth_bias? : Bool = false,
   depth_bias_constant? : Float = (0.0 : Float),
   depth_bias_slope? : Float = (0.0 : Float),
@@ -409,6 +413,8 @@ pub fn PipelineDesc::new(
     depth_test,
     depth_write,
     depth_compare,
+    depth_format,
+    depth_only,
     depth_bias,
     depth_bias_constant,
     depth_bias_slope,
@@ -443,6 +449,8 @@ pub fn PipelineDesc::from_spirv(
   depth_test? : Bool = false,
   depth_write? : Bool = false,
   depth_compare? : CompareOp = CompareOp::Less,
+  depth_format? : TextureFormat? = None,
+  depth_only? : Bool = false,
   depth_bias? : Bool = false,
   depth_bias_constant? : Float = (0.0 : Float),
   depth_bias_slope? : Float = (0.0 : Float),
@@ -540,6 +548,8 @@ pub fn PipelineDesc::from_spirv(
     depth_test~,
     depth_write~,
     depth_compare~,
+    depth_format~,
+    depth_only~,
     depth_bias~,
     depth_bias_constant~,
     depth_bias_slope~,
@@ -574,6 +584,7 @@ pub(all) struct MeshPipelineDesc {
   depth_test : Bool
   depth_write : Bool
   depth_compare : CompareOp
+  depth_format : TextureFormat?
   cull_mode : CullMode
   front_face : FrontFace
   blend : Bool
@@ -604,6 +615,7 @@ pub fn MeshPipelineDesc::new(
   depth_test? : Bool = false,
   depth_write? : Bool = false,
   depth_compare? : CompareOp = CompareOp::Less,
+  depth_format? : TextureFormat? = None,
   cull_mode? : CullMode = CullMode::None,
   front_face? : FrontFace = FrontFace::Clockwise,
   blend? : Bool = false,
@@ -632,6 +644,7 @@ pub fn MeshPipelineDesc::new(
     depth_test,
     depth_write,
     depth_compare,
+    depth_format,
     cull_mode,
     front_face,
     blend,
@@ -986,4 +999,9 @@ pub fn load_spirv(path : String) -> FixedArray[UInt32] {
 pub fn load_image(path : String) -> (FixedArray[Byte], Int, Int) {
   let (px, w, h) = @shader.load_image(path)
   (px, w.to_int(), h.to_int())
+}
+
+///|
+pub fn read_file_bytes(path : String) -> Bytes {
+  @shader.read_file_bytes(path)
 }

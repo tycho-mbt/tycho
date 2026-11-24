@@ -52,6 +52,8 @@ pub fn load_image(String) -> (FixedArray[Byte], Int32, Int32)
 
 pub fn load_spirv(String) -> FixedArray[UInt32]
 
+pub fn read_file_bytes(String) -> Bytes
+
 pub fn reflect_spirv(FixedArray[UInt32]) -> SpirvReflection
 
 // Errors

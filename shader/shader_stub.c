@@ -532,3 +532,27 @@ MOONBIT_FFI_EXPORT uint32_t *tycho_shader_compile_slang_file(
   en[elen] = 0;
   return tycho_slang_run(p, en);
 }
+
+MOONBIT_FFI_EXPORT uint8_t *tycho_shader_read_file(
+    const uint8_t *path, int32_t plen) {
+  char rel[512];
+  if (plen <= 0 || plen >= (int32_t)sizeof(rel)) {
+    return (uint8_t *)moonbit_make_bytes(0, 0);
+  }
+  memcpy(rel, path, plen);
+  rel[plen] = 0;
+  char p[1280];
+  if (!tycho_resolve_path(rel, p, sizeof p)) {
+    return (uint8_t *)moonbit_make_bytes(0, 0);
+  }
+  long sz = 0;
+  uint8_t *buf = tycho_read_all(p, &sz);
+  if (!buf || sz <= 0) {
+    if (buf) free(buf);
+    return (uint8_t *)moonbit_make_bytes(0, 0);
+  }
+  uint8_t *out = (uint8_t *)moonbit_make_bytes((int32_t)sz, 0);
+  memcpy(out, buf, (size_t)sz);
+  free(buf);
+  return out;
+}

@@ -51,6 +51,7 @@ priv struct VkDeviceState {
   caps : DeviceCapabilities
   mut current_gen : UInt64
   mut completed_gen : UInt64
+  mut active_recordings : Int
   pending_deletes : Array[DeferredDelete]
 }
 
@@ -516,7 +517,18 @@ fn flush_deletes(d : VkDeviceState, force : Bool) -> Unit {
 
 ///|
 fn enqueue_delete(d : VkDeviceState, kind : DeleteKind) -> Unit {
-  d.pending_deletes.push({ ready_after_gen: d.current_gen, kind })
+  let safe_gen = if d.active_recordings > 0 {
+    d.current_gen
+  } else if d.current_gen > (1 : UInt64) {
+    d.current_gen - (1 : UInt64)
+  } else {
+    (0 : UInt64)
+  }
+  if safe_gen <= d.completed_gen {
+    execute_delete(d, kind)
+  } else {
+    d.pending_deletes.push({ ready_after_gen: safe_gen, kind })
+  }
 }
 
 ///|
@@ -849,6 +861,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     caps,
     current_gen: (1 : UInt64),
     completed_gen: (0 : UInt64),
+    active_recordings: 0,
     pending_deletes: [],
   }
 }
@@ -2289,6 +2302,7 @@ fn vk_swapchain_begin_frame_commands(
   if br != 0 {
     raise CommandFailed("vkBeginCommandBuffer failed: \{br}")
   }
+  d.active_recordings = d.active_recordings + 1
   {
     device: d,
     cmd,
@@ -2532,6 +2546,9 @@ fn vk_swapchain_end_frame(
   wait_si.free()
   signal_si.free()
   cmd_si.free()
+  if d.active_recordings > 0 {
+    d.active_recordings = d.active_recordings - 1
+  }
   if sr != 0 {
     raise CommandFailed("vkQueueSubmit2 failed: \{sr}")
   }
@@ -2817,9 +2834,10 @@ fn vk_graphics_pipeline_create(
   desc : PipelineDesc,
   default_color_vk_fmt : UInt32,
 ) -> VkPipelineState raise RhiError {
-  if desc.vert.length() == 0 || desc.frag.length() == 0 {
+  if desc.vert.length() == 0 || (!desc.depth_only && desc.frag.length() == 0) {
     raise InvalidArgument("Graphics pipeline requires non-empty SPIR-V shaders")
   }
+  let has_frag = desc.frag.length() > 0
   let na = @vk.VkAllocationCallbacks::null()
   let vsmci = @vk.VkShaderModuleCreateInfo::new()
   vsmci.set_codeSize((desc.vert.length() * 4).to_uint64())
@@ -2830,24 +2848,34 @@ fn vk_graphics_pipeline_create(
   if vr != 0 {
     raise PipelineFailed("Vertex vkCreateShaderModule failed: \{vr}")
   }
-  let fsmci = @vk.VkShaderModuleCreateInfo::new()
-  fsmci.set_codeSize((desc.frag.length() * 4).to_uint64())
-  fsmci.set_pCode(desc.frag)
   let fsm_out = FixedArray::make(1, @vk.VkShaderModule::null())
-  let fr = (d.dfn.vkCreateShaderModule)(d.dev, fsmci, na, fsm_out)
-  fsmci.free()
-  if fr != 0 {
-    (d.dfn.vkDestroyShaderModule)(d.dev, vsm_out[0], na)
-    raise PipelineFailed("Fragment vkCreateShaderModule failed: \{fr}")
+  if has_frag {
+    let fsmci = @vk.VkShaderModuleCreateInfo::new()
+    fsmci.set_codeSize((desc.frag.length() * 4).to_uint64())
+    fsmci.set_pCode(desc.frag)
+    let fr = (d.dfn.vkCreateShaderModule)(d.dev, fsmci, na, fsm_out)
+    fsmci.free()
+    if fr != 0 {
+      (d.dfn.vkDestroyShaderModule)(d.dev, vsm_out[0], na)
+      raise PipelineFailed("Fragment vkCreateShaderModule failed: \{fr}")
+    }
   }
 
-  let stages = @vk.VkPipelineShaderStageCreateInfo::array(2)
+  let stage_count = if has_frag { 2 } else { 1 }
+  let stages = @vk.VkPipelineShaderStageCreateInfo::array(stage_count)
   stages.set_stage_at(0, @vk.VK_SHADER_STAGE_VERTEX_BIT)
   stages.set_module_at(0, vsm_out[0])
   stages.set_pName_at(0, @vk.cstr(desc.vert_entry))
-  stages.set_stage_at(1, @vk.VK_SHADER_STAGE_FRAGMENT_BIT)
-  stages.set_module_at(1, fsm_out[0])
-  stages.set_pName_at(1, @vk.cstr(desc.frag_entry))
+  if has_frag {
+    stages.set_stage_at(1, @vk.VK_SHADER_STAGE_FRAGMENT_BIT)
+    stages.set_module_at(1, fsm_out[0])
+    stages.set_pName_at(1, @vk.cstr(desc.frag_entry))
+  }
+  let stage_flags = if has_frag {
+    @vk.VK_SHADER_STAGE_VERTEX_BIT | @vk.VK_SHADER_STAGE_FRAGMENT_BIT
+  } else {
+    @vk.VK_SHADER_STAGE_VERTEX_BIT
+  }
 
   let use_layouts = desc.vertex_layouts.length() > 0
   let n_bindings = if use_layouts {
@@ -2943,7 +2971,9 @@ fn vk_graphics_pipeline_create(
   )
   depth_stencil.set_depthCompareOp(vk_compare_op(desc.depth_compare))
 
-  let color_vk_fmts : FixedArray[UInt32] = if desc.color_formats.length() > 0 {
+  let color_vk_fmts : FixedArray[UInt32] = if desc.depth_only {
+    FixedArray::make(0, (0 : UInt32))
+  } else if desc.color_formats.length() > 0 {
     FixedArray::makei(desc.color_formats.length(), fn(i) {
       vk_texture_format(desc.color_formats[i])
     })
@@ -3056,7 +3086,7 @@ fn vk_graphics_pipeline_create(
     t_bindings,
     s_bindings,
     si_bindings,
-    @vk.VK_SHADER_STAGE_VERTEX_BIT | @vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+    stage_flags,
   )
 
   let total_slots = desc.uniform_slots +
@@ -3079,9 +3109,7 @@ fn vk_graphics_pipeline_create(
   }
   let pcr = @vk.VkPushConstantRange::new()
   if desc.push_constant_size > 0 {
-    pcr.set_stageFlags(
-      @vk.VK_SHADER_STAGE_VERTEX_BIT | @vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-    )
+    pcr.set_stageFlags(stage_flags)
     pcr.set_offset((0 : UInt32))
     pcr.set_size(desc.push_constant_size.reinterpret_as_uint())
     plci.set_pushConstantRangeCount((1 : UInt32))
@@ -3115,14 +3143,20 @@ fn vk_graphics_pipeline_create(
 
   let prci = @vk.VkPipelineRenderingCreateInfo::new()
   prci.set_colorAttachmentCount(n_colors.reinterpret_as_uint())
-  prci.set_pColorAttachmentFormats(color_vk_fmts)
+  if n_colors > 0 {
+    prci.set_pColorAttachmentFormats(color_vk_fmts)
+  }
   if desc.depth_test || desc.depth_write {
-    prci.set_depthAttachmentFormat(@vk.VK_FORMAT_D32_SFLOAT)
+    let dfmt = match desc.depth_format {
+      Some(f) => vk_texture_format(f)
+      None => @vk.VK_FORMAT_D32_SFLOAT
+    }
+    prci.set_depthAttachmentFormat(dfmt)
   }
 
   let gpci = @vk.VkGraphicsPipelineCreateInfo::new()
   gpci.set_pNext(prci.as_ptr())
-  gpci.set_stageCount((2 : UInt32))
+  gpci.set_stageCount(stage_count.reinterpret_as_uint())
   gpci.set_pStages(stages)
   gpci.set_pVertexInputState(vertex_input)
   gpci.set_pInputAssemblyState(input_assembly)
@@ -3182,8 +3216,7 @@ fn vk_graphics_pipeline_create(
     vert_module: vsm_out[0],
     frag_module: fsm_out[0],
     task_module: @vk.VkShaderModule::null(),
-    stage_flags: @vk.VK_SHADER_STAGE_VERTEX_BIT |
-    @vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+    stage_flags,
     uniform_slots: desc.uniform_slots,
     texture_slots: desc.texture_slots,
     storage_slots: desc.storage_slots,
@@ -3718,8 +3751,8 @@ fn vk_cmd_begin_render_pass(
   colors : Array[RenderTargetDesc],
   depth : DepthTargetDesc?,
 ) -> Unit raise RhiError {
-  if colors.length() == 0 {
-    raise InvalidArgument("begin_render_pass requires at least one color target")
+  if colors.length() == 0 && depth is None {
+    raise InvalidArgument("begin_render_pass requires at least one color or depth target")
   }
   let d = c.device
   for rt in colors {
@@ -3782,8 +3815,14 @@ fn vk_cmd_begin_render_pass(
     None => ()
   }
 
-  let w = colors[0].texture.inner.width
-  let h = colors[0].texture.inner.height
+  let (w, h) = if colors.length() > 0 {
+    (colors[0].texture.inner.width, colors[0].texture.inner.height)
+  } else {
+    match depth {
+      Some(dt) => (dt.texture.inner.width, dt.texture.inner.height)
+      None => (1, 1)
+    }
+  }
   let catts = @vk.VkRenderingAttachmentInfo::array(colors.length())
   let cv = @vk.VkClearValue::new()
   for i = 0; i < colors.length(); i = i + 1 {
@@ -3820,7 +3859,9 @@ fn vk_cmd_begin_render_pass(
   ri.set_renderArea(area)
   ri.set_layerCount((1 : UInt32))
   ri.set_colorAttachmentCount(colors.length().reinterpret_as_uint())
-  ri.set_pColorAttachments(catts)
+  if colors.length() > 0 {
+    ri.set_pColorAttachments(catts)
+  }
   let datt = @vk.VkRenderingAttachmentInfo::new()
   match depth {
     Some(dt) => {
@@ -4373,7 +4414,11 @@ fn vk_mesh_pipeline_create(
   prci.set_colorAttachmentCount(n_colors.reinterpret_as_uint())
   prci.set_pColorAttachmentFormats(color_vk_fmts)
   if desc.depth_test || desc.depth_write {
-    prci.set_depthAttachmentFormat(@vk.VK_FORMAT_D32_SFLOAT)
+    let dfmt = match desc.depth_format {
+      Some(f) => vk_texture_format(f)
+      None => @vk.VK_FORMAT_D32_SFLOAT
+    }
+    prci.set_depthAttachmentFormat(dfmt)
   }
   let gpci = @vk.VkGraphicsPipelineCreateInfo::new()
   gpci.set_pNext(prci.as_ptr())

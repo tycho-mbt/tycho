@@ -907,6 +907,7 @@ pub fn BindlessHeap::destroy(self : BindlessHeap) -> Unit {
 pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
   let d = self.inner
   let cmd = begin_one_time(d)
+  d.active_recordings = d.active_recordings + 1
   {
     inner: {
       device: d,
@@ -931,8 +932,11 @@ pub fn Device::end_commands(
   self : Device,
   cmd : CommandBuffer,
 ) -> Unit raise RhiError {
-  end_one_time(self.inner, cmd.inner.cmd)
   let d = self.inner
+  if d.active_recordings > 0 {
+    d.active_recordings = d.active_recordings - 1
+  }
+  end_one_time(d, cmd.inner.cmd)
   d.completed_gen = d.current_gen
   d.current_gen = d.current_gen + (1 : UInt64)
   flush_deletes(d, false)
@@ -946,6 +950,9 @@ pub fn Device::submit_commands(
 ) -> Unit raise RhiError {
   let d = self.inner
   let er = (d.dfn.vkEndCommandBuffer)(cmd.inner.cmd)
+  if d.active_recordings > 0 {
+    d.active_recordings = d.active_recordings - 1
+  }
   if er != 0 {
     raise CommandFailed("vkEndCommandBuffer failed: \{er}")
   }

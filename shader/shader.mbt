@@ -140,3 +140,12 @@ pub fn compile_slang_file(path : String, entry : String) -> FixedArray[UInt32] {
   let e = @utf8.encode(entry)
   compile_slang_file_ffi(p, p.length(), e, e.length())
 }
+
+#borrow(path)
+extern "c" fn read_file_ffi(path : Bytes, plen : Int32) -> Bytes = "tycho_shader_read_file"
+
+///|
+pub fn read_file_bytes(path : String) -> Bytes {
+  let p = @utf8.encode(path)
+  read_file_ffi(p, p.length())
+}
