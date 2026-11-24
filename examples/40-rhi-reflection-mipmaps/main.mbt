@@ -125,7 +125,7 @@ fn main {
     if show_win {
       let sc = dev.create_swapchain_desc(
         @tycho.SwapchainDesc::new(
-          "Tycho RHI Reflection & Mipmaps",
+          "40-rhi-reflection-mipmaps",
           800,
           600,
           enable_readback=true,

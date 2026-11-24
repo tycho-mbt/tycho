@@ -115,7 +115,7 @@ fn main {
       let _ = @tycho.save_png(shot, 32, 32, px)
     }
     if show_win {
-      let sc = dev.create_swapchain("Tycho RHI Textures", 512, 512)
+      let sc = dev.create_swapchain("45-rhi-textures-samplers", 512, 512)
       while !should_quit(sc) {
         sc.present_texture(ldr_rt)
       }

@@ -101,7 +101,7 @@ fn main {
     if show_win {
       let sc = dev.create_swapchain_desc(
         @tycho.SwapchainDesc::new(
-          "Tycho RHI Hardening",
+          "43-rhi-hardening",
           400,
           300,
           enable_readback=true,

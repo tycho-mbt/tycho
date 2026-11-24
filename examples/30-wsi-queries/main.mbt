@@ -128,7 +128,7 @@ fn main {
 
   let mut n = 0
   let _ = @win.initialize()
-  let win = @win.create((256 : Int32), (256 : Int32), "Tycho30WSI")
+  let win = @win.create((256 : Int32), (256 : Int32), "30-wsi-queries")
   let surface = @win.create_surface(inst, win)
 
   // 1. Surface support

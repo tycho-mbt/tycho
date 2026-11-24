@@ -84,7 +84,7 @@ fn main {
 
     let mut frames = 0
     if show_win {
-      let sc = dev.create_swapchain("Tycho RHI Compute Storage Image", 800, 600)
+      let sc = dev.create_swapchain("41-rhi-compute-storage-image", 800, 600)
       while !should_quit(sc) {
         sc.present_texture(storage_tex)
         frames = frames + 1

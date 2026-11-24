@@ -94,7 +94,7 @@ fn main {
 
     let mut frames = 0
     if show_win {
-      let sc = dev.create_swapchain("Tycho RHI MSAA Offscreen", 800, 600)
+      let sc = dev.create_swapchain("39-rhi-msaa-offscreen", 800, 600)
       while !should_quit(sc) {
         sc.present_texture(resolve_tex)
         frames = frames + 1

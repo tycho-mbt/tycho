@@ -186,7 +186,7 @@ fn main {
   let mut avail = 0
   let mut ran = 0
   let _ = @win.initialize()
-  let win = @win.create((256 : Int32), (256 : Int32), "Tycho33WSI")
+  let win = @win.create((256 : Int32), (256 : Int32), "33-wsi-display")
   let surface = @win.create_surface(inst, win)
 
   // Guard platform presentation calls that require a live Xlib/XCB/Wayland display handle

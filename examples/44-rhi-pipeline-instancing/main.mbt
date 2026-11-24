@@ -403,7 +403,7 @@ fn main {
       let _ = @tycho.save_png(shot, 200, 200, px)
     }
     if show_win {
-      let sc = dev.create_swapchain("Tycho RHI Instancing", 600, 600)
+      let sc = dev.create_swapchain("44-rhi-pipeline-instancing", 600, 600)
       while !should_quit(sc) {
         sc.present_texture(rt)
       }

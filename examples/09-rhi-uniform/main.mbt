@@ -37,7 +37,7 @@ fn main {
     let mut frames = 0
     if show_win {
       let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new("Tycho RHI Uniform", 800, 600, enable_readback=true),
+        @tycho.SwapchainDesc::new("09-rhi-uniform", 800, 600, enable_readback=true),
       )
       let pipe = sc.create_pipeline(vert, frag, 1)
       while !should_quit(sc) {

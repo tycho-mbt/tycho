@@ -42,7 +42,7 @@ fn main {
     let mut is_bgra = false
     if show_win {
       let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new("Tycho RHI Texture", 800, 600, enable_readback=true),
+        @tycho.SwapchainDesc::new("11-rhi-texture", 800, 600, enable_readback=true),
       )
       is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
       let pipe = sc.create_pipeline_desc(

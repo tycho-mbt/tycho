@@ -176,7 +176,7 @@ fn main {
     if show_win {
       let sc = dev.create_swapchain_desc(
         @tycho.SwapchainDesc::new(
-          "Tycho RHI 3D Cube",
+          "38-rhi-3d-cube",
           800,
           600,
           depth=true,

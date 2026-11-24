@@ -45,7 +45,7 @@ fn main {
 
   // --- X11 window + Vulkan surface ---
   let _ = @win.initialize()
-  let win = @win.create((800 : Int32), (600 : Int32), "Tycho-Example")
+  let win = @win.create((800 : Int32), (600 : Int32), "02-presentation")
   let surface = @win.create_surface(inst, win)
 
   // --- Surface capabilities + formats ---

@@ -259,7 +259,7 @@ fn main {
   let mut off_mem = @vk.VkDeviceMemory::null()
   if show_win {
     let _ = @win.initialize()
-    win = @win.create((800 : Int32), (600 : Int32), "Tycho-Example")
+    win = @win.create((800 : Int32), (600 : Int32), "04-vertexbuffer")
     surface = @win.create_surface(inst, win)
     let caps = @vk.VkSurfaceCapabilitiesKHR::new()
     let _ = (ifn.vkGetPhysicalDeviceSurfaceCapabilitiesKHR)(phys, surface, caps)

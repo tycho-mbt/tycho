@@ -50,7 +50,7 @@ fn main {
     let mut frames = 0
     if show_win {
       let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new("Tycho RHI Triangle", 800, 600, enable_readback=true),
+        @tycho.SwapchainDesc::new("08-rhi-triangle", 800, 600, enable_readback=true),
       )
       let pipe = sc.create_pipeline(vert, frag, 0)
       while !should_quit(sc) {

@@ -210,7 +210,7 @@ fn main {
     if show_win {
       let sc = dev.create_swapchain_desc(
         @tycho.SwapchainDesc::new(
-          "Tycho RHI MRT Post-Process",
+          "42-rhi-mrt-postprocess",
           800,
           600,
           enable_readback=true,

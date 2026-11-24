@@ -59,7 +59,7 @@ fn main {
     let mut g_linear = 0
     if show_win {
       let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new("Tycho RHI Sampler", 800, 600, enable_readback=true),
+        @tycho.SwapchainDesc::new("13-rhi-sampler", 800, 600, enable_readback=true),
       )
       let pipe = sc.create_pipeline_desc(
         @tycho.PipelineDesc::new(vert, frag, texture_slots=1),

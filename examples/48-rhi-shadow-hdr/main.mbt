@@ -556,7 +556,7 @@ fn main {
       let _ = @tycho.save_png(shot, 256, 256, px)
     }
     if show_win {
-      let sc = dev.create_swapchain("Tycho RHI Shadow HDR", 768, 768)
+      let sc = dev.create_swapchain("48-rhi-shadow-hdr", 768, 768)
       while !should_quit(sc) {
         sc.present_texture(srgb_rt)
       }

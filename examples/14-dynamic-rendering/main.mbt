@@ -306,7 +306,7 @@ fn main {
   range.set_layerCount((1 : UInt32))
   if show_win {
     let _ = @win.initialize()
-    win = @win.create((800 : Int32), (600 : Int32), "Tycho-14-DynamicRendering")
+    win = @win.create((800 : Int32), (600 : Int32), "14-dynamic-rendering")
     surface = @win.create_surface(inst, win)
     let caps = @vk.VkSurfaceCapabilitiesKHR::new()
     let _ = (ifn.vkGetPhysicalDeviceSurfaceCapabilitiesKHR)(phys, surface, caps)
