@@ -8,6 +8,13 @@ Cooperative Vector NV, Optical Flow NV, CUDA Kernel Launch, and Video Queue.
 
 This example runs headless (offscreen compute/graphics/API verification) and does not open a window.
 
+## Pass criteria
+
+`OK` requires at least one executed command. On a driver that lacks every
+extension this batch targets (for example `lavapipe`), the example prints
+`SKIP` (exit 0) instead of a vacuous `OK`; if the driver advertises a group but
+none of its commands run, it prints `FAIL`.
+
 ## Run
 
 ```bash

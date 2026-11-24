@@ -364,6 +364,7 @@ fn main {
   let mut verified = false
   let mut frames = 0
   let mut sr = 0
+  let mut pr = 0
   while @win.should_close(win) == 0 && @win.time() - t0 < 3.0 {
     @win.poll()
     let _ = (dfn.vkWaitForFences)(
@@ -399,7 +400,7 @@ fn main {
       verified = true
       println("[14-dyn] submit2=\{sr} rendered pixels=\{rendered}/480000")
     }
-    let _ = (dfn.vkQueuePresentKHR)(queue, present)
+    pr = (dfn.vkQueuePresentKHR)(queue, present)
     let _ = (dfn.vkQueueWaitIdle)(queue)
     frames = frames + 1
   }
@@ -451,13 +452,14 @@ fn main {
   f2.free()
   f13q.free()
   range.free()
-  if rendered > 0 && render_errors == 0 && provoked > 0 {
+  // VK_SUBOPTIMAL_KHR (1000001003) still means the frame was presented.
+  if rendered > 0 && render_errors == 0 && provoked > 0 && (pr == 0 || pr == 1000001003) {
     println(
       "[14-dyn] OK — dynamic rendering + sync2 drew \{rendered} pixels over \{frames} frames, 0 validation errors, messenger proven live",
     )
   } else {
     println(
-      "[14-dyn] FAIL — rendered=\{rendered} render_errors=\{render_errors} provoked=\{provoked}",
+      "[14-dyn] FAIL — rendered=\{rendered} render_errors=\{render_errors} provoked=\{provoked} present=\{pr}",
     )
   }
 }

@@ -141,6 +141,11 @@ fn main {
   }
 
   let mut n = 0
+  // Coverage evidence: `avail` = extension-gated groups this driver can verify,
+  // `ran` = groups that actually executed a command, so a driver without these
+  // extensions cannot report OK after verifying nothing.
+  let mut avail = 0
+  let mut ran = 0
 
   // Command pool & buffer
   let cpci = @vk.VkCommandPoolCreateInfo::new()
@@ -201,7 +206,9 @@ fn main {
   let bi = @vk.VkCommandBufferBeginInfo::new()
   let _ = (dfn.vkBeginCommandBuffer)(cb, bi)
 
+  let before_1 = n
   if emb_pl.as_ptr() != (0 : UInt64) {
+    avail = avail + 1
     if has("vkCmdBindDescriptorBufferEmbeddedSamplersEXT") {
       (dfn.vkCmdBindDescriptorBufferEmbeddedSamplersEXT)(
         cb,
@@ -221,8 +228,29 @@ fn main {
       n = n + 1
     }
   }
+  if n > before_1 {
+    ran = ran + 1
+  }
 
   // 2. Extended Dynamic State 3 (11 NV dynamic states)
+  // The extension alone is not proof: some drivers expose EDS3 without any of
+  // these NV states, so only expect commands when a state feature is advertised.
+  let before_2 = n
+  let eds3_any = has_ext("VK_EXT_extended_dynamic_state3") &&
+    (eds3_q.get_extendedDynamicState3ViewportWScalingEnable() != 0 ||
+      eds3_q.get_extendedDynamicState3ViewportSwizzle() != 0 ||
+      eds3_q.get_extendedDynamicState3ShadingRateImageEnable() != 0 ||
+      eds3_q.get_extendedDynamicState3CoverageToColorEnable() != 0 ||
+      eds3_q.get_extendedDynamicState3CoverageToColorLocation() != 0 ||
+      eds3_q.get_extendedDynamicState3CoverageModulationMode() != 0 ||
+      eds3_q.get_extendedDynamicState3CoverageModulationTableEnable() != 0 ||
+      eds3_q.get_extendedDynamicState3CoverageModulationTable() != 0 ||
+      eds3_q.get_extendedDynamicState3CoverageReductionMode() != 0 ||
+      eds3_q.get_extendedDynamicState3RepresentativeFragmentTestEnable() != 0 ||
+      eds3_q.get_extendedDynamicState3ColorBlendAdvanced() != 0)
+  if eds3_any {
+    avail = avail + 1
+  }
   if has_ext("VK_EXT_extended_dynamic_state3") {
     if eds3_q.get_extendedDynamicState3ViewportWScalingEnable() != 0 && has("vkCmdSetViewportWScalingEnableNV") {
       (dfn.vkCmdSetViewportWScalingEnableNV)(cb, (0 : UInt32))
@@ -273,9 +301,15 @@ fn main {
       n = n + 1
     }
   }
+  if n > before_2 {
+    ran = ran + 1
+  }
 
   // 3. Maintenance10 vkCmdEndRendering2KHR
-  if has_ext("VK_KHR_maintenance10") && m10_q.get_maintenance10() != 0 && has("vkCmdEndRendering2KHR") {
+  let before_3 = n
+  let m10_gate = has_ext("VK_KHR_maintenance10") && m10_q.get_maintenance10() != 0 && has("vkCmdEndRendering2KHR")
+  if m10_gate {
+    avail = avail + 1
     let area = @vk.VkRect2D::new()
     let ext2 = @vk.VkExtent2D::new()
     ext2.set_width((16 : UInt32))
@@ -292,6 +326,9 @@ fn main {
     area.free()
     ext2.free()
     n = n + 1
+  }
+  if m10_gate && n > before_3 {
+    ran = ran + 1
   }
 
   // 4. Guarded Shading Rate NV, Mesh NV, Custom Resolve, Descriptor Heap EXT, DGC NV/EXT
@@ -400,9 +437,14 @@ fn main {
   (ifn.vkDestroyInstance)(inst, na)
 
   println("[34-dgc] commands=\{n} errors=\{g_errors.val}")
-  if g_errors.val == 0 {
-    println("[34-dgc] OK — \{n} dynamic-state/embedded-sampler/maintenance10 commands verified, 0 validation errors")
+  let shortfall = avail - ran
+  if g_errors.val != 0 {
+    println("[34-dgc] FAIL — errors=\{g_errors.val} n=\{n} groups=\{ran}/\{avail}")
+  } else if shortfall > 0 {
+    println("[34-dgc] FAIL — \{shortfall} supported extension group(s) executed nothing (groups=\{ran}/\{avail} n=\{n})")
+  } else if n == 0 {
+    println("[34-dgc] SKIP — 0 dynamic-state/embedded-sampler/maintenance10 commands available on this driver")
   } else {
-    println("[34-dgc] FAIL — errors=\{g_errors.val}")
+    println("[34-dgc] OK — \{n} dynamic-state/embedded-sampler/maintenance10 commands verified, 0 validation errors")
   }
 }

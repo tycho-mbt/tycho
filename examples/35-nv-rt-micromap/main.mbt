@@ -70,6 +70,11 @@ fn main {
   }
 
   let mut n = 0
+  // Coverage evidence: `avail` = extension-gated groups this driver can verify,
+  // `ran` = groups that actually executed a command, so a driver without these
+  // NVIDIA extensions cannot report OK after verifying nothing.
+  let mut avail = 0
+  let mut ran = 0
   let prio = FixedArray::make(1, (1.0 : Float))
   let qci = @vk.VkDeviceQueueCreateInfo::new()
   qci.set_queueFamilyIndex((0 : UInt32))
@@ -77,7 +82,9 @@ fn main {
   qci.set_pQueuePriorities(prio)
 
   // ---- Part A: Dedicated VK_NV_ray_tracing device (mutually exclusive with KHR AS) ----
+  let before_a = n
   if has_ext("VK_NV_ray_tracing") {
+    avail = avail + 1
     let dci_nv = @vk.VkDeviceCreateInfo::new()
     dci_nv.set_queueCreateInfoCount((1 : UInt32))
     dci_nv.set_pQueueCreateInfos(qci)
@@ -194,6 +201,9 @@ fn main {
     }
     dci_nv.free()
   }
+  if n > before_a {
+    ran = ran + 1
+  }
 
   // ---- Part B: Opacity Micromap EXT + Cluster/Partitioned AS NV ----
   let om_q = @vk.VkPhysicalDeviceOpacityMicromapFeaturesEXT::new()
@@ -246,7 +256,10 @@ fn main {
       (ifn.vkGetDeviceProcAddr)(dev2, @vk.cstr(name)) != (0 : UInt64)
     }
 
-    if has_ext("VK_EXT_opacity_micromap") && om_q.get_micromap() != 0 && has2("vkGetMicromapBuildSizesEXT") {
+    let before_b = n
+    let om_gate = has_ext("VK_EXT_opacity_micromap") && om_q.get_micromap() != 0 && has2("vkGetMicromapBuildSizesEXT")
+    if om_gate {
+      avail = avail + 1
       let vdata = FixedArray::make(32, (0 : Byte))
       let vi = @vk.VkMicromapVersionInfoEXT::new()
       vi.set_pVersionData(vdata)
@@ -308,6 +321,9 @@ fn main {
       mbi.free()
       mu.free()
     }
+    if om_gate && n > before_b {
+      ran = ran + 1
+    }
 
     // Guarded Micromap device/host build/copy/property + Cluster/Partitioned AS NV commands
     let run_extra_rt = false
@@ -358,9 +374,14 @@ fn main {
   @vk.destroy_debug_messenger(inst, ifn, messenger)
   (ifn.vkDestroyInstance)(inst, na)
   println("[35-nvrt] commands=\{n} errors=\{g_errors.val}")
-  if g_errors.val == 0 {
-    println("[35-nvrt] OK — \{n} NV RT & opacity micromap commands verified, 0 validation errors")
+  let shortfall = avail - ran
+  if g_errors.val != 0 {
+    println("[35-nvrt] FAIL — errors=\{g_errors.val} n=\{n} groups=\{ran}/\{avail}")
+  } else if shortfall > 0 {
+    println("[35-nvrt] FAIL — \{shortfall} supported extension group(s) executed nothing (groups=\{ran}/\{avail} n=\{n})")
+  } else if n == 0 {
+    println("[35-nvrt] SKIP — 0 NV RT & opacity micromap commands available on this driver")
   } else {
-    println("[35-nvrt] FAIL — errors=\{g_errors.val}")
+    println("[35-nvrt] OK — \{n} NV RT & opacity micromap commands verified, 0 validation errors")
   }
 }

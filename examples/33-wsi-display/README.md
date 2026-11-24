@@ -8,6 +8,13 @@ Display/DRM properties, and NVIDIA Low Latency 1/2 commands.
 
 This example creates a native X11 window and `VkSurfaceKHR` transiently to verify WSI, swapchain maintenance, present timing, and low-latency commands, then closes without a presentation loop.
 
+## Pass criteria
+
+`OK` requires at least one executed command. On a driver that lacks every
+extension this batch targets (for example `lavapipe`), the example prints
+`SKIP` (exit 0) instead of a vacuous `OK`; if the driver advertises a group but
+none of its commands run, it prints `FAIL`.
+
 ## Run
 
 ```bash

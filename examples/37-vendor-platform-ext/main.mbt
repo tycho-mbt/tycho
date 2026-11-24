@@ -61,10 +61,16 @@ fn main {
   let queue = queue_out[0]
 
   // Probe vkGetExternalComputeQueueDataNV via proc addr (not exported in libvulkan.so.1)
-  let _ = (ifn.vkGetDeviceProcAddr)(dev, @vk.cstr("vkGetExternalComputeQueueDataNV"))
+  let ext_proc = (ifn.vkGetDeviceProcAddr)(dev, @vk.cstr("vkGetExternalComputeQueueDataNV"))
 
+  // `probed` counts commands actually invoked. The 148 vendor commands below the
+  // guard are only type-checked at compile time, so they must not be counted as
+  // runtime coverage (otherwise "0 invoked" still reports 149).
   let run_vendor = false
-  let mut probed = 1
+  let mut probed = 0
+  if ext_proc != (0 : UInt64) {
+    probed = probed + 1
+  }
   if run_vendor {
     let _ = (dfn.vkAcquireFullScreenExclusiveModeEXT)(dev, @vk.VkSwapchainKHR::null())
     probed = probed + 1
@@ -363,14 +369,16 @@ fn main {
     (dfn.vkUninitializePerformanceApiINTEL)(dev)
     probed = probed + 1
   }
-  probed = probed + 148
+  let typechecked = 148
   (dfn.vkDestroyDevice)(dev, na)
   @vk.destroy_debug_messenger(inst, ifn, messenger)
   (ifn.vkDestroyInstance)(inst, na)
-  println("[37-vendor] commands=\{probed} errors=\{g_errors.val}")
-  if g_errors.val == 0 {
-    println("[37-vendor] OK — \{probed} vendor/platform commands type-checked & gated, 0 validation errors")
+  println("[37-vendor] commands=\{probed} typechecked=\{typechecked} errors=\{g_errors.val}")
+  if g_errors.val != 0 {
+    println("[37-vendor] FAIL — errors=\{g_errors.val} commands=\{probed}")
+  } else if probed == 0 {
+    println("[37-vendor] SKIP — 0 vendor/platform commands invoked on this driver (\{typechecked} type-checked only)")
   } else {
-    println("[37-vendor] FAIL — errors=\{g_errors.val}")
+    println("[37-vendor] OK — \{probed} runtime + \{typechecked} type-checked vendor/platform commands, 0 validation errors")
   }
 }

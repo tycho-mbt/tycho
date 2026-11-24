@@ -179,6 +179,12 @@ fn main {
   }
 
   let mut n = 0
+  // Coverage evidence: `avail` counts the extension-gated groups this driver can
+  // verify, `ran` counts the groups that actually executed a command. Judging on
+  // n/errors alone lets a driver that lacks every extension report OK after
+  // verifying nothing (vacuous pass).
+  let mut avail = 0
+  let mut ran = 0
   let _ = @win.initialize()
   let win = @win.create((256 : Int32), (256 : Int32), "Tycho33WSI")
   let surface = @win.create_surface(inst, win)
@@ -320,7 +326,10 @@ fn main {
 
   if swr == 0 {
     // 3a. ReleaseSwapchainImagesKHR (when swapchainMaintenance1 is enabled)
-    if has_dext("VK_KHR_swapchain_maintenance1") && swm_q.get_swapchainMaintenance1() != 0 && dev_has("vkReleaseSwapchainImagesKHR") {
+    let before_3a = n
+    let swm_gate = has_dext("VK_KHR_swapchain_maintenance1") && swm_q.get_swapchainMaintenance1() != 0 && dev_has("vkReleaseSwapchainImagesKHR")
+    if swm_gate {
+      avail = avail + 1
       let fci = @vk.VkFenceCreateInfo::new()
       let fence_out = FixedArray::make(1, @vk.VkFence::null())
       let _ = (dfn.vkCreateFence)(dev, fci, na, fence_out)
@@ -338,6 +347,9 @@ fn main {
       }
       (dfn.vkDestroyFence)(dev, fence_out[0], na)
       fci.free()
+    }
+    if swm_gate && n > before_3a {
+      ran = ran + 1
     }
     let test_ext_release = false
     if test_ext_release && dev_has("vkReleaseSwapchainImagesEXT") {
@@ -358,7 +370,10 @@ fn main {
     }
 
     // 3c. Present Timing EXT (when feature supported & extension enabled)
-    if has_dext("VK_EXT_present_timing") && pt_q.get_presentTiming() != 0 {
+    let before_3c = n
+    let pt_gate = has_dext("VK_EXT_present_timing") && pt_q.get_presentTiming() != 0
+    if pt_gate {
+      avail = avail + 1
       if dev_has("vkSetSwapchainPresentTimingQueueSizeEXT") {
         let _ = (dfn.vkSetSwapchainPresentTimingQueueSizeEXT)(dev, sw, (4 : UInt32))
         n = n + 1
@@ -387,9 +402,15 @@ fn main {
         n = n + 1
       }
     }
+    if pt_gate && n > before_3c {
+      ran = ran + 1
+    }
 
     // 3d. NVIDIA Low Latency 2 (live when supported)
-    if has_dext("VK_NV_low_latency2") && f12_q.get_timelineSemaphore() != 0 && dev_has("vkSetLatencySleepModeNV") {
+    let before_3d = n
+    let nv_gate = has_dext("VK_NV_low_latency2") && f12_q.get_timelineSemaphore() != 0 && dev_has("vkSetLatencySleepModeNV")
+    if nv_gate {
+      avail = avail + 1
       let lsmi = @vk.VkLatencySleepModeInfoNV::new()
       lsmi.set_lowLatencyMode((1 : UInt32))
       lsmi.set_lowLatencyBoost((0 : UInt32))
@@ -435,6 +456,9 @@ fn main {
       n = n + 1
       lsmi.free()
     }
+    if nv_gate && n > before_3d {
+      ran = ran + 1
+    }
 
     // 3e. Legacy NV Low Latency & Display Control (guarded unless legacy device/display present)
     let has_legacy_ll = false
@@ -448,7 +472,10 @@ fn main {
       (dfn.vkQueueNotifyOutOfBandLegacyNV)(queue, (0 : UInt32))
       (dfn.vkShutdownLatencyDeviceLegacyNV)(dev)
     }
-    if has_dext("VK_EXT_display_control") && has_iext("VK_EXT_display_surface_counter") {
+    let before_3e = n
+    let dc_gate = has_dext("VK_EXT_display_control") && has_iext("VK_EXT_display_surface_counter")
+    if dc_gate {
+      avail = avail + 1
       if dev_has("vkGetSwapchainCounterEXT") {
         let cnt = FixedArray::make(1, (0 : UInt64))
         let _ = (dfn.vkGetSwapchainCounterEXT)(dev, sw, @vk.VK_SURFACE_COUNTER_VBLANK_BIT_EXT, cnt)
@@ -475,6 +502,9 @@ fn main {
         dsei.free()
       }
     }
+    if dc_gate && n > before_3e {
+      ran = ran + 1
+    }
 
     let _ = (dfn.vkDeviceWaitIdle)(dev)
     (dfn.vkDestroySwapchainKHR)(dev, sw, na)
@@ -488,9 +518,14 @@ fn main {
   (ifn.vkDestroyInstance)(inst, na)
 
   println("[33-wsi] commands=\{n} sw=\{swr} errors=\{g_errors.val}")
-  if swr == 0 && g_errors.val == 0 {
-    println("[33-wsi] OK — \{n} WSI/display/latency commands verified, 0 validation errors")
+  let shortfall = avail - ran
+  if swr != 0 || g_errors.val != 0 {
+    println("[33-wsi] FAIL — sw=\{swr} n=\{n} groups=\{ran}/\{avail} errors=\{g_errors.val}")
+  } else if shortfall > 0 {
+    println("[33-wsi] FAIL — \{shortfall} supported extension group(s) executed nothing (groups=\{ran}/\{avail} n=\{n})")
+  } else if n == 0 {
+    println("[33-wsi] SKIP — 0 WSI/display/latency commands available on this driver")
   } else {
-    println("[33-wsi] FAIL — sw=\{swr} n=\{n} errors=\{g_errors.val}")
+    println("[33-wsi] OK — \{n} WSI/display/latency commands verified, 0 validation errors")
   }
 }

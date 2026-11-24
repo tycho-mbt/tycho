@@ -319,14 +319,15 @@ fn main {
   (ifn.vkDestroyInstance)(inst, na)
 
   println("[36-vcd] commands=\{n} copied=0x\{copied_val} errors=\{g_errors.val}")
-  let copy_ok = if has_ext("VK_NV_copy_memory_indirect") && cmi_q.get_indirectCopy() != 0 {
-    copied_val == (0x12345678 : UInt32)
+  let copy_supported = has_ext("VK_NV_copy_memory_indirect") && cmi_q.get_indirectCopy() != 0
+  // Never treat "not executed" as "passed": without the extension there is no
+  // evidence at all, which is a SKIP, not an OK (vacuous pass).
+  let copy_ok = copy_supported && copied_val == (0x12345678 : UInt32)
+  if g_errors.val != 0 || (copy_supported && !copy_ok) {
+    println("[36-vcd] FAIL — copied=0x\{copied_val} supported=\{copy_supported} errors=\{g_errors.val}")
+  } else if n == 0 {
+    println("[36-vcd] SKIP — 0 indirect-copy/video/cuda/decomp commands available on this driver")
   } else {
-    true
-  }
-  if copy_ok && g_errors.val == 0 {
     println("[36-vcd] OK — \{n} indirect-copy/video/cuda/decomp commands verified, 0 validation errors")
-  } else {
-    println("[36-vcd] FAIL — copied=\{copied_val} errors=\{g_errors.val}")
   }
 }

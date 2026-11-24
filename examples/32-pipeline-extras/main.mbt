@@ -57,9 +57,16 @@ fn main {
   }
 
   let mut n = 0
+  // Coverage evidence: `avail` = extension-gated groups this driver can verify,
+  // `ran` = groups that actually executed a command. Without it a driver that
+  // lacks every gated extension reports OK after verifying nothing.
+  let mut avail = 0
+  let mut ran = 0
 
   // 1. Physical device cooperative matrix 2 flexible dimensions (NVIDIA)
+  let before_1 = n
   if has_ext("VK_NV_cooperative_matrix2") {
+    avail = avail + 1
     let cmc = FixedArray::make(1, (0 : UInt32))
     let _ = (ifn.vkGetPhysicalDeviceCooperativeMatrixFlexibleDimensionsPropertiesNV)(
       phys,
@@ -72,6 +79,9 @@ fn main {
       arr.free()
     }
     n = n + 1
+  }
+  if n > before_1 {
+    ran = ran + 1
   }
 
   // Query features
@@ -188,7 +198,10 @@ fn main {
   let pr = (dfn.vkCreateComputePipelines)(dev, @vk.VkPipelineCache::null(), (1 : UInt32), cpci, na, pipe_out)
 
   // 2. Pipeline Executable Properties (3 commands)
-  if pr == 0 && has_ext("VK_KHR_pipeline_executable_properties") && pep_q.get_pipelineExecutableInfo() != 0 && has("vkGetPipelineExecutablePropertiesKHR") {
+  let before_2 = n
+  let pep_gate = pr == 0 && has_ext("VK_KHR_pipeline_executable_properties") && pep_q.get_pipelineExecutableInfo() != 0 && has("vkGetPipelineExecutablePropertiesKHR")
+  if pep_gate {
+    avail = avail + 1
     let pi = @vk.VkPipelineInfoKHR::new()
     pi.set_pipeline(pipe_out[0])
     let ec = FixedArray::make(1, (0 : UInt32))
@@ -228,9 +241,15 @@ fn main {
     pi.free()
     ei.free()
   }
+  if pep_gate && n > before_2 {
+    ran = ran + 1
+  }
 
   // 3. Pipeline Binary KHR (4 commands: GetPipelineKeyKHR, CreatePipelineBinariesKHR, GetPipelineBinaryDataKHR, DestroyPipelineBinaryKHR)
-  if has_ext("VK_KHR_pipeline_binary") && pb_q.get_pipelineBinaries() != 0 && has("vkGetPipelineKeyKHR") {
+  let before_3 = n
+  let pb_gate = has_ext("VK_KHR_pipeline_binary") && pb_q.get_pipelineBinaries() != 0 && has("vkGetPipelineKeyKHR")
+  if pb_gate {
+    avail = avail + 1
     let pki = @vk.VkPipelineCreateInfoKHR::new()
     pki.set_pNext(cpci.as_ptr())
     let key = @vk.VkPipelineBinaryKeyKHR::new()
@@ -267,10 +286,16 @@ fn main {
     key.free()
     pki.free()
   }
+  if pb_gate && n > before_3 {
+    ran = ran + 1
+  }
 
   // 4. Buffer Device Address EXT (dedicated device because VK_EXT_buffer_device_address
   // is mutually exclusive with VkPhysicalDeviceVulkan12Features::bufferDeviceAddress)
-  if has_ext("VK_EXT_buffer_device_address") {
+  let before_4 = n
+  let bda_gate = has_ext("VK_EXT_buffer_device_address")
+  if bda_gate {
+    avail = avail + 1
     let bda_ext_en = @vk.VkPhysicalDeviceBufferDeviceAddressFeaturesEXT::new()
     bda_ext_en.set_bufferDeviceAddress((1 : UInt32))
     let dci2 = @vk.VkDeviceCreateInfo::new()
@@ -308,9 +333,15 @@ fn main {
     bda_ext_en.free()
     dci2.free()
   }
+  if bda_gate && n > before_4 {
+    ran = ran + 1
+  }
 
   // 5. GetImageSubresourceLayout2EXT (VK_EXT_host_image_copy)
-  if has_ext("VK_EXT_host_image_copy") && f14_q.get_hostImageCopy() != 0 && has("vkGetImageSubresourceLayout2EXT") {
+  let before_5 = n
+  let hic_gate = has_ext("VK_EXT_host_image_copy") && f14_q.get_hostImageCopy() != 0 && has("vkGetImageSubresourceLayout2EXT")
+  if hic_gate {
+    avail = avail + 1
     let ici2 = @vk.VkImageCreateInfo::new()
     ici2.set_imageType(@vk.VK_IMAGE_TYPE_2D)
     ici2.set_format(@vk.VK_FORMAT_R8G8B8A8_UNORM)
@@ -336,9 +367,15 @@ fn main {
       (dfn.vkDestroyImage)(dev, io[0], na)
     }
   }
+  if hic_gate && n > before_5 {
+    ran = ran + 1
+  }
 
   // 6. Descriptor Buffer Image / ImageView Opaque Capture Data EXT
-  if has_ext("VK_EXT_descriptor_buffer") && db_q.get_descriptorBufferCaptureReplay() != 0 && has("vkGetImageOpaqueCaptureDescriptorDataEXT") {
+  let before_6 = n
+  let dcap_gate = has_ext("VK_EXT_descriptor_buffer") && db_q.get_descriptorBufferCaptureReplay() != 0 && has("vkGetImageOpaqueCaptureDescriptorDataEXT")
+  if dcap_gate {
+    avail = avail + 1
     let dbp = @vk.VkPhysicalDeviceDescriptorBufferPropertiesEXT::new()
     let p2 = @vk.VkPhysicalDeviceProperties2::new()
     p2.set_pNext(dbp.as_ptr())
@@ -406,6 +443,9 @@ fn main {
       }
     }
   }
+  if dcap_gate && n > before_6 {
+    ran = ran + 1
+  }
 
   if pr == 0 {
     (dfn.vkDestroyPipeline)(dev, pipe_out[0], na)
@@ -418,9 +458,14 @@ fn main {
   (ifn.vkDestroyInstance)(inst, na)
 
   println("[32-pipe] commands=\{n} pipe=\{pr} errors=\{g_errors.val}")
-  if pr == 0 && g_errors.val == 0 {
-    println("[32-pipe] OK — \{n} pipeline/descriptor-buffer/address commands verified, 0 validation errors")
+  let shortfall = avail - ran
+  if pr != 0 || g_errors.val != 0 {
+    println("[32-pipe] FAIL — pr=\{pr} n=\{n} groups=\{ran}/\{avail} errors=\{g_errors.val}")
+  } else if shortfall > 0 {
+    println("[32-pipe] FAIL — \{shortfall} supported extension group(s) executed nothing (groups=\{ran}/\{avail} n=\{n})")
+  } else if n == 0 {
+    println("[32-pipe] SKIP — 0 pipeline/descriptor-buffer/address commands available on this driver")
   } else {
-    println("[32-pipe] FAIL — pr=\{pr} n=\{n} errors=\{g_errors.val}")
+    println("[32-pipe] OK — \{n} pipeline/descriptor-buffer/address commands verified, 0 validation errors")
   }
 }

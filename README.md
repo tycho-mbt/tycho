@@ -66,7 +66,10 @@ Still manual:
 
 ## Linux Vulkan API Coverage
 
-All 42 examples pass on both `lavapipe` and `nvidia` drivers with zero validation errors:
+All 42 examples pass on both `lavapipe` and `nvidia` drivers with zero validation errors.
+`OK` always implies at least one executed command: an example whose extension batch a driver
+cannot provide reports `SKIP` (exit 0, tallied separately by `tools/run-all.sh`), and an example
+that advertises a group but executes none of it reports `FAIL`:
 - Desktop Vulkan commands in `vk.xml`: **813 / 813** exercised in pure MoonBit
 - Host-reachable commands on Linux (`lavapipe` + `nvidia`): **664 / 664 (100.0%)**
 

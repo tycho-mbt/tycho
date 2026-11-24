@@ -472,5 +472,12 @@ fn main {
   (ifn.vkDestroyInstance)(inst, na)
   @win.destroy(win)
   @win.terminate()
-  println("[05-uniform] OK — uniform buffer + descriptor sets validated")
+  // Judge on the pipeline/acquire/submit/present results and the read-back pixel
+  // count instead of printing OK unconditionally.
+  // VK_SUBOPTIMAL_KHR (1000001003) still means the frame was presented.
+  if gpr == 0 && ar == 0 && sr == 0 && (pr == 0 || pr == 1000001003) && rendered > 0 {
+    println("[05-uniform] OK — uniform buffer + descriptor sets validated")
+  } else {
+    println("[05-uniform] FAIL — pipeline=\{gpr} acquire=\{ar} submit=\{sr} present=\{pr} pixels=\{rendered}")
+  }
 }

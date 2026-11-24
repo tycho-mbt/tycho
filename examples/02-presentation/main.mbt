@@ -125,5 +125,10 @@ fn main {
   qci.free()
   ici.free()
   app.free()
-  println("[02-present] OK — presentation chapter validated")
+  // Judge on the swapchain/image-view results instead of printing OK unconditionally.
+  if ir == 0 && dr == 0 && scr == 0 && nimg > 0 && views_ok == nimg {
+    println("[02-present] OK — presentation chapter validated")
+  } else {
+    println("[02-present] FAIL — instance=\{ir} device=\{dr} swapchain=\{scr} images=\{nimg} views=\{views_ok}")
+  }
 }

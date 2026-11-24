@@ -71,5 +71,10 @@ fn main {
   dci.free()
   ici.free()
   app.free()
-  println("[01-setup] OK — setup chapter validated")
+  // Judge on the results actually observed instead of printing OK unconditionally.
+  if ir == 0 && ndev > 0 && gfx >= 0 && dr == 0 {
+    println("[01-setup] OK — setup chapter validated")
+  } else {
+    println("[01-setup] FAIL — instance=\{ir} devices=\{ndev} graphics=\{gfx} device=\{dr}")
+  }
 }

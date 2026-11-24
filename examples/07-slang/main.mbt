@@ -391,11 +391,12 @@ fn main {
   (ifn.vkDestroyInstance)(inst, na)
   @win.destroy(win)
   @win.terminate()
-  if rendered > 0 {
+  // VK_SUBOPTIMAL_KHR (1000001003) still means the frame was presented.
+  if rendered > 0 && (pr == 0 || pr == 1000001003) {
     println(
       "[07-slang] OK — triangle rendered (\{rendered} non-zero pixels) and presented",
     )
   } else {
-    println("[07-slang] FAIL — no pixels rendered")
+    println("[07-slang] FAIL — rendered=\{rendered} present=\{pr}")
   }
 }

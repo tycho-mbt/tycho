@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Run all pure-MoonBit verification examples on lavapipe and/or NVIDIA drivers.
-# Gate fails if exit code != 0 OR output contains "FAIL".
+# Gate fails if exit code != 0, output contains "FAIL", or an example reports OK
+# while verifying zero commands ("OK — 0 …" / "commands=0") — a vacuous pass.
+# "SKIP" (driver lacks the required extensions) is counted separately and passes.
 #
 # Overrides:
 #   TYCHO_EXAMPLES_DIR   directory holding the built example binaries
@@ -74,6 +76,18 @@ run_suite() {
     fi
     if [ "$rc" -ne 0 ] || echo "$out" | grep -qE '\bFAIL\b'; then
       echo "  FAIL     $name (rc=$rc)"
+      echo "$out" | tail -n 10 | sed 's/^/           /'
+      fail=$((fail + 1))
+    elif echo "$out" | grep -qE '\bSKIP\b'; then
+      # Example explicitly reports that this driver lacks the extensions it needs:
+      # honest "not verified here", not a pass and not a failure.
+      summary=$(echo "$out" | grep -E '\bSKIP\b' | tail -n 1)
+      echo "  SKIP     $name  |  $summary"
+      skip=$((skip + 1))
+    elif echo "$out" | grep -qE 'OK — 0 |commands=0 '; then
+      # Vacuous-pass guard: an example must never claim OK while verifying zero
+      # commands (that is what made 32/33/35 look green on lavapipe).
+      echo "  FAIL     $name (empty coverage: OK with 0 commands)"
       echo "$out" | tail -n 10 | sed 's/^/           /'
       fail=$((fail + 1))
     else
