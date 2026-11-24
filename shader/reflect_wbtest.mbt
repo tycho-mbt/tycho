@@ -101,3 +101,80 @@ test "reflect multi-set, descriptor arrays, and separate texture/sampler" {
   assert_eq(r.bindings[1].count, 1)
   assert_eq(r.bindings[1].kind, ReflectedDescriptorKind::Sampler)
 }
+
+///|
+test "load_image 24-bit padded BMP, 32-bit top-down BMP, 32-bit TGA, and P6 PPM" {
+  // 1. 5x3 24-bit bottom-up BMP (15-byte row + 1-byte padding = 16-byte stride)
+  let (bmp24, w1, h1) = load_image("shader/testdata/test_5x3_24bit.bmp")
+  assert_eq(w1, 5)
+  assert_eq(h1, 3)
+  assert_eq(bmp24.length(), 5 * 3 * 4)
+  for y = 0; y < 3; y = y + 1 {
+    for x = 0; x < 5; x = x + 1 {
+      let i = (y * 5 + x) * 4
+      assert_eq(bmp24[i].to_int(), 10 + x * 40)
+      assert_eq(bmp24[i + 1].to_int(), 20 + y * 60)
+      assert_eq(bmp24[i + 2].to_int(), 30 + x * 25 + y * 30)
+      assert_eq(bmp24[i + 3].to_int(), 255)
+    }
+  }
+
+  // 2. 4x2 32-bit top-down BMP with non-255 alpha
+  let (bmp32, w2, h2) = load_image("shader/testdata/test_4x2_32bit_topdown.bmp")
+  assert_eq(w2, 4)
+  assert_eq(h2, 2)
+  let expected_4x2 : Array[Int] = [
+    255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 64, 200, 150, 100, 10,
+    12, 34, 56, 200, 78, 90, 123, 255, 250, 240, 230, 50, 0, 0, 0, 0,
+  ]
+  assert_eq(bmp32.length(), expected_4x2.length())
+  for i = 0; i < expected_4x2.length(); i = i + 1 {
+    assert_eq(bmp32[i].to_int(), expected_4x2[i])
+  }
+
+  // 3. 3x2 32-bit bottom-up TGA
+  let (tga, w3, h3) = load_image("shader/testdata/test_3x2_32bit.tga")
+  assert_eq(w3, 3)
+  assert_eq(h3, 2)
+  let expected_3x2 : Array[Int] = [
+    255, 10, 20, 255, 30, 255, 40, 180, 50, 60, 255, 90,
+    11, 22, 33, 44, 55, 66, 77, 88, 99, 110, 121, 132,
+  ]
+  assert_eq(tga.length(), expected_3x2.length())
+  for i = 0; i < expected_3x2.length(); i = i + 1 {
+    assert_eq(tga[i].to_int(), expected_3x2[i])
+  }
+
+  // 4. 2x2 P6 PPM
+  let (ppm, w4, h4) = load_image("shader/testdata/test_2x2.ppm")
+  assert_eq(w4, 2)
+  assert_eq(h4, 2)
+  let expected_2x2 : Array[Int] = [
+    255, 0, 0, 255, 0, 255, 0, 255,
+    0, 0, 255, 255, 255, 255, 0, 255,
+  ]
+  for i = 0; i < expected_2x2.length(); i = i + 1 {
+    assert_eq(ppm[i].to_int(), expected_2x2[i])
+  }
+}
+
+///|
+test "compile_shader disk cache hits identically and separates stages" {
+  let src =
+    #|#version 450
+    #|layout(location = 0) out vec4 outColor;
+    #|void main() { outColor = vec4(0.25, 0.5, 0.75, 1.0); }
+  let spv1 = compile_shader(src, SHADER_KIND_FRAGMENT)
+  let spv2 = compile_shader(src, SHADER_KIND_FRAGMENT)
+  assert_true(spv1.length() > 5)
+  assert_eq(spv1.length(), spv2.length())
+  for i = 0; i < spv1.length(); i = i + 1 {
+    assert_eq(spv1[i], spv2[i])
+  }
+  let vsrc =
+    #|#version 450
+    #|void main() { gl_Position = vec4(0.0, 0.0, 0.0, 1.0); }
+  let vspv = compile_shader(vsrc, SHADER_KIND_VERTEX)
+  assert_eq(reflect_spirv(vspv).stage, ReflectedStage::Vertex)
+  assert_eq(reflect_spirv(spv2).stage, ReflectedStage::Fragment)
+}
