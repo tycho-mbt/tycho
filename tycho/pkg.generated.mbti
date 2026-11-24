@@ -247,6 +247,8 @@ pub fn CommandBuffer::draw_indexed_full(Self, Int32, Int32, Int32, Int32, Int32)
 pub fn CommandBuffer::draw_indexed_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
 pub fn CommandBuffer::draw_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
 pub fn CommandBuffer::draw_instanced(Self, Int32, Int32, Int32, Int32) -> Unit
+pub fn CommandBuffer::draw_mesh_tasks(Self, Int32, Int32, Int32) -> Unit
+pub fn CommandBuffer::draw_mesh_tasks_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
 pub fn CommandBuffer::end_render_pass(Self) -> Unit
 pub fn CommandBuffer::end_swapchain_pass(Self) -> Unit
 pub fn CommandBuffer::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int32) -> Unit
@@ -303,6 +305,7 @@ pub fn Device::create_depth_texture(Self, Int32, Int32, samples? : SampleCount) 
 pub fn Device::create_depth_texture_format(Self, Int32, Int32, TextureFormat, samples? : SampleCount) -> Texture raise RhiError
 pub fn Device::create_fence(Self, Bool) -> Fence raise RhiError
 pub fn Device::create_graphics_pipeline(Self, PipelineDesc) -> Pipeline raise RhiError
+pub fn Device::create_mesh_pipeline(Self, MeshPipelineDesc) -> Pipeline raise RhiError
 pub fn Device::create_render_target(Self, Int32, Int32, TextureFormat, samples? : SampleCount) -> Texture raise RhiError
 pub fn Device::create_sampler(Self) -> Sampler raise RhiError
 pub fn Device::create_sampler_desc(Self, SamplerDesc) -> Sampler raise RhiError
@@ -384,6 +387,36 @@ pub(all) enum MemoryLocation {
   CpuToGpu
   GpuToCpu
 }
+
+pub(all) struct MeshPipelineDesc {
+  task : FixedArray[UInt32]?
+  mesh : FixedArray[UInt32]
+  frag : FixedArray[UInt32]
+  task_entry : String
+  mesh_entry : String
+  frag_entry : String
+  uniform_slots : Int32
+  texture_slots : Int32
+  storage_slots : Int32
+  storage_image_slots : Int32
+  uniform_bindings : Array[Int32]
+  texture_bindings : Array[Int32]
+  storage_bindings : Array[Int32]
+  storage_image_bindings : Array[Int32]
+  push_constant_size : Int32
+  depth_test : Bool
+  depth_write : Bool
+  depth_compare : CompareOp
+  cull_mode : CullMode
+  front_face : FrontFace
+  blend : Bool
+  blend_mode : BlendMode?
+  samples : SampleCount
+  color_format : TextureFormat?
+  color_formats : Array[TextureFormat]
+  bindless_heap : BindlessHeap?
+}
+pub fn MeshPipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], task? : FixedArray[UInt32]?, task_entry? : String, mesh_entry? : String, frag_entry? : String, uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], push_constant_size? : Int32, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap?) -> Self
 
 pub struct Pipeline {
   // private fields
@@ -480,6 +513,8 @@ pub(all) enum ShaderStage {
   Vertex
   Fragment
   Compute
+  Task
+  Mesh
 }
 
 #derive(Eq, @debug.Debug)
@@ -495,6 +530,7 @@ pub fn Swapchain::begin_frame(Self) -> CommandBuffer raise RhiError
 pub fn Swapchain::begin_frame_commands(Self) -> CommandBuffer raise RhiError
 pub fn Swapchain::color_format(Self) -> TextureFormat
 pub fn Swapchain::content_scale(Self) -> Double
+pub fn Swapchain::create_mesh_pipeline(Self, MeshPipelineDesc) -> Pipeline raise RhiError
 pub fn Swapchain::create_pipeline(Self, FixedArray[UInt32], FixedArray[UInt32], Int32) -> Pipeline raise RhiError
 pub fn Swapchain::create_pipeline_desc(Self, PipelineDesc) -> Pipeline raise RhiError
 pub fn Swapchain::destroy(Self) -> Unit

@@ -20,6 +20,7 @@ priv enum DeleteKind {
     Array[@vk.VkDescriptorPool],
     @vk.VkShaderModule,
     @vk.VkShaderModule,
+    @vk.VkShaderModule,
   )
   DeleteTimestampPool(@vk.VkQueryPool)
   DeleteBindlessHeap(@vk.VkDescriptorPool, @vk.VkDescriptorSetLayout)
@@ -98,6 +99,8 @@ priv struct VkPipelineState {
   slot_dirty : FixedArray[Bool]
   vert_module : @vk.VkShaderModule
   frag_module : @vk.VkShaderModule
+  task_module : @vk.VkShaderModule
+  stage_flags : UInt32
   uniform_slots : Int
   texture_slots : Int
   storage_slots : Int
@@ -468,6 +471,7 @@ fn execute_delete(d : VkDeviceState, item : DeleteKind) -> Unit {
       pools,
       vert_module,
       frag_module,
+      task_module,
     ) => {
       (d.dfn.vkDestroyPipeline)(d.dev, pipeline, na)
       (d.dfn.vkDestroyPipelineLayout)(d.dev, layout, na)
@@ -478,6 +482,9 @@ fn execute_delete(d : VkDeviceState, item : DeleteKind) -> Unit {
       (d.dfn.vkDestroyShaderModule)(d.dev, vert_module, na)
       if frag_module.as_ptr() != (0 : UInt64) {
         (d.dfn.vkDestroyShaderModule)(d.dev, frag_module, na)
+      }
+      if task_module.as_ptr() != (0 : UInt64) {
+        (d.dfn.vkDestroyShaderModule)(d.dev, task_module, na)
       }
     }
     DeleteTimestampPool(pool) => (d.dfn.vkDestroyQueryPool)(d.dev, pool, na)
@@ -677,6 +684,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   (ifn.vkGetPhysicalDeviceFeatures2)(chosen_phys, f2)
   let has_dyn = f13q.get_dynamicRendering()
   let has_sync2 = f13q.get_synchronization2()
+  let has_maint4 = f13q.get_maintenance4() != (0 : UInt32)
   let core_feat = f2.get_features()
   let supports_anisotropy = core_feat.get_samplerAnisotropy() != (0 : UInt32)
   let supports_indirect_draw = core_feat.get_multiDrawIndirect() != (0 : UInt32)
@@ -730,11 +738,24 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     f12.set_runtimeDescriptorArray((1 : UInt32))
     f12.set_shaderSampledImageArrayNonUniformIndexing((1 : UInt32))
   }
+  let mesh_feat = @vk.VkPhysicalDeviceMeshShaderFeaturesEXT::new()
+  if supports_mesh_shader {
+    mesh_feat.set_meshShader((1 : UInt32))
+    mesh_feat.set_taskShader((1 : UInt32))
+    if supports_bindless {
+      f12.set_pNext(mesh_feat.as_ptr())
+    }
+  }
   let f13 = @vk.VkPhysicalDeviceVulkan13Features::new()
   f13.set_dynamicRendering((1 : UInt32))
   f13.set_synchronization2((1 : UInt32))
+  if has_maint4 {
+    f13.set_maintenance4((1 : UInt32))
+  }
   if supports_bindless {
     f13.set_pNext(f12.as_ptr())
+  } else if supports_mesh_shader {
+    f13.set_pNext(mesh_feat.as_ptr())
   }
   let enabled_feats = @vk.VkPhysicalDeviceFeatures::new()
   if supports_anisotropy {
@@ -743,20 +764,29 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
   if supports_indirect_draw {
     enabled_feats.set_multiDrawIndirect((1 : UInt32))
   }
+  let dev_exts : Array[String] = []
+  if !desc.headless {
+    dev_exts.push("VK_KHR_swapchain")
+  }
+  if supports_mesh_shader {
+    dev_exts.push("VK_EXT_mesh_shader")
+  }
   let dci = @vk.VkDeviceCreateInfo::new()
   dci.set_pNext(f13.as_ptr())
   dci.set_queueCreateInfoCount((1 : UInt32))
   dci.set_pQueueCreateInfos(qci)
   dci.set_pEnabledFeatures(enabled_feats)
-  if !desc.headless {
-    dci.set_enabledExtensionCount((1 : UInt32))
-    dci.set_ppEnabledExtensionNames(@vk.cstr_array(["VK_KHR_swapchain"]))
+  if dev_exts.length() > 0 {
+    let ext_arr = FixedArray::makei(dev_exts.length(), fn(i) { dev_exts[i] })
+    dci.set_enabledExtensionCount(ext_arr.length().reinterpret_as_uint())
+    dci.set_ppEnabledExtensionNames(@vk.cstr_array(ext_arr))
   }
   let dev_out = FixedArray::make(1, @vk.VkDevice::null())
   let dr = (ifn.vkCreateDevice)(chosen_phys, dci, na, dev_out)
   dci.free()
   enabled_feats.free()
   f13.free()
+  mesh_feat.free()
   f12.free()
   qci.free()
   if dr != 0 {
@@ -3151,6 +3181,9 @@ fn vk_graphics_pipeline_create(
     slot_dirty: FixedArray::make(MAX_FRAMES, true),
     vert_module: vsm_out[0],
     frag_module: fsm_out[0],
+    task_module: @vk.VkShaderModule::null(),
+    stage_flags: @vk.VK_SHADER_STAGE_VERTEX_BIT |
+    @vk.VK_SHADER_STAGE_FRAGMENT_BIT,
     uniform_slots: desc.uniform_slots,
     texture_slots: desc.texture_slots,
     storage_slots: desc.storage_slots,
@@ -3274,6 +3307,8 @@ fn vk_compute_pipeline_create(
     slot_dirty: FixedArray::make(MAX_FRAMES, true),
     vert_module: sm_out[0],
     frag_module: @vk.VkShaderModule::null(),
+    task_module: @vk.VkShaderModule::null(),
+    stage_flags: @vk.VK_SHADER_STAGE_COMPUTE_BIT,
     uniform_slots,
     texture_slots,
     storage_slots,
@@ -3301,6 +3336,7 @@ fn vk_pipeline_destroy(p : VkPipelineState) -> Unit {
       p.pools,
       p.vert_module,
       p.frag_module,
+      p.task_module,
     ),
   )
 }
@@ -4106,4 +4142,306 @@ fn vk_bindless_heap_unregister(h : VkBindlessHeapState, idx : Int) -> Unit {
 ///|
 fn vk_bindless_heap_destroy(h : VkBindlessHeapState) -> Unit {
   enqueue_delete(h.device, DeleteBindlessHeap(h.pool, h.set_layout))
+}
+
+///|
+fn vk_mesh_pipeline_create(
+  d : VkDeviceState,
+  desc : MeshPipelineDesc,
+  default_color_vk_fmt : UInt32,
+) -> VkPipelineState raise RhiError {
+  if !d.caps.supports_mesh_shader {
+    raise DeviceFailed("Physical device does not support VK_EXT_mesh_shader")
+  }
+  if desc.mesh.length() == 0 || desc.frag.length() == 0 {
+    raise InvalidArgument("Mesh pipeline requires non-empty mesh and frag SPIR-V")
+  }
+  let na = @vk.VkAllocationCallbacks::null()
+  let msmci = @vk.VkShaderModuleCreateInfo::new()
+  msmci.set_codeSize((desc.mesh.length() * 4).to_uint64())
+  msmci.set_pCode(desc.mesh)
+  let msm_out = FixedArray::make(1, @vk.VkShaderModule::null())
+  let mr = (d.dfn.vkCreateShaderModule)(d.dev, msmci, na, msm_out)
+  msmci.free()
+  if mr != 0 {
+    raise PipelineFailed("Mesh vkCreateShaderModule failed: \{mr}")
+  }
+  let fsmci = @vk.VkShaderModuleCreateInfo::new()
+  fsmci.set_codeSize((desc.frag.length() * 4).to_uint64())
+  fsmci.set_pCode(desc.frag)
+  let fsm_out = FixedArray::make(1, @vk.VkShaderModule::null())
+  let fr = (d.dfn.vkCreateShaderModule)(d.dev, fsmci, na, fsm_out)
+  fsmci.free()
+  if fr != 0 {
+    (d.dfn.vkDestroyShaderModule)(d.dev, msm_out[0], na)
+    raise PipelineFailed("Fragment vkCreateShaderModule failed: \{fr}")
+  }
+  let mut task_mod = @vk.VkShaderModule::null()
+  let mut has_task = false
+  match desc.task {
+    Some(tspv) =>
+      if tspv.length() > 0 {
+        let tsmci = @vk.VkShaderModuleCreateInfo::new()
+        tsmci.set_codeSize((tspv.length() * 4).to_uint64())
+        tsmci.set_pCode(tspv)
+        let tsm_out = FixedArray::make(1, @vk.VkShaderModule::null())
+        let tr = (d.dfn.vkCreateShaderModule)(d.dev, tsmci, na, tsm_out)
+        tsmci.free()
+        if tr != 0 {
+          (d.dfn.vkDestroyShaderModule)(d.dev, msm_out[0], na)
+          (d.dfn.vkDestroyShaderModule)(d.dev, fsm_out[0], na)
+          raise PipelineFailed("Task vkCreateShaderModule failed: \{tr}")
+        }
+        task_mod = tsm_out[0]
+        has_task = true
+      }
+    None => ()
+  }
+
+  let stage_count = if has_task { 3 } else { 2 }
+  let stages = @vk.VkPipelineShaderStageCreateInfo::array(stage_count)
+  if has_task {
+    stages.set_stage_at(0, @vk.VK_SHADER_STAGE_TASK_BIT_EXT)
+    stages.set_module_at(0, task_mod)
+    stages.set_pName_at(0, @vk.cstr(desc.task_entry))
+    stages.set_stage_at(1, @vk.VK_SHADER_STAGE_MESH_BIT_EXT)
+    stages.set_module_at(1, msm_out[0])
+    stages.set_pName_at(1, @vk.cstr(desc.mesh_entry))
+    stages.set_stage_at(2, @vk.VK_SHADER_STAGE_FRAGMENT_BIT)
+    stages.set_module_at(2, fsm_out[0])
+    stages.set_pName_at(2, @vk.cstr(desc.frag_entry))
+  } else {
+    stages.set_stage_at(0, @vk.VK_SHADER_STAGE_MESH_BIT_EXT)
+    stages.set_module_at(0, msm_out[0])
+    stages.set_pName_at(0, @vk.cstr(desc.mesh_entry))
+    stages.set_stage_at(1, @vk.VK_SHADER_STAGE_FRAGMENT_BIT)
+    stages.set_module_at(1, fsm_out[0])
+    stages.set_pName_at(1, @vk.cstr(desc.frag_entry))
+  }
+
+  let stage_flags = @vk.VK_SHADER_STAGE_MESH_BIT_EXT |
+    @vk.VK_SHADER_STAGE_FRAGMENT_BIT |
+    (if has_task { @vk.VK_SHADER_STAGE_TASK_BIT_EXT } else { (0 : UInt32) })
+
+  let viewport_state = @vk.VkPipelineViewportStateCreateInfo::new()
+  viewport_state.set_viewportCount((1 : UInt32))
+  viewport_state.set_scissorCount((1 : UInt32))
+  let dyn_states = FixedArray::make(2, @vk.VK_DYNAMIC_STATE_VIEWPORT)
+  dyn_states[1] = @vk.VK_DYNAMIC_STATE_SCISSOR
+  let dyn_ci = @vk.VkPipelineDynamicStateCreateInfo::new()
+  dyn_ci.set_dynamicStateCount((2 : UInt32))
+  dyn_ci.set_pDynamicStates(dyn_states)
+  let rasterizer = @vk.VkPipelineRasterizationStateCreateInfo::new()
+  rasterizer.set_polygonMode(@vk.VK_POLYGON_MODE_FILL)
+  rasterizer.set_cullMode(vk_cull(desc.cull_mode))
+  rasterizer.set_frontFace(vk_front_face(desc.front_face))
+  rasterizer.set_lineWidth((1.0 : Float))
+  let multisample = @vk.VkPipelineMultisampleStateCreateInfo::new()
+  multisample.set_rasterizationSamples(vk_samples(desc.samples))
+  let depth_stencil = @vk.VkPipelineDepthStencilStateCreateInfo::new()
+  depth_stencil.set_depthTestEnable(
+    if desc.depth_test { (1 : UInt32) } else { (0 : UInt32) },
+  )
+  depth_stencil.set_depthWriteEnable(
+    if desc.depth_write { (1 : UInt32) } else { (0 : UInt32) },
+  )
+  depth_stencil.set_depthCompareOp(vk_compare_op(desc.depth_compare))
+
+  let color_vk_fmts : FixedArray[UInt32] = if desc.color_formats.length() > 0 {
+    FixedArray::makei(desc.color_formats.length(), fn(i) {
+      vk_texture_format(desc.color_formats[i])
+    })
+  } else {
+    let single = match desc.color_format {
+      Some(f) => vk_texture_format(f)
+      None => default_color_vk_fmt
+    }
+    FixedArray::make(1, single)
+  }
+  let n_colors = color_vk_fmts.length()
+  let effective_blend = match desc.blend_mode {
+    Some(m) => m
+    None => if desc.blend { BlendMode::Alpha } else { BlendMode::Opaque }
+  }
+  let blend_atts = @vk.VkPipelineColorBlendAttachmentState::array(n_colors)
+  let mask = @vk.VK_COLOR_COMPONENT_R_BIT |
+    @vk.VK_COLOR_COMPONENT_G_BIT |
+    @vk.VK_COLOR_COMPONENT_B_BIT |
+    @vk.VK_COLOR_COMPONENT_A_BIT
+  for i = 0; i < n_colors; i = i + 1 {
+    blend_atts.set_colorWriteMask_at(i, mask)
+    match effective_blend {
+      BlendMode::Opaque => ()
+      BlendMode::Alpha => {
+        blend_atts.set_blendEnable_at(i, (1 : UInt32))
+        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
+        blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      }
+      BlendMode::Additive => {
+        blend_atts.set_blendEnable_at(i, (1 : UInt32))
+        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
+        blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      }
+      BlendMode::Premultiplied => {
+        blend_atts.set_blendEnable_at(i, (1 : UInt32))
+        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      }
+      BlendMode::Multiply => {
+        blend_atts.set_blendEnable_at(i, (1 : UInt32))
+        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_DST_COLOR)
+        blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      }
+    }
+  }
+  let color_blend = @vk.VkPipelineColorBlendStateCreateInfo::new()
+  color_blend.set_attachmentCount(n_colors.reinterpret_as_uint())
+  color_blend.set_pAttachments(blend_atts)
+
+  let u_bindings = resolve_slot_bindings(desc.uniform_slots, desc.uniform_bindings, 0)
+  let t_bindings = resolve_slot_bindings(desc.texture_slots, desc.texture_bindings, desc.uniform_slots)
+  let s_bindings = resolve_slot_bindings(desc.storage_slots, desc.storage_bindings, desc.uniform_slots + desc.texture_slots)
+  let si_bindings = resolve_slot_bindings(desc.storage_image_slots, desc.storage_image_bindings, desc.uniform_slots + desc.texture_slots + desc.storage_slots)
+  let (set_layout, pools, frame_sets) = alloc_pipeline_descriptors(
+    d, u_bindings, t_bindings, s_bindings, si_bindings, stage_flags,
+  )
+  let total_slots = desc.uniform_slots + desc.texture_slots + desc.storage_slots + desc.storage_image_slots
+  let plci = @vk.VkPipelineLayoutCreateInfo::new()
+  match desc.bindless_heap {
+    Some(heap) => {
+      let sls = FixedArray::make(2, set_layout)
+      sls[1] = heap.inner.set_layout
+      plci.set_setLayoutCount((2 : UInt32))
+      plci.set_pSetLayouts(sls)
+    }
+    None =>
+      if total_slots > 0 {
+        plci.set_setLayoutCount((1 : UInt32))
+        plci.set_pSetLayouts(FixedArray::make(1, set_layout))
+      }
+  }
+  let pcr = @vk.VkPushConstantRange::new()
+  if desc.push_constant_size > 0 {
+    pcr.set_stageFlags(stage_flags)
+    pcr.set_offset((0 : UInt32))
+    pcr.set_size(desc.push_constant_size.reinterpret_as_uint())
+    plci.set_pushConstantRangeCount((1 : UInt32))
+    plci.set_pPushConstantRanges(pcr)
+  }
+  let pl_out = FixedArray::make(1, @vk.VkPipelineLayout::null())
+  let plr = (d.dfn.vkCreatePipelineLayout)(d.dev, plci, na, pl_out)
+  plci.free()
+  pcr.free()
+  if plr != 0 {
+    stages.free()
+    viewport_state.free()
+    dyn_ci.free()
+    rasterizer.free()
+    multisample.free()
+    depth_stencil.free()
+    blend_atts.free()
+    color_blend.free()
+    for p in pools {
+      (d.dfn.vkDestroyDescriptorPool)(d.dev, p, na)
+    }
+    (d.dfn.vkDestroyDescriptorSetLayout)(d.dev, set_layout, na)
+    (d.dfn.vkDestroyShaderModule)(d.dev, msm_out[0], na)
+    (d.dfn.vkDestroyShaderModule)(d.dev, fsm_out[0], na)
+    if has_task {
+      (d.dfn.vkDestroyShaderModule)(d.dev, task_mod, na)
+    }
+    raise PipelineFailed("Mesh vkCreatePipelineLayout failed: \{plr}")
+  }
+
+  let prci = @vk.VkPipelineRenderingCreateInfo::new()
+  prci.set_colorAttachmentCount(n_colors.reinterpret_as_uint())
+  prci.set_pColorAttachmentFormats(color_vk_fmts)
+  if desc.depth_test || desc.depth_write {
+    prci.set_depthAttachmentFormat(@vk.VK_FORMAT_D32_SFLOAT)
+  }
+  let gpci = @vk.VkGraphicsPipelineCreateInfo::new()
+  gpci.set_pNext(prci.as_ptr())
+  gpci.set_stageCount(stage_count.reinterpret_as_uint())
+  gpci.set_pStages(stages)
+  gpci.set_pVertexInputState(@vk.VkPipelineVertexInputStateCreateInfo::null())
+  gpci.set_pInputAssemblyState(@vk.VkPipelineInputAssemblyStateCreateInfo::null())
+  gpci.set_pViewportState(viewport_state)
+  gpci.set_pRasterizationState(rasterizer)
+  gpci.set_pMultisampleState(multisample)
+  gpci.set_pDepthStencilState(depth_stencil)
+  gpci.set_pColorBlendState(color_blend)
+  gpci.set_pDynamicState(dyn_ci)
+  gpci.set_layout(pl_out[0])
+  let pipe_out = FixedArray::make(1, @vk.VkPipeline::null())
+  let gpr = (d.dfn.vkCreateGraphicsPipelines)(
+    d.dev, d.pipeline_cache, (1 : UInt32), gpci, na, pipe_out,
+  )
+  prci.free()
+  gpci.free()
+  stages.free()
+  viewport_state.free()
+  dyn_ci.free()
+  rasterizer.free()
+  multisample.free()
+  depth_stencil.free()
+  blend_atts.free()
+  color_blend.free()
+  if gpr != 0 {
+    (d.dfn.vkDestroyPipelineLayout)(d.dev, pl_out[0], na)
+    for p in pools {
+      (d.dfn.vkDestroyDescriptorPool)(d.dev, p, na)
+    }
+    (d.dfn.vkDestroyDescriptorSetLayout)(d.dev, set_layout, na)
+    (d.dfn.vkDestroyShaderModule)(d.dev, msm_out[0], na)
+    (d.dfn.vkDestroyShaderModule)(d.dev, fsm_out[0], na)
+    if has_task {
+      (d.dfn.vkDestroyShaderModule)(d.dev, task_mod, na)
+    }
+    raise PipelineFailed("Mesh vkCreateGraphicsPipelines failed: \{gpr}")
+  }
+
+  {
+    device: d,
+    pipeline: pipe_out[0],
+    layout: pl_out[0],
+    set_layout,
+    pools,
+    frame_sets,
+    last_gen: FixedArray::make(MAX_FRAMES, (0 : UInt64)),
+    set_cursor: FixedArray::make(MAX_FRAMES, 0),
+    slot_dirty: FixedArray::make(MAX_FRAMES, true),
+    vert_module: msm_out[0],
+    frag_module: fsm_out[0],
+    task_module: task_mod,
+    stage_flags,
+    uniform_slots: desc.uniform_slots,
+    texture_slots: desc.texture_slots,
+    storage_slots: desc.storage_slots,
+    storage_image_slots: desc.storage_image_slots,
+    uniform_bindings: u_bindings,
+    texture_bindings: t_bindings,
+    storage_bindings: s_bindings,
+    storage_image_bindings: si_bindings,
+    compute: false,
+    cur_uniforms: FixedArray::make(desc.uniform_slots, None),
+    cur_textures: FixedArray::make(desc.texture_slots, None),
+    cur_storage: FixedArray::make(desc.storage_slots, None),
+    cur_storage_images: FixedArray::make(desc.storage_image_slots, None),
+  }
 }

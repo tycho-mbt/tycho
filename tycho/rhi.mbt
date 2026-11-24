@@ -290,6 +290,34 @@ pub fn Device::create_graphics_pipeline(
 }
 
 ///|
+pub fn Device::create_mesh_pipeline(
+  self : Device,
+  desc : MeshPipelineDesc,
+) -> Pipeline raise RhiError {
+  {
+    inner: vk_mesh_pipeline_create(
+      self.inner,
+      desc,
+      @vk.VK_FORMAT_R8G8B8A8_UNORM,
+    ),
+  }
+}
+
+///|
+pub fn Swapchain::create_mesh_pipeline(
+  self : Swapchain,
+  desc : MeshPipelineDesc,
+) -> Pipeline raise RhiError {
+  {
+    inner: vk_mesh_pipeline_create(
+      self.inner.device,
+      desc,
+      self.inner.format,
+    ),
+  }
+}
+
+///|
 pub fn Device::create_compute_pipeline(
   self : Device,
   spv : FixedArray[UInt32],
@@ -1109,15 +1137,10 @@ pub fn CommandBuffer::push_constants_floats(
   data : FixedArray[Float],
   offset? : Int = 0,
 ) -> Unit {
-  let stages = if pipeline.inner.compute {
-    @vk.VK_SHADER_STAGE_COMPUTE_BIT
-  } else {
-    @vk.VK_SHADER_STAGE_VERTEX_BIT | @vk.VK_SHADER_STAGE_FRAGMENT_BIT
-  }
   (self.inner.device.dfn.vkCmdPushConstants)(
     self.inner.cmd,
     pipeline.inner.layout,
-    stages,
+    pipeline.inner.stage_flags,
     offset.reinterpret_as_uint(),
     (data.length() * 4).reinterpret_as_uint(),
     @vk.float_ptr(data),
@@ -1131,15 +1154,10 @@ pub fn CommandBuffer::push_constants_bytes(
   data : Bytes,
   offset? : Int = 0,
 ) -> Unit {
-  let stages = if pipeline.inner.compute {
-    @vk.VK_SHADER_STAGE_COMPUTE_BIT
-  } else {
-    @vk.VK_SHADER_STAGE_VERTEX_BIT | @vk.VK_SHADER_STAGE_FRAGMENT_BIT
-  }
   (self.inner.device.dfn.vkCmdPushConstants)(
     self.inner.cmd,
     pipeline.inner.layout,
-    stages,
+    pipeline.inner.stage_flags,
     offset.reinterpret_as_uint(),
     data.length().reinterpret_as_uint(),
     @vk.bytes_ptr(data),
@@ -1317,6 +1335,40 @@ pub fn CommandBuffer::dispatch_indirect(
     self.inner.cmd,
     buffer.inner.buffer,
     offset.to_uint64(),
+  )
+}
+
+///|
+pub fn CommandBuffer::draw_mesh_tasks(
+  self : CommandBuffer,
+  x : Int,
+  y : Int,
+  z : Int,
+) -> Unit {
+  vk_cmd_flush_slots(self.inner)
+  (self.inner.device.dfn.vkCmdDrawMeshTasksEXT)(
+    self.inner.cmd,
+    x.reinterpret_as_uint(),
+    y.reinterpret_as_uint(),
+    z.reinterpret_as_uint(),
+  )
+}
+
+///|
+pub fn CommandBuffer::draw_mesh_tasks_indirect(
+  self : CommandBuffer,
+  buffer : Buffer,
+  draw_count : Int,
+  offset? : Int = 0,
+  stride? : Int = 12,
+) -> Unit {
+  vk_cmd_flush_slots(self.inner)
+  (self.inner.device.dfn.vkCmdDrawMeshTasksIndirectEXT)(
+    self.inner.cmd,
+    buffer.inner.buffer,
+    offset.to_uint64(),
+    draw_count.reinterpret_as_uint(),
+    stride.reinterpret_as_uint(),
   )
 }
 

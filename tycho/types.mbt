@@ -104,6 +104,8 @@ pub(all) enum ShaderStage {
   Vertex
   Fragment
   Compute
+  Task
+  Mesh
 }
 
 ///|
@@ -553,6 +555,95 @@ pub fn PipelineDesc::from_spirv(
 }
 
 ///|
+pub(all) struct MeshPipelineDesc {
+  task : FixedArray[UInt32]?
+  mesh : FixedArray[UInt32]
+  frag : FixedArray[UInt32]
+  task_entry : String
+  mesh_entry : String
+  frag_entry : String
+  uniform_slots : Int
+  texture_slots : Int
+  storage_slots : Int
+  storage_image_slots : Int
+  uniform_bindings : Array[Int]
+  texture_bindings : Array[Int]
+  storage_bindings : Array[Int]
+  storage_image_bindings : Array[Int]
+  push_constant_size : Int
+  depth_test : Bool
+  depth_write : Bool
+  depth_compare : CompareOp
+  cull_mode : CullMode
+  front_face : FrontFace
+  blend : Bool
+  blend_mode : BlendMode?
+  samples : SampleCount
+  color_format : TextureFormat?
+  color_formats : Array[TextureFormat]
+  bindless_heap : BindlessHeap?
+}
+
+///|
+pub fn MeshPipelineDesc::new(
+  mesh : FixedArray[UInt32],
+  frag : FixedArray[UInt32],
+  task? : FixedArray[UInt32]? = None,
+  task_entry? : String = "main",
+  mesh_entry? : String = "main",
+  frag_entry? : String = "main",
+  uniform_slots? : Int = 0,
+  texture_slots? : Int = 0,
+  storage_slots? : Int = 0,
+  storage_image_slots? : Int = 0,
+  uniform_bindings? : Array[Int] = [],
+  texture_bindings? : Array[Int] = [],
+  storage_bindings? : Array[Int] = [],
+  storage_image_bindings? : Array[Int] = [],
+  push_constant_size? : Int = 0,
+  depth_test? : Bool = false,
+  depth_write? : Bool = false,
+  depth_compare? : CompareOp = CompareOp::Less,
+  cull_mode? : CullMode = CullMode::None,
+  front_face? : FrontFace = FrontFace::Clockwise,
+  blend? : Bool = false,
+  blend_mode? : BlendMode? = None,
+  samples? : SampleCount = SampleCount::X1,
+  color_format? : TextureFormat? = None,
+  color_formats? : Array[TextureFormat] = [],
+  bindless_heap? : BindlessHeap? = None,
+) -> MeshPipelineDesc {
+  {
+    task,
+    mesh,
+    frag,
+    task_entry,
+    mesh_entry,
+    frag_entry,
+    uniform_slots,
+    texture_slots,
+    storage_slots,
+    storage_image_slots,
+    uniform_bindings,
+    texture_bindings,
+    storage_bindings,
+    storage_image_bindings,
+    push_constant_size,
+    depth_test,
+    depth_write,
+    depth_compare,
+    cull_mode,
+    front_face,
+    blend,
+    blend_mode,
+    samples,
+    color_format,
+    color_formats,
+    bindless_heap,
+  }
+}
+
+///|
 pub(all) struct SwapchainDesc {
   title : String
   width : Int
@@ -850,17 +941,35 @@ fn shader_kind(stage : ShaderStage) -> UInt32 {
     ShaderStage::Vertex => @shader.SHADER_KIND_VERTEX
     ShaderStage::Fragment => @shader.SHADER_KIND_FRAGMENT
     ShaderStage::Compute => @shader.SHADER_KIND_COMPUTE
+    ShaderStage::Task => @shader.SHADER_KIND_TASK
+    ShaderStage::Mesh => @shader.SHADER_KIND_MESH
   }
 }
 
 ///|
 pub fn compile_glsl(path : String, stage : ShaderStage) -> FixedArray[UInt32] {
-  @shader.compile_shader_file(path, shader_kind(stage))
+  match stage {
+    ShaderStage::Task | ShaderStage::Mesh =>
+      @shader.compile_shader_file_env(
+        path,
+        shader_kind(stage),
+        @shader.SHADER_ENV_VULKAN_1_3,
+      )
+    _ => @shader.compile_shader_file(path, shader_kind(stage))
+  }
 }
 
 ///|
 pub fn compile_glsl_source(source : String, stage : ShaderStage) -> FixedArray[UInt32] {
-  @shader.compile_shader(source, shader_kind(stage))
+  match stage {
+    ShaderStage::Task | ShaderStage::Mesh =>
+      @shader.compile_shader_env(
+        source,
+        shader_kind(stage),
+        @shader.SHADER_ENV_VULKAN_1_3,
+      )
+    _ => @shader.compile_shader(source, shader_kind(stage))
+  }
 }
 
 ///|
