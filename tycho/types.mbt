@@ -51,6 +51,7 @@ pub(all) struct DeviceDesc {
   app_name : String
   validation : Bool
   headless : Bool
+  pipeline_cache : Bytes
 }
 
 ///|
@@ -58,8 +59,9 @@ pub fn DeviceDesc::new(
   app_name : String,
   validation? : Bool = false,
   headless? : Bool = false,
+  pipeline_cache? : Bytes = b"",
 ) -> DeviceDesc {
-  { app_name, validation, headless }
+  { app_name, validation, headless, pipeline_cache }
 }
 
 ///|
@@ -172,6 +174,78 @@ pub(all) enum SampleCount {
 }
 
 ///|
+#derive(Eq, Debug)
+pub(all) enum PrimitiveTopology {
+  TriangleList
+  TriangleStrip
+  LineList
+  LineStrip
+  PointList
+}
+
+///|
+#derive(Eq, Debug)
+pub(all) enum CompareOp {
+  Never
+  Less
+  Equal
+  LessEqual
+  Greater
+  NotEqual
+  GreaterEqual
+  Always
+}
+
+///|
+#derive(Eq, Debug)
+pub(all) enum BlendMode {
+  Opaque
+  Alpha
+  Additive
+  Premultiplied
+  Multiply
+}
+
+///|
+#derive(Eq, Debug)
+pub(all) enum VertexStepMode {
+  Vertex
+  Instance
+}
+
+///|
+pub(all) struct VertexAttribute {
+  location : Int
+  format : VertexFormat
+  offset : Int
+}
+
+///|
+pub fn VertexAttribute::new(
+  location : Int,
+  format : VertexFormat,
+  offset : Int,
+) -> VertexAttribute {
+  { location, format, offset }
+}
+
+///|
+pub(all) struct VertexBufferLayout {
+  stride : Int
+  step_mode : VertexStepMode
+  attributes : Array[VertexAttribute]
+}
+
+///|
+pub fn VertexBufferLayout::new(
+  stride : Int,
+  attributes : Array[VertexAttribute],
+  step_mode? : VertexStepMode = VertexStepMode::Vertex,
+) -> VertexBufferLayout {
+  { stride, step_mode, attributes }
+}
+
+///|
 pub(all) struct ClearColor {
   r : Float
   g : Float
@@ -217,7 +291,10 @@ pub fn SamplerDesc::new(
 pub(all) struct PipelineDesc {
   vert : FixedArray[UInt32]
   frag : FixedArray[UInt32]
+  vert_entry : String
+  frag_entry : String
   vertex_formats : Array[VertexFormat]
+  vertex_layouts : Array[VertexBufferLayout]
   uniform_slots : Int
   texture_slots : Int
   storage_slots : Int
@@ -227,11 +304,17 @@ pub(all) struct PipelineDesc {
   storage_bindings : Array[Int]
   storage_image_bindings : Array[Int]
   push_constant_size : Int
+  topology : PrimitiveTopology
   depth_test : Bool
   depth_write : Bool
+  depth_compare : CompareOp
+  depth_bias : Bool
+  depth_bias_constant : Float
+  depth_bias_slope : Float
   cull_mode : CullMode
   front_face : FrontFace
   blend : Bool
+  blend_mode : BlendMode?
   samples : SampleCount
   color_format : TextureFormat?
   color_formats : Array[TextureFormat]
@@ -241,7 +324,10 @@ pub(all) struct PipelineDesc {
 pub fn PipelineDesc::new(
   vert : FixedArray[UInt32],
   frag : FixedArray[UInt32],
+  vert_entry? : String = "main",
+  frag_entry? : String = "main",
   vertex_formats? : Array[VertexFormat] = [],
+  vertex_layouts? : Array[VertexBufferLayout] = [],
   uniform_slots? : Int = 0,
   texture_slots? : Int = 0,
   storage_slots? : Int = 0,
@@ -251,11 +337,17 @@ pub fn PipelineDesc::new(
   storage_bindings? : Array[Int] = [],
   storage_image_bindings? : Array[Int] = [],
   push_constant_size? : Int = 0,
+  topology? : PrimitiveTopology = PrimitiveTopology::TriangleList,
   depth_test? : Bool = false,
   depth_write? : Bool = false,
+  depth_compare? : CompareOp = CompareOp::Less,
+  depth_bias? : Bool = false,
+  depth_bias_constant? : Float = (0.0 : Float),
+  depth_bias_slope? : Float = (0.0 : Float),
   cull_mode? : CullMode = CullMode::None,
   front_face? : FrontFace = FrontFace::Clockwise,
   blend? : Bool = false,
+  blend_mode? : BlendMode? = None,
   samples? : SampleCount = SampleCount::X1,
   color_format? : TextureFormat? = None,
   color_formats? : Array[TextureFormat] = [],
@@ -263,7 +355,10 @@ pub fn PipelineDesc::new(
   {
     vert,
     frag,
+    vert_entry,
+    frag_entry,
     vertex_formats,
+    vertex_layouts,
     uniform_slots,
     texture_slots,
     storage_slots,
@@ -273,11 +368,17 @@ pub fn PipelineDesc::new(
     storage_bindings,
     storage_image_bindings,
     push_constant_size,
+    topology,
     depth_test,
     depth_write,
+    depth_compare,
+    depth_bias,
+    depth_bias_constant,
+    depth_bias_slope,
     cull_mode,
     front_face,
     blend,
+    blend_mode,
     samples,
     color_format,
     color_formats,
@@ -296,21 +397,30 @@ fn push_unique_int(arr : Array[Int], v : Int) -> Unit {
 
 ///|
 // Builds a PipelineDesc by automatically reflecting SPIR-V bytecode for vertex
-// inputs, descriptor bindings, push constant byte size, and MRT color targets.
+// inputs, entry points, descriptor bindings, push constant byte size, and MRT color targets.
 pub fn PipelineDesc::from_spirv(
   vert : FixedArray[UInt32],
   frag : FixedArray[UInt32],
+  topology? : PrimitiveTopology = PrimitiveTopology::TriangleList,
   depth_test? : Bool = false,
   depth_write? : Bool = false,
+  depth_compare? : CompareOp = CompareOp::Less,
+  depth_bias? : Bool = false,
+  depth_bias_constant? : Float = (0.0 : Float),
+  depth_bias_slope? : Float = (0.0 : Float),
   cull_mode? : CullMode = CullMode::None,
   front_face? : FrontFace = FrontFace::Clockwise,
   blend? : Bool = false,
+  blend_mode? : BlendMode? = None,
   samples? : SampleCount = SampleCount::X1,
   color_format? : TextureFormat? = None,
   color_formats? : Array[TextureFormat] = [],
+  vertex_layouts? : Array[VertexBufferLayout] = [],
 ) -> PipelineDesc {
   let vr = @shader.reflect_spirv(vert)
   let fr = @shader.reflect_spirv(frag)
+  let vert_entry = if vr.entry_point != "" { vr.entry_point } else { "main" }
+  let frag_entry = if fr.entry_point != "" { fr.entry_point } else { "main" }
   let vertex_formats : Array[VertexFormat] = []
   for vi in vr.vertex_inputs {
     match vi.format {
@@ -372,7 +482,10 @@ pub fn PipelineDesc::from_spirv(
   PipelineDesc::new(
     vert,
     frag,
+    vert_entry~,
+    frag_entry~,
     vertex_formats~,
+    vertex_layouts~,
     uniform_slots=u_binds.length(),
     texture_slots=t_binds.length(),
     storage_slots=s_binds.length(),
@@ -382,11 +495,17 @@ pub fn PipelineDesc::from_spirv(
     storage_bindings=s_binds,
     storage_image_bindings=si_binds,
     push_constant_size~,
+    topology~,
     depth_test~,
     depth_write~,
+    depth_compare~,
+    depth_bias~,
+    depth_bias_constant~,
+    depth_bias_slope~,
     cull_mode~,
     front_face~,
     blend~,
+    blend_mode~,
     samples~,
     color_format~,
     color_formats=resolved_formats,

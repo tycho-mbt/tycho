@@ -66,6 +66,15 @@ pub(all) enum BackendKind {
   Vulkan
 }
 
+#derive(Eq, @debug.Debug)
+pub(all) enum BlendMode {
+  Opaque
+  Alpha
+  Additive
+  Premultiplied
+  Multiply
+}
+
 pub struct Buffer {
   // private fields
 }
@@ -125,6 +134,18 @@ pub fn CommandBuffer::transition_for_sampling(Self, Texture) -> Unit
 pub fn CommandBuffer::write_timestamp(Self, TimestampPool, Int32, at_start? : Bool) -> Unit
 
 #derive(Eq, @debug.Debug)
+pub(all) enum CompareOp {
+  Never
+  Less
+  Equal
+  LessEqual
+  Greater
+  NotEqual
+  GreaterEqual
+  Always
+}
+
+#derive(Eq, @debug.Debug)
 pub(all) enum CullMode {
   None
   Back
@@ -168,6 +189,7 @@ pub fn Device::destroy(Self) -> Unit
 pub fn Device::end_commands(Self, CommandBuffer) -> Unit raise RhiError
 pub fn Device::new(String, Bool) -> Self raise RhiError
 pub fn Device::new_desc(DeviceDesc) -> Self raise RhiError
+pub fn Device::pipeline_cache_data(Self) -> Bytes
 pub fn Device::submit_commands(Self, CommandBuffer, Fence) -> Unit raise RhiError
 pub fn Device::validation_errors(Self) -> Int32
 pub fn Device::wait_idle(Self) -> Unit
@@ -191,8 +213,9 @@ pub(all) struct DeviceDesc {
   app_name : String
   validation : Bool
   headless : Bool
+  pipeline_cache : Bytes
 }
-pub fn DeviceDesc::new(String, validation? : Bool, headless? : Bool) -> Self
+pub fn DeviceDesc::new(String, validation? : Bool, headless? : Bool, pipeline_cache? : Bytes) -> Self
 
 pub struct Fence {
   // private fields
@@ -241,7 +264,10 @@ pub fn Pipeline::destroy(Self) -> Unit
 pub(all) struct PipelineDesc {
   vert : FixedArray[UInt32]
   frag : FixedArray[UInt32]
+  vert_entry : String
+  frag_entry : String
   vertex_formats : Array[VertexFormat]
+  vertex_layouts : Array[VertexBufferLayout]
   uniform_slots : Int32
   texture_slots : Int32
   storage_slots : Int32
@@ -251,23 +277,38 @@ pub(all) struct PipelineDesc {
   storage_bindings : Array[Int32]
   storage_image_bindings : Array[Int32]
   push_constant_size : Int32
+  topology : PrimitiveTopology
   depth_test : Bool
   depth_write : Bool
+  depth_compare : CompareOp
+  depth_bias : Bool
+  depth_bias_constant : Float
+  depth_bias_slope : Float
   cull_mode : CullMode
   front_face : FrontFace
   blend : Bool
+  blend_mode : BlendMode?
   samples : SampleCount
   color_format : TextureFormat?
   color_formats : Array[TextureFormat]
 }
-pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], depth_test? : Bool, depth_write? : Bool, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat]) -> Self
-pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vertex_formats? : Array[VertexFormat], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], push_constant_size? : Int32, depth_test? : Bool, depth_write? : Bool, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat]) -> Self
+pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout]) -> Self
+pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], push_constant_size? : Int32, topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat]) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum PresentMode {
   Fifo
   Mailbox
   Immediate
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum PrimitiveTopology {
+  TriangleList
+  TriangleStrip
+  LineList
+  LineStrip
+  PointList
 }
 
 pub(all) struct RenderTargetDesc {
@@ -368,11 +409,31 @@ pub fn TimestampPool::destroy(Self) -> Unit
 pub fn TimestampPool::elapsed_ms(Self, Int32, Int32) -> Double raise RhiError
 pub fn TimestampPool::resolve_ns(Self) -> FixedArray[Double] raise RhiError
 
+pub(all) struct VertexAttribute {
+  location : Int32
+  format : VertexFormat
+  offset : Int32
+}
+pub fn VertexAttribute::new(Int32, VertexFormat, Int32) -> Self
+
+pub(all) struct VertexBufferLayout {
+  stride : Int32
+  step_mode : VertexStepMode
+  attributes : Array[VertexAttribute]
+}
+pub fn VertexBufferLayout::new(Int32, Array[VertexAttribute], step_mode? : VertexStepMode) -> Self
+
 #derive(Eq, @debug.Debug)
 pub(all) enum VertexFormat {
   Float2
   Float3
   Float4
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VertexStepMode {
+  Vertex
+  Instance
 }
 
 // Type aliases

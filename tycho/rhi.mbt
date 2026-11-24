@@ -66,6 +66,31 @@ pub fn Device::capabilities(self : Device) -> DeviceCapabilities {
 }
 
 ///|
+pub fn Device::pipeline_cache_data(self : Device) -> Bytes {
+  let d = self.inner
+  if d.pipeline_cache.as_ptr() == (0 : UInt64) {
+    return b""
+  }
+  let sz = FixedArray::make(1, (0 : UInt64))
+  let r0 = (d.dfn.vkGetPipelineCacheData)(d.dev, d.pipeline_cache, sz, (0 : UInt64))
+  if r0 != 0 || sz[0] == (0 : UInt64) {
+    return b""
+  }
+  let n = sz[0].to_int()
+  let out = FixedArray::make(n, (0 : Byte))
+  let r1 = (d.dfn.vkGetPipelineCacheData)(
+    d.dev,
+    d.pipeline_cache,
+    sz,
+    @vk.byte_ptr(out),
+  )
+  if r1 != 0 {
+    return b""
+  }
+  Bytes::from_array(out[:])
+}
+
+///|
 pub fn Device::backend(self : Device) -> BackendKind {
   let _ = self
   BackendKind::Vulkan

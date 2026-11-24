@@ -40,6 +40,7 @@ priv struct VkDeviceState {
   queue : @vk.VkQueue
   queue_family : UInt32
   pool : @vk.VkCommandPool
+  pipeline_cache : @vk.VkPipelineCache
   alloc : SubAllocator
   messenger : @vk.VkDebugUtilsMessengerEXT
   error_baseline : Int
@@ -262,6 +263,39 @@ fn vk_samples(s : SampleCount) -> UInt32 {
   match s {
     SampleCount::X1 => @vk.VK_SAMPLE_COUNT_1_BIT
     SampleCount::X4 => @vk.VK_SAMPLE_COUNT_4_BIT
+  }
+}
+
+///|
+fn vk_topology(t : PrimitiveTopology) -> UInt32 {
+  match t {
+    PrimitiveTopology::TriangleList => @vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
+    PrimitiveTopology::TriangleStrip => @vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP
+    PrimitiveTopology::LineList => @vk.VK_PRIMITIVE_TOPOLOGY_LINE_LIST
+    PrimitiveTopology::LineStrip => @vk.VK_PRIMITIVE_TOPOLOGY_LINE_STRIP
+    PrimitiveTopology::PointList => @vk.VK_PRIMITIVE_TOPOLOGY_POINT_LIST
+  }
+}
+
+///|
+fn vk_compare_op(c : CompareOp) -> UInt32 {
+  match c {
+    CompareOp::Never => @vk.VK_COMPARE_OP_NEVER
+    CompareOp::Less => @vk.VK_COMPARE_OP_LESS
+    CompareOp::Equal => @vk.VK_COMPARE_OP_EQUAL
+    CompareOp::LessEqual => @vk.VK_COMPARE_OP_LESS_OR_EQUAL
+    CompareOp::Greater => @vk.VK_COMPARE_OP_GREATER
+    CompareOp::NotEqual => @vk.VK_COMPARE_OP_NOT_EQUAL
+    CompareOp::GreaterEqual => @vk.VK_COMPARE_OP_GREATER_OR_EQUAL
+    CompareOp::Always => @vk.VK_COMPARE_OP_ALWAYS
+  }
+}
+
+///|
+fn vk_step_mode(m : VertexStepMode) -> UInt32 {
+  match m {
+    VertexStepMode::Vertex => @vk.VK_VERTEX_INPUT_RATE_VERTEX
+    VertexStepMode::Instance => @vk.VK_VERTEX_INPUT_RATE_INSTANCE
   }
 }
 
@@ -677,6 +711,20 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     (ifn.vkDestroyInstance)(inst, na)
     raise DeviceFailed("vkCreateCommandPool failed with code \{cpr}")
   }
+  let pcci = @vk.VkPipelineCacheCreateInfo::new()
+  if desc.pipeline_cache.length() > 0 {
+    pcci.set_initialDataSize(desc.pipeline_cache.length().to_uint64())
+    pcci.set_pInitialData(@vk.bytes_ptr(desc.pipeline_cache))
+  }
+  let pc_out = FixedArray::make(1, @vk.VkPipelineCache::null())
+  let pcr = (dfn.vkCreatePipelineCache)(dev, pcci, na, pc_out)
+  pcci.free()
+  let pipeline_cache = if pcr == 0 {
+    pc_out[0]
+  } else {
+    @vk.VkPipelineCache::null()
+  }
+
   let alloc = SubAllocator::new(dev, dfn, ifn, chosen_phys)
   {
     inst,
@@ -687,6 +735,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     queue,
     queue_family: chosen_qf,
     pool: pool_out[0],
+    pipeline_cache,
     alloc,
     messenger,
     error_baseline,
@@ -705,6 +754,9 @@ fn vk_device_destroy(d : VkDeviceState) -> Unit {
   let _ = (d.dfn.vkDeviceWaitIdle)(d.dev)
   flush_deletes(d, true)
   d.alloc.destroy()
+  if d.pipeline_cache.as_ptr() != (0 : UInt64) {
+    (d.dfn.vkDestroyPipelineCache)(d.dev, d.pipeline_cache, na)
+  }
   (d.dfn.vkDestroyCommandPool)(d.dev, d.pool, na)
   (d.dfn.vkDestroyDevice)(d.dev, na)
   if d.messenger.as_ptr() != (0 : UInt64) {
@@ -2537,36 +2589,71 @@ fn vk_graphics_pipeline_create(
   let stages = @vk.VkPipelineShaderStageCreateInfo::array(2)
   stages.set_stage_at(0, @vk.VK_SHADER_STAGE_VERTEX_BIT)
   stages.set_module_at(0, vsm_out[0])
-  stages.set_pName_at(0, @vk.cstr("main"))
+  stages.set_pName_at(0, @vk.cstr(desc.vert_entry))
   stages.set_stage_at(1, @vk.VK_SHADER_STAGE_FRAGMENT_BIT)
   stages.set_module_at(1, fsm_out[0])
-  stages.set_pName_at(1, @vk.cstr("main"))
+  stages.set_pName_at(1, @vk.cstr(desc.frag_entry))
 
-  let nattr = desc.vertex_formats.length()
-  let attribs = @vk.VkVertexInputAttributeDescription::array(nattr)
-  let mut offset = 0
-  for i = 0; i < nattr; i = i + 1 {
-    let f = desc.vertex_formats[i]
-    attribs.set_binding_at(i, (0 : UInt32))
-    attribs.set_location_at(i, i.reinterpret_as_uint())
-    attribs.set_format_at(i, vk_vertex_format(f))
-    attribs.set_offset_at(i, offset.reinterpret_as_uint())
-    offset = offset + vertex_format_bytes(f)
+  let use_layouts = desc.vertex_layouts.length() > 0
+  let n_bindings = if use_layouts {
+    desc.vertex_layouts.length()
+  } else if desc.vertex_formats.length() > 0 {
+    1
+  } else {
+    0
   }
-  let vbinding = @vk.VkVertexInputBindingDescription::new()
-  vbinding.set_binding((0 : UInt32))
-  vbinding.set_stride(offset.reinterpret_as_uint())
-  vbinding.set_inputRate(@vk.VK_VERTEX_INPUT_RATE_VERTEX)
+  let nattr = if use_layouts {
+    let mut total = 0
+    for l in desc.vertex_layouts {
+      total = total + l.attributes.length()
+    }
+    total
+  } else {
+    desc.vertex_formats.length()
+  }
+  let attribs = @vk.VkVertexInputAttributeDescription::array(nattr)
+  let vbindings = @vk.VkVertexInputBindingDescription::array(n_bindings)
+  if use_layouts {
+    let mut ai = 0
+    for bi = 0; bi < desc.vertex_layouts.length(); bi = bi + 1 {
+      let l = desc.vertex_layouts[bi]
+      vbindings.set_binding_at(bi, bi.reinterpret_as_uint())
+      vbindings.set_stride_at(bi, l.stride.reinterpret_as_uint())
+      vbindings.set_inputRate_at(bi, vk_step_mode(l.step_mode))
+      for attr in l.attributes {
+        attribs.set_binding_at(ai, bi.reinterpret_as_uint())
+        attribs.set_location_at(ai, attr.location.reinterpret_as_uint())
+        attribs.set_format_at(ai, vk_vertex_format(attr.format))
+        attribs.set_offset_at(ai, attr.offset.reinterpret_as_uint())
+        ai = ai + 1
+      }
+    }
+  } else if desc.vertex_formats.length() > 0 {
+    let mut offset = 0
+    for i = 0; i < desc.vertex_formats.length(); i = i + 1 {
+      let f = desc.vertex_formats[i]
+      attribs.set_binding_at(i, (0 : UInt32))
+      attribs.set_location_at(i, i.reinterpret_as_uint())
+      attribs.set_format_at(i, vk_vertex_format(f))
+      attribs.set_offset_at(i, offset.reinterpret_as_uint())
+      offset = offset + vertex_format_bytes(f)
+    }
+    vbindings.set_binding_at(0, (0 : UInt32))
+    vbindings.set_stride_at(0, offset.reinterpret_as_uint())
+    vbindings.set_inputRate_at(0, @vk.VK_VERTEX_INPUT_RATE_VERTEX)
+  }
   let vertex_input = @vk.VkPipelineVertexInputStateCreateInfo::new()
+  if n_bindings > 0 {
+    vertex_input.set_vertexBindingDescriptionCount(n_bindings.reinterpret_as_uint())
+    vertex_input.set_pVertexBindingDescriptions(vbindings)
+  }
   if nattr > 0 {
-    vertex_input.set_vertexBindingDescriptionCount((1 : UInt32))
-    vertex_input.set_pVertexBindingDescriptions(vbinding)
     vertex_input.set_vertexAttributeDescriptionCount(nattr.reinterpret_as_uint())
     vertex_input.set_pVertexAttributeDescriptions(attribs)
   }
 
   let input_assembly = @vk.VkPipelineInputAssemblyStateCreateInfo::new()
-  input_assembly.set_topology(@vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+  input_assembly.set_topology(vk_topology(desc.topology))
 
   let viewport_state = @vk.VkPipelineViewportStateCreateInfo::new()
   viewport_state.set_viewportCount((1 : UInt32))
@@ -2583,6 +2670,11 @@ fn vk_graphics_pipeline_create(
   rasterizer.set_cullMode(vk_cull(desc.cull_mode))
   rasterizer.set_frontFace(vk_front_face(desc.front_face))
   rasterizer.set_lineWidth((1.0 : Float))
+  if desc.depth_bias {
+    rasterizer.set_depthBiasEnable((1 : UInt32))
+    rasterizer.set_depthBiasConstantFactor(desc.depth_bias_constant)
+    rasterizer.set_depthBiasSlopeFactor(desc.depth_bias_slope)
+  }
 
   let multisample = @vk.VkPipelineMultisampleStateCreateInfo::new()
   multisample.set_rasterizationSamples(vk_samples(desc.samples))
@@ -2594,7 +2686,7 @@ fn vk_graphics_pipeline_create(
   depth_stencil.set_depthWriteEnable(
     if desc.depth_write { (1 : UInt32) } else { (0 : UInt32) },
   )
-  depth_stencil.set_depthCompareOp(@vk.VK_COMPARE_OP_LESS)
+  depth_stencil.set_depthCompareOp(vk_compare_op(desc.depth_compare))
 
   let color_vk_fmts : FixedArray[UInt32] = if desc.color_formats.length() > 0 {
     FixedArray::makei(desc.color_formats.length(), fn(i) {
@@ -2609,6 +2701,10 @@ fn vk_graphics_pipeline_create(
   }
   let n_colors = color_vk_fmts.length()
 
+  let effective_blend = match desc.blend_mode {
+    Some(m) => m
+    None => if desc.blend { BlendMode::Alpha } else { BlendMode::Opaque }
+  }
   let blend_atts = @vk.VkPipelineColorBlendAttachmentState::array(n_colors)
   let mask = @vk.VK_COLOR_COMPONENT_R_BIT |
     @vk.VK_COLOR_COMPONENT_G_BIT |
@@ -2616,20 +2712,62 @@ fn vk_graphics_pipeline_create(
     @vk.VK_COLOR_COMPONENT_A_BIT
   for i = 0; i < n_colors; i = i + 1 {
     blend_atts.set_colorWriteMask_at(i, mask)
-    if desc.blend {
-      blend_atts.set_blendEnable_at(i, (1 : UInt32))
-      blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
-      blend_atts.set_dstColorBlendFactor_at(
-        i,
-        @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-      )
-      blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
-      blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
-      blend_atts.set_dstAlphaBlendFactor_at(
-        i,
-        @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-      )
-      blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+    match effective_blend {
+      BlendMode::Opaque => ()
+      BlendMode::Alpha => {
+        blend_atts.set_blendEnable_at(i, (1 : UInt32))
+        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
+        blend_atts.set_dstColorBlendFactor_at(
+          i,
+          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        )
+        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_dstAlphaBlendFactor_at(
+          i,
+          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        )
+        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      }
+      BlendMode::Additive => {
+        blend_atts.set_blendEnable_at(i, (1 : UInt32))
+        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_SRC_ALPHA)
+        blend_atts.set_dstColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_dstAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      }
+      BlendMode::Premultiplied => {
+        blend_atts.set_blendEnable_at(i, (1 : UInt32))
+        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_dstColorBlendFactor_at(
+          i,
+          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        )
+        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_dstAlphaBlendFactor_at(
+          i,
+          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        )
+        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      }
+      BlendMode::Multiply => {
+        blend_atts.set_blendEnable_at(i, (1 : UInt32))
+        blend_atts.set_srcColorBlendFactor_at(i, @vk.VK_BLEND_FACTOR_DST_COLOR)
+        blend_atts.set_dstColorBlendFactor_at(
+          i,
+          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        )
+        blend_atts.set_colorBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+        blend_atts.set_srcAlphaBlendFactor_at(i, @vk.VK_BLEND_FACTOR_ONE)
+        blend_atts.set_dstAlphaBlendFactor_at(
+          i,
+          @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        )
+        blend_atts.set_alphaBlendOp_at(i, @vk.VK_BLEND_OP_ADD)
+      }
     }
   }
   let color_blend = @vk.VkPipelineColorBlendStateCreateInfo::new()
@@ -2692,7 +2830,7 @@ fn vk_graphics_pipeline_create(
   if plr != 0 {
     stages.free()
     attribs.free()
-    vbinding.free()
+    vbindings.free()
     vertex_input.free()
     input_assembly.free()
     viewport_state.free()
@@ -2735,7 +2873,7 @@ fn vk_graphics_pipeline_create(
   let pipe_out = FixedArray::make(1, @vk.VkPipeline::null())
   let gpr = (d.dfn.vkCreateGraphicsPipelines)(
     d.dev,
-    @vk.VkPipelineCache::null(),
+    d.pipeline_cache,
     (1 : UInt32),
     gpci,
     na,
@@ -2745,7 +2883,7 @@ fn vk_graphics_pipeline_create(
   gpci.free()
   stages.free()
   attribs.free()
-  vbinding.free()
+  vbindings.free()
   vertex_input.free()
   input_assembly.free()
   viewport_state.free()
@@ -2872,7 +3010,7 @@ fn vk_compute_pipeline_create(
   let pipe_out = FixedArray::make(1, @vk.VkPipeline::null())
   let cpr = (d.dfn.vkCreateComputePipelines)(
     d.dev,
-    @vk.VkPipelineCache::null(),
+    d.pipeline_cache,
     (1 : UInt32),
     cpci,
     na,
