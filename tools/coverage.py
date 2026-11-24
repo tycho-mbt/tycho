@@ -14,25 +14,60 @@ import xml.etree.ElementTree as ET
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 XML = os.path.join(ROOT, "codegen/registry/vk.xml")
 HDR = os.path.join(ROOT, "vulkan/include/vulkan")
-LAVAPIPE_ICD = (
-    "/usr/share/vulkan/icd.d/lvp_icd.x86_64.json"
-    if os.path.exists("/usr/share/vulkan/icd.d/lvp_icd.x86_64.json")
-    else "/usr/share/vulkan/icd.d/lvp_icd.json"
-)
+EXAMPLES_PKG = os.path.join("laplaceliu", "tycho_vulkan_examples")
+_warned_missing_exe = False
+
+
+def lavapipe_icd():
+    """Locate the lavapipe ICD instead of assuming one distro's filename."""
+    override = os.environ.get("TYCHO_LAVAPIPE_ICD")
+    if override:
+        return override
+    hits = glob.glob("/usr/share/vulkan/icd.d/lvp_icd*.json")
+    if not hits:
+        return ""
+    hits.sort(key=lambda p: (0 if "x86_64" in p else 1, p))
+    return hits[0]
+
+
+def example_exe(name):
+    """Locate a built example without assuming build profile or target dir."""
+    override = os.environ.get("TYCHO_EXAMPLES_DIR")
+    if override:
+        cand = os.path.join(override, name, name + ".exe")
+        if os.path.exists(cand):
+            return cand
+    hits = glob.glob(
+        os.path.join(ROOT, "_build", "*", "*", "build", EXAMPLES_PKG, name, name + ".exe")
+    )
+    if not hits:
+        hits = glob.glob(
+            os.path.join(ROOT, "_build", "**", "build", EXAMPLES_PKG, name, name + ".exe"),
+            recursive=True,
+        )
+    if not hits:
+        return None
+    return max(hits, key=os.path.getmtime)
 
 
 def driver_extensions(drv):
-    exe = os.path.join(
-        ROOT,
-        "_build/native/debug/build/laplaceliu/tycho_vulkan_examples/15-capabilities/15-capabilities.exe",
-    )
-    if not os.path.exists(exe):
+    global _warned_missing_exe
+    exe = example_exe("15-capabilities")
+    if not exe:
+        if not _warned_missing_exe:
+            _warned_missing_exe = True
+            print(
+                "WARNING: 15-capabilities example not built — run ./build.sh first "
+                "(or set TYCHO_EXAMPLES_DIR). Driver extensions are treated as unknown.",
+                file=sys.stderr,
+            )
         return set()
     env = dict(os.environ)
     if drv == "lavapipe":
-        if not os.path.exists(LAVAPIPE_ICD):
+        icd = lavapipe_icd()
+        if not icd or not os.path.exists(icd):
             return set()
-        env["VK_DRIVER_FILES"] = LAVAPIPE_ICD
+        env["VK_DRIVER_FILES"] = icd
     else:
         env.pop("VK_DRIVER_FILES", None)
     try:
