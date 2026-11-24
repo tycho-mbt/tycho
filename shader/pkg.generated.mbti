@@ -62,6 +62,7 @@ pub(all) struct ReflectedBinding {
   set : Int32
   binding : Int32
   kind : ReflectedDescriptorKind
+  count : Int32
   name : String
 }
 
@@ -71,6 +72,8 @@ pub(all) enum ReflectedDescriptorKind {
   StorageBuffer
   CombinedImageSampler
   StorageImage
+  SampledImage
+  Sampler
 }
 
 #derive(Eq, @debug.Debug)
@@ -106,6 +109,7 @@ pub(all) struct SpirvReflection {
   bindings : Array[ReflectedBinding]
   push_constant_size : Int32
   color_output_count : Int32
+  local_size : (Int32, Int32, Int32)
 }
 
 // Type aliases

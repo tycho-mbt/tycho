@@ -483,12 +483,14 @@ pub fn PipelineDesc::from_spirv(
     match b.kind {
       @shader.ReflectedDescriptorKind::UniformBuffer =>
         push_unique_int(u_binds, b.binding)
-      @shader.ReflectedDescriptorKind::CombinedImageSampler =>
+      @shader.ReflectedDescriptorKind::CombinedImageSampler |
+      @shader.ReflectedDescriptorKind::SampledImage =>
         push_unique_int(t_binds, b.binding)
       @shader.ReflectedDescriptorKind::StorageBuffer =>
         push_unique_int(s_binds, b.binding)
       @shader.ReflectedDescriptorKind::StorageImage =>
         push_unique_int(si_binds, b.binding)
+      @shader.ReflectedDescriptorKind::Sampler => ()
     }
   }
   u_binds.sort_by(fn(a, b) { a - b })

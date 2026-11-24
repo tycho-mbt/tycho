@@ -311,12 +311,14 @@ pub fn Device::create_compute_pipeline_auto(
     match b.kind {
       @shader.ReflectedDescriptorKind::UniformBuffer =>
         push_unique_int(u_arr, b.binding)
-      @shader.ReflectedDescriptorKind::CombinedImageSampler =>
+      @shader.ReflectedDescriptorKind::CombinedImageSampler |
+      @shader.ReflectedDescriptorKind::SampledImage =>
         push_unique_int(t_arr, b.binding)
       @shader.ReflectedDescriptorKind::StorageBuffer =>
         push_unique_int(s_arr, b.binding)
       @shader.ReflectedDescriptorKind::StorageImage =>
         push_unique_int(si_arr, b.binding)
+      @shader.ReflectedDescriptorKind::Sampler => ()
     }
   }
   u_arr.sort_by(fn(a, b) { a - b })

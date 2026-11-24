@@ -68,10 +68,36 @@ test "reflect compute shader with storage buffer and storage image" {
   let comp_spv = compile_shader(comp_src, SHADER_KIND_COMPUTE)
   let cr = reflect_spirv(comp_spv)
   assert_eq(cr.stage, ReflectedStage::Compute)
+  assert_eq(cr.local_size, (8, 8, 1))
   assert_eq(cr.push_constant_size, 16)
   assert_eq(cr.bindings.length(), 2)
   assert_eq(cr.bindings[0].binding, 0)
+  assert_eq(cr.bindings[0].count, 1)
   assert_eq(cr.bindings[0].kind, ReflectedDescriptorKind::StorageBuffer)
   assert_eq(cr.bindings[1].binding, 1)
   assert_eq(cr.bindings[1].kind, ReflectedDescriptorKind::StorageImage)
+}
+
+///|
+test "reflect multi-set, descriptor arrays, and separate texture/sampler" {
+  let frag_src =
+    #|#version 450
+    #|layout(set = 0, binding = 0) uniform texture2D texArr[4];
+    #|layout(set = 1, binding = 2) uniform sampler samp;
+    #|layout(location = 0) in vec2 vUV;
+    #|layout(location = 0) out vec4 outColor;
+    #|void main() {
+    #|  outColor = texture(sampler2D(texArr[1], samp), vUV);
+    #|}
+  let spv = compile_shader(frag_src, SHADER_KIND_FRAGMENT)
+  let r = reflect_spirv(spv)
+  assert_eq(r.bindings.length(), 2)
+  assert_eq(r.bindings[0].set, 0)
+  assert_eq(r.bindings[0].binding, 0)
+  assert_eq(r.bindings[0].count, 4)
+  assert_eq(r.bindings[0].kind, ReflectedDescriptorKind::SampledImage)
+  assert_eq(r.bindings[1].set, 1)
+  assert_eq(r.bindings[1].binding, 2)
+  assert_eq(r.bindings[1].count, 1)
+  assert_eq(r.bindings[1].kind, ReflectedDescriptorKind::Sampler)
 }

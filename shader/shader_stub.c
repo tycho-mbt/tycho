@@ -6,12 +6,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 #ifdef _WIN32
 #include <io.h>
 #include <direct.h>
 #include <windows.h>
 #else
 #include <unistd.h>
+#include <sys/stat.h>
 #endif
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
@@ -92,6 +94,40 @@ static int tycho_resolve_path(const char *rel, char *out, size_t outsz) {
   return 0;
 }
 
+static uint64_t tycho_fnv1a(const void *data, size_t n, uint64_t seed) {
+  const uint8_t *p = (const uint8_t *)data;
+  uint64_t h = seed;
+  for (size_t i = 0; i < n; i++) {
+    h ^= (uint64_t)p[i];
+    h *= 1099511628211ULL;
+  }
+  return h;
+}
+
+static int tycho_cache_enabled(void) {
+  const char *e = getenv("TYCHO_NO_SHADER_CACHE");
+  return !(e && e[0] == '1');
+}
+
+static void tycho_cache_path(char *out, size_t n, uint64_t hash) {
+  const char *tmp = getenv("TMPDIR");
+#ifdef _WIN32
+  if (!tmp || !*tmp) tmp = getenv("TEMP");
+  if (!tmp || !*tmp) tmp = getenv("TMP");
+#endif
+  if (!tmp || !*tmp) tmp = "/tmp";
+  size_t len = strlen(tmp);
+  const char *sep = (len > 0 && (tmp[len - 1] == '/' || tmp[len - 1] == '\\')) ? "" : "/";
+  char dir[512];
+  snprintf(dir, sizeof dir, "%s%stycho_spv_cache", tmp, sep);
+#ifdef _WIN32
+  _mkdir(dir);
+#else
+  mkdir(dir, 0755);
+#endif
+  snprintf(out, n, "%s/%016llx.spv", dir, (unsigned long long)hash);
+}
+
 static uint32_t *tycho_read_spv(const char *p) {
   FILE *f = fopen(p, "rb");
   if (!f) return (uint32_t *)moonbit_make_int32_array(0, 0);
@@ -104,6 +140,47 @@ static uint32_t *tycho_read_spv(const char *p) {
   (void)rd;
   fclose(f);
   return arr;
+}
+
+static void tycho_write_spv(const char *p, const uint32_t *arr, int32_t words) {
+  FILE *f = fopen(p, "wb");
+  if (!f) return;
+  fwrite(arr, 4, (size_t)words, f);
+  fclose(f);
+}
+
+static uint8_t *tycho_read_all(const char *p, long *out_len) {
+  FILE *f = fopen(p, "rb");
+  if (!f) return NULL;
+  fseek(f, 0, SEEK_END);
+  long sz = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  if (sz <= 0) {
+    fclose(f);
+    return NULL;
+  }
+  uint8_t *buf = (uint8_t *)malloc((size_t)sz);
+  if (!buf) {
+    fclose(f);
+    return NULL;
+  }
+  size_t rd = fread(buf, 1, (size_t)sz, f);
+  fclose(f);
+  *out_len = (long)rd;
+  return buf;
+}
+
+static uint16_t rd_u16(const uint8_t *p) {
+  return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+}
+
+static uint32_t rd_u32(const uint8_t *p) {
+  return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+         ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+static int32_t rd_i32(const uint8_t *p) {
+  return (int32_t)rd_u32(p);
 }
 
 MOONBIT_FFI_EXPORT uint32_t *tycho_shader_load_spirv(
@@ -121,7 +198,7 @@ MOONBIT_FFI_EXPORT uint32_t *tycho_shader_load_spirv(
   return arr;
 }
 
-// Minimal P6 binary PPM loader -> RGBA8 (no external library dependency).
+// Self-contained P6 PPM, 24/32-bit uncompressed BMP, and 24/32-bit uncompressed TGA loader -> RGBA8.
 MOONBIT_FFI_EXPORT uint8_t *tycho_shader_load_image(
     const uint8_t *path, int32_t path_len, int32_t *out_w, int32_t *out_h) {
   char rel[512];
@@ -133,36 +210,109 @@ MOONBIT_FFI_EXPORT uint8_t *tycho_shader_load_image(
     *out_h = 0;
     return (uint8_t *)moonbit_make_bytes(0, 0);
   }
-  FILE *f = fopen(p, "rb");
-  if (!f) {
+  long sz = 0;
+  uint8_t *buf = tycho_read_all(p, &sz);
+  if (!buf) {
     *out_w = 0;
     *out_h = 0;
     return (uint8_t *)moonbit_make_bytes(0, 0);
   }
-  char magic[4] = {0};
-  int w = 0, h = 0, maxv = 0;
-  if (fscanf(f, "%2s %d %d %d", magic, &w, &h, &maxv) != 4 || strcmp(magic, "P6") != 0 ||
-      w <= 0 || h <= 0) {
-    fclose(f);
-    *out_w = 0;
-    *out_h = 0;
-    return (uint8_t *)moonbit_make_bytes(0, 0);
+
+  // 1. BMP ("BM", uncompressed BI_RGB = 0, 24 or 32 bpp)
+  if (sz >= 54 && buf[0] == 'B' && buf[1] == 'M') {
+    uint32_t data_off = rd_u32(buf + 10);
+    int32_t w = rd_i32(buf + 18);
+    int32_t h_raw = rd_i32(buf + 22);
+    uint16_t bpp = rd_u16(buf + 28);
+    uint32_t comp = rd_u32(buf + 30);
+    int top_down = (h_raw < 0);
+    int32_t h = top_down ? -h_raw : h_raw;
+    if (w > 0 && h > 0 && comp == 0 && (bpp == 24 || bpp == 32)) {
+      int32_t row_bytes = ((w * bpp + 31) / 32) * 4;
+      if ((long)data_off + (long)row_bytes * h <= sz) {
+        uint8_t *arr = (uint8_t *)moonbit_make_bytes(w * h * 4, 0);
+        int ch = bpp / 8;
+        for (int y = 0; y < h; y++) {
+          int src_y = top_down ? y : (h - 1 - y);
+          const uint8_t *row = buf + data_off + (long)src_y * row_bytes;
+          for (int x = 0; x < w; x++) {
+            int di = (y * w + x) * 4;
+            arr[di + 0] = row[x * ch + 2];
+            arr[di + 1] = row[x * ch + 1];
+            arr[di + 2] = row[x * ch + 0];
+            arr[di + 3] = (ch == 4) ? row[x * ch + 3] : 255;
+          }
+        }
+        free(buf);
+        *out_w = w;
+        *out_h = h;
+        return arr;
+      }
+    }
   }
-  fgetc(f); // consume single whitespace byte
-  int32_t len = w * h * 4;
-  uint8_t *arr = (uint8_t *)moonbit_make_bytes(len, 0);
-  for (int i = 0; i < w * h; i++) {
-    uint8_t rgb[3] = {0, 0, 0};
-    if (fread(rgb, 1, 3, f) != 3) break;
-    arr[i * 4 + 0] = rgb[0];
-    arr[i * 4 + 1] = rgb[1];
-    arr[i * 4 + 2] = rgb[2];
-    arr[i * 4 + 3] = 255;
+
+  // 2. P6 binary PPM
+  if (sz >= 9 && buf[0] == 'P' && buf[1] == '6') {
+    FILE *f = fopen(p, "rb");
+    if (f) {
+      char magic[4] = {0};
+      int w = 0, h = 0, maxv = 0;
+      if (fscanf(f, "%2s %d %d %d", magic, &w, &h, &maxv) == 4 &&
+          strcmp(magic, "P6") == 0 && w > 0 && h > 0) {
+        fgetc(f);
+        int32_t len = w * h * 4;
+        uint8_t *arr = (uint8_t *)moonbit_make_bytes(len, 0);
+        for (int i = 0; i < w * h; i++) {
+          uint8_t rgb[3] = {0, 0, 0};
+          if (fread(rgb, 1, 3, f) != 3) break;
+          arr[i * 4 + 0] = rgb[0];
+          arr[i * 4 + 1] = rgb[1];
+          arr[i * 4 + 2] = rgb[2];
+          arr[i * 4 + 3] = 255;
+        }
+        fclose(f);
+        free(buf);
+        *out_w = w;
+        *out_h = h;
+        return arr;
+      }
+      fclose(f);
+    }
   }
-  fclose(f);
-  *out_w = w;
-  *out_h = h;
-  return arr;
+
+  // 3. Uncompressed 24/32-bit TGA (image type 2)
+  if (sz >= 18 && buf[2] == 2 && buf[1] == 0) {
+    uint8_t id_len = buf[0];
+    int w = (int)rd_u16(buf + 12);
+    int h = (int)rd_u16(buf + 14);
+    uint8_t bpp = buf[16];
+    int top_down = (buf[17] & 0x20) != 0;
+    int ch = bpp / 8;
+    long pix_off = 18 + (long)id_len;
+    if (w > 0 && h > 0 && (bpp == 24 || bpp == 32) && pix_off + (long)w * h * ch <= sz) {
+      uint8_t *arr = (uint8_t *)moonbit_make_bytes(w * h * 4, 0);
+      for (int y = 0; y < h; y++) {
+        int src_y = top_down ? y : (h - 1 - y);
+        const uint8_t *row = buf + pix_off + (long)src_y * w * ch;
+        for (int x = 0; x < w; x++) {
+          int di = (y * w + x) * 4;
+          arr[di + 0] = row[x * ch + 2];
+          arr[di + 1] = row[x * ch + 1];
+          arr[di + 2] = row[x * ch + 0];
+          arr[di + 3] = (ch == 4) ? row[x * ch + 3] : 255;
+        }
+      }
+      free(buf);
+      *out_w = w;
+      *out_h = h;
+      return arr;
+    }
+  }
+
+  free(buf);
+  *out_w = 0;
+  *out_h = 0;
+  return (uint8_t *)moonbit_make_bytes(0, 0);
 }
 
 static const char *tycho_glslang(void) {
@@ -197,6 +347,27 @@ static const char *tycho_env_flag(uint32_t e) {
 }
 
 static uint32_t *tycho_glsl_run(const char *in, uint32_t kind, uint32_t env) {
+  char cache_file[640] = {0};
+  int use_cache = tycho_cache_enabled();
+  if (use_cache) {
+    long src_sz = 0;
+    uint8_t *src = tycho_read_all(in, &src_sz);
+    if (src) {
+      uint64_t h = 14695981039346656037ULL;
+      h = tycho_fnv1a("glsl", 4, h);
+      h = tycho_fnv1a(&kind, sizeof(kind), h);
+      h = tycho_fnv1a(&env, sizeof(env), h);
+      h = tycho_fnv1a(src, (size_t)src_sz, h);
+      free(src);
+      tycho_cache_path(cache_file, sizeof cache_file, h);
+      if (TYCHO_READ_OK(cache_file)) {
+        uint32_t *cached = tycho_read_spv(cache_file);
+        if (Moonbit_array_length(cached) > 0) {
+          return cached;
+        }
+      }
+    }
+  }
   char out[512];
   char err[512];
   tycho_temp_path(out, sizeof out, ".spv");
@@ -220,6 +391,9 @@ static uint32_t *tycho_glsl_run(const char *in, uint32_t kind, uint32_t env) {
     arr = (uint32_t *)moonbit_make_int32_array(0, 0);
   } else {
     arr = tycho_read_spv(out);
+    if (use_cache && cache_file[0] && Moonbit_array_length(arr) > 0) {
+      tycho_write_spv(cache_file, arr, Moonbit_array_length(arr));
+    }
   }
   remove(out);
   remove(err);
@@ -275,6 +449,26 @@ static const char *tycho_slangc(void) {
 }
 
 static uint32_t *tycho_slang_run(const char *in, const char *entry) {
+  char cache_file[640] = {0};
+  int use_cache = tycho_cache_enabled();
+  if (use_cache) {
+    long src_sz = 0;
+    uint8_t *src = tycho_read_all(in, &src_sz);
+    if (src) {
+      uint64_t h = 14695981039346656037ULL;
+      h = tycho_fnv1a("slang", 5, h);
+      h = tycho_fnv1a(entry, strlen(entry), h);
+      h = tycho_fnv1a(src, (size_t)src_sz, h);
+      free(src);
+      tycho_cache_path(cache_file, sizeof cache_file, h);
+      if (TYCHO_READ_OK(cache_file)) {
+        uint32_t *cached = tycho_read_spv(cache_file);
+        if (Moonbit_array_length(cached) > 0) {
+          return cached;
+        }
+      }
+    }
+  }
   char out[512];
   char err[512];
   tycho_temp_path(out, sizeof out, ".spv");
@@ -298,6 +492,9 @@ static uint32_t *tycho_slang_run(const char *in, const char *entry) {
     arr = (uint32_t *)moonbit_make_int32_array(0, 0);
   } else {
     arr = tycho_read_spv(out);
+    if (use_cache && cache_file[0] && Moonbit_array_length(arr) > 0) {
+      tycho_write_spv(cache_file, arr, Moonbit_array_length(arr));
+    }
   }
   remove(out);
   remove(err);

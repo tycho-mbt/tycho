@@ -19,6 +19,8 @@ pub(all) enum ReflectedDescriptorKind {
   StorageBuffer
   CombinedImageSampler
   StorageImage
+  SampledImage
+  Sampler
 }
 
 ///|
@@ -39,6 +41,7 @@ pub(all) struct ReflectedBinding {
   set : Int
   binding : Int
   kind : ReflectedDescriptorKind
+  count : Int
   name : String
 }
 
@@ -58,6 +61,7 @@ pub(all) struct SpirvReflection {
   bindings : Array[ReflectedBinding]
   push_constant_size : Int
   color_output_count : Int
+  local_size : (Int, Int, Int)
 }
 
 ///|
@@ -67,6 +71,7 @@ priv enum SpvType {
   TVector(Int, Int) // component_type_id, count
   TMatrix(Int, Int) // column_type_id, count
   TImage(Int) // sampled (1 = sampled, 2 = storage)
+  TSampler
   TSampledImage
   TArray(Int, Int) // elem_type_id, length_const_id
   TRuntimeArray(Int) // elem_type_id
@@ -179,11 +184,25 @@ fn spv_vertex_format(
 }
 
 ///|
-fn unwrap_array_type(ty_id : Int, types : Map[Int, SpvType]) -> Int {
+fn unwrap_array_type(
+  ty_id : Int,
+  types : Map[Int, SpvType],
+  constants : Map[Int, Int],
+) -> (Int, Int) {
   match types.get(ty_id) {
-    Some(TArray(elem, _)) => unwrap_array_type(elem, types)
-    Some(TRuntimeArray(elem)) => unwrap_array_type(elem, types)
-    _ => ty_id
+    Some(TArray(elem, len_id)) => {
+      let len = match constants.get(len_id) {
+        Some(n) => n
+        None => 1
+      }
+      let (base, _) = unwrap_array_type(elem, types, constants)
+      (base, len)
+    }
+    Some(TRuntimeArray(elem)) => {
+      let (base, _) = unwrap_array_type(elem, types, constants)
+      (base, 0)
+    }
+    _ => (ty_id, 1)
   }
 }
 
@@ -197,11 +216,13 @@ pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
       bindings: [],
       push_constant_size: 0,
       color_output_count: 0,
+      local_size: (0, 0, 0),
     }
   }
 
   let mut stage = ReflectedStage::Unknown
   let mut entry_point = "main"
+  let mut local_size : (Int, Int, Int) = (0, 0, 0)
   let names : Map[Int, String] = Map([])
   let types : Map[Int, SpvType] = Map([])
   let constants : Map[Int, Int] = Map([])
@@ -240,6 +261,15 @@ pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
           }
           entry_point = read_spv_string(spv, idx + 3, idx + count)
         }
+      16 => // OpExecutionMode
+        if count >= 6 && spv[idx + 2].reinterpret_as_int() == 17 {
+          // LocalSize = 17
+          local_size = (
+            spv[idx + 3].reinterpret_as_int(),
+            spv[idx + 4].reinterpret_as_int(),
+            spv[idx + 5].reinterpret_as_int(),
+          )
+        }
       21 => // OpTypeInt
         if count >= 4 {
           let id = spv[idx + 1].reinterpret_as_int()
@@ -272,6 +302,11 @@ pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
           let id = spv[idx + 1].reinterpret_as_int()
           let sampled = spv[idx + 7].reinterpret_as_int()
           types.set(id, TImage(sampled))
+        }
+      26 => // OpTypeSampler
+        if count >= 2 {
+          let id = spv[idx + 1].reinterpret_as_int()
+          types.set(id, TSampler)
         }
       27 => // OpTypeSampledImage
         if count >= 3 {
@@ -425,7 +460,9 @@ pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
               Some(s) => s
               None => 0
             }
-            let base_ty = unwrap_array_type(pointee, types)
+            let (base_ty, desc_count) = unwrap_array_type(
+              pointee, types, constants,
+            )
             let kind : ReflectedDescriptorKind? = if v.storage_class == 12 {
               Some(ReflectedDescriptorKind::StorageBuffer)
             } else if v.storage_class == 2 {
@@ -440,11 +477,12 @@ pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
               match types.get(base_ty) {
                 Some(TSampledImage) =>
                   Some(ReflectedDescriptorKind::CombinedImageSampler)
+                Some(TSampler) => Some(ReflectedDescriptorKind::Sampler)
                 Some(TImage(sampled)) =>
                   if sampled == 2 {
                     Some(ReflectedDescriptorKind::StorageImage)
                   } else {
-                    Some(ReflectedDescriptorKind::CombinedImageSampler)
+                    Some(ReflectedDescriptorKind::SampledImage)
                   }
                 _ => None
               }
@@ -455,6 +493,7 @@ pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
                   set: set_idx,
                   binding: b,
                   kind: k,
+                  count: desc_count,
                   name: var_name,
                 })
               None => ()
@@ -483,5 +522,6 @@ pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
     bindings,
     push_constant_size,
     color_output_count,
+    local_size,
   }
 }
