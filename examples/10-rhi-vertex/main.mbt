@@ -12,7 +12,9 @@ fn rgb_at(pixels : FixedArray[Byte], x : Int, y : Int) -> (Int, Int, Int) {
 fn main {
   try {
     let dev = @tycho.Device::new("Tycho RHI Vertex", true)
-    let sc = dev.create_swapchain("Tycho RHI Vertex", 800, 600)
+    let sc = dev.create_swapchain_desc(
+      @tycho.SwapchainDesc::new("Tycho RHI Vertex", 800, 600, enable_readback=true),
+    )
     let vert = @tycho.compile_glsl(
       "examples/10-rhi-vertex/shader.vert",
       @tycho.ShaderStage::Vertex,

@@ -91,7 +91,14 @@ fn make_mvp(angle : Float, aspect : Float) -> FixedArray[Float] {
 fn main {
   try {
     let dev = @tycho.Device::new("Tycho RHI MRT Deferred", true)
-    let sc = dev.create_swapchain("Tycho RHI MRT Deferred", 800, 600)
+    let sc = dev.create_swapchain_desc(
+      @tycho.SwapchainDesc::new(
+        "Tycho RHI MRT Deferred",
+        800,
+        600,
+        enable_readback=true,
+      ),
+    )
 
     let albedo_rt = dev.create_render_target(256, 256, @tycho.TextureFormat::RGBA8)
     let normal_rt = dev.create_render_target(256, 256, @tycho.TextureFormat::RGBA8)
@@ -183,34 +190,54 @@ fn main {
     let ibuf = dev.create_buffer(indices.length() * 2, @tycho.BufferKind::Index)
     ibuf.upload_uint16(indices)
 
-    // Pass 1: Render cube at angle 0 into MRT G-Buffer (albedo + normal + depth)
+    // Pass 1 + Pass 2 in a single command buffer per frame (no mid-frame vkQueueWaitIdle)
     let mvp0 = make_mvp((0.0 : Float), (1.0 : Float))
-    let gcmd = dev.begin_commands()
-    gcmd.reset_timestamps(ts)
-    gcmd.write_timestamp(ts, 0, at_start=true)
-    gcmd.begin_render_pass(
-      [
-        @tycho.RenderTargetDesc::new(
-          albedo_rt,
-          clear_color=@tycho.ClearColor::rgba(0.0, 0.0, 0.0, 0.0),
-        ),
-        @tycho.RenderTargetDesc::new(
-          normal_rt,
-          clear_color=@tycho.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
-        ),
-      ],
-      depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
-    )
-    gcmd.bind_pipeline(gbuf_pipe)
-    gcmd.push_constants_floats(gbuf_pipe, mvp0)
-    gcmd.bind_vertex(0, vbuf)
-    gcmd.bind_index(ibuf, @tycho.IndexType::Uint16)
-    gcmd.draw_indexed(36)
-    gcmd.end_render_pass()
-    gcmd.write_timestamp(ts, 1)
-    dev.end_commands(gcmd)
+    let start = @tycho.Swapchain::time()
+    let mut pixels : FixedArray[Byte] = []
+    let mut gbuf_ms = 0.0
+    let mut frames = 0
+    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
+      let cmd = sc.begin_frame_commands()
+      if frames == 0 {
+        cmd.reset_timestamps(ts)
+        cmd.write_timestamp(ts, 0, at_start=true)
+      }
+      cmd.begin_render_pass(
+        [
+          @tycho.RenderTargetDesc::new(
+            albedo_rt,
+            clear_color=@tycho.ClearColor::rgba(0.0, 0.0, 0.0, 0.0),
+          ),
+          @tycho.RenderTargetDesc::new(
+            normal_rt,
+            clear_color=@tycho.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
+          ),
+        ],
+        depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+      )
+      cmd.bind_pipeline(gbuf_pipe)
+      cmd.push_constants_floats(gbuf_pipe, mvp0)
+      cmd.bind_vertex(0, vbuf)
+      cmd.bind_index(ibuf, @tycho.IndexType::Uint16)
+      cmd.draw_indexed(36)
+      cmd.end_render_pass()
+      if frames == 0 {
+        cmd.write_timestamp(ts, 1)
+      }
+      cmd.begin_swapchain_pass(sc)
+      cmd.bind_pipeline(comp_pipe)
+      cmd.bind_texture(comp_pipe, 0, albedo_rt, samp)
+      cmd.bind_texture(comp_pipe, 1, normal_rt, samp)
+      cmd.draw(6, 1)
+      cmd.end_swapchain_pass()
+      sc.end_frame(cmd)
+      if frames == 0 {
+        pixels = sc.readback()
+        gbuf_ms = ts.elapsed_ms(0, 1)
+      }
+      frames = frames + 1
+    }
 
-    let gbuf_ms = ts.elapsed_ms(0, 1)
     let alb_px = albedo_rt.readback()
     let nrm_px = normal_rt.readback()
     let gc = (128 * 256 + 128) * 4
@@ -228,23 +255,6 @@ fn main {
       ng >= 115 &&
       ng <= 140 &&
       nb > 240
-
-    // Pass 2: Deferred lighting composite onto swapchain
-    let start = @tycho.Swapchain::time()
-    let mut pixels : FixedArray[Byte] = []
-    let mut frames = 0
-    while !sc.should_close() && frames < 10 && @tycho.Swapchain::time() - start < 0.8 {
-      let cmd = sc.begin_frame()
-      cmd.bind_pipeline(comp_pipe)
-      cmd.bind_texture(comp_pipe, 0, albedo_rt, samp)
-      cmd.bind_texture(comp_pipe, 1, normal_rt, samp)
-      cmd.draw(6, 1)
-      sc.end_frame(cmd)
-      if frames == 0 {
-        pixels = sc.readback()
-      }
-      frames = frames + 1
-    }
 
     let c = (300 * 800 + 400) * 4
     let (sr, sg, sb) = if sc.color_format() == @tycho.TextureFormat::BGRA8 {

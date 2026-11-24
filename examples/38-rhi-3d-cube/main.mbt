@@ -96,7 +96,13 @@ fn main {
   try {
     let dev = @tycho.Device::new("Tycho RHI 3D Cube", true)
     let sc = dev.create_swapchain_desc(
-      @tycho.SwapchainDesc::new("Tycho RHI 3D Cube", 800, 600, depth=true),
+      @tycho.SwapchainDesc::new(
+        "Tycho RHI 3D Cube",
+        800,
+        600,
+        depth=true,
+        enable_readback=true,
+      ),
     )
     let vert = @tycho.compile_glsl(
       "examples/38-rhi-3d-cube/shader.vert",

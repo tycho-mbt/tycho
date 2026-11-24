@@ -20,7 +20,9 @@ fn count_rgb(pixels : FixedArray[Byte]) -> Int {
 fn main {
   try {
     let dev = @tycho.Device::new("Tycho RHI Triangle", true)
-    let sc = dev.create_swapchain("Tycho RHI Triangle", 800, 600)
+    let sc = dev.create_swapchain_desc(
+      @tycho.SwapchainDesc::new("Tycho RHI Triangle", 800, 600, enable_readback=true),
+    )
     let vert = @tycho.compile_glsl(
       "examples/08-rhi-triangle/shader.vert",
       @tycho.ShaderStage::Vertex,

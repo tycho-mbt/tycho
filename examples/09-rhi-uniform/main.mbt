@@ -5,7 +5,9 @@
 fn main {
   try {
     let dev = @tycho.Device::new("Tycho RHI Uniform", true)
-    let sc = dev.create_swapchain("Tycho RHI Uniform", 800, 600)
+    let sc = dev.create_swapchain_desc(
+      @tycho.SwapchainDesc::new("Tycho RHI Uniform", 800, 600, enable_readback=true),
+    )
     let vert = @tycho.compile_glsl(
       "examples/09-rhi-uniform/shader.vert",
       @tycho.ShaderStage::Vertex,

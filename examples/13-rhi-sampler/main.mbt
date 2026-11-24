@@ -11,7 +11,9 @@ fn centre_green(pixels : FixedArray[Byte]) -> Int {
 fn main {
   try {
     let dev = @tycho.Device::new("Tycho RHI Sampler", true)
-    let sc = dev.create_swapchain("Tycho RHI Sampler", 800, 600)
+    let sc = dev.create_swapchain_desc(
+      @tycho.SwapchainDesc::new("Tycho RHI Sampler", 800, 600, enable_readback=true),
+    )
     let vert = @tycho.compile_glsl(
       "examples/13-rhi-sampler/shader.vert",
       @tycho.ShaderStage::Vertex,
