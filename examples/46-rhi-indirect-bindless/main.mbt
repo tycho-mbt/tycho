@@ -1,7 +1,8 @@
 // Example 46 — RHI v0.5 GPU-driven indirect draw + BindlessHeap:
-// 1. Compute shader writes 2 VkDrawIndirectCommand structs into BufferKind::Indirect
-// 2. BindlessHeap registers 2 distinct textures (red=0, blue=1)
-// 3. Graphics pass draws both triangles via draw_indirect(buf, 2) sampling bindless uTextures[]
+// 1. dispatch_indirect triggers compute shader writing VkDrawIndirectCommand + VkDrawIndexedIndirectCommand
+// 2. BindlessHeap registers red=0, blue=1; Pass 1 uses draw_indirect -> (red, blue)
+// 3. unregister_texture(red) + register_texture(green) reuses slot 0 (UPDATE_AFTER_BIND)
+// 4. Pass 2 draws with draw_indexed_indirect -> (green, blue) without rebuilding pipeline/VBO
 
 ///|
 fn main {
@@ -32,6 +33,14 @@ fn main {
         if c == 2 || c == 3 { (255 : Byte) } else { (0 : Byte) }
       }),
     )
+    let green_tex = dev.create_texture(
+      2,
+      2,
+      Bytes::makei(16, fn(i) {
+        let c = i % 4
+        if c == 1 || c == 3 { (255 : Byte) } else { (0 : Byte) }
+      }),
+    )
     let samp = dev.create_sampler()
     let red_id = heap.register_texture(red_tex, samp)
     let blue_id = heap.register_texture(blue_tex, samp)
@@ -59,8 +68,23 @@ fn main {
       ),
     )
 
+    let disp_indirect_buf = dev.create_buffer_with(
+      12,
+      @tycho.BufferKind::Indirect,
+      location=@tycho.MemoryLocation::GpuOnly,
+    )
+    disp_indirect_buf.upload_floats([
+      Float::reinterpret_from_int(1),
+      Float::reinterpret_from_int(1),
+      Float::reinterpret_from_int(1),
+    ])
     let indirect_buf = dev.create_buffer_with(
       32,
+      @tycho.BufferKind::Indirect,
+      location=@tycho.MemoryLocation::GpuOnly,
+    )
+    let indexed_indirect_buf = dev.create_buffer_with(
+      40,
       @tycho.BufferKind::Indirect,
       location=@tycho.MemoryLocation::GpuOnly,
     )
@@ -69,7 +93,6 @@ fn main {
       @tycho.BufferKind::Vertex,
       location=@tycho.MemoryLocation::GpuOnly,
     )
-    // 6 vertices (2 triangles): (x, y, tex_idx, 0.0)
     let rf = Float::from_int(red_id)
     let bf = Float::from_int(blue_id)
     vbuf.upload_floats([
@@ -80,12 +103,26 @@ fn main {
       (0.9 : Float), (-0.5 : Float), bf, (0.0 : Float),
       (0.5 : Float), (0.5 : Float), bf, (0.0 : Float),
     ])
+    let ibuf = dev.create_buffer_with(
+      24,
+      @tycho.BufferKind::Index,
+      location=@tycho.MemoryLocation::GpuOnly,
+    )
+    ibuf.upload_floats([
+      Float::reinterpret_from_int(0),
+      Float::reinterpret_from_int(1),
+      Float::reinterpret_from_int(2),
+      Float::reinterpret_from_int(3),
+      Float::reinterpret_from_int(4),
+      Float::reinterpret_from_int(5),
+    ])
 
     let rt = dev.create_render_target(200, 200, @tycho.TextureFormat::RGBA8)
     let cmd = dev.begin_commands()
     cmd.bind_pipeline(comp_pipe)
     cmd.bind_storage(comp_pipe, 0, indirect_buf)
-    cmd.dispatch(1, 1, 1)
+    cmd.bind_storage(comp_pipe, 1, indexed_indirect_buf)
+    cmd.dispatch_indirect(disp_indirect_buf)
     cmd.barrier()
     cmd.begin_render_pass([
       @tycho.RenderTargetDesc::new(
@@ -100,36 +137,63 @@ fn main {
     cmd.end_render_pass()
     dev.end_commands(cmd)
 
-    let px = rt.readback()
+    let px1 = rt.readback()
     let li = (100 * 200 + 50) * 4
-    let (lr, lg, lb) = (px[li].to_int(), px[li + 1].to_int(), px[li + 2].to_int())
+    let (lr1, lg1, lb1) = (px1[li].to_int(), px1[li + 1].to_int(), px1[li + 2].to_int())
     let ri = (100 * 200 + 150) * 4
-    let (rr, rg, rb) = (px[ri].to_int(), px[ri + 1].to_int(), px[ri + 2].to_int())
+    let (rr1, rg1, rb1) = (px1[ri].to_int(), px1[ri + 1].to_int(), px1[ri + 2].to_int())
+
+    // Dynamically swap bindless slot `red_id` to `green_tex` and redraw with draw_indexed_indirect
+    heap.unregister_texture(red_id)
+    let reused_id = heap.register_texture(green_tex, samp)
+    let cmd2 = dev.begin_commands()
+    cmd2.begin_render_pass([
+      @tycho.RenderTargetDesc::new(
+        rt,
+        clear_color=@tycho.ClearColor::black(),
+      ),
+    ])
+    cmd2.bind_pipeline(gfx_pipe)
+    cmd2.bind_bindless_heap(gfx_pipe, heap)
+    cmd2.bind_vertex(0, vbuf)
+    cmd2.bind_index(ibuf, @tycho.IndexType::Uint32)
+    cmd2.draw_indexed_indirect(indexed_indirect_buf, 2)
+    cmd2.end_render_pass()
+    dev.end_commands(cmd2)
+
+    let px2 = rt.readback()
+    let (lr2, lg2, lb2) = (px2[li].to_int(), px2[li + 1].to_int(), px2[li + 2].to_int())
+    let (rr2, rg2, rb2) = (px2[ri].to_int(), px2[ri + 1].to_int(), px2[ri + 2].to_int())
 
     let errs = dev.validation_errors()
     rt.destroy()
+    ibuf.destroy()
     vbuf.destroy()
+    indexed_indirect_buf.destroy()
     indirect_buf.destroy()
+    disp_indirect_buf.destroy()
     gfx_pipe.destroy()
     comp_pipe.destroy()
     samp.destroy()
+    green_tex.destroy()
     blue_tex.destroy()
     red_tex.destroy()
     heap.destroy()
     dev.destroy()
 
-    let left_ok = lr > 240 && lg < 20 && lb < 20
-    let right_ok = rr < 20 && rg < 20 && rb > 240
+    let p1_ok = lr1 > 240 && lg1 < 20 && lb1 < 20 && rr1 < 20 && rg1 < 20 && rb1 > 240
+    let slot_reused = reused_id == red_id
+    let p2_ok = lr2 < 20 && lg2 > 240 && lb2 < 20 && rr2 < 20 && rg2 < 20 && rb2 > 240
     println(
-      "[46-rhi-indirect-bindless] ids=(\{red_id},\{blue_id}) left=(\{lr},\{lg},\{lb}) right=(\{rr},\{rg},\{rb})",
+      "[46-rhi-indirect-bindless] ids=(\{red_id}->\{reused_id},\{blue_id}) p1=((\{lr1},\{lg1},\{lb1}),(\{rr1},\{rg1},\{rb1})) p2=((\{lr2},\{lg2},\{lb2}),(\{rr2},\{rg2},\{rb2}))",
     )
-    if left_ok && right_ok && errs == 0 {
+    if p1_ok && slot_reused && p2_ok && errs == 0 {
       println(
-        "[46-rhi-indirect-bindless] OK — compute->indirect draw + bindless heap (ids \{red_id}, \{blue_id}) passed (0 validation errors)",
+        "[46-rhi-indirect-bindless] OK — dispatch_indirect + draw_indirect + draw_indexed_indirect + bindless slot reuse passed (0 validation errors)",
       )
     } else {
       println(
-        "[46-rhi-indirect-bindless] FAIL — left=\{left_ok} right=\{right_ok} errs=\{errs}",
+        "[46-rhi-indirect-bindless] FAIL — p1=\{p1_ok} reused=\{slot_reused} p2=\{p2_ok} errs=\{errs}",
       )
     }
   } catch {

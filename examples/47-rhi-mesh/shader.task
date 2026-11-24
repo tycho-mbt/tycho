@@ -1,0 +1,15 @@
+#version 460
+#extension GL_EXT_mesh_shader : require
+layout(local_size_x = 1) in;
+layout(push_constant) uniform PC {
+    vec4 tint;
+    float offsetX;
+} pc;
+struct TaskPayload {
+    float offsetX;
+};
+taskPayloadSharedEXT TaskPayload payload;
+void main() {
+    payload.offsetX = pc.offsetX;
+    EmitMeshTasksEXT(1, 1, 1);
+}

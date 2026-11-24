@@ -53,6 +53,7 @@ run_suite() {
     return 1
   fi
   for d in examples/*/; do
+    [ -f "${d}moon.pkg" ] || continue
     name=$(basename "$d")
     case "$SKIP_LIST" in
       *" $name "*)
