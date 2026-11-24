@@ -2,6 +2,30 @@
 
 Unified pure-MoonBit Render Hardware Interface (RHI) built atop `laplaceliu/tycho_vulkan`, `laplaceliu/tycho_window`, and `laplaceliu/tycho_shader` with **zero C stubs**.
 
+## Install
+
+```bash
+moon add laplaceliu/tycho
+```
+
+Link flags are **not** transitive in MoonBit: the final executable must declare them
+itself. Add this to the `moon.pkg` of your executable package:
+
+```moonbit
+// moon.pkg
+options(
+  "link": {
+    "native": {
+      "cc": "cc",
+      "cc-link-flags": "-lvulkan -lX11", // -lX11 only needed for windowing/WSI
+    },
+  },
+)
+```
+
+Requirements: a Vulkan **1.3** loader + driver (`libvulkan-dev`, `libx11-dev` on
+Debian/Ubuntu). No Vulkan SDK, `-I`, or env var is needed at build time.
+
 ## Features (Vulkan 1.3 Backend)
 
 - Backend-opaque handles: `Device`, `Swapchain`, `Pipeline`, `Buffer`, `Texture`, `Sampler`, `CommandBuffer`, `Fence`, `TimestampPool`
