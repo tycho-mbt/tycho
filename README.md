@@ -6,6 +6,10 @@
 
 *Rendered in pure MoonBit via `examples/49-rhi-pbr-showcase`.*
 
+![Tycho 2D SDF UI Batcher — Per-Corner Rounded Rects, Analytical Shadows, Texture Atlas & Hardware Scissor](examples/53-rhi-2d-sdf-batch/screenshot.png)
+
+*2D SDF UI batching & high-frequency `CpuToGpu` ring-SSBO benchmark via `examples/53-rhi-2d-sdf-batch`.*
+
 ## Architecture (Multi-Module Workspace)
 
 | Module (`mooncakes.io`) | Directory | Purpose | Native Link Deps |

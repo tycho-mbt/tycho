@@ -53,6 +53,7 @@ priv struct VkDeviceState {
   caps : DeviceCapabilities
   mut current_gen : UInt64
   mut completed_gen : UInt64
+  mut next_cmd_gen : UInt64
   mut active_recordings : Int
   pending_deletes : Array[DeferredDelete]
   depth_stencil_vk_format : UInt32
@@ -117,9 +118,9 @@ priv struct VkPipelineState {
   accel_bindings : FixedArray[Int]
   compute : Bool
   stencil_ref : UInt32?
-  cur_uniforms : FixedArray[Buffer?]
+  cur_uniforms : FixedArray[(Buffer, Int, Int)?]
   cur_textures : FixedArray[(Texture, Sampler)?]
-  cur_storage : FixedArray[Buffer?]
+  cur_storage : FixedArray[(Buffer, Int, Int)?]
   cur_storage_images : FixedArray[Texture?]
   cur_accel : FixedArray[AccelStruct?]
 }
@@ -195,9 +196,9 @@ priv struct VkCmdState {
   cmd : @vk.VkCommandBuffer
   frame_idx : Int
   frame_gen : UInt64
-  pending_uniforms : Array[(Pipeline, Int, Buffer)]
+  pending_uniforms : Array[(Pipeline, Int, Buffer, Int, Int)]
   pending_textures : Array[(Pipeline, Int, Texture, Sampler)]
-  pending_storage : Array[(Pipeline, Int, Buffer)]
+  pending_storage : Array[(Pipeline, Int, Buffer, Int, Int)]
   pending_storage_images : Array[(Pipeline, Int, Texture)]
   pending_accel : Array[(Pipeline, Int, AccelStruct)]
   mut bound : Pipeline?
@@ -205,6 +206,8 @@ priv struct VkCmdState {
   mut active_depth_target : DepthTargetDesc?
   mut in_swapchain_pass : Bool
   mut swapchain_image_initialized : Bool
+  mut render_w : Int
+  mut render_h : Int
 }
 
 ///|
@@ -984,6 +987,7 @@ fn vk_device_create(desc : DeviceDesc) -> VkDeviceState raise RhiError {
     caps,
     current_gen: (1 : UInt64),
     completed_gen: (0 : UInt64),
+    next_cmd_gen: (1 : UInt64),
     active_recordings: 0,
     pending_deletes: [],
     depth_stencil_vk_format,
@@ -2461,6 +2465,8 @@ fn vk_swapchain_begin_frame_commands(
   let _ = (d.dfn.vkResetFences)(d.dev, (1 : UInt32), fence)
   s.image_index = idx_out[0].reinterpret_as_int()
   s.frame_gen = s.frame_gen + (1 : UInt64)
+  let cmd_gen = d.next_cmd_gen
+  d.next_cmd_gen = d.next_cmd_gen + (1 : UInt64)
   let cmd = s.cmds[fi]
   let _ = (d.dfn.vkResetCommandBuffer)(cmd, (0 : UInt32))
   let cbi = @vk.VkCommandBufferBeginInfo::new()
@@ -2475,7 +2481,7 @@ fn vk_swapchain_begin_frame_commands(
     device: d,
     cmd,
     frame_idx: fi,
-    frame_gen: s.frame_gen,
+    frame_gen: cmd_gen,
     pending_uniforms: [],
     pending_textures: [],
     pending_storage: [],
@@ -2486,6 +2492,8 @@ fn vk_swapchain_begin_frame_commands(
     active_depth_target: None,
     in_swapchain_pass: false,
     swapchain_image_initialized: false,
+    render_w: 0,
+    render_h: 0,
   }
 }
 
@@ -2581,6 +2589,8 @@ fn vk_cmd_begin_swapchain_pass(
 
   set_dynamic_viewport_scissor(d, c.cmd, s.width, s.height)
   c.in_swapchain_pass = true
+  c.render_w = s.width
+  c.render_h = s.height
 }
 
 ///|
@@ -2588,6 +2598,8 @@ fn vk_cmd_end_swapchain_pass(c : VkCmdState) -> Unit {
   if c.in_swapchain_pass {
     (c.device.dfn.vkCmdEndRendering)(c.cmd)
     c.in_swapchain_pass = false
+    c.render_w = 0
+    c.render_h = 0
   }
 }
 
@@ -3617,17 +3629,38 @@ fn vk_pipeline_destroy(p : VkPipelineState) -> Unit {
 }
 
 ///|
+fn resolve_descriptor_range(
+  buf_size : Int,
+  offset : Int,
+  size : Int,
+) -> (Int, Int) {
+  let off = if offset < 0 {
+    0
+  } else if offset > buf_size {
+    buf_size
+  } else {
+    offset
+  }
+  let rem = buf_size - off
+  let rng = if size < 0 || size > rem { rem } else { size }
+  (off, rng)
+}
+
+///|
 fn write_descriptor_buffer(
   d : VkDeviceState,
   dset : @vk.VkDescriptorSet,
   binding : Int,
   desc_type : UInt32,
   buf : VkBufferState,
+  offset : Int,
+  size : Int,
 ) -> Unit {
+  let (off, rng) = resolve_descriptor_range(buf.size, offset, size)
   let info = @vk.VkDescriptorBufferInfo::new()
   info.set_buffer(buf.buffer)
-  info.set_offset((0 : UInt64))
-  info.set_range(buf.size.to_uint64())
+  info.set_offset(off.to_uint64())
+  info.set_range(rng.to_uint64())
   let write = @vk.VkWriteDescriptorSet::new()
   write.set_dstSet(dset)
   write.set_dstBinding(binding.reinterpret_as_uint())
@@ -3738,15 +3771,18 @@ fn write_descriptor_accel_struct(
 fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
   let f = c.frame_idx % MAX_FRAMES
   for entry in c.pending_uniforms {
-    let (p, slot, buf) = entry
+    let (p, slot, buf, offset, size) = entry
     let ps = p.inner
     if slot >= 0 && slot < ps.uniform_slots {
       let same = match ps.cur_uniforms[slot] {
-        Some(prev) => prev.inner.buffer.as_ptr() == buf.inner.buffer.as_ptr()
+        Some((prev, prev_off, prev_size)) =>
+          prev.inner.buffer.as_ptr() == buf.inner.buffer.as_ptr() &&
+          prev_off == offset &&
+          prev_size == size
         None => false
       }
       if !same {
-        ps.cur_uniforms[slot] = Some(buf)
+        ps.cur_uniforms[slot] = Some((buf, offset, size))
         ps.slot_dirty[f] = true
       }
     }
@@ -3770,15 +3806,18 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
   }
   c.pending_textures.clear()
   for entry in c.pending_storage {
-    let (p, slot, buf) = entry
+    let (p, slot, buf, offset, size) = entry
     let ps = p.inner
     if slot >= 0 && slot < ps.storage_slots {
       let same = match ps.cur_storage[slot] {
-        Some(prev) => prev.inner.buffer.as_ptr() == buf.inner.buffer.as_ptr()
+        Some((prev, prev_off, prev_size)) =>
+          prev.inner.buffer.as_ptr() == buf.inner.buffer.as_ptr() &&
+          prev_off == offset &&
+          prev_size == size
         None => false
       }
       if !same {
-        ps.cur_storage[slot] = Some(buf)
+        ps.cur_storage[slot] = Some((buf, offset, size))
         ps.slot_dirty[f] = true
       }
     }
@@ -3854,13 +3893,15 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
           ps.slot_dirty[f] = false
           for i = 0; i < ps.uniform_slots; i = i + 1 {
             match ps.cur_uniforms[i] {
-              Some(buf) =>
+              Some((buf, offset, size)) =>
                 write_descriptor_buffer(
                   c.device,
                   set_handle,
                   ps.uniform_bindings[i],
                   @vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                   buf.inner,
+                  offset,
+                  size,
                 )
               None => ()
             }
@@ -3880,13 +3921,15 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
           }
           for i = 0; i < ps.storage_slots; i = i + 1 {
             match ps.cur_storage[i] {
-              Some(buf) =>
+              Some((buf, offset, size)) =>
                 write_descriptor_buffer(
                   c.device,
                   set_handle,
                   ps.storage_bindings[i],
                   @vk.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                   buf.inner,
+                  offset,
+                  size,
                 )
               None => ()
             }
@@ -4203,6 +4246,8 @@ fn vk_cmd_begin_render_pass(
   set_dynamic_viewport_scissor(d, c.cmd, w, h)
   c.active_render_targets = colors
   c.active_depth_target = depth
+  c.render_w = w
+  c.render_h = h
 }
 
 ///|
@@ -4274,6 +4319,8 @@ fn vk_cmd_end_render_pass(c : VkCmdState) -> Unit {
   }
   c.active_render_targets = []
   c.active_depth_target = None
+  c.render_w = 0
+  c.render_h = 0
 }
 
 ///|
@@ -4969,8 +5016,9 @@ fn vk_buffer_upload_bytes(
   b : VkBufferState,
   data : Bytes,
   offset : Int,
+  count : Int,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_ptr(b, @vk.bytes_ptr(data), data.length(), offset~)
+  vk_buffer_upload_ptr(b, @vk.bytes_ptr(data), count, offset~)
 }
 
 ///|
@@ -4978,8 +5026,9 @@ fn vk_buffer_upload_floats(
   b : VkBufferState,
   data : FixedArray[Float],
   offset : Int,
+  count : Int,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_ptr(b, @vk.float_ptr(data), data.length() * 4, offset~)
+  vk_buffer_upload_ptr(b, @vk.float_ptr(data), count * 4, offset~)
 }
 
 ///|
@@ -4987,8 +5036,9 @@ fn vk_buffer_upload_uint32(
   b : VkBufferState,
   data : FixedArray[UInt32],
   offset : Int,
+  count : Int,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_ptr(b, @vk.uint32_ptr(data), data.length() * 4, offset~)
+  vk_buffer_upload_ptr(b, @vk.uint32_ptr(data), count * 4, offset~)
 }
 
 ///|
@@ -5356,6 +5406,33 @@ fn vk_cmd_set_viewport(
 }
 
 ///|
+fn clamp_scissor_rect(
+  x : Int,
+  y : Int,
+  w : Int,
+  h : Int,
+  max_w : Int,
+  max_h : Int,
+) -> (Int, Int, Int, Int) {
+  if w <= 0 || h <= 0 {
+    let cx = if max_w > 0 && x > max_w { max_w } else if x < 0 { 0 } else { x }
+    let cy = if max_h > 0 && y > max_h { max_h } else if y < 0 { 0 } else { y }
+    return (cx, cy, 0, 0)
+  }
+  let x0 = if x < 0 { 0 } else { x }
+  let y0 = if y < 0 { 0 } else { y }
+  let x1_raw = if x > 0 && w > 0x7FFFFFFF - x { 0x7FFFFFFF } else { x + w }
+  let y1_raw = if y > 0 && h > 0x7FFFFFFF - y { 0x7FFFFFFF } else { y + h }
+  let x1 = if max_w > 0 && x1_raw > max_w { max_w } else { x1_raw }
+  let y1 = if max_h > 0 && y1_raw > max_h { max_h } else { y1_raw }
+  let cx = if max_w > 0 && x0 > max_w { max_w } else { x0 }
+  let cy = if max_h > 0 && y0 > max_h { max_h } else { y0 }
+  let cw = if x1 > cx { x1 - cx } else { 0 }
+  let ch = if y1 > cy { y1 - cy } else { 0 }
+  (cx, cy, cw, ch)
+}
+
+///|
 fn vk_cmd_set_scissor(
   c : VkCmdState,
   x : Int,
@@ -5363,12 +5440,13 @@ fn vk_cmd_set_scissor(
   w : Int,
   h : Int,
 ) -> Unit {
+  let (cx, cy, cw, ch) = clamp_scissor_rect(x, y, w, h, c.render_w, c.render_h)
   let off = @vk.VkOffset2D::new()
-  off.set_x(x)
-  off.set_y(y)
+  off.set_x(cx)
+  off.set_y(cy)
   let ext = @vk.VkExtent2D::new()
-  ext.set_width(w.reinterpret_as_uint())
-  ext.set_height(h.reinterpret_as_uint())
+  ext.set_width(cw.reinterpret_as_uint())
+  ext.set_height(ch.reinterpret_as_uint())
   let rect = @vk.VkRect2D::new()
   rect.set_offset(off)
   rect.set_extent(ext)

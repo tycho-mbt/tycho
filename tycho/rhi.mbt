@@ -180,6 +180,21 @@ pub fn Swapchain::content_scale(self : Swapchain) -> Double {
 }
 
 ///|
+pub fn Swapchain::framebuffer_size(self : Swapchain) -> (Int, Int) {
+  @win.framebuffer_size(self.inner.window)
+}
+
+///|
+pub fn Swapchain::mouse_pos(self : Swapchain) -> (Double, Double) {
+  @win.mouse_pos(self.inner.window)
+}
+
+///|
+pub fn Swapchain::is_mouse_down(self : Swapchain, button : Int) -> Bool {
+  @win.is_mouse_down(self.inner.window, button)
+}
+
+///|
 pub fn Swapchain::time() -> Double {
   @win.time()
 }
@@ -415,12 +430,32 @@ pub fn Device::create_buffer_with(
 }
 
 ///|
+pub fn Buffer::size(self : Buffer) -> Int {
+  self.inner.size
+}
+
+///|
+fn resolve_upload_count(count : Int, data_len : Int) -> Int raise RhiError {
+  if count == -1 {
+    data_len
+  } else if count < 0 || count > data_len {
+    raise InvalidArgument(
+      "Upload element count \{count} out of range [0, \{data_len}]",
+    )
+  } else {
+    count
+  }
+}
+
+///|
 pub fn Buffer::upload_bytes(
   self : Buffer,
   data : Bytes,
   offset? : Int = 0,
+  count? : Int = -1,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_bytes(self.inner, data, offset)
+  let n = resolve_upload_count(count, data.length())
+  vk_buffer_upload_bytes(self.inner, data, offset, n)
 }
 
 ///|
@@ -428,8 +463,10 @@ pub fn Buffer::upload_floats(
   self : Buffer,
   data : FixedArray[Float],
   offset? : Int = 0,
+  count? : Int = -1,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_floats(self.inner, data, offset)
+  let n = resolve_upload_count(count, data.length())
+  vk_buffer_upload_floats(self.inner, data, offset, n)
 }
 
 ///|
@@ -437,8 +474,10 @@ pub fn Buffer::upload_uint32(
   self : Buffer,
   data : FixedArray[UInt32],
   offset? : Int = 0,
+  count? : Int = -1,
 ) -> Unit raise RhiError {
-  vk_buffer_upload_uint32(self.inner, data, offset)
+  let n = resolve_upload_count(count, data.length())
+  vk_buffer_upload_uint32(self.inner, data, offset, n)
 }
 
 ///|
@@ -446,8 +485,10 @@ pub fn Buffer::upload_uint16(
   self : Buffer,
   data : FixedArray[UInt16],
   offset? : Int = 0,
+  count? : Int = -1,
 ) -> Unit raise RhiError {
-  let bytes = Bytes::makei(data.length() * 2, fn(i) {
+  let n = resolve_upload_count(count, data.length())
+  let bytes = Bytes::makei(n * 2, fn(i) {
     let v = data[i / 2].to_int()
     if i % 2 == 0 {
       (v & 0xFF).to_byte()
@@ -786,13 +827,16 @@ pub fn BindlessHeap::destroy(self : BindlessHeap) -> Unit {
 pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
   let d = self.inner
   let cmd = begin_one_time(d)
+  let fi = (d.current_gen.to_int() + d.active_recordings) & 1
   d.active_recordings = d.active_recordings + 1
+  let frame_gen = d.next_cmd_gen
+  d.next_cmd_gen = d.next_cmd_gen + (1 : UInt64)
   {
     inner: {
       device: d,
       cmd,
-      frame_idx: 0,
-      frame_gen: d.current_gen,
+      frame_idx: fi,
+      frame_gen,
       pending_uniforms: [],
       pending_textures: [],
       pending_storage: [],
@@ -803,6 +847,8 @@ pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
       active_depth_target: None,
       in_swapchain_pass: false,
       swapchain_image_initialized: false,
+      render_w: 0,
+      render_h: 0,
     },
   }
 }
@@ -859,8 +905,10 @@ pub fn CommandBuffer::bind_uniform(
   pipeline : Pipeline,
   slot : Int,
   buffer : Buffer,
+  offset? : Int = 0,
+  size? : Int = -1,
 ) -> Unit {
-  self.inner.pending_uniforms.push((pipeline, slot, buffer))
+  self.inner.pending_uniforms.push((pipeline, slot, buffer, offset, size))
 }
 
 ///|
@@ -880,8 +928,10 @@ pub fn CommandBuffer::bind_storage(
   pipeline : Pipeline,
   slot : Int,
   buffer : Buffer,
+  offset? : Int = 0,
+  size? : Int = -1,
 ) -> Unit {
-  self.inner.pending_storage.push((pipeline, slot, buffer))
+  self.inner.pending_storage.push((pipeline, slot, buffer, offset, size))
 }
 
 ///|

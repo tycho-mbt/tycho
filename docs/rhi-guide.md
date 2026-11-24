@@ -40,6 +40,8 @@ while !sc.should_close() {
       _ => ()
     }
   }
+  let (mx, my) = sc.mouse_pos()
+  let lmb = sc.is_mouse_down(1)
   let cmd = sc.begin_frame_commands()
   cmd.begin_swapchain_pass(sc)
   // record draws ...
@@ -48,6 +50,8 @@ while !sc.should_close() {
 }
 sc.destroy()
 ```
+
+Note on descriptor slots & binding ranges: `PipelineDesc::from_spirv` and `create_compute_pipeline_auto` sort bindings in `set = 0` ascending and assign **0-based per-kind slots** independently for uniforms (`bind_uniform`), textures (`bind_texture`), storage buffers (`bind_storage`), storage images (`bind_storage_image`), and acceleration structures (`bind_accel_struct`). `bind_uniform` and `bind_storage` accept optional `offset?` and `size?` byte sub-ranges for ring-buffered dynamic uploads, and `set_scissor` automatically clamps rects to the active render area.
 
 ## 2. Shaders & Pipeline Auto-Reflection
 
@@ -79,7 +83,7 @@ For explicit slot counts/layouts, construct `@tycho.PipelineDesc::new(...)` with
 
 - **Buffers**:
   - `dev.create_buffer_with(bytes, @tycho.BufferKind::Vertex, location=@tycho.MemoryLocation::GpuOnly)` (`Index`, `Uniform`, `Storage`, `Staging`, `Indirect`; `CpuToGpu`, `GpuToCpu`).
-  - Upload/download: `buf.upload_floats(arr, offset=0)`, `buf.upload_uint16`, `buf.upload_uint32`, `buf.upload_bytes`, `buf.download()`.
+  - Upload/download: `buf.upload_floats(arr, offset=0, count=-1)`, `buf.upload_uint16`, `buf.upload_uint32`, `buf.upload_bytes`, `buf.download()`, `buf.size()` (`count` uploads a leading slice when `>= 0`).
 - **Textures**:
   - 2D / Mipmapped / Layered: `create_texture_format`, `create_texture_mipmapped`, `create_cubemap`, `create_texture_array`.
   - Targets & Compute: `create_render_target`, `create_depth_texture`, `create_depth_texture_format` (`Depth32F` or `Depth24Stencil8`), `create_storage_texture`.
@@ -106,7 +110,7 @@ cmd.bind_pipeline(pipe)
 cmd.bind_vertex(0, vbuf)
 cmd.bind_index(ibuf, @tycho.IndexType::Uint32)
 cmd.bind_uniform(pipe, 0, ubo)
-cmd.bind_texture(pipe, 1, shadow_tex, shadow_sampler)
+cmd.bind_texture(pipe, 0, shadow_tex, shadow_sampler)
 cmd.push_constants_floats(pipe, pc)
 cmd.draw_indexed(index_count, instances=1)
 cmd.end_render_pass()
@@ -160,3 +164,4 @@ if dev.capabilities().supports_ray_query {
 | `50-rhi-bench` | 500 allocs, 500 push-constant draws, 20-frame deferred deletion leak gate |
 | `51-wayland-window` | Linux Wayland WSI (`xdg-shell` + `VK_KHR_wayland_surface`) |
 | `52-rhi-rayquery-stencil` | `StencilState` + `set_stencil_reference`, `draw_indirect_count`, Inline Ray Query (`create_blas`/`create_tlas`) |
+| `53-rhi-2d-sdf-batch` | 2D per-corner SDF rounded rects, procedural icon atlas, hardware `set_scissor` clipping, and 30f × 2,000-quad ring-SSBO benchmark |

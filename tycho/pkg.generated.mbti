@@ -214,10 +214,11 @@ pub struct Buffer {
 }
 pub fn Buffer::destroy(Self) -> Unit
 pub fn Buffer::download(Self) -> Bytes raise RhiError
-pub fn Buffer::upload_bytes(Self, Bytes, offset? : Int32) -> Unit raise RhiError
-pub fn Buffer::upload_floats(Self, FixedArray[Float], offset? : Int32) -> Unit raise RhiError
-pub fn Buffer::upload_uint16(Self, FixedArray[UInt16], offset? : Int32) -> Unit raise RhiError
-pub fn Buffer::upload_uint32(Self, FixedArray[UInt32], offset? : Int32) -> Unit raise RhiError
+pub fn Buffer::size(Self) -> Int32
+pub fn Buffer::upload_bytes(Self, Bytes, offset? : Int32, count? : Int32) -> Unit raise RhiError
+pub fn Buffer::upload_floats(Self, FixedArray[Float], offset? : Int32, count? : Int32) -> Unit raise RhiError
+pub fn Buffer::upload_uint16(Self, FixedArray[UInt16], offset? : Int32, count? : Int32) -> Unit raise RhiError
+pub fn Buffer::upload_uint32(Self, FixedArray[UInt32], offset? : Int32, count? : Int32) -> Unit raise RhiError
 
 #derive(Eq, @debug.Debug)
 pub(all) enum BufferKind {
@@ -248,10 +249,10 @@ pub fn CommandBuffer::bind_accel_struct(Self, Pipeline, Int32, AccelStruct) -> U
 pub fn CommandBuffer::bind_bindless_heap(Self, Pipeline, BindlessHeap, set_index? : Int32) -> Unit
 pub fn CommandBuffer::bind_index(Self, Buffer, IndexType, offset? : Int32) -> Unit
 pub fn CommandBuffer::bind_pipeline(Self, Pipeline) -> Unit
-pub fn CommandBuffer::bind_storage(Self, Pipeline, Int32, Buffer) -> Unit
+pub fn CommandBuffer::bind_storage(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
 pub fn CommandBuffer::bind_storage_image(Self, Pipeline, Int32, Texture) -> Unit
 pub fn CommandBuffer::bind_texture(Self, Pipeline, Int32, Texture, Sampler) -> Unit
-pub fn CommandBuffer::bind_uniform(Self, Pipeline, Int32, Buffer) -> Unit
+pub fn CommandBuffer::bind_uniform(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
 pub fn CommandBuffer::bind_vertex(Self, Int32, Buffer, offset? : Int32) -> Unit
 pub fn CommandBuffer::blit_texture(Self, Texture, Texture, filter? : Filter) -> Unit
 pub fn CommandBuffer::blit_to_swapchain(Self, Texture, Swapchain) -> Unit
@@ -614,8 +615,11 @@ pub fn Swapchain::create_pipeline(Self, FixedArray[UInt32], FixedArray[UInt32], 
 pub fn Swapchain::create_pipeline_desc(Self, PipelineDesc) -> Pipeline raise RhiError
 pub fn Swapchain::destroy(Self) -> Unit
 pub fn Swapchain::end_frame(Self, CommandBuffer) -> Unit raise RhiError
+pub fn Swapchain::framebuffer_size(Self) -> (Int32, Int32)
 pub fn Swapchain::height(Self) -> Int32
 pub fn Swapchain::is_fullscreen(Self) -> Bool
+pub fn Swapchain::is_mouse_down(Self, Int32) -> Bool
+pub fn Swapchain::mouse_pos(Self) -> (Double, Double)
 pub fn Swapchain::poll_events(Self) -> Array[@tycho_window.Event]
 pub fn Swapchain::present_texture(Self, Texture) -> Unit raise RhiError
 pub fn Swapchain::readback(Self) -> FixedArray[Byte]
