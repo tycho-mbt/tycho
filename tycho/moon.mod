@@ -1,6 +1,6 @@
 name = "laplaceliu/tycho"
 
-version = "0.2.1"
+version = "0.6.0"
 
 license = "Apache-2.0"
 
@@ -15,7 +15,7 @@ description = "Tycho RHI — unified pure-MoonBit render hardware interface (Vul
 keywords = [ "graphics", "rhi", "vulkan", "gpu", "tycho" ]
 
 import {
-  "laplaceliu/tycho_vulkan@0.2.1",
-  "laplaceliu/tycho_window@0.2.1",
-  "laplaceliu/tycho_shader@0.2.1",
+  "laplaceliu/tycho_vulkan@0.6.0",
+  "laplaceliu/tycho_window@0.6.0",
+  "laplaceliu/tycho_shader@0.6.0",
 }

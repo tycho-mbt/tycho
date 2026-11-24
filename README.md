@@ -2,6 +2,10 @@
 
 > Write Vulkan & RHI graphics code directly in MoonBit with **zero user C**, packaged cleanly for [mooncakes.io](https://mooncakes.io) under the `laplaceliu/*` namespace.
 
+![Tycho 3D PBR Showcase — Cook-Torrance GGX, Cubemap IBL, PCF Shadows, HDR Bloom & ACES](examples/49-rhi-pbr-showcase/screenshot.png)
+
+*Rendered in pure MoonBit via `examples/49-rhi-pbr-showcase`.*
+
 ## Architecture (Multi-Module Workspace)
 
 | Module (`mooncakes.io`) | Directory | Purpose | Native Link Deps |

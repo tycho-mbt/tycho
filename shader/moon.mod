@@ -1,6 +1,6 @@
 name = "laplaceliu/tycho_shader"
 
-version = "0.2.1"
+version = "0.6.0"
 
 license = "Apache-2.0"
 

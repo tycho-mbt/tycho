@@ -1,6 +1,6 @@
 name = "laplaceliu/tycho_window"
 
-version = "0.2.1"
+version = "0.6.0"
 
 license = "Apache-2.0"
 
@@ -15,5 +15,5 @@ description = "Thin pure-MoonBit native windowing (Xlib on Linux, zero GLFW), in
 keywords = [ "vulkan", "x11", "xlib", "window", "wsi", "input", "tycho" ]
 
 import {
-  "laplaceliu/tycho_vulkan@0.2.1",
+  "laplaceliu/tycho_vulkan@0.6.0",
 }
