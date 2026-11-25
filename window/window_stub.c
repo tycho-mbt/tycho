@@ -10,8 +10,10 @@
 
 #if defined(__linux__)
 #include <dlfcn.h>
+#include <poll.h>
 #if !defined(__has_include) || __has_include(<X11/Xlib.h>)
 #define TYCHO_HAVE_XLIB 1
+#include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #else
@@ -63,8 +65,81 @@ static struct {
   int (*XUngrabPointer)(Display *, Time);
   int (*XDestroyWindow)(Display *, Window);
   Status (*XSendEvent)(Display *, Window, Bool, long, XEvent *);
+  int (*XChangeWindowAttributes)(Display *, Window, unsigned long,
+                                 XSetWindowAttributes *);
+  int (*XChangeProperty)(Display *, Window, Atom, Atom, int, int,
+                         const unsigned char *, int);
+  int (*XConnectionNumber)(Display *);
   char *(*XResourceManagerString)(Display *);
 } X11;
+
+typedef XID TychoXSyncCounter;
+typedef struct {
+  int hi;
+  unsigned int lo;
+} TychoXSyncValue;
+
+static struct {
+  void *lib;
+  int tried;
+  int ready;
+  Status (*XSyncInitialize)(Display *, int *, int *);
+  TychoXSyncCounter (*XSyncCreateCounter)(Display *, TychoXSyncValue);
+  Status (*XSyncDestroyCounter)(Display *, TychoXSyncCounter);
+  Status (*XSyncSetCounter)(Display *, TychoXSyncCounter, TychoXSyncValue);
+} XSyncExt;
+
+static int tycho_xsync_load(Display *dpy) {
+  if (!XSyncExt.tried) {
+    XSyncExt.tried = 1;
+    void *lib = dlopen("libXext.so.6", RTLD_NOW | RTLD_LOCAL);
+    if (!lib) lib = dlopen("libXext.so", RTLD_NOW | RTLD_LOCAL);
+    if (lib) {
+      *(void **)&XSyncExt.XSyncInitialize = dlsym(lib, "XSyncInitialize");
+      *(void **)&XSyncExt.XSyncCreateCounter = dlsym(lib, "XSyncCreateCounter");
+      *(void **)&XSyncExt.XSyncDestroyCounter = dlsym(lib, "XSyncDestroyCounter");
+      *(void **)&XSyncExt.XSyncSetCounter = dlsym(lib, "XSyncSetCounter");
+      XSyncExt.lib = lib;
+    }
+  }
+  if (!XSyncExt.ready && XSyncExt.XSyncInitialize && XSyncExt.XSyncCreateCounter &&
+      XSyncExt.XSyncDestroyCounter && XSyncExt.XSyncSetCounter && dpy) {
+    int maj = 0, min = 0;
+    if (XSyncExt.XSyncInitialize(dpy, &maj, &min)) {
+      XSyncExt.ready = 1;
+    }
+  }
+  return XSyncExt.ready;
+}
+
+static unsigned long pack_color_mask(unsigned long mask, int val8) {
+  if (!mask) return 0;
+  int shift = 0;
+  unsigned long m = mask;
+  while ((m & 1UL) == 0UL) { m >>= 1; shift++; }
+  int bits = 0;
+  while ((m & 1UL) != 0UL) { m >>= 1; bits++; }
+  unsigned long v = (unsigned long)(val8 < 0 ? 0 : (val8 > 255 ? 255 : val8));
+  unsigned long scaled = bits >= 8 ? (v << (bits - 8)) : (v >> (8 - bits));
+  return (scaled << shift) & mask;
+}
+
+static unsigned long x11_pack_rgb(Display *dpy, int screen, int r, int g, int b) {
+  Visual *vis = DefaultVisual(dpy, screen);
+  if (!vis || (vis->class != TrueColor && vis->class != DirectColor) ||
+      (!vis->red_mask && !vis->green_mask && !vis->blue_mask)) {
+    return BlackPixel(dpy, screen);
+  }
+  unsigned long px = pack_color_mask(vis->red_mask, r) |
+                     pack_color_mask(vis->green_mask, g) |
+                     pack_color_mask(vis->blue_mask, b);
+  int depth = DefaultDepth(dpy, screen);
+  if (depth == 32) {
+    unsigned long all = 0xFFFFFFFFUL;
+    px |= (all & ~(vis->red_mask | vis->green_mask | vis->blue_mask));
+  }
+  return px;
+}
 
 static int tycho_x11_load(void) {
   if (X11.tried) return X11.lib != NULL;
@@ -98,6 +173,9 @@ static int tycho_x11_load(void) {
   XLOAD(XUngrabPointer);
   XLOAD(XDestroyWindow);
   XLOAD(XSendEvent);
+  XLOAD(XChangeWindowAttributes);
+  XLOAD(XChangeProperty);
+  XLOAD(XConnectionNumber);
   XLOAD(XResourceManagerString);
 #undef XLOAD
   if (!X11.XOpenDisplay || !X11.XCreateSimpleWindow || !X11.XPending || !X11.XNextEvent) {
@@ -112,6 +190,12 @@ typedef struct TychoWindow {
   Display *dpy;
   Window win;
   Atom wm_delete;
+  Atom wm_protocols;
+  Atom wm_sync_request;
+  TychoXSyncCounter sync_counter;
+  uint32_t sync_lo;
+  int32_t sync_hi;
+  int sync_pending;
   Cursor hidden_cursor;
   int should_close;
   int width;
@@ -160,6 +244,7 @@ extern void tycho_wl_set_cursor_shape(uint64_t p, int32_t shape);
 extern void tycho_wl_set_fullscreen(uint64_t p, int32_t fs);
 extern int32_t tycho_wl_is_fullscreen(uint64_t p);
 extern double tycho_wl_content_scale(uint64_t p);
+extern void tycho_wl_wait_events(int32_t timeout_ms);
 
 static double now_sec(void) {
   struct timespec ts;
@@ -278,14 +363,45 @@ MOONBIT_FFI_EXPORT uint64_t tycho_win_create(int32_t w, int32_t h, uint64_t titl
   if (!g_dpy) return 0;
   int screen = DefaultScreen(g_dpy);
   Window root = RootWindow(g_dpy, screen);
+  unsigned long bg = x11_pack_rgb(g_dpy, screen, 13, 16, 26);
   Window win = X11.XCreateSimpleWindow(
       g_dpy, root, 0, 0, (unsigned int)w, (unsigned int)h, 0,
-      BlackPixel(g_dpy, screen), BlackPixel(g_dpy, screen));
+      bg, bg);
+  if (X11.XChangeWindowAttributes) {
+    // Preserve top-left pixels on resize with NorthWestGravity and fill newly
+    // uncovered resize bands using bg pixel (matching Swapchain clear_color).
+    XSetWindowAttributes xwa;
+    memset(&xwa, 0, sizeof(xwa));
+    xwa.background_pixel = bg;
+    xwa.bit_gravity = NorthWestGravity;
+    X11.XChangeWindowAttributes(g_dpy, win, CWBackPixel | CWBitGravity, &xwa);
+  }
   if (title) {
     X11.XStoreName(g_dpy, win, title);
   }
+  Atom wm_protocols = X11.XInternAtom(g_dpy, "WM_PROTOCOLS", False);
   Atom wm_delete = X11.XInternAtom(g_dpy, "WM_DELETE_WINDOW", False);
-  X11.XSetWMProtocols(g_dpy, win, &wm_delete, 1);
+  Atom wm_sync_request = None;
+  TychoXSyncCounter sync_counter = 0;
+  if (tycho_xsync_load(g_dpy) && X11.XChangeProperty) {
+    wm_sync_request = X11.XInternAtom(g_dpy, "_NET_WM_SYNC_REQUEST", False);
+    Atom sync_prop = X11.XInternAtom(g_dpy, "_NET_WM_SYNC_REQUEST_COUNTER", False);
+    if (wm_sync_request != None && sync_prop != None) {
+      TychoXSyncValue init_val = {0, 0u};
+      sync_counter = XSyncExt.XSyncCreateCounter(g_dpy, init_val);
+      if (sync_counter != 0) {
+        unsigned long card = (unsigned long)sync_counter;
+        X11.XChangeProperty(g_dpy, win, sync_prop, XA_CARDINAL, 32,
+                            PropModeReplace, (const unsigned char *)&card, 1);
+      }
+    }
+  }
+  if (sync_counter != 0) {
+    Atom protos[2] = {wm_delete, wm_sync_request};
+    X11.XSetWMProtocols(g_dpy, win, protos, 2);
+  } else {
+    X11.XSetWMProtocols(g_dpy, win, &wm_delete, 1);
+  }
   X11.XSelectInput(g_dpy, win,
                    StructureNotifyMask | KeyPressMask | KeyReleaseMask |
                        ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
@@ -297,6 +413,9 @@ MOONBIT_FFI_EXPORT uint64_t tycho_win_create(int32_t w, int32_t h, uint64_t titl
   tw->dpy = g_dpy;
   tw->win = win;
   tw->wm_delete = wm_delete;
+  tw->wm_protocols = wm_protocols;
+  tw->wm_sync_request = wm_sync_request;
+  tw->sync_counter = sync_counter;
   tw->should_close = 0;
   tw->width = w;
   tw->height = h;
@@ -322,6 +441,10 @@ MOONBIT_FFI_EXPORT void tycho_win_destroy(uint64_t p) {
     if (tw->hidden_cursor) {
       X11.XFreeCursor(tw->dpy, tw->hidden_cursor);
       tw->hidden_cursor = 0;
+    }
+    if (tw->sync_counter && XSyncExt.ready && XSyncExt.XSyncDestroyCounter) {
+      XSyncExt.XSyncDestroyCounter(tw->dpy, tw->sync_counter);
+      tw->sync_counter = 0;
     }
     if (tw->win) {
       X11.XSync(tw->dpy, False);
@@ -462,9 +585,16 @@ MOONBIT_FFI_EXPORT void tycho_win_poll(void) {
     if (!tw) continue;
     switch (ev.type) {
       case ClientMessage:
-        if ((Atom)ev.xclient.data.l[0] == tw->wm_delete) {
-          tw->should_close = 1;
-          push_event(tw, 1, 0, 0, 0);
+        if (ev.xclient.message_type == tw->wm_protocols) {
+          if ((Atom)ev.xclient.data.l[0] == tw->wm_delete) {
+            tw->should_close = 1;
+            push_event(tw, 1, 0, 0, 0);
+          } else if (tw->wm_sync_request != None &&
+                     (Atom)ev.xclient.data.l[0] == tw->wm_sync_request) {
+            tw->sync_lo = (uint32_t)(unsigned long)ev.xclient.data.l[2];
+            tw->sync_hi = (int32_t)ev.xclient.data.l[3];
+            tw->sync_pending = 1;
+          }
         }
         break;
       case DestroyNotify:
@@ -729,6 +859,75 @@ MOONBIT_FFI_EXPORT double tycho_win_content_scale(uint64_t p) {
 #endif
   return 1.0;
 }
+
+MOONBIT_FFI_EXPORT void tycho_win_set_bg_color(uint64_t p, int32_t r, int32_t g, int32_t b) {
+  if (g_use_wayland) return;
+#if TYCHO_HAVE_XLIB
+  TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
+  if (!tw || !tw->dpy || !tw->win || !X11.XChangeWindowAttributes) return;
+  int screen = DefaultScreen(tw->dpy);
+  unsigned long bg = x11_pack_rgb(tw->dpy, screen, r, g, b);
+  XSetWindowAttributes xwa;
+  memset(&xwa, 0, sizeof(xwa));
+  xwa.background_pixel = bg;
+  X11.XChangeWindowAttributes(tw->dpy, tw->win, CWBackPixel, &xwa);
+#else
+  (void)p; (void)r; (void)g; (void)b;
+#endif
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_win_has_pending_sync(uint64_t p) {
+  if (g_use_wayland) return 0;
+#if TYCHO_HAVE_XLIB
+  TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
+  return (tw && tw->sync_counter && tw->sync_pending) ? 1 : 0;
+#else
+  (void)p;
+  return 0;
+#endif
+}
+
+MOONBIT_FFI_EXPORT void tycho_win_finish_sync(uint64_t p) {
+  if (g_use_wayland) return;
+#if TYCHO_HAVE_XLIB
+  TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
+  if (!tw || !tw->dpy || !tw->sync_counter || !tw->sync_pending) return;
+  tw->sync_pending = 0;
+  if (XSyncExt.ready && XSyncExt.XSyncSetCounter) {
+    TychoXSyncValue val;
+    val.hi = (int)tw->sync_hi;
+    val.lo = (unsigned int)tw->sync_lo;
+    XSyncExt.XSyncSetCounter(tw->dpy, tw->sync_counter, val);
+    X11.XFlush(tw->dpy);
+  }
+#else
+  (void)p;
+#endif
+}
+
+MOONBIT_FFI_EXPORT void tycho_win_wait_events(int32_t timeout_ms) {
+  if (timeout_ms <= 0) return;
+  if (g_use_wayland) {
+    tycho_wl_wait_events(timeout_ms);
+    return;
+  }
+#if TYCHO_HAVE_XLIB
+  if (g_dpy && X11.XPending(g_dpy) > 0) return;
+  if (g_dpy && X11.XConnectionNumber) {
+    X11.XFlush(g_dpy);
+    struct pollfd pfd;
+    pfd.fd = X11.XConnectionNumber(g_dpy);
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    poll(&pfd, 1, timeout_ms);
+    return;
+  }
+#endif
+  struct timespec ts;
+  ts.tv_sec = timeout_ms / 1000;
+  ts.tv_nsec = (long)(timeout_ms % 1000) * 1000000L;
+  nanosleep(&ts, NULL);
+}
 #elif !defined(_WIN32) && !defined(__APPLE__)
 MOONBIT_FFI_EXPORT int32_t tycho_win_init(void) { return 0; }
 MOONBIT_FFI_EXPORT void tycho_win_terminate(void) {}
@@ -757,6 +956,12 @@ MOONBIT_FFI_EXPORT uint64_t tycho_win_get_clipboard(uint64_t p) { (void)p; retur
 MOONBIT_FFI_EXPORT void tycho_win_set_fullscreen(uint64_t p, int32_t f) { (void)p; (void)f; }
 MOONBIT_FFI_EXPORT int32_t tycho_win_is_fullscreen(uint64_t p) { (void)p; return 0; }
 MOONBIT_FFI_EXPORT double tycho_win_content_scale(uint64_t p) { (void)p; return 1.0; }
+MOONBIT_FFI_EXPORT void tycho_win_set_bg_color(uint64_t p, int32_t r, int32_t g, int32_t b) {
+  (void)p; (void)r; (void)g; (void)b;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_win_has_pending_sync(uint64_t p) { (void)p; return 0; }
+MOONBIT_FFI_EXPORT void tycho_win_finish_sync(uint64_t p) { (void)p; }
+MOONBIT_FFI_EXPORT void tycho_win_wait_events(int32_t timeout_ms) { (void)timeout_ms; }
 MOONBIT_FFI_EXPORT int32_t tycho_win_is_wayland(void) { return 0; }
 #endif
 

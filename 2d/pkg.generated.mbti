@@ -358,10 +358,11 @@ pub fn Rect::zero() -> Self
 pub struct RenderTargetPool {
   // private fields
 }
-pub fn RenderTargetPool::acquire(Self, Int32, Int32, with_depth_stencil? : Bool, samples? : @tycho.SampleCount) -> (@tycho.Texture, @tycho.Texture?) raise @tycho.RhiError
+pub fn RenderTargetPool::acquire(Self, Int32, Int32, with_depth_stencil? : Bool, samples? : @tycho.SampleCount, slot? : Int32) -> (@tycho.Texture, @tycho.Texture?) raise @tycho.RhiError
 pub fn RenderTargetPool::destroy(Self) -> Unit
 pub fn RenderTargetPool::new(@tycho.Device) -> Self
 pub fn RenderTargetPool::release_all(Self) -> Unit
+pub fn RenderTargetPool::release_slot(Self, Int32) -> Unit
 
 pub struct Renderer2D {
   // private fields
@@ -369,7 +370,7 @@ pub struct Renderer2D {
 pub fn Renderer2D::destroy(Self) -> Unit
 pub fn Renderer2D::new(@tycho.Device, max_prims_per_frame? : Int32, max_stops_per_frame? : Int32, max_path_verts_per_frame? : Int32) -> Self raise @tycho.RhiError
 pub fn Renderer2D::render_offscreen(Self, DisplayList, @tycho.Texture, clear_color? : Color) -> Unit raise @tycho.RhiError
-pub fn Renderer2D::render_swapchain(Self, @tycho.Swapchain, DisplayList, clear_color? : Color) -> Unit raise @tycho.RhiError
+pub fn Renderer2D::render_swapchain(Self, @tycho.Swapchain, DisplayList, clear_color? : Color, dl_size? : (Int32, Int32)?) -> Unit raise @tycho.RhiError
 
 pub(all) enum Shader2D {
   Solid(Color)

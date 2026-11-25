@@ -82,6 +82,8 @@ pub struct Renderer2D {
   priv path_scratch : FixedArray[Float]
   priv path_cache : Map[String, CachedPathMesh]
   priv mut frame_idx : Int
+  priv mut active_slot : Int
+  priv mut active_rt_slot : Int
   // Per-frame active batch cursors
   priv mut prim_cursor : Int
   priv mut prim_batch_start : Int
@@ -488,7 +490,7 @@ pub fn Renderer2D::new(
     location=@tycho.MemoryLocation::CpuToGpu,
   )
   let color_mat_ssbo = dev.create_buffer_with(
-    20 * 4,
+    512,
     @tycho.BufferKind::Storage,
     location=@tycho.MemoryLocation::CpuToGpu,
   )
@@ -547,6 +549,8 @@ pub fn Renderer2D::new(
     path_scratch: FixedArray::make(max_path_verts_per_frame * PATH_VERT_FLOATS, (0.0 : Float)),
     path_cache: {},
     frame_idx: 0,
+    active_slot: 0,
+    active_rt_slot: 0,
     prim_cursor: 0,
     prim_batch_start: 0,
     stop_cursor: 0,
@@ -628,17 +632,22 @@ pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
 
 ///|
 fn Renderer2D::slot_prim_base(self : Renderer2D) -> Int {
-  (self.frame_idx % 2) * self.max_prims * PRIM_BYTES
+  (self.active_slot % 2) * self.max_prims * PRIM_BYTES
 }
 
 ///|
 fn Renderer2D::slot_stop_base(self : Renderer2D) -> Int {
-  (self.frame_idx % 2) * self.max_stops * STOP_BYTES
+  (self.active_slot % 2) * self.max_stops * STOP_BYTES
 }
 
 ///|
 fn Renderer2D::slot_path_base(self : Renderer2D) -> Int {
-  (self.frame_idx % 2) * self.max_path_verts * PATH_VERT_BYTES
+  (self.active_slot % 2) * self.max_path_verts * PATH_VERT_BYTES
+}
+
+///|
+fn Renderer2D::slot_cmat_base(self : Renderer2D) -> Int {
+  (self.active_slot % 2) * 256
 }
 
 ///|
@@ -900,7 +909,7 @@ fn Renderer2D::emit_prim(
       self.overflow_prim_ssbos[ov_idx]
     } else {
       let nb = self.dev.create_buffer_with(
-        self.max_prims * PRIM_BYTES,
+        2 * self.max_prims * PRIM_BYTES,
         @tycho.BufferKind::Storage,
         location=@tycho.MemoryLocation::CpuToGpu,
       )
@@ -908,7 +917,7 @@ fn Renderer2D::emit_prim(
       nb
     }
     self.active_prim_ssbo = buf
-    self.active_prim_slot_base = 0
+    self.active_prim_slot_base = self.slot_prim_base()
     self.prim_cursor = 0
     self.prim_batch_start = 0
   }
@@ -1327,13 +1336,19 @@ fn Renderer2D::draw_path_gpu(
       d: self.cur_transform.d,
       ty: self.cur_transform.ty - by,
     }
-    let (res_col, res_ds) = self.rt_pool.acquire(bw, bh, with_depth_stencil=!use_msaa)
+    let (res_col, res_ds) = self.rt_pool.acquire(
+      bw,
+      bh,
+      with_depth_stencil=!use_msaa,
+      slot=self.active_rt_slot,
+    )
     if use_msaa {
       let (msaa_col, msaa_ds_opt) = self.rt_pool.acquire(
         bw,
         bh,
         with_depth_stencil=true,
         samples=@tycho.SampleCount::X4,
+        slot=self.active_rt_slot,
       )
       let msaa_ds = msaa_ds_opt.unwrap()
       cmd.begin_render_pass(
@@ -1457,8 +1472,8 @@ fn Renderer2D::run_blur_passes(
 ) -> (@tycho.Texture, Int, Int) raise @tycho.RhiError {
   let bw = if src_w / 2 > 1 { src_w / 2 } else { 1 }
   let bh = if src_h / 2 > 1 { src_h / 2 } else { 1 }
-  let (tex_a, _) = self.rt_pool.acquire(bw, bh, with_depth_stencil=false)
-  let (tex_b, _) = self.rt_pool.acquire(bw, bh, with_depth_stencil=false)
+  let (tex_a, _) = self.rt_pool.acquire(bw, bh, with_depth_stencil=false, slot=self.active_rt_slot)
+  let (tex_b, _) = self.rt_pool.acquire(bw, bh, with_depth_stencil=false, slot=self.active_rt_slot)
   let aw_f = Float::from_int(tex_a.width())
   let ah_f = Float::from_int(tex_a.height())
   let bw_norm = Float::from_int(bw) / aw_f
@@ -1479,7 +1494,7 @@ fn Renderer2D::run_blur_passes(
   cmd.set_scissor(0, 0, bw, bh)
   cmd.bind_pipeline(self.blur_pipe)
   cmd.bind_texture(self.blur_pipe, 0, src, self.sampler)
-  cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=0, size=80)
+  cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
   cmd.push_constants_floats(self.blur_pipe, [
     (0.0 : Float),
     (0.0 : Float),
@@ -1524,7 +1539,7 @@ fn Renderer2D::run_blur_passes(
   cmd.set_scissor(0, 0, bw, bh)
   cmd.bind_pipeline(self.blur_pipe)
   cmd.bind_texture(self.blur_pipe, 0, tex_a, self.sampler)
-  cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=0, size=80)
+  cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
   cmd.push_constants_floats(self.blur_pipe, [
     (0.0 : Float),
     (0.0 : Float),
@@ -1621,7 +1636,7 @@ fn Renderer2D::composite_texture(
   match color_matrix {
     Some(mat) =>
       if mat.length() >= 20 {
-        self.color_mat_ssbo.upload_floats(mat, offset=0, count=20)
+        self.color_mat_ssbo.upload_floats(mat, offset=self.slot_cmat_base(), count=20)
       }
     None => ()
   }
@@ -1656,7 +1671,7 @@ fn Renderer2D::composite_texture(
   )
   cmd.bind_pipeline(pipe)
   cmd.bind_texture(pipe, 0, src, self.sampler)
-  cmd.bind_storage(pipe, 0, self.color_mat_ssbo, offset=0, size=80)
+  cmd.bind_storage(pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
   cmd.push_constants_floats(pipe, [
     dst_rect_px.x / aw_f,
     dst_rect_px.y / ah_f,
@@ -1766,7 +1781,7 @@ fn Renderer2D::replay_ops(
         let lh = self.cur_scissor.height.to_int()
         let use_w = if lw > 0 { lw } else { 64 }
         let use_h = if lh > 0 { lh } else { 64 }
-        let (ltex, lds_opt) = self.rt_pool.acquire(use_w, use_h, with_depth_stencil=true)
+        let (ltex, lds_opt) = self.rt_pool.acquire(use_w, use_h, with_depth_stencil=true, slot=self.active_rt_slot)
         let lds = lds_opt.unwrap()
         self.begin_target_pass(
           cmd,
@@ -2405,12 +2420,17 @@ fn Renderer2D::render_into_scene(
   width : Int,
   height : Int,
   clear_color : Color,
+  slot? : Int = 0,
+  rt_slot? : Int = 0,
 ) -> @tycho.Texture raise @tycho.RhiError {
-  self.rt_pool.release_all()
+  self.active_slot = slot
+  self.active_rt_slot = rt_slot
+  self.rt_pool.release_slot(rt_slot)
   let (scene_tex, scene_ds_opt) = self.rt_pool.acquire(
     width,
     height,
     with_depth_stencil=true,
+    slot=rt_slot,
   )
   let scene_ds = scene_ds_opt.unwrap()
   self.prim_cursor = 0
@@ -2455,10 +2475,11 @@ pub fn Renderer2D::render_offscreen(
   clear_color? : Color = Color::transparent(),
 ) -> Unit raise @tycho.RhiError {
   self.frame_idx = self.frame_idx + 1
+  self.dev.wait_idle()
   let w = target.width()
   let h = target.height()
   let cmd = self.dev.begin_commands()
-  let scene_tex = self.render_into_scene(cmd, dl, w, h, clear_color)
+  let scene_tex = self.render_into_scene(cmd, dl, w, h, clear_color, slot=0, rt_slot=2)
   let u1 = Float::from_int(w) / Float::from_int(scene_tex.width())
   let v1 = Float::from_int(h) / Float::from_int(scene_tex.height())
   cmd.begin_render_pass([
@@ -2473,7 +2494,7 @@ pub fn Renderer2D::render_offscreen(
   cmd.set_scissor(0, 0, w, h)
   cmd.bind_pipeline(self.present_pipe)
   cmd.bind_texture(self.present_pipe, 0, scene_tex, self.sampler)
-  cmd.bind_storage(self.present_pipe, 0, self.color_mat_ssbo, offset=0, size=80)
+  cmd.bind_storage(self.present_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
   cmd.push_constants_floats(self.present_pipe, [
     (0.0 : Float),
     (0.0 : Float),
@@ -2503,6 +2524,7 @@ pub fn Renderer2D::render_offscreen(
   cmd.draw(6, 1)
   cmd.end_render_pass()
   self.dev.end_commands(cmd)
+  self.rt_pool.release_slot(2)
 }
 
 ///|
@@ -2511,6 +2533,7 @@ pub fn Renderer2D::render_swapchain(
   sc : @tycho.Swapchain,
   dl : DisplayList,
   clear_color? : Color = Color::black(),
+  dl_size? : (Int, Int)? = None,
 ) -> Unit raise @tycho.RhiError {
   self.frame_idx = self.frame_idx + 1
   let fmt = sc.color_format()
@@ -2549,11 +2572,26 @@ pub fn Renderer2D::render_swapchain(
     }
   }
   let cmd = sc.begin_frame_commands()
+  let sc_slot = cmd.frame_slot() & 1
   let w = sc.width()
   let h = sc.height()
-  let scene_tex = self.render_into_scene(cmd, dl, w, h, clear_color)
-  let u1 = Float::from_int(w) / Float::from_int(scene_tex.width())
-  let v1 = Float::from_int(h) / Float::from_int(scene_tex.height())
+  let (scene_w, scene_h) = match dl_size {
+    Some((dw, dh)) => if dw > 0 && dh > 0 { (dw, dh) } else { (w, h) }
+    None => (w, h)
+  }
+  let scene_tex = self.render_into_scene(
+    cmd,
+    dl,
+    scene_w,
+    scene_h,
+    clear_color,
+    slot=sc_slot,
+    rt_slot=sc_slot,
+  )
+  let u1 = Float::from_int(scene_w) / Float::from_int(scene_tex.width())
+  let v1 = Float::from_int(scene_h) / Float::from_int(scene_tex.height())
+  let dst_w_frac = Float::from_int(scene_w) / Float::from_int(w)
+  let dst_h_frac = Float::from_int(scene_h) / Float::from_int(h)
   cmd.begin_swapchain_pass(
     sc,
     load_op=@tycho.LoadOp::Clear,
@@ -2563,12 +2601,12 @@ pub fn Renderer2D::render_swapchain(
   cmd.set_scissor(0, 0, w, h)
   cmd.bind_pipeline(sc_pipe)
   cmd.bind_texture(sc_pipe, 0, scene_tex, self.sampler)
-  cmd.bind_storage(sc_pipe, 0, self.color_mat_ssbo, offset=0, size=80)
+  cmd.bind_storage(sc_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
   cmd.push_constants_floats(sc_pipe, [
     (0.0 : Float),
     (0.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
+    dst_w_frac,
+    dst_h_frac,
     (0.0 : Float),
     (0.0 : Float),
     u1,

@@ -605,4 +605,24 @@ MOONBIT_FFI_EXPORT double tycho_win_content_scale(uint64_t p) {
   TychoMacWindow *tw = (TychoMacWindow *)(uintptr_t)p;
   return (tw && tw->scale > 0.0) ? tw->scale : 1.0;
 }
+
+MOONBIT_FFI_EXPORT void tycho_win_set_bg_color(uint64_t p, int32_t r, int32_t g, int32_t b) {
+  (void)p; (void)r; (void)g; (void)b;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_win_has_pending_sync(uint64_t p) {
+  (void)p; return 0;
+}
+
+MOONBIT_FFI_EXPORT void tycho_win_finish_sync(uint64_t p) {
+  (void)p;
+}
+
+MOONBIT_FFI_EXPORT void tycho_win_wait_events(int32_t timeout_ms) {
+  if (timeout_ms <= 0) return;
+  struct timespec ts;
+  ts.tv_sec = timeout_ms / 1000;
+  ts.tv_nsec = (long)(timeout_ms % 1000) * 1000000L;
+  nanosleep(&ts, NULL);
+}
 #endif

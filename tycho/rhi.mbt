@@ -150,6 +150,16 @@ pub fn Swapchain::should_close(self : Swapchain) -> Bool {
 }
 
 ///|
+pub fn Swapchain::sync_size(self : Swapchain) -> Unit raise RhiError {
+  vk_swapchain_sync_size(self.inner)
+}
+
+///|
+pub fn Swapchain::wait_events(timeout_ms? : Int = 4) -> Unit {
+  @win.wait_events(timeout_ms)
+}
+
+///|
 pub fn Swapchain::poll_events(self : Swapchain) -> Array[Event] {
   @win.poll_events(self.inner.window)
 }
@@ -227,6 +237,11 @@ pub fn Swapchain::begin_frame_commands(
   self : Swapchain,
 ) -> CommandBuffer raise RhiError {
   { inner: vk_swapchain_begin_frame_commands(self.inner) }
+}
+
+///|
+pub fn CommandBuffer::frame_slot(self : CommandBuffer) -> Int {
+  self.inner.frame_idx
 }
 
 ///|

@@ -305,8 +305,14 @@ fn main {
     rt.destroy()
 
     if show_win {
+      let cc = @g2d.Color::from_rgba8(14, 18, 30)
       let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new("54-tycho-2d-showcase", w, h),
+        @tycho.SwapchainDesc::new(
+          "54-tycho-2d-showcase",
+          w,
+          h,
+          clear_color=cc.to_clear_color(),
+        ),
       )
       while !sc.should_close() {
         let mut quit = false
@@ -317,6 +323,7 @@ fn main {
           }
         }
         if quit { break }
+        sc.sync_size()
         renderer.render_swapchain(sc, dl, clear_color=@g2d.Color::from_rgba8(14, 18, 30))
       }
       sc.destroy()

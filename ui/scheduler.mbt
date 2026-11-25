@@ -215,7 +215,18 @@ pub fn AppRunner::run_window(
   dirty_driven? : Bool = true,
 ) -> Unit raise @tycho.RhiError {
   let sc = self.dev.create_swapchain_desc(
-    @tycho.SwapchainDesc::new(title, width, height, depth=false),
+    @tycho.SwapchainDesc::new(
+      title,
+      width,
+      height,
+      depth=false,
+      clear_color=@tycho.ClearColor::rgba(
+        self.clear_color.r,
+        self.clear_color.g,
+        self.clear_color.b,
+        self.clear_color.a,
+      ),
+    ),
   )
   let mut prev_t = @tycho.Swapchain::time()
   let mut quit = false
@@ -297,6 +308,7 @@ pub fn AppRunner::run_window(
         _ => ()
       }
     }
+    sc.sync_size()
     let cur_w = sc.width()
     let cur_h = sc.height()
     if cur_w != prev_w || cur_h != prev_h {
@@ -321,10 +333,13 @@ pub fn AppRunner::run_window(
         sc,
         scaled_canvas.finish(),
         clear_color=self.clear_color,
+        dl_size=Some((cur_w, cur_h)),
       )
       let g1 = @tycho.Swapchain::time()
       self.last_gpu_ms = (g1 - g0) * 1000.0
-      needs_render = false
+      needs_render = sc.width() != cur_w || sc.height() != cur_h
+    } else {
+      @tycho.Swapchain::wait_events(timeout_ms=4)
     }
   }
   sc.destroy()

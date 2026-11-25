@@ -143,7 +143,11 @@ pub fn create_surface(@tycho_vulkan.VkInstance, UInt64) -> @tycho_vulkan.VkSurfa
 
 pub fn destroy(UInt64) -> Unit
 
+pub fn finish_sync(UInt64) -> Unit
+
 pub fn framebuffer_size(UInt64) -> (Int32, Int32)
+
+pub fn has_pending_sync(UInt64) -> Bool
 
 pub fn height(UInt64) -> Int32
 
@@ -162,6 +166,8 @@ pub fn platform() -> Platform
 pub fn poll() -> Unit
 
 pub fn poll_events(UInt64) -> Array[Event]
+
+pub fn set_bg_color(UInt64, Int32, Int32, Int32) -> Unit
 
 pub fn set_clipboard_text(UInt64, String) -> Unit
 
@@ -184,6 +190,8 @@ pub fn take_resized(UInt64) -> Bool
 pub fn terminate() -> Unit
 
 pub fn time() -> Double
+
+pub fn wait_events(Int32) -> Unit
 
 pub fn width(UInt64) -> Int32
 

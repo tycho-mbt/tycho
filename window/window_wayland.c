@@ -1165,4 +1165,30 @@ double tycho_wl_content_scale(uint64_t p) {
   if (best == 0 && g_n_outputs > 0) best = g_outputs[0].scale;
   return best > 0 ? (double)best : 1.0;
 }
+
+void tycho_wl_wait_events(int32_t timeout_ms) {
+  if (timeout_ms <= 0 || !g_wl) return;
+  if (W.display_get_fd && W.display_prepare_read && W.display_read_events &&
+      W.display_cancel_read) {
+    while (W.display_prepare_read(g_wl) != 0) {
+      if (W.display_dispatch_pending) W.display_dispatch_pending(g_wl);
+    }
+    if (W.display_flush) W.display_flush(g_wl);
+    struct pollfd pfd;
+    pfd.fd = W.display_get_fd(g_wl);
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    if (poll(&pfd, 1, timeout_ms) > 0) {
+      W.display_read_events(g_wl);
+    } else {
+      W.display_cancel_read(g_wl);
+    }
+    if (W.display_dispatch_pending) W.display_dispatch_pending(g_wl);
+    return;
+  }
+  struct timespec ts;
+  ts.tv_sec = timeout_ms / 1000;
+  ts.tv_nsec = (long)(timeout_ms % 1000) * 1000000L;
+  nanosleep(&ts, NULL);
+}
 #endif

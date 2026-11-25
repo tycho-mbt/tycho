@@ -79,6 +79,7 @@ static struct {
   SHORT (WINAPI *GetKeyState)(int);
   HCURSOR (WINAPI *LoadCursorA)(HINSTANCE, LPCSTR);
   HCURSOR (WINAPI *SetCursor)(HCURSOR);
+  BOOL (WINAPI *ValidateRect)(HWND, const RECT *);
   BOOL (WINAPI *OpenClipboard)(HWND);
   BOOL (WINAPI *CloseClipboard)(void);
   BOOL (WINAPI *EmptyClipboard)(void);
@@ -86,6 +87,7 @@ static struct {
   HANDLE (WINAPI *SetClipboardData)(UINT, HANDLE);
   UINT (WINAPI *GetDpiForWindow)(HWND);
   BOOL (WINAPI *SetProcessDpiAwarenessContext)(HANDLE);
+  DWORD (WINAPI *MsgWaitForMultipleObjectsEx)(DWORD, const HANDLE *, DWORD, DWORD, DWORD);
 } U;
 
 static TychoWin32Window *g_windows[TYCHO_MAX_WINDOWS] = {0};
@@ -217,6 +219,11 @@ static LRESULT CALLBACK tycho_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_CLOSE:
       tw->should_close = 1;
       push_event(tw, 1, 0, 0, 0);
+      return 0;
+    case WM_ERASEBKGND:
+      return 1;
+    case WM_PAINT:
+      if (U.ValidateRect) U.ValidateRect(hwnd, NULL);
       return 0;
     case WM_SIZE:
       if (wp != SIZE_MINIMIZED) {
@@ -373,6 +380,7 @@ static int load_user32(void) {
   LOAD(GetKeyState);
   LOAD(LoadCursorA);
   LOAD(SetCursor);
+  LOAD(ValidateRect);
   LOAD(OpenClipboard);
   LOAD(CloseClipboard);
   LOAD(EmptyClipboard);
@@ -380,6 +388,7 @@ static int load_user32(void) {
   LOAD(SetClipboardData);
   LOAD(GetDpiForWindow);
   LOAD(SetProcessDpiAwarenessContext);
+  LOAD(MsgWaitForMultipleObjectsEx);
 #undef LOAD
   if (!U.RegisterClassExA || !U.CreateWindowExA || !U.DestroyWindow ||
       !U.DefWindowProcA || !U.PeekMessageA) {
@@ -412,7 +421,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_win_create(int32_t w, int32_t h, uint64_t titl
     WNDCLASSEXA wc;
     memset(&wc, 0, sizeof(wc));
     wc.cbSize = sizeof(wc);
-    wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+    wc.style = CS_OWNDC;
     wc.lpfnWndProc = tycho_wndproc;
     wc.hInstance = g_hinst;
     wc.hCursor = U.LoadCursorA ? U.LoadCursorA(NULL, IDC_ARROW) : NULL;
@@ -669,5 +678,26 @@ MOONBIT_FFI_EXPORT double tycho_win_content_scale(uint64_t p) {
   if (!tw || !tw->hwnd || !U.GetDpiForWindow) return 1.0;
   UINT dpi = U.GetDpiForWindow(tw->hwnd);
   return dpi > 0 ? (double)dpi / 96.0 : 1.0;
+}
+
+MOONBIT_FFI_EXPORT void tycho_win_set_bg_color(uint64_t p, int32_t r, int32_t g, int32_t b) {
+  (void)p; (void)r; (void)g; (void)b;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_win_has_pending_sync(uint64_t p) {
+  (void)p; return 0;
+}
+
+MOONBIT_FFI_EXPORT void tycho_win_finish_sync(uint64_t p) {
+  (void)p;
+}
+
+MOONBIT_FFI_EXPORT void tycho_win_wait_events(int32_t timeout_ms) {
+  if (timeout_ms <= 0) return;
+  if (U.MsgWaitForMultipleObjectsEx) {
+    U.MsgWaitForMultipleObjectsEx(0, NULL, (DWORD)timeout_ms, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+  } else {
+    Sleep((DWORD)timeout_ms);
+  }
 }
 #endif

@@ -322,9 +322,7 @@ pub fn RenderNode::layout(self : RenderNode, constraints : BoxConstraints) -> @g
               min_height=match ho { Some(h) => h; None => (0.0 : Float) },
               max_height=match ho { Some(h) => h; None => loose.max_height },
             )
-            let csz = ch.layout(pc)
-            if csz.width > max_w { max_w = csz.width }
-            if csz.height > max_h { max_h = csz.height }
+            let _ = ch.layout(pc)
           }
           _ => {
             let csz = ch.layout(loose)
@@ -772,6 +770,10 @@ pub fn RenderNode::hit_test(
       }
     _ => local_pos
   }
+  let stop_on_hit = match self.kind {
+    RenderKind::Stack(_) => true
+    _ => false
+  }
   let mut child_hit = false
   let mut i = self.children.length() - 1
   while i >= 0 {
@@ -779,6 +781,9 @@ pub fn RenderNode::hit_test(
     let child_local = mapped_pos.sub(ch.offset)
     if ch.hit_test(child_local, out) {
       child_hit = true
+      if stop_on_hit {
+        break
+      }
     }
     i = i - 1
   }

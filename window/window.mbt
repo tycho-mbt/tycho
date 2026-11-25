@@ -53,6 +53,14 @@ extern "c" fn win_is_fullscreen_ffi(win : UInt64) -> Int32 = "tycho_win_is_fulls
 
 extern "c" fn win_content_scale_ffi(win : UInt64) -> Double = "tycho_win_content_scale"
 
+extern "c" fn win_set_bg_color_ffi(win : UInt64, r : Int32, g : Int32, b : Int32) = "tycho_win_set_bg_color"
+
+extern "c" fn win_has_pending_sync_ffi(win : UInt64) -> Int32 = "tycho_win_has_pending_sync"
+
+extern "c" fn win_finish_sync_ffi(win : UInt64) = "tycho_win_finish_sync"
+
+extern "c" fn win_wait_events_ffi(timeout_ms : Int32) = "tycho_win_wait_events"
+
 extern "c" fn win_is_wayland_ffi() -> Int32 = "tycho_win_is_wayland"
 
 extern "c" fn xlib_surface_ci_new_ffi(dpy : UInt64, win : UInt64) -> UInt64 = "tycho_xlib_surface_ci_new"
@@ -406,6 +414,26 @@ pub fn is_fullscreen(win : UInt64) -> Bool {
 ///|
 pub fn content_scale(win : UInt64) -> Double {
   win_content_scale_ffi(win)
+}
+
+///|
+pub fn set_bg_color(win : UInt64, r : Int, g : Int, b : Int) -> Unit {
+  win_set_bg_color_ffi(win, r, g, b)
+}
+
+///|
+pub fn has_pending_sync(win : UInt64) -> Bool {
+  win_has_pending_sync_ffi(win) != 0
+}
+
+///|
+pub fn finish_sync(win : UInt64) -> Unit {
+  win_finish_sync_ffi(win)
+}
+
+///|
+pub fn wait_events(timeout_ms : Int) -> Unit {
+  win_wait_events_ffi(timeout_ms)
 }
 
 ///|

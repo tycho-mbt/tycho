@@ -89,6 +89,7 @@ priv struct VkSwapchainState {
   mut image_index : Int
   mut frame_gen : UInt64
   mut needs_recreate : Bool
+  mut synced_this_frame : Bool
 }
 
 ///|
@@ -2210,6 +2211,16 @@ fn vk_swapchain_create(
     desc.height,
     desc.title,
   )
+  let clamp_u8 = fn(v : Float) -> Int {
+    let i = (v * (255.0 : Float) + (0.5 : Float)).to_int()
+    if i < 0 { 0 } else if i > 255 { 255 } else { i }
+  }
+  @win.set_bg_color(
+    window,
+    clamp_u8(desc.clear_color.r),
+    clamp_u8(desc.clear_color.g),
+    clamp_u8(desc.clear_color.b),
+  )
   let surface = @win.create_surface(d.inst, window)
   errdefer {
     (d.ifn.vkDestroySurfaceKHR)(d.inst, surface, na)
@@ -2306,6 +2317,7 @@ fn vk_swapchain_create(
     image_index: 0,
     frame_gen: (0 : UInt64),
     needs_recreate: false,
+    synced_this_frame: false,
   }
 }
 
@@ -2409,12 +2421,52 @@ fn set_dynamic_viewport_scissor(
 }
 
 ///|
+fn vk_swapchain_sync_size(s : VkSwapchainState) -> Unit raise RhiError {
+  s.synced_this_frame = true
+  let d = s.device
+  let mut should = @win.take_resized(s.window) ||
+    s.needs_recreate ||
+    @win.width(s.window) != s.width ||
+    @win.height(s.window) != s.height
+  if should {
+    if !s.needs_recreate {
+      let caps = @vk.VkSurfaceCapabilitiesKHR::new()
+      let cr = (d.ifn.vkGetPhysicalDeviceSurfaceCapabilitiesKHR)(
+        d.phys,
+        s.surface,
+        caps,
+      )
+      let mut diff = true
+      if cr == 0 {
+        let ext = caps.get_currentExtent()
+        let ew = ext.get_width().reinterpret_as_int()
+        let eh = ext.get_height().reinterpret_as_int()
+        if ext.get_width() != (0xFFFFFFFF : UInt32) {
+          diff = ew > 0 && eh > 0 && (ew != s.width || eh != s.height)
+        } else {
+          let ww = @win.width(s.window)
+          let wh = @win.height(s.window)
+          diff = ww > 0 && wh > 0 && (ww != s.width || wh != s.height)
+        }
+      }
+      caps.free()
+      should = diff
+    }
+    if should {
+      recreate_swapchain(s)
+    }
+  }
+}
+
+///|
 fn vk_swapchain_begin_frame_commands(
   s : VkSwapchainState,
 ) -> VkCmdState raise RhiError {
   let d = s.device
-  @win.poll()
-  if @win.take_resized(s.window) || s.needs_recreate {
+  if !s.synced_this_frame {
+    @win.poll()
+    vk_swapchain_sync_size(s)
+  } else if s.needs_recreate {
     recreate_swapchain(s)
   }
   let fi = s.frame_idx
@@ -2459,7 +2511,8 @@ fn vk_swapchain_begin_frame_commands(
   if ar != 0 && ar != (1000001003 : Int32) {
     raise SwapchainFailed("vkAcquireNextImageKHR failed with code \{ar}")
   }
-  if ar == (1000001003 : Int32) {
+  if ar == (1000001003 : Int32) &&
+    (@win.width(s.window) != s.width || @win.height(s.window) != s.height) {
     s.needs_recreate = true
   }
   let _ = (d.dfn.vkResetFences)(d.dev, (1 : UInt32), fence)
@@ -2747,9 +2800,25 @@ fn vk_swapchain_end_frame(
   present.set_pImageIndices(idxs)
   let pr = (d.dfn.vkQueuePresentKHR)(d.queue, present)
   present.free()
-  if pr == (-1000001004 : Int32) || pr == (1000001003 : Int32) {
+  s.synced_this_frame = false
+  if (pr == 0 || pr == (1000001003 : Int32)) && @win.has_pending_sync(s.window) {
+    let fence = FixedArray::make(1, s.in_flight[fi])
+    let _ = (d.dfn.vkWaitForFences)(
+      d.dev,
+      (1 : UInt32),
+      fence,
+      (1 : UInt32),
+      (0xFFFFFFFFFFFFFFFF : UInt64),
+    )
+    @win.finish_sync(s.window)
+  }
+  if pr == (-1000001004 : Int32) ||
+    (
+      pr == (1000001003 : Int32) &&
+      (@win.width(s.window) != s.width || @win.height(s.window) != s.height)
+    ) {
     s.needs_recreate = true
-  } else if pr != 0 {
+  } else if pr != 0 && pr != (1000001003 : Int32) {
     raise SwapchainFailed("vkQueuePresentKHR failed: \{pr}")
   }
   s.last_frame_idx = fi

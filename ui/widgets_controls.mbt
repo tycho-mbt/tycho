@@ -1008,7 +1008,7 @@ pub fn tooltip(
       child,
     )
     if !show {
-      return base
+      return stack([base])
     }
     stack([
       base,

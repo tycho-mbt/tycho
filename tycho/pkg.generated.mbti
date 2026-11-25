@@ -274,6 +274,7 @@ pub fn CommandBuffer::draw_mesh_tasks(Self, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::draw_mesh_tasks_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
 pub fn CommandBuffer::end_render_pass(Self) -> Unit
 pub fn CommandBuffer::end_swapchain_pass(Self) -> Unit
+pub fn CommandBuffer::frame_slot(Self) -> Int32
 pub fn CommandBuffer::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int32) -> Unit
 pub fn CommandBuffer::push_constants_floats(Self, Pipeline, FixedArray[Float], offset? : Int32) -> Unit
 pub fn CommandBuffer::reset_timestamps(Self, TimestampPool) -> Unit
@@ -635,7 +636,9 @@ pub fn Swapchain::set_cursor_shape(Self, @tycho_window.CursorShape) -> Unit
 pub fn Swapchain::set_fullscreen(Self, Bool) -> Unit
 pub fn Swapchain::set_title(Self, String) -> Unit
 pub fn Swapchain::should_close(Self) -> Bool
+pub fn Swapchain::sync_size(Self) -> Unit raise RhiError
 pub fn Swapchain::time() -> Double
+pub fn Swapchain::wait_events(timeout_ms? : Int32) -> Unit
 pub fn Swapchain::width(Self) -> Int32
 
 pub(all) struct SwapchainDesc {

@@ -155,3 +155,50 @@ test "scroll_view, navigator, overlay, spring, and semantics work end-to-end" {
     None => assert_true(false)
   }
 }
+
+///|
+test "tooltip hover stays stable and frosted_dialog blocks hits behind modal" {
+  let behind_taps = Ref(0)
+  let show_modal = Signal::new(false)
+  let root = builder(tag=901, fn(ctx) {
+    let base = tooltip(
+      "Help",
+      outlined_button("Action", fn() { behind_taps.val = behind_taps.val + 1 }),
+    )
+    if show_modal.get(ctx) {
+      stack([
+        base,
+        frosted_dialog("Modal", text("Body"), fn() { show_modal.set(false) }),
+      ])
+    } else {
+      stack([base])
+    }
+  })
+  let tester = WidgetTester::new(root, width=(400.0 : Float), height=(300.0 : Float))
+  // Hover repeatedly over Action button — tooltip must not oscillate or break tap
+  tester.move_mouse((20.0 : Float), (16.0 : Float))
+  tester.move_mouse((21.0 : Float), (16.0 : Float))
+  tester.tap((20.0 : Float), (16.0 : Float))
+  assert_eq(behind_taps.val, 1)
+  // Open modal -> tapping Action coordinate behind modal must not increment behind_taps
+  show_modal.set(true)
+  let _ = tester.pump_frame()
+  tester.tap((20.0 : Float), (16.0 : Float))
+  assert_eq(behind_taps.val, 1)
+}
+
+///|
+test "tooltip positioned child does not resize or shift button in row" {
+  let root = row(main_axis=MainAxisAlignment::End, [
+    tooltip(
+      "This is a much wider tooltip message than the button",
+      filled_button("Go", fn() {  }),
+    ),
+  ])
+  let tester = WidgetTester::new(root, width=(400.0 : Float), height=(100.0 : Float))
+  let box_before = tester.tree.build_semantics_tree().unwrap().children[0].bounds
+  tester.move_mouse(box_before.x + (5.0 : Float), box_before.y + (5.0 : Float))
+  let box_after = tester.tree.build_semantics_tree().unwrap().children[0].bounds
+  assert_eq(box_before.x, box_after.x)
+  assert_eq(box_before.width, box_after.width)
+}
