@@ -1,6 +1,6 @@
 name = "laplaceliu/tycho_2d"
 
-version = "0.8.0"
+version = "0.8.1"
 
 license = "Apache-2.0"
 
@@ -15,5 +15,5 @@ description = "Tycho 2D — Skia/Impeller-inspired pure-MoonBit 2D vector, SDF, 
 keywords = [ "2d", "graphics", "sdf", "ui", "skia", "tycho" ]
 
 import {
-  "laplaceliu/tycho@0.8.0",
+  "laplaceliu/tycho@0.8.1",
 }

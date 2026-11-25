@@ -1,6 +1,6 @@
 name = "laplaceliu/tycho"
 
-version = "0.8.0"
+version = "0.8.1"
 
 license = "Apache-2.0"
 
@@ -16,6 +16,6 @@ keywords = [ "graphics", "rhi", "vulkan", "gpu", "tycho" ]
 
 import {
   "laplaceliu/tycho_vulkan@0.7.0",
-  "laplaceliu/tycho_window@0.7.0",
+  "laplaceliu/tycho_window@0.8.1",
   "laplaceliu/tycho_shader@0.7.0",
 }

@@ -1,6 +1,6 @@
 name = "laplaceliu/tycho_ui"
 
-version = "0.8.0"
+version = "0.8.1"
 
 license = "Apache-2.0"
 
@@ -15,6 +15,6 @@ description = "Tycho UI — Flutter-inspired pure-MoonBit declarative UI framewo
 keywords = [ "ui", "gui", "flutter", "widgets", "tycho" ]
 
 import {
-  "laplaceliu/tycho@0.8.0",
-  "laplaceliu/tycho_2d@0.8.0",
+  "laplaceliu/tycho@0.8.1",
+  "laplaceliu/tycho_2d@0.8.1",
 }
