@@ -26,6 +26,7 @@ pub struct UiTree {
   priv mut next_elem_id : Int
   priv default_theme : ThemeData
   priv active_text_controllers : Array[TextController]
+  focus : FocusManager
 }
 
 ///|
@@ -37,6 +38,7 @@ pub fn UiTree::new(theme? : ThemeData = ThemeData::dark()) -> UiTree {
     next_elem_id: 1,
     default_theme: theme,
     active_text_controllers: [],
+    focus: FocusManager::new(),
   }
 }
 
@@ -134,6 +136,7 @@ fn widget_to_render_kind(kind : WidgetKind, theme : ThemeData) -> RenderKind? {
     CustomPaint(sz, pf) => Some(RenderKind::CustomPaint(sz, pf))
     GestureNode(cbs, _) => Some(RenderKind::Gesture(cbs))
     ListViewBuilder(cnt, ext, ctrl, _) => Some(RenderKind::ListView(cnt, ext, ctrl))
+    ScrollViewportNode(ctrl, ax, _) => Some(RenderKind::ScrollViewport(ctrl, ax))
     TextFieldNode(ctrl, ph, w, fs) => Some(RenderKind::TextField(ctrl, ph, w, fs, theme))
   }
 }
@@ -153,7 +156,8 @@ fn widget_static_children(kind : WidgetKind) -> Array[Widget] {
     | Transform(_, c)
     | BackdropFilter(_, _, _, c)
     | RepaintBoundary(c)
-    | GestureNode(_, c) => [c]
+    | GestureNode(_, c)
+    | ScrollViewportNode(_, _, c) => [c]
     SizedBox(_, _, co) | DecoratedBox(_, co) =>
       match co {
         Some(c) => [c]
@@ -369,6 +373,7 @@ fn UiTree::mount_element(
       ctrl.focused.subscribe_element(id)
       self.active_text_controllers.push(ctrl)
     }
+    ScrollViewportNode(ctrl, _, _) => ctrl.offset.subscribe_element(id)
     _ => ()
   }
   let node : ElementNode = {
@@ -516,5 +521,90 @@ pub fn UiTree::clear_text_focus_except(
     if !stay && tc.focused.peek() {
       tc.focused.set(false)
     }
+  }
+}
+
+///|
+pub fn UiTree::cycle_text_focus(self : UiTree, reverse : Bool) -> Unit {
+  let n = self.active_text_controllers.length()
+  if n == 0 {
+    if reverse {
+      self.focus.prev_focus()
+    } else {
+      self.focus.next_focus()
+    }
+    return
+  }
+  let mut cur = -1
+  for i = 0; i < n; i = i + 1 {
+    if self.active_text_controllers[i].focused.peek() {
+      cur = i
+      break
+    }
+  }
+  let next = if cur < 0 {
+    if reverse { n - 1 } else { 0 }
+  } else if reverse {
+    (cur - 1 + n) % n
+  } else {
+    (cur + 1) % n
+  }
+  let target = self.active_text_controllers[next]
+  self.clear_text_focus_except(Some(target))
+  target.focused.set(true)
+  target.blink_phase = 0.0
+}
+
+///|
+pub fn UiTree::has_pending_dirty(self : UiTree) -> Bool {
+  if self.dirty_ids.length() > 0 {
+    return true
+  }
+  match self.root {
+    Some(r) =>
+      match r.render {
+        Some(rn) => rn.needs_layout || rn.needs_paint
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
+pub fn UiTree::build_semantics_tree(self : UiTree) -> SemanticsNode? {
+  match self.root {
+    Some(r) => {
+      let renders : Array[RenderNode] = []
+      match r.render {
+        Some(rn) => renders.push(rn)
+        None => collect_descendant_renders(r, renders)
+      }
+      if renders.length() > 0 {
+        Some(renders[0].build_semantics())
+      } else {
+        None
+      }
+    }
+    None => None
+  }
+}
+
+///|
+pub fn UiTree::debug_paint_inspector(
+  self : UiTree,
+  canvas : @g2d.Canvas,
+) -> Unit {
+  match self.root {
+    Some(r) => {
+      let renders : Array[RenderNode] = []
+      match r.render {
+        Some(rn) => renders.push(rn)
+        None => collect_descendant_renders(r, renders)
+      }
+      for rn in renders {
+        rn.debug_draw_bounds(canvas)
+      }
+    }
+    None => ()
   }
 }

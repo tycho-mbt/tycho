@@ -4,6 +4,7 @@ package "laplaceliu/tycho_ui"
 import {
   "laplaceliu/tycho",
   "laplaceliu/tycho_2d",
+  "laplaceliu/tycho_window",
   "moonbitlang/core/debug",
 }
 
@@ -12,7 +13,15 @@ pub const INF : Float = 1.0e30
 
 pub fn align(key? : Key?, Alignment, Widget) -> Widget
 
+pub fn animated_container(key? : Key?, width? : Float?, height? : Float?, color? : @tycho_2d.Color?, radius? : Float, pad? : EdgeInsets?, duration_sec? : Double, curve? : Curve, child? : Widget?) -> Widget
+
+pub fn animated_opacity(key? : Key?, Float, duration_sec? : Double, curve? : Curve, Widget) -> Widget
+
+pub fn animated_padding(key? : Key?, EdgeInsets, duration_sec? : Double, curve? : Curve, Widget) -> Widget
+
 pub fn backdrop_filter(key? : Key?, blur_sigma? : Float, radius? : Float, tint? : @tycho_2d.Color, Widget) -> Widget
+
+pub fn badge(key? : Key?, label? : String, color? : @tycho_2d.Color?, Widget) -> Widget
 
 pub fn builder(key? : Key?, tag? : Int32, (BuildContext) -> Widget) -> Widget
 
@@ -32,6 +41,8 @@ pub fn constrained_box(key? : Key?, BoxConstraints, Widget) -> Widget
 
 pub fn container(key? : Key?, width? : Float?, height? : Float?, pad? : EdgeInsets?, color? : @tycho_2d.Color?, shader? : @tycho_2d.Shader2D?, border_color? : @tycho_2d.Color?, border_width? : Float, radius? : Float, tl? : Float, tr? : Float, br? : Float, bl? : Float, shadow_blur? : Float, shadow_dx? : Float, shadow_dy? : Float, shadow_color? : @tycho_2d.Color?, alignment? : Alignment?, child? : Widget?) -> Widget
 
+pub fn context_menu(key? : Key?, Signal[Bool], Signal[@tycho_2d.Point], Array[MenuItem], Widget) -> Widget
+
 pub fn custom_paint(key? : Key?, @tycho_2d.Size, (@tycho_2d.Canvas, @tycho_2d.Size) -> Unit) -> Widget
 
 pub fn decorated_box(key? : Key?, DecoratedProps, child? : Widget?) -> Widget
@@ -48,33 +59,63 @@ pub fn frosted_dialog(key? : Key?, String, Widget, () -> Unit, width? : Float) -
 
 pub fn gesture_detector(key? : Key?, on_tap? : (() -> Unit)?, on_drag_start? : ((@tycho_2d.Point) -> Unit)?, on_drag_update? : ((@tycho_2d.Point, @tycho_2d.Point) -> Unit)?, on_drag_end? : (() -> Unit)?, on_scroll? : ((Float, Float) -> Unit)?, Widget) -> Widget
 
+pub fn has_active_implicit_animations() -> Bool
+
+pub fn icon(key? : Key?, IconKind, size? : Float, color? : @tycho_2d.Color?) -> Widget
+
+pub fn icon_button(key? : Key?, IconKind, () -> Unit, size? : Float, color? : @tycho_2d.Color?) -> Widget
+
 pub fn image_widget(key? : Key?, @tycho_2d.Image2D, Float, Float) -> Widget
+
+pub fn layout_inspector(key? : Key?, Signal[Bool], Widget) -> Widget
 
 pub fn lerp_color(@tycho_2d.Color, @tycho_2d.Color, Float) -> @tycho_2d.Color
 
+pub fn lerp_edge_insets(EdgeInsets, EdgeInsets, Float) -> EdgeInsets
+
 pub fn lerp_float(Float, Float, Float) -> Float
+
+pub fn lerp_rect(@tycho_2d.Rect, @tycho_2d.Rect, Float) -> @tycho_2d.Rect
+
+pub fn lerp_rrect(@tycho_2d.RRect, @tycho_2d.RRect, Float) -> @tycho_2d.RRect
 
 pub fn list_view_builder(key? : Key?, Int32, Float, ScrollController, (BuildContext, Int32) -> Widget) -> Widget
 
-pub fn mouse_region(key? : Key?, on_enter? : (() -> Unit)?, on_exit? : (() -> Unit)?, on_hover? : ((@tycho_2d.Point) -> Unit)?, Widget) -> Widget
+pub fn mouse_region(key? : Key?, on_enter? : (() -> Unit)?, on_exit? : (() -> Unit)?, on_hover? : ((@tycho_2d.Point) -> Unit)?, cursor? : @tycho_window.CursorShape?, Widget) -> Widget
+
+pub fn navigator(key? : Key?, NavigatorController) -> Widget
 
 pub fn opacity(key? : Key?, Float, Widget) -> Widget
 
 pub fn outlined_button(key? : Key?, String, () -> Unit, pad? : EdgeInsets) -> Widget
 
+pub fn overlay(key? : Key?, OverlayController, Widget) -> Widget
+
 pub fn padding(key? : Key?, EdgeInsets, Widget) -> Widget
 
 pub fn performance_overlay(FrameStats) -> Widget
+
+pub fn popup_menu(key? : Key?, Signal[Bool], Array[MenuItem], Widget) -> Widget
 
 pub fn positioned(key? : Key?, left? : Float?, top? : Float?, right? : Float?, bottom? : Float?, width? : Float?, height? : Float?, Widget) -> Widget
 
 pub fn progress_bar(key? : Key?, Float, width? : Float, height? : Float, color? : @tycho_2d.Color?) -> Widget
 
+pub fn[T : Eq] radio(key? : Key?, T, Signal[T], label? : String, on_changed? : ((T) -> Unit)?) -> Widget
+
+pub fn register_implicit_controller(AnimationController) -> Unit
+
 pub fn repaint_boundary(key? : Key?, Widget) -> Widget
+
+pub fn rich_text(key? : Key?, Array[RichSpan], align? : @tycho_2d.TextAlign, max_lines? : Int32, ellipsis? : String, max_width? : Float) -> Widget
 
 pub fn row(key? : Key?, main_axis? : MainAxisAlignment, cross_axis? : CrossAxisAlignment, main_size? : MainAxisSize, gap? : Float, Array[Widget]) -> Widget
 
+pub fn scrollbar(key? : Key?, ScrollController, thickness? : Float, Widget) -> Widget
+
 pub fn set_signal_dirty_hook((Int32) -> Unit) -> Unit
+
+pub fn single_child_scroll_view(key? : Key?, controller? : ScrollController?, direction? : Axis, Widget) -> Widget
 
 pub fn sized_box(key? : Key?, width? : Float?, height? : Float?, child? : Widget?) -> Widget
 
@@ -86,9 +127,15 @@ pub fn switch_toggle(key? : Key?, Signal[Bool], label? : String, on_changed? : (
 
 pub fn text(key? : Key?, String, size? : Float, color? : @tycho_2d.Color?, font? : @tycho_2d.FontFace?, align? : @tycho_2d.TextAlign, max_lines? : Int32, ellipsis? : String) -> Widget
 
+pub fn text_button(key? : Key?, String, () -> Unit, color? : @tycho_2d.Color?, pad? : EdgeInsets) -> Widget
+
 pub fn text_field(key? : Key?, TextController, placeholder? : String, width? : Float, font_size? : Float) -> Widget
 
 pub fn theme_provider(key? : Key?, ThemeData, Widget) -> Widget
+
+pub fn tick_implicit_animations(Double) -> Bool
+
+pub fn tooltip(key? : Key?, String, Widget) -> Widget
 
 pub fn transform(key? : Key?, @tycho_2d.Matrix3, Widget) -> Widget
 
@@ -129,13 +176,16 @@ pub struct AppRunner {
   tree : UiTree
   arena : GestureArena
   controllers : Array[AnimationController]
+  mut inspector_enabled : Bool
   // private fields
 }
 pub fn AppRunner::add_animation(Self, AnimationController) -> Unit
 pub fn AppRunner::destroy(Self) -> Unit
+pub fn AppRunner::has_active_animations(Self) -> Bool
 pub fn AppRunner::new(@tycho.Device, Widget, theme? : ThemeData, clear_color? : @tycho_2d.Color) -> Self raise @tycho.RhiError
 pub fn AppRunner::pump_frame(Self, Float, Float, dt_sec? : Double) -> @tycho_2d.DisplayList
-pub fn AppRunner::run_window(Self, String, Int32, Int32) -> Unit raise @tycho.RhiError
+pub fn AppRunner::run_window(Self, String, Int32, Int32, dirty_driven? : Bool) -> Unit raise @tycho.RhiError
+pub fn AppRunner::set_inspector(Self, Bool) -> Unit
 pub fn AppRunner::stats(Self) -> FrameStats
 
 #derive(Eq, @debug.Debug)
@@ -218,6 +268,7 @@ pub(all) enum Curve {
   EaseOut
   EaseInOut
   CubicBezier(Float, Float, Float, Float)
+  Spring(Float, Float, Float)
 }
 pub fn Curve::eval(Self, Float) -> Float
 
@@ -276,6 +327,30 @@ pub(all) enum FlexFit {
   Loose
 }
 
+pub struct FocusManager {
+  // private fields
+}
+pub fn FocusManager::bind_shortcut(Self, Int32, Int32, () -> Unit) -> Unit
+pub fn FocusManager::clear_all(Self) -> Unit
+pub fn FocusManager::dispatch_key(Self, Int32, Int32) -> Bool
+pub fn FocusManager::focused_node(Self) -> FocusNode?
+pub fn FocusManager::new() -> Self
+pub fn FocusManager::next_focus(Self) -> Unit
+pub fn FocusManager::prev_focus(Self) -> Unit
+pub fn FocusManager::register(Self, FocusNode) -> Unit
+pub fn FocusManager::request_focus(Self, FocusNode) -> Unit
+pub fn FocusManager::unfocus(Self) -> Unit
+pub fn FocusManager::unregister(Self, Int32) -> Unit
+
+pub struct FocusNode {
+  id : Int32
+  focused : Signal[Bool]
+  can_request_focus : Bool
+  on_key : ((Int32, Int32) -> Bool)?
+}
+pub fn FocusNode::is_focused(Self, BuildContext) -> Bool
+pub fn FocusNode::new(can_request_focus? : Bool, on_key? : ((Int32, Int32) -> Bool)?) -> Self
+
 pub(all) struct FrameStats {
   build_ms : Double
   layout_ms : Double
@@ -288,6 +363,7 @@ pub(all) struct FrameStats {
 pub struct GestureArena {
   // private fields
 }
+pub fn GestureArena::desired_cursor(Self) -> @tycho_window.CursorShape
 pub fn GestureArena::handle_down(Self, Int32, @tycho_2d.Point, Array[HitTestEntry]) -> Unit
 pub fn GestureArena::handle_move(Self, Int32, @tycho_2d.Point) -> Unit
 pub fn GestureArena::handle_scroll(Self, Array[HitTestEntry], Float, Float) -> Unit
@@ -305,6 +381,7 @@ pub(all) struct GestureCallbacks {
   on_mouse_enter : (() -> Unit)?
   on_mouse_exit : (() -> Unit)?
   on_hover : ((@tycho_2d.Point) -> Unit)?
+  cursor : @tycho_window.CursorShape?
 }
 pub fn GestureCallbacks::empty() -> Self
 
@@ -312,6 +389,21 @@ pub(all) struct HitTestEntry {
   node_id : Int32
   local_pos : @tycho_2d.Point
   callbacks : GestureCallbacks
+}
+
+pub(all) enum IconKind {
+  Check
+  Close
+  Add
+  Search
+  Menu
+  ArrowBack
+  ArrowForward
+  ChevronDown
+  Star
+  Settings
+  Info
+  Warning
 }
 
 #derive(Eq, @debug.Debug)
@@ -355,6 +447,38 @@ pub(all) enum MainAxisSize {
   Max
 }
 
+pub(all) struct MenuItem {
+  label : String
+  icon : IconKind?
+  on_selected : () -> Unit
+}
+pub fn MenuItem::new(String, () -> Unit, icon? : IconKind?) -> Self
+
+pub struct NavigatorController {
+  stack : Signal[Array[RouteEntry]]
+  transition : AnimationController
+}
+pub fn NavigatorController::can_pop(Self) -> Bool
+pub fn NavigatorController::current_name(Self) -> String
+pub fn NavigatorController::new(String, (BuildContext) -> Widget) -> Self
+pub fn NavigatorController::pop(Self) -> Bool
+pub fn NavigatorController::push(Self, String, (BuildContext) -> Widget) -> Unit
+pub fn NavigatorController::replace(Self, String, (BuildContext) -> Widget) -> Unit
+
+pub struct OverlayController {
+  entries : Signal[Array[OverlayEntry]]
+  // private fields
+}
+pub fn OverlayController::clear(Self) -> Unit
+pub fn OverlayController::insert(Self, (BuildContext) -> Widget) -> Int32
+pub fn OverlayController::new() -> Self
+pub fn OverlayController::remove(Self, Int32) -> Unit
+
+pub(all) struct OverlayEntry {
+  id : Int32
+  builder : (BuildContext) -> Widget
+}
+
 pub(all) enum PointerEvent {
   Down(Int32, @tycho_2d.Point, Int32)
   Move(Int32, @tycho_2d.Point)
@@ -384,6 +508,7 @@ pub(all) enum RenderKind {
   CustomPaint(@tycho_2d.Size, (@tycho_2d.Canvas, @tycho_2d.Size) -> Unit)
   Gesture(GestureCallbacks)
   ListView(Int32, Float, ScrollController)
+  ScrollViewport(ScrollController, Axis)
   TextField(TextController, String, Float, Float, ThemeData)
 }
 
@@ -403,10 +528,27 @@ pub struct RenderNode {
   mut active_theme : ThemeData
 }
 pub fn RenderNode::build_layer(Self) -> Layer
+pub fn RenderNode::build_semantics(Self, origin? : @tycho_2d.Point) -> SemanticsNode
 pub fn RenderNode::count_nodes(Self) -> Int32
+pub fn RenderNode::debug_draw_bounds(Self, @tycho_2d.Canvas, origin? : @tycho_2d.Point, depth? : Int32) -> Unit
 pub fn RenderNode::hit_test(Self, @tycho_2d.Point, Array[HitTestEntry]) -> Bool
 pub fn RenderNode::layout(Self, BoxConstraints) -> @tycho_2d.Size
 pub fn RenderNode::new(Int32, RenderKind, ThemeData) -> Self
+
+pub(all) struct RichSpan {
+  text : String
+  size : Float?
+  color : @tycho_2d.Color?
+  bold : Bool
+  italic : Bool
+  underline : Bool
+}
+pub fn RichSpan::new(String, size? : Float?, color? : @tycho_2d.Color?, bold? : Bool, italic? : Bool, underline? : Bool) -> Self
+
+pub(all) struct RouteEntry {
+  name : String
+  builder : (BuildContext) -> Widget
+}
 
 pub struct ScrollController {
   offset : Signal[Float]
@@ -415,6 +557,31 @@ pub struct ScrollController {
 pub fn ScrollController::jump_to(Self, Float) -> Unit
 pub fn ScrollController::new(initial_offset? : Float) -> Self
 pub fn ScrollController::scroll_by(Self, Float) -> Unit
+
+pub(all) struct SemanticsNode {
+  id : Int32
+  role : SemanticsRole
+  label : String
+  bounds : @tycho_2d.Rect
+  focused : Bool
+  children : Array[SemanticsNode]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum SemanticsRole {
+  Generic
+  Button
+  TextField
+  Text
+  Image
+  List
+}
+
+pub(all) struct ShortcutBinding {
+  key : Int32
+  mods : Int32
+  action : () -> Unit
+}
 
 pub struct Signal[T] {
   // private fields
@@ -435,12 +602,27 @@ pub struct TextController {
   cursor : Signal[Int32]
   sel_anchor : Signal[Int32]
   focused : Signal[Bool]
+  multiline : Bool
+  max_lines : Int32
+  mut blink_phase : Double
+  // private fields
 }
 pub fn TextController::backspace(Self) -> Unit
+pub fn TextController::delete_forward(Self) -> Unit
+pub fn TextController::delete_selection(Self) -> Bool
 pub fn TextController::insert_char(Self, Char) -> Unit
-pub fn TextController::move_left(Self) -> Unit
-pub fn TextController::move_right(Self) -> Unit
-pub fn TextController::new(initial? : String) -> Self
+pub fn TextController::insert_text(Self, String) -> Unit
+pub fn TextController::move_end(Self, select? : Bool) -> Unit
+pub fn TextController::move_home(Self, select? : Bool) -> Unit
+pub fn TextController::move_left(Self, select? : Bool) -> Unit
+pub fn TextController::move_right(Self, select? : Bool) -> Unit
+pub fn TextController::new(initial? : String, multiline? : Bool, max_lines? : Int32) -> Self
+pub fn TextController::redo(Self) -> Unit
+pub fn TextController::select_all(Self) -> Unit
+pub fn TextController::select_word_at(Self, Int32) -> Unit
+pub fn TextController::selected_text(Self) -> String
+pub fn TextController::selection_range(Self) -> (Int32, Int32)
+pub fn TextController::undo(Self) -> Unit
 
 pub(all) struct ThemeData {
   colors : ColorScheme
@@ -453,14 +635,19 @@ pub fn ThemeData::dark(font? : @tycho_2d.FontFace) -> Self
 pub fn ThemeData::light(font? : @tycho_2d.FontFace) -> Self
 
 pub struct UiTree {
+  focus : FocusManager
   // private fields
 }
 pub fn UiTree::build_display_list(Self) -> @tycho_2d.DisplayList
+pub fn UiTree::build_semantics_tree(Self) -> SemanticsNode?
 pub fn UiTree::clear_text_focus_except(Self, TextController?) -> Unit
+pub fn UiTree::cycle_text_focus(Self, Bool) -> Unit
+pub fn UiTree::debug_paint_inspector(Self, @tycho_2d.Canvas) -> Unit
 pub fn UiTree::element_count(Self) -> Int32
 pub fn UiTree::flush_builds(Self) -> Unit
 pub fn UiTree::focused_text_controller(Self) -> TextController?
 pub fn UiTree::has_dirty(Self) -> Bool
+pub fn UiTree::has_pending_dirty(Self) -> Bool
 pub fn UiTree::hit_test(Self, @tycho_2d.Point) -> Array[HitTestEntry]
 pub fn UiTree::layout_root(Self, Float, Float) -> Unit
 pub fn UiTree::mark_dirty(Self, Int32) -> Unit
@@ -499,6 +686,7 @@ pub(all) enum WidgetKind {
   CustomPaint(@tycho_2d.Size, (@tycho_2d.Canvas, @tycho_2d.Size) -> Unit)
   GestureNode(GestureCallbacks, Widget)
   ListViewBuilder(Int32, Float, ScrollController, (BuildContext, Int32) -> Widget)
+  ScrollViewportNode(ScrollController, Axis, Widget)
   TextFieldNode(TextController, String, Float, Float)
 }
 
@@ -514,7 +702,8 @@ pub fn WidgetTester::new(Widget, width? : Float, height? : Float, theme? : Theme
 pub fn WidgetTester::pump_frame(Self) -> @tycho_2d.DisplayList
 pub fn WidgetTester::render_to_texture(Self, @tycho_2d.Renderer2D, @tycho.Texture, clear_color? : @tycho_2d.Color) -> Unit raise @tycho.RhiError
 pub fn WidgetTester::scroll(Self, Float, Float, Float, Float) -> Unit
-pub fn WidgetTester::send_key(Self, Int32, shift? : Bool) -> Unit
+pub fn WidgetTester::send_key(Self, Int32, shift? : Bool, ctrl? : Bool) -> Unit
+pub fn WidgetTester::send_text(Self, String) -> Unit
 pub fn WidgetTester::tap(Self, Float, Float) -> Unit
 
 // Type aliases

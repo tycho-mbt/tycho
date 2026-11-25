@@ -10,6 +10,9 @@ layout(push_constant) uniform BlurPC {
 } pc;
 
 layout(set = 0, binding = 0) uniform sampler2D u_tex;
+layout(std430, set = 0, binding = 1) readonly buffer ColorMatBuf {
+  vec4 m[5];
+} cmat;
 
 layout(location = 0) in vec2 v_uv;
 layout(location = 1) in vec2 v_px;
@@ -27,7 +30,7 @@ void main() {
   int mode = int(pc.params.w + 0.5);
   vec2 uv_min = min(pc.src_uv.xy, pc.src_uv.zw);
   vec2 uv_max = max(pc.src_uv.xy, pc.src_uv.zw);
-  if (mode == 1) {
+  if (mode == 1 || mode == 2 || mode == 3) {
     float cov = 1.0;
     if (pc.clip_rect.z > 0.0 && pc.clip_rect.w > 0.0) {
       vec2 chalf = pc.clip_rect.zw * 0.5;
@@ -40,6 +43,25 @@ void main() {
       }
     }
     vec4 s = texture(u_tex, clamp(v_uv, uv_min, uv_max));
+    if (mode == 2) {
+      vec3 rgb = (s.a > 1e-5) ? (s.rgb / s.a) : vec3(0.0);
+      vec4 u = vec4(rgb, s.a);
+      vec4 r0 = cmat.m[0];
+      vec4 r1 = vec4(cmat.m[1].yzw, cmat.m[2].x);
+      vec4 r2 = vec4(cmat.m[2].zw, cmat.m[3].xy);
+      vec4 r3 = vec4(cmat.m[3].w, cmat.m[4].xyz);
+      float r = clamp(dot(r0, u) + cmat.m[1].x, 0.0, 1.0);
+      float g = clamp(dot(r1, u) + cmat.m[2].y, 0.0, 1.0);
+      float b = clamp(dot(r2, u) + cmat.m[3].z, 0.0, 1.0);
+      float a = clamp(dot(r3, u) + cmat.m[4].w, 0.0, 1.0) * pc.tint.a * cov;
+      out_color = vec4(vec3(r, g, b) * a, a);
+      return;
+    }
+    if (mode == 3) {
+      float a = s.a * pc.tint.a * cov;
+      out_color = vec4(pc.tint.rgb * a, a);
+      return;
+    }
     out_color = vec4(s.rgb * pc.tint.rgb * pc.tint.a * cov, s.a * pc.tint.a * cov);
     return;
   }

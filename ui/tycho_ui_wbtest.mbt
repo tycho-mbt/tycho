@@ -85,3 +85,73 @@ test "text_controller handles insertion, cursor movement, and backspace" {
   tc.backspace()
   assert_eq(tc.text.peek(), "abc")
 }
+
+///|
+test "text_controller handles selection, word select, undo and redo" {
+  let tc = TextController::new(initial="hello world")
+  tc.select_word_at(1)
+  assert_eq(tc.selected_text(), "hello")
+  tc.insert_text("hi")
+  assert_eq(tc.text.peek(), "hi world")
+  tc.undo()
+  assert_eq(tc.text.peek(), "hello world")
+  tc.redo()
+  assert_eq(tc.text.peek(), "hi world")
+  tc.select_all()
+  assert_eq(tc.selected_text(), "hi world")
+}
+
+///|
+test "focus_manager cycles nodes and dispatches shortcuts" {
+  let fm = FocusManager::new()
+  let n1 = FocusNode::new()
+  let n2 = FocusNode::new()
+  fm.register(n1)
+  fm.register(n2)
+  fm.next_focus()
+  assert_true(n1.focused.peek())
+  assert_true(!n2.focused.peek())
+  fm.next_focus()
+  assert_true(!n1.focused.peek())
+  assert_true(n2.focused.peek())
+  fm.prev_focus()
+  assert_true(n1.focused.peek())
+  let fired = Ref(false)
+  fm.bind_shortcut(@tycho.KEY_S, 4, fn() { fired.val = true })
+  assert_true(fm.dispatch_key(@tycho.KEY_S, 4))
+  assert_true(fired.val)
+}
+
+///|
+test "scroll_view, navigator, overlay, spring, and semantics work end-to-end" {
+  let sc = ScrollController::new()
+  let nav = NavigatorController::new("home", fn(_ctx) {
+    single_child_scroll_view(
+      controller=Some(sc),
+      column([
+        container(height=Some((800.0 : Float)), child=Some(text("tall"))),
+        icon(IconKind::Star),
+        badge(label="3", text_button("Go", fn() {  })),
+      ]),
+    )
+  })
+  let ov = OverlayController::new()
+  let tester = WidgetTester::new(
+    overlay(ov, scrollbar(sc, navigator(nav))),
+    width=(400.0 : Float),
+    height=(300.0 : Float),
+  )
+  tester.scroll((100.0 : Float), (100.0 : Float), (0.0 : Float), (-2.0 : Float))
+  assert_true(sc.offset.peek() > (0.0 : Float))
+  nav.push("detail", fn(_ctx) { text("detail page") })
+  assert_eq(nav.current_name(), "detail")
+  assert_true(nav.pop())
+  assert_eq(nav.current_name(), "home")
+  let sp = Curve::Spring((180.0 : Float), (18.0 : Float), (1.0 : Float))
+  assert_eq(sp.eval((0.0 : Float)), (0.0 : Float))
+  assert_eq(sp.eval((1.0 : Float)), (1.0 : Float))
+  match tester.tree.build_semantics_tree() {
+    Some(root_sem) => assert_true(root_sem.children.length() >= 1)
+    None => assert_true(false)
+  }
+}

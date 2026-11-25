@@ -882,6 +882,9 @@ pub type Event = @win.Event
 pub type CursorMode = @win.CursorMode
 
 ///|
+pub type CursorShape = @win.CursorShape
+
+///|
 pub const KEY_ESCAPE : Int = @win.KEY_ESCAPE
 
 ///|

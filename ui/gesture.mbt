@@ -25,6 +25,7 @@ pub(all) struct GestureCallbacks {
   on_mouse_enter : (() -> Unit)?
   on_mouse_exit : (() -> Unit)?
   on_hover : ((@g2d.Point) -> Unit)?
+  cursor : @tycho.CursorShape?
 }
 
 ///|
@@ -38,6 +39,7 @@ pub fn GestureCallbacks::empty() -> GestureCallbacks {
     on_mouse_enter: None,
     on_mouse_exit: None,
     on_hover: None,
+    cursor: None,
   }
 }
 
@@ -65,6 +67,7 @@ pub struct GestureArena {
   priv mut active_pointer : Int
   priv mut down_pos : @g2d.Point
   priv mut last_pos : @g2d.Point
+  priv mut drag_origin : @g2d.Point
   priv mut winner : ArenaWinner
   priv mut tap_target : GestureCallbacks?
   priv mut drag_target : GestureCallbacks?
@@ -78,6 +81,7 @@ pub fn GestureArena::new() -> GestureArena {
     active_pointer: -1,
     down_pos: @g2d.Point::zero(),
     last_pos: @g2d.Point::zero(),
+    drag_origin: @g2d.Point::zero(),
     winner: ArenaWinner::Undecided,
     tap_target: None,
     drag_target: None,
@@ -144,6 +148,17 @@ pub fn GestureArena::update_hover(
 }
 
 ///|
+pub fn GestureArena::desired_cursor(self : GestureArena) -> @tycho.CursorShape {
+  for cb in self.hovered_cbs {
+    match cb.cursor {
+      Some(s) => return s
+      None => ()
+    }
+  }
+  @tycho.CursorShape::Default
+}
+
+///|
 pub fn GestureArena::handle_down(
   self : GestureArena,
   pointer : Int,
@@ -153,6 +168,7 @@ pub fn GestureArena::handle_down(
   self.active_pointer = pointer
   self.down_pos = pos
   self.last_pos = pos
+  self.drag_origin = @g2d.Point::zero()
   self.winner = ArenaWinner::Undecided
   self.tap_target = None
   self.drag_target = None
@@ -163,16 +179,18 @@ pub fn GestureArena::handle_down(
     if self.drag_target is None &&
       (h.callbacks.on_drag_start is Some(_) || h.callbacks.on_drag_update is Some(_)) {
       self.drag_target = Some(h.callbacks)
+      self.drag_origin = pos.sub(h.local_pos)
     }
   }
   if self.drag_target is None && self.tap_target is Some(_) {
     self.winner = ArenaWinner::Tap
   } else if self.tap_target is None && self.drag_target is Some(_) {
     self.winner = ArenaWinner::Drag
+    let local_p = pos.sub(self.drag_origin)
     match self.drag_target {
       Some(cb) =>
         match cb.on_drag_start {
-          Some(f) => f(pos)
+          Some(f) => f(local_p)
           None => ()
         }
       None => ()
@@ -194,8 +212,9 @@ pub fn GestureArena::handle_move(
     match self.drag_target {
       Some(cb) => {
         self.winner = ArenaWinner::Drag
+        let local_down = self.down_pos.sub(self.drag_origin)
         match cb.on_drag_start {
-          Some(f) => f(self.down_pos)
+          Some(f) => f(local_down)
           None => ()
         }
       }
@@ -206,10 +225,11 @@ pub fn GestureArena::handle_move(
   }
   if self.winner == ArenaWinner::Drag {
     let delta = pos.sub(self.last_pos)
+    let local_p = pos.sub(self.drag_origin)
     match self.drag_target {
       Some(cb) =>
         match cb.on_drag_update {
-          Some(f) => f(pos, delta)
+          Some(f) => f(local_p, delta)
           None => ()
         }
       None => ()

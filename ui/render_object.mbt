@@ -24,6 +24,7 @@ pub(all) enum RenderKind {
   CustomPaint(@g2d.Size, (@g2d.Canvas, @g2d.Size) -> Unit)
   Gesture(GestureCallbacks)
   ListView(Int, Float, ScrollController)
+  ScrollViewport(ScrollController, Axis)
   TextField(TextController, String, Float, Float, ThemeData)
 }
 
@@ -455,6 +456,58 @@ pub fn RenderNode::layout(self : RenderNode, constraints : BoxConstraints) -> @g
       }
       constraints.constrain(@g2d.Size::new(vw, vh))
     }
+    RenderKind::ScrollViewport(ctrl, axis) => {
+      let vw = if constraints.has_bounded_width() {
+        constraints.max_width
+      } else {
+        (400.0 : Float)
+      }
+      let vh = if constraints.has_bounded_height() {
+        constraints.max_height
+      } else {
+        (400.0 : Float)
+      }
+      let child_bc = match axis {
+        Axis::Vertical =>
+          BoxConstraints::new(
+            min_width=constraints.min_width,
+            max_width=vw,
+            max_height=(1.0e9 : Float),
+          )
+        Axis::Horizontal =>
+          BoxConstraints::new(
+            min_height=constraints.min_height,
+            max_width=(1.0e9 : Float),
+            max_height=vh,
+          )
+      }
+      let mut cw = (0.0 : Float)
+      let mut ch = (0.0 : Float)
+      if self.children.length() > 0 {
+        let csz = self.children[0].layout(child_bc)
+        cw = csz.width
+        ch = csz.height
+      }
+      let sz = constraints.constrain(@g2d.Size::new(min_f(vw, cw), min_f(vh, ch)))
+      let vp_ext = match axis {
+        Axis::Vertical => sz.height
+        Axis::Horizontal => sz.width
+      }
+      let content_ext = match axis {
+        Axis::Vertical => ch
+        Axis::Horizontal => cw
+      }
+      ctrl.viewport_extent = vp_ext
+      ctrl.max_extent = max_f((0.0 : Float), content_ext - vp_ext)
+      let off = clamp_f(ctrl.offset.peek(), (0.0 : Float), ctrl.max_extent)
+      if self.children.length() > 0 {
+        self.children[0].offset = match axis {
+          Axis::Vertical => @g2d.Point::new((0.0 : Float), -off)
+          Axis::Horizontal => @g2d.Point::new(-off, (0.0 : Float))
+        }
+      }
+      sz
+    }
     RenderKind::TextField(_, _, pref_w, font_size, _) => {
       let w = if constraints.has_bounded_width() {
         min_f(pref_w, constraints.max_width)
@@ -574,7 +627,7 @@ fn RenderNode::paint_subtree_layer(self : RenderNode) -> Layer {
       }
       Layer::Container(all)
     }
-    RenderKind::ClipRect | RenderKind::ListView(_, _, _) => {
+    RenderKind::ClipRect | RenderKind::ListView(_, _, _) | RenderKind::ScrollViewport(_, _) => {
       let kids = self.paint_children_layers()
       Layer::ClipRect(@g2d.Rect::from_size(self.size), kids)
     }
@@ -659,9 +712,30 @@ fn RenderNode::paint_subtree_layer(self : RenderNode) -> Layer {
         .build()
       para.layout(self.size.width - (20.0 : Float))
       let pad_x = (10.0 : Float)
-      let pad_y = max_f((4.0 : Float), (self.size.height - para.height()) * (0.5 : Float))
+      let pad_y = if ctrl.multiline {
+        (8.0 : Float)
+      } else {
+        max_f((4.0 : Float), (self.size.height - para.height()) * (0.5 : Float))
+      }
+      if is_foc && txt != "" {
+        let (s0, s1) = ctrl.selection_range()
+        if s0 < s1 {
+          let sel_col = @g2d.Color::rgba(
+            theme.colors.primary.r,
+            theme.colors.primary.g,
+            theme.colors.primary.b,
+            (0.32 : Float),
+          )
+          for box_r in para.get_boxes_for_range(s0, s1) {
+            c.draw_rect(
+              @g2d.Rect::new(pad_x + box_r.x, pad_y + box_r.y, box_r.width, box_r.height),
+              @g2d.Paint::fill(sel_col),
+            )
+          }
+        }
+      }
       c.draw_paragraph(para, @g2d.Point::new(pad_x, pad_y))
-      if is_foc {
+      if is_foc && ctrl.blink_phase < 0.55 {
         let pos : @g2d.TextPosition = {
           offset: if txt == "" { 0 } else { ctrl.cursor.peek() },
           line: 0,
@@ -714,24 +788,55 @@ pub fn RenderNode::hit_test(
       true
     }
     RenderKind::TextField(ctrl, _, _, font_size, theme) => {
+      let tf_offset = fn(pt : @g2d.Point) -> Int {
+        let txt = ctrl.text.peek()
+        if txt == "" {
+          return 0
+        }
+        let p = @g2d.ParagraphBuilder::new()
+          .add_text(
+            txt,
+            style=@g2d.TextStyle::new(font=theme.font, font_size~),
+          )
+          .build()
+        p.layout(self.size.width - (20.0 : Float))
+        let pad_y = if ctrl.multiline {
+          (8.0 : Float)
+        } else {
+          max_f((4.0 : Float), (self.size.height - p.height()) * (0.5 : Float))
+        }
+        p.get_position_for_offset(
+          @g2d.Point::new(pt.x - (10.0 : Float), pt.y - pad_y),
+        ).offset
+      }
       let cbs : GestureCallbacks = {
         ..GestureCallbacks::empty(),
+        cursor: Some(@tycho.CursorShape::IBeam),
         on_tap: Some(fn() {
           ctrl.focused.set(true)
-          let txt = ctrl.text.peek()
-          if txt != "" {
-            let p = @g2d.ParagraphBuilder::new()
-              .add_text(
-                txt,
-                style=@g2d.TextStyle::new(font=theme.font, font_size~),
-              )
-              .build()
-            p.layout((1.0e9 : Float))
-            let tp = p.get_position_for_offset(
-              @g2d.Point::new(mapped_pos.x - (10.0 : Float), (4.0 : Float)),
-            )
-            ctrl.cursor.set(tp.offset)
+          ctrl.blink_phase = 0.0
+          let off = tf_offset(mapped_pos)
+          let now = @tycho.Swapchain::time()
+          if now - ctrl.last_tap_time < 0.35 &&
+            (off - ctrl.last_tap_pos).abs() <= 2 {
+            ctrl.select_word_at(off)
+          } else {
+            ctrl.cursor.set(off)
+            ctrl.sel_anchor.set(off)
           }
+          ctrl.last_tap_time = now
+          ctrl.last_tap_pos = off
+        }),
+        on_drag_start: Some(fn(p) {
+          ctrl.focused.set(true)
+          ctrl.blink_phase = 0.0
+          let off = tf_offset(p)
+          ctrl.sel_anchor.set(off)
+          ctrl.cursor.set(off)
+        }),
+        on_drag_update: Some(fn(p, _delta) {
+          let off = tf_offset(p)
+          ctrl.cursor.set(off)
         }),
       }
       out.push({ node_id: self.id, local_pos: mapped_pos, callbacks: cbs })
@@ -742,6 +847,27 @@ pub fn RenderNode::hit_test(
         ..GestureCallbacks::empty(),
         on_scroll: Some(fn(_dx, dy) { ctrl.scroll_by(-dy * (42.0 : Float)) }),
         on_drag_update: Some(fn(_p, delta) { ctrl.scroll_by(-delta.y) }),
+      }
+      out.push({ node_id: self.id, local_pos: mapped_pos, callbacks: cbs })
+      true
+    }
+    RenderKind::ScrollViewport(ctrl, axis) => {
+      let cbs : GestureCallbacks = {
+        ..GestureCallbacks::empty(),
+        on_scroll: Some(fn(dx, dy) {
+          let d = match axis {
+            Axis::Vertical => -dy
+            Axis::Horizontal => if dx != (0.0 : Float) { -dx } else { -dy }
+          }
+          ctrl.scroll_by(d * (42.0 : Float))
+        }),
+        on_drag_update: Some(fn(_p, delta) {
+          let d = match axis {
+            Axis::Vertical => -delta.y
+            Axis::Horizontal => -delta.x
+          }
+          ctrl.scroll_by(d)
+        }),
       }
       out.push({ node_id: self.id, local_pos: mapped_pos, callbacks: cbs })
       true
@@ -758,4 +884,81 @@ pub fn RenderNode::count_nodes(self : RenderNode) -> Int {
     total = total + ch.count_nodes()
   }
   total
+}
+
+///|
+#derive(Eq, Debug)
+pub(all) enum SemanticsRole {
+  Generic
+  Button
+  TextField
+  Text
+  Image
+  List
+}
+
+///|
+pub(all) struct SemanticsNode {
+  id : Int
+  role : SemanticsRole
+  label : String
+  bounds : @g2d.Rect
+  focused : Bool
+  children : Array[SemanticsNode]
+}
+
+///|
+pub fn RenderNode::build_semantics(
+  self : RenderNode,
+  origin? : @g2d.Point = @g2d.Point::zero(),
+) -> SemanticsNode {
+  let pos = origin.add(self.offset)
+  let bounds = @g2d.Rect::new(pos.x, pos.y, self.size.width, self.size.height)
+  let (role, label, focused) = match self.kind {
+    RenderKind::Text(t, _, _, _, _) => (SemanticsRole::Text, t, false)
+    RenderKind::TextField(ctrl, ph, _, _, _) =>
+      (
+        SemanticsRole::TextField,
+        if ctrl.text.peek() == "" { ph } else { ctrl.text.peek() },
+        ctrl.focused.peek(),
+      )
+    RenderKind::Image(_, _, _) => (SemanticsRole::Image, "image", false)
+    RenderKind::ListView(_, _, _) | RenderKind::ScrollViewport(_, _) =>
+      (SemanticsRole::List, "list", false)
+    RenderKind::Gesture(cbs) =>
+      if cbs.on_tap is Some(_) {
+        (SemanticsRole::Button, "button", false)
+      } else {
+        (SemanticsRole::Generic, "", false)
+      }
+    _ => (SemanticsRole::Generic, "", false)
+  }
+  let kids : Array[SemanticsNode] = []
+  for ch in self.children {
+    kids.push(ch.build_semantics(origin=pos))
+  }
+  { id: self.id, role, label, bounds, focused, children: kids }
+}
+
+///|
+pub fn RenderNode::debug_draw_bounds(
+  self : RenderNode,
+  canvas : @g2d.Canvas,
+  origin? : @g2d.Point = @g2d.Point::zero(),
+  depth? : Int = 0,
+) -> Unit {
+  let pos = origin.add(self.offset)
+  let col = match depth % 4 {
+    0 => @g2d.Color::from_rgba8(80, 220, 255, a=180)
+    1 => @g2d.Color::from_rgba8(120, 255, 140, a=180)
+    2 => @g2d.Color::from_rgba8(255, 200, 80, a=180)
+    _ => @g2d.Color::from_rgba8(255, 110, 180, a=180)
+  }
+  canvas.draw_rect(
+    @g2d.Rect::new(pos.x, pos.y, self.size.width, self.size.height),
+    @g2d.Paint::stroke(col, (1.0 : Float)),
+  )
+  for ch in self.children {
+    ch.debug_draw_bounds(canvas, origin=pos, depth=depth + 1)
+  }
 }

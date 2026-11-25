@@ -36,6 +36,7 @@ layout(location = 8) out vec2 v_screen_pos;
 layout(location = 9) out vec2 v_shape_pos;
 layout(location = 10) flat out vec4 v_grad_pts;
 layout(location = 11) flat out vec4 v_grad_meta; // x=grad_type, y=tile_mode, z=stop_off, w=stop_cnt
+layout(location = 12) flat out vec4 v_grad_extra; // x=inv_d/tex_id, y=inv_ty, z=0, w=0
 
 const vec2 CORNERS[6] = vec2[6](
   vec2(-1.0, -1.0),
@@ -94,4 +95,5 @@ void main() {
   v_shape_pos = local_pt;
   v_grad_pts = q.grad_pts;
   v_grad_meta = vec4(q.xform0.w, q.xform1.w, q.grad_info.x, q.grad_info.y);
+  v_grad_extra = vec4(q.grad_info.z, q.grad_info.w, 0.0, 0.0);
 }

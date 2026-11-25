@@ -1,46 +1,99 @@
 // AppRunner (live interactive window loop) and WidgetTester (headless automated testing).
 
 ///|
-fn key_to_ascii(key : Int, shift : Bool) -> Char? {
-  if key >= @tycho.KEY_A && key <= @tycho.KEY_Z {
-    let base = if shift { 65 } else { 97 }
-    return (base + (key - @tycho.KEY_A)).to_char()
-  }
-  if key >= @tycho.KEY_0 && key <= @tycho.KEY_9 {
-    return (48 + (key - @tycho.KEY_0)).to_char()
-  }
-  if key == @tycho.KEY_SPACE {
-    return Some(' ')
-  }
-  None
-}
+const K_MOD_SHIFT : Int = 1
 
 ///|
-fn route_key_to_text_ctrl(tree : UiTree, key : Int, shift : Bool) -> Bool {
+const K_MOD_CTRL : Int = 4
+
+///|
+fn route_key_to_text_ctrl(
+  tree : UiTree,
+  key : Int,
+  mods : Int,
+  sc : @tycho.Swapchain?,
+) -> Bool {
+  let shift = (mods & K_MOD_SHIFT) != 0
+  let ctrl = (mods & K_MOD_CTRL) != 0
+  if key == @tycho.KEY_TAB {
+    tree.cycle_text_focus(shift)
+    return true
+  }
   match tree.focused_text_controller() {
     Some(tc) => {
+      if ctrl {
+        if key == @tycho.KEY_A {
+          tc.select_all()
+          return true
+        }
+        if key == @tycho.KEY_C {
+          let sel = tc.selected_text()
+          if sel != "" {
+            match sc {
+              Some(s) => s.set_clipboard_text(sel)
+              None => ()
+            }
+          }
+          return true
+        }
+        if key == @tycho.KEY_X {
+          let sel = tc.selected_text()
+          if sel != "" {
+            match sc {
+              Some(s) => s.set_clipboard_text(sel)
+              None => ()
+            }
+            let _ = tc.delete_selection()
+          }
+          return true
+        }
+        if key == @tycho.KEY_V {
+          match sc {
+            Some(s) => tc.insert_text(s.clipboard_text())
+            None => ()
+          }
+          return true
+        }
+        if key == @tycho.KEY_Z {
+          if shift { tc.redo() } else { tc.undo() }
+          return true
+        }
+        if key == @tycho.KEY_Y {
+          tc.redo()
+          return true
+        }
+      }
       if key == @tycho.KEY_BACKSPACE {
         tc.backspace()
         return true
       }
+      if key == 0xffff {
+        tc.delete_forward()
+        return true
+      }
       if key == @tycho.KEY_LEFT {
-        tc.move_left()
+        tc.move_left(select=shift)
         return true
       }
       if key == @tycho.KEY_RIGHT {
-        tc.move_right()
+        tc.move_right(select=shift)
         return true
       }
-      match key_to_ascii(key, shift) {
-        Some(ch) => {
-          tc.insert_char(ch)
-          return true
-        }
-        None => ()
+      if key == 0xff50 {
+        tc.move_home(select=shift)
+        return true
+      }
+      if key == 0xff57 {
+        tc.move_end(select=shift)
+        return true
+      }
+      if key == @tycho.KEY_RETURN && tc.multiline {
+        tc.insert_char('\n')
+        return true
       }
       false
     }
-    None => false
+    None => tree.focus.dispatch_key(key, mods)
   }
 }
 
@@ -51,7 +104,9 @@ pub struct AppRunner {
   tree : UiTree
   arena : GestureArena
   controllers : Array[AnimationController]
+  mut inspector_enabled : Bool
   priv mut last_stats : FrameStats
+  priv mut last_gpu_ms : Double
   priv clear_color : @g2d.Color
 }
 
@@ -71,6 +126,7 @@ pub fn AppRunner::new(
     tree,
     arena: GestureArena::new(),
     controllers: [],
+    inspector_enabled: false,
     last_stats: {
       build_ms: 0.0,
       layout_ms: 0.0,
@@ -79,6 +135,7 @@ pub fn AppRunner::new(
       element_count: 0,
       render_count: 0,
     },
+    last_gpu_ms: 0.0,
     clear_color,
   }
 }
@@ -86,6 +143,11 @@ pub fn AppRunner::new(
 ///|
 pub fn AppRunner::add_animation(self : AppRunner, ctrl : AnimationController) -> Unit {
   self.controllers.push(ctrl)
+}
+
+///|
+pub fn AppRunner::set_inspector(self : AppRunner, enabled : Bool) -> Unit {
+  self.inspector_enabled = enabled
 }
 
 ///|
@@ -103,22 +165,45 @@ pub fn AppRunner::pump_frame(
   for c in self.controllers {
     let _ = c.tick(dt_sec)
   }
+  let _ = tick_implicit_animations(dt_sec)
+  let t0 = @tycho.Swapchain::time()
   self.tree.flush_builds()
+  let t1 = @tycho.Swapchain::time()
   self.tree.layout_root(width, height)
   if self.tree.sync_list_viewports() {
     self.tree.flush_builds()
     self.tree.layout_root(width, height)
   }
-  let dl = self.tree.build_display_list()
+  let t2 = @tycho.Swapchain::time()
+  let base_dl = self.tree.build_display_list()
+  let dl = if self.inspector_enabled {
+    let c = @g2d.Canvas::new()
+    c.draw_display_list(base_dl)
+    self.tree.debug_paint_inspector(c)
+    c.finish()
+  } else {
+    base_dl
+  }
+  let t3 = @tycho.Swapchain::time()
   self.last_stats = {
-    build_ms: 0.0,
-    layout_ms: 0.0,
-    paint_ms: 0.0,
-    gpu_ms: 0.0,
+    build_ms: (t1 - t0) * 1000.0,
+    layout_ms: (t2 - t1) * 1000.0,
+    paint_ms: (t3 - t2) * 1000.0,
+    gpu_ms: self.last_gpu_ms,
     element_count: self.tree.element_count(),
     render_count: self.tree.render_count(),
   }
   dl
+}
+
+///|
+pub fn AppRunner::has_active_animations(self : AppRunner) -> Bool {
+  for c in self.controllers {
+    if c.is_animating() {
+      return true
+    }
+  }
+  has_active_implicit_animations()
 }
 
 ///|
@@ -127,17 +212,30 @@ pub fn AppRunner::run_window(
   title : String,
   width : Int,
   height : Int,
+  dirty_driven? : Bool = true,
 ) -> Unit raise @tycho.RhiError {
   let sc = self.dev.create_swapchain_desc(
     @tycho.SwapchainDesc::new(title, width, height, depth=false),
   )
-  let mut shift_down = false
   let mut prev_t = @tycho.Swapchain::time()
   let mut quit = false
+  let mut needs_render = true
+  let mut prev_w = sc.width()
+  let mut prev_h = sc.height()
   while !quit && !sc.should_close() {
     let now_t = @tycho.Swapchain::time()
     let dt = if now_t > prev_t { now_t - prev_t } else { 0.016 }
     prev_t = now_t
+    match self.tree.focused_text_controller() {
+      Some(tc) => {
+        let prev_vis = tc.blink_phase < 0.55
+        tc.blink_phase = (tc.blink_phase + dt) % 1.0
+        if (tc.blink_phase < 0.55) != prev_vis {
+          needs_render = true
+        }
+      }
+      None => ()
+    }
     let dpr = Float::from_double(sc.content_scale())
     let inv_dpr = if dpr > (0.0 : Float) { (1.0 : Float) / dpr } else { (1.0 : Float) }
     let (mx_d, my_d) = sc.mouse_pos()
@@ -147,23 +245,27 @@ pub fn AppRunner::run_window(
     )
     let hover_hits = self.tree.hit_test(cur_pos)
     self.arena.update_hover(hover_hits)
+    sc.set_cursor_shape(self.arena.desired_cursor())
 
     for ev in sc.poll_events() {
+      needs_render = true
       match ev {
         @tycho.Event::CloseRequested => quit = true
-        @tycho.Event::KeyDown(k, _) => {
+        @tycho.Event::KeyDown(k, mods) => {
           if k == @tycho.KEY_ESCAPE {
-            quit = true
-          } else if k == @tycho.KEY_LSHIFT || k == @tycho.KEY_RSHIFT {
-            shift_down = true
+            if !self.tree.focus.dispatch_key(k, mods) {
+              quit = true
+            }
           } else {
-            let _ = route_key_to_text_ctrl(self.tree, k, shift_down)
+            let _ = route_key_to_text_ctrl(self.tree, k, mods, Some(sc))
           }
         }
-        @tycho.Event::KeyUp(k, _) =>
-          if k == @tycho.KEY_LSHIFT || k == @tycho.KEY_RSHIFT {
-            shift_down = false
+        @tycho.Event::TextInput(txt) =>
+          match self.tree.focused_text_controller() {
+            Some(tc) => tc.insert_text(txt)
+            None => ()
           }
+        @tycho.Event::KeyUp(_k, _mods) => ()
         @tycho.Event::MouseMove(x, y) => {
           let p = @g2d.Point::new(
             Float::from_int(x) * inv_dpr,
@@ -188,26 +290,42 @@ pub fn AppRunner::run_window(
           let hits = self.tree.hit_test(p)
           self.arena.handle_up(0, p, hits.length() > 0)
         }
-        @tycho.Event::MouseScroll(delta) => {
+        @tycho.Event::MouseScroll(dx, dy) => {
           let hits = self.tree.hit_test(cur_pos)
-          self.arena.handle_scroll(hits, (0.0 : Float), Float::from_int(delta))
+          self.arena.handle_scroll(hits, Float::from_int(dx), Float::from_int(dy))
         }
         _ => ()
       }
     }
-    let vw = Float::from_int(sc.width()) * inv_dpr
-    let vh = Float::from_int(sc.height()) * inv_dpr
-    let dl = self.pump_frame(vw, vh, dt_sec=dt)
-    let scaled_canvas = @g2d.Canvas::new()
-    if dpr != (1.0 : Float) && dpr > (0.0 : Float) {
-      scaled_canvas.scale(dpr, dpr)
+    let cur_w = sc.width()
+    let cur_h = sc.height()
+    if cur_w != prev_w || cur_h != prev_h {
+      prev_w = cur_w
+      prev_h = cur_h
+      needs_render = true
     }
-    scaled_canvas.draw_display_list(dl)
-    self.renderer.render_swapchain(
-      sc,
-      scaled_canvas.finish(),
-      clear_color=self.clear_color,
-    )
+    if !dirty_driven ||
+      needs_render ||
+      self.has_active_animations() ||
+      self.tree.has_pending_dirty() {
+      let vw = Float::from_int(cur_w) * inv_dpr
+      let vh = Float::from_int(cur_h) * inv_dpr
+      let dl = self.pump_frame(vw, vh, dt_sec=dt)
+      let scaled_canvas = @g2d.Canvas::new()
+      if dpr != (1.0 : Float) && dpr > (0.0 : Float) {
+        scaled_canvas.scale(dpr, dpr)
+      }
+      scaled_canvas.draw_display_list(dl)
+      let g0 = @tycho.Swapchain::time()
+      self.renderer.render_swapchain(
+        sc,
+        scaled_canvas.finish(),
+        clear_color=self.clear_color,
+      )
+      let g1 = @tycho.Swapchain::time()
+      self.last_gpu_ms = (g1 - g0) * 1000.0
+      needs_render = false
+    }
   }
   sc.destroy()
 }
@@ -289,8 +407,19 @@ pub fn WidgetTester::send_key(
   self : WidgetTester,
   key : Int,
   shift? : Bool = false,
+  ctrl? : Bool = false,
 ) -> Unit {
-  let _ = route_key_to_text_ctrl(self.tree, key, shift)
+  let mods = (if shift { K_MOD_SHIFT } else { 0 }) | (if ctrl { K_MOD_CTRL } else { 0 })
+  let _ = route_key_to_text_ctrl(self.tree, key, mods, None)
+  let _ = self.pump_frame()
+}
+
+///|
+pub fn WidgetTester::send_text(self : WidgetTester, text : String) -> Unit {
+  match self.tree.focused_text_controller() {
+    Some(tc) => tc.insert_text(text)
+    None => ()
+  }
   let _ = self.pump_frame()
 }
 

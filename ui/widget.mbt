@@ -71,60 +71,258 @@ pub struct TextController {
   cursor : Signal[Int]
   sel_anchor : Signal[Int]
   focused : Signal[Bool]
+  multiline : Bool
+  max_lines : Int
+  mut blink_phase : Double
+  priv undo_stack : Array[(String, Int)]
+  priv redo_stack : Array[(String, Int)]
+  priv mut last_tap_time : Double
+  priv mut last_tap_pos : Int
 }
 
 ///|
-pub fn TextController::new(initial? : String = "") -> TextController {
+pub fn TextController::new(
+  initial? : String = "",
+  multiline? : Bool = false,
+  max_lines? : Int = 1,
+) -> TextController {
   let len = initial.length()
   {
     text: Signal::new(initial),
     cursor: Signal::new(len),
     sel_anchor: Signal::new(len),
     focused: Signal::new(false),
+    multiline,
+    max_lines,
+    blink_phase: 0.0,
+    undo_stack: [],
+    redo_stack: [],
+    last_tap_time: -10.0,
+    last_tap_pos: -1,
   }
 }
 
 ///|
-pub fn TextController::insert_char(self : TextController, ch : Char) -> Unit {
+fn TextController::push_undo(self : TextController) -> Unit {
+  let snap = (self.text.peek(), self.cursor.peek())
+  if self.undo_stack.length() >= 100 {
+    let _ = self.undo_stack.remove(0)
+  }
+  self.undo_stack.push(snap)
+  self.redo_stack.clear()
+}
+
+///|
+pub fn TextController::selection_range(self : TextController) -> (Int, Int) {
+  let len = self.text.peek().length()
+  let a = clamp_i(self.sel_anchor.peek(), 0, len)
+  let b = clamp_i(self.cursor.peek(), 0, len)
+  if a <= b { (a, b) } else { (b, a) }
+}
+
+///|
+pub fn TextController::selected_text(self : TextController) -> String {
+  let (s0, s1) = self.selection_range()
+  if s0 == s1 {
+    ""
+  } else {
+    self.text.peek()[s0:s1].to_owned()
+  }
+}
+
+///|
+pub fn TextController::delete_selection(self : TextController) -> Bool {
+  let (s0, s1) = self.selection_range()
+  if s0 == s1 {
+    return false
+  }
+  self.push_undo()
   let s = self.text.peek()
-  let cur = clamp_i(self.cursor.peek(), 0, s.length())
-  let prefix = s[:cur].to_owned()
-  let suffix = s[cur:].to_owned()
-  self.text.set(prefix + ch.to_string() + suffix)
-  self.cursor.set(cur + 1)
-  self.sel_anchor.set(cur + 1)
+  let prefix = s[:s0].to_owned()
+  let suffix = s[s1:].to_owned()
+  self.text.set(prefix + suffix)
+  self.cursor.set(s0)
+  self.sel_anchor.set(s0)
+  self.blink_phase = 0.0
+  true
+}
+
+///|
+pub fn TextController::insert_text(self : TextController, txt : String) -> Unit {
+  if txt == "" {
+    return
+  }
+  self.push_undo()
+  let (s0, s1) = self.selection_range()
+  let s = self.text.peek()
+  let prefix = s[:s0].to_owned()
+  let suffix = s[s1:].to_owned()
+  self.text.set(prefix + txt + suffix)
+  let next_cur = s0 + txt.length()
+  self.cursor.set(next_cur)
+  self.sel_anchor.set(next_cur)
+  self.blink_phase = 0.0
+}
+
+///|
+pub fn TextController::insert_char(self : TextController, ch : Char) -> Unit {
+  self.insert_text(ch.to_string())
 }
 
 ///|
 pub fn TextController::backspace(self : TextController) -> Unit {
+  if self.delete_selection() {
+    return
+  }
   let s = self.text.peek()
   let cur = clamp_i(self.cursor.peek(), 0, s.length())
   if cur <= 0 {
     return
   }
+  self.push_undo()
   let prefix = s[:cur - 1].to_owned()
   let suffix = s[cur:].to_owned()
   self.text.set(prefix + suffix)
   self.cursor.set(cur - 1)
   self.sel_anchor.set(cur - 1)
+  self.blink_phase = 0.0
 }
 
 ///|
-pub fn TextController::move_left(self : TextController) -> Unit {
+pub fn TextController::delete_forward(self : TextController) -> Unit {
+  if self.delete_selection() {
+    return
+  }
+  let s = self.text.peek()
+  let cur = clamp_i(self.cursor.peek(), 0, s.length())
+  if cur >= s.length() {
+    return
+  }
+  self.push_undo()
+  let prefix = s[:cur].to_owned()
+  let suffix = s[cur + 1:].to_owned()
+  self.text.set(prefix + suffix)
+  self.blink_phase = 0.0
+}
+
+///|
+pub fn TextController::move_left(
+  self : TextController,
+  select? : Bool = false,
+) -> Unit {
   let cur = self.cursor.peek()
-  if cur > 0 {
-    self.cursor.set(cur - 1)
-    self.sel_anchor.set(cur - 1)
+  let next = if cur > 0 { cur - 1 } else { 0 }
+  self.cursor.set(next)
+  if !select {
+    self.sel_anchor.set(next)
+  }
+  self.blink_phase = 0.0
+}
+
+///|
+pub fn TextController::move_right(
+  self : TextController,
+  select? : Bool = false,
+) -> Unit {
+  let len = self.text.peek().length()
+  let cur = self.cursor.peek()
+  let next = if cur < len { cur + 1 } else { len }
+  self.cursor.set(next)
+  if !select {
+    self.sel_anchor.set(next)
+  }
+  self.blink_phase = 0.0
+}
+
+///|
+pub fn TextController::move_home(
+  self : TextController,
+  select? : Bool = false,
+) -> Unit {
+  self.cursor.set(0)
+  if !select {
+    self.sel_anchor.set(0)
+  }
+  self.blink_phase = 0.0
+}
+
+///|
+pub fn TextController::move_end(
+  self : TextController,
+  select? : Bool = false,
+) -> Unit {
+  let len = self.text.peek().length()
+  self.cursor.set(len)
+  if !select {
+    self.sel_anchor.set(len)
+  }
+  self.blink_phase = 0.0
+}
+
+///|
+pub fn TextController::select_all(self : TextController) -> Unit {
+  let len = self.text.peek().length()
+  self.sel_anchor.set(0)
+  self.cursor.set(len)
+  self.blink_phase = 0.0
+}
+
+///|
+fn is_word_char(c : Int) -> Bool {
+  (c >= 48 && c <= 57) ||
+  (c >= 65 && c <= 90) ||
+  (c >= 97 && c <= 122) ||
+  c == 95
+}
+
+///|
+pub fn TextController::select_word_at(self : TextController, pos : Int) -> Unit {
+  let s = self.text.peek()
+  let n = s.length()
+  if n == 0 {
+    return
+  }
+  let p = clamp_i(pos, 0, n - 1)
+  let mut l = p
+  let mut r = p + 1
+  if is_word_char(s[p].to_int()) {
+    while l > 0 && is_word_char(s[l - 1].to_int()) {
+      l = l - 1
+    }
+    while r < n && is_word_char(s[r].to_int()) {
+      r = r + 1
+    }
+  }
+  self.sel_anchor.set(l)
+  self.cursor.set(r)
+  self.blink_phase = 0.0
+}
+
+///|
+pub fn TextController::undo(self : TextController) -> Unit {
+  match self.undo_stack.pop() {
+    Some((prev_txt, prev_cur)) => {
+      self.redo_stack.push((self.text.peek(), self.cursor.peek()))
+      self.text.set(prev_txt)
+      self.cursor.set(prev_cur)
+      self.sel_anchor.set(prev_cur)
+      self.blink_phase = 0.0
+    }
+    None => ()
   }
 }
 
 ///|
-pub fn TextController::move_right(self : TextController) -> Unit {
-  let s = self.text.peek()
-  let cur = self.cursor.peek()
-  if cur < s.length() {
-    self.cursor.set(cur + 1)
-    self.sel_anchor.set(cur + 1)
+pub fn TextController::redo(self : TextController) -> Unit {
+  match self.redo_stack.pop() {
+    Some((next_txt, next_cur)) => {
+      self.undo_stack.push((self.text.peek(), self.cursor.peek()))
+      self.text.set(next_txt)
+      self.cursor.set(next_cur)
+      self.sel_anchor.set(next_cur)
+      self.blink_phase = 0.0
+    }
+    None => ()
   }
 }
 
@@ -216,6 +414,7 @@ pub(all) enum WidgetKind {
   CustomPaint(@g2d.Size, (@g2d.Canvas, @g2d.Size) -> Unit)
   GestureNode(GestureCallbacks, Widget)
   ListViewBuilder(Int, Float, ScrollController, (BuildContext, Int) -> Widget)
+  ScrollViewportNode(ScrollController, Axis, Widget)
   TextFieldNode(TextController, String, Float, Float) // ctrl, placeholder, width, font_size
 }
 
@@ -252,6 +451,7 @@ fn WidgetKind::tag(self : WidgetKind) -> Int {
     GestureNode(_, _) => 22
     ListViewBuilder(_, _, _, _) => 23
     TextFieldNode(_, _, _, _) => 24
+    ScrollViewportNode(_, _, _) => 25
   }
 }
 
@@ -599,6 +799,7 @@ pub fn gesture_detector(
     on_mouse_enter: None,
     on_mouse_exit: None,
     on_hover: None,
+    cursor: None,
   }
   { key, kind: WidgetKind::GestureNode(cbs, child) }
 }
@@ -609,6 +810,7 @@ pub fn mouse_region(
   on_enter? : (() -> Unit)? = None,
   on_exit? : (() -> Unit)? = None,
   on_hover? : ((@g2d.Point) -> Unit)? = None,
+  cursor? : @tycho.CursorShape? = None,
   child : Widget,
 ) -> Widget {
   let cbs : GestureCallbacks = {
@@ -620,6 +822,7 @@ pub fn mouse_region(
     on_mouse_enter: on_enter,
     on_mouse_exit: on_exit,
     on_hover,
+    cursor,
   }
   { key, kind: WidgetKind::GestureNode(cbs, child) }
 }
@@ -633,6 +836,20 @@ pub fn list_view_builder(
   item_builder : (BuildContext, Int) -> Widget,
 ) -> Widget {
   { key, kind: WidgetKind::ListViewBuilder(item_count, item_extent, controller, item_builder) }
+}
+
+///|
+pub fn single_child_scroll_view(
+  key? : Key? = None,
+  controller? : ScrollController? = None,
+  direction? : Axis = Axis::Vertical,
+  child : Widget,
+) -> Widget {
+  let ctrl = match controller {
+    Some(c) => c
+    None => ScrollController::new()
+  }
+  { key, kind: WidgetKind::ScrollViewportNode(ctrl, direction, child) }
 }
 
 ///|

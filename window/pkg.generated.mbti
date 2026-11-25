@@ -133,6 +133,8 @@ pub const KEY_Y : Int32 = 0x0079
 
 pub const KEY_Z : Int32 = 0x007a
 
+pub fn clipboard_text(UInt64) -> String
+
 pub fn content_scale(UInt64) -> Double
 
 pub fn create(Int32, Int32, String) -> UInt64
@@ -161,7 +163,11 @@ pub fn poll() -> Unit
 
 pub fn poll_events(UInt64) -> Array[Event]
 
+pub fn set_clipboard_text(UInt64, String) -> Unit
+
 pub fn set_cursor_mode(UInt64, CursorMode) -> Unit
+
+pub fn set_cursor_shape(UInt64, CursorShape) -> Unit
 
 pub fn set_fullscreen(UInt64, Bool) -> Unit
 
@@ -192,6 +198,16 @@ pub(all) enum CursorMode {
 }
 
 #derive(Eq, @debug.Debug)
+pub(all) enum CursorShape {
+  Default
+  Pointer
+  IBeam
+  Crosshair
+  HResize
+  VResize
+}
+
+#derive(Eq, @debug.Debug)
 pub(all) enum Event {
   CloseRequested
   Resized(Int32, Int32)
@@ -200,8 +216,9 @@ pub(all) enum Event {
   MouseMove(Int32, Int32)
   MouseDown(Int32, Int32, Int32)
   MouseUp(Int32, Int32, Int32)
-  MouseScroll(Int32)
+  MouseScroll(Int32, Int32)
   FocusChanged(Bool)
+  TextInput(String)
 }
 
 pub(all) enum Platform {

@@ -358,7 +358,7 @@ pub fn Rect::zero() -> Self
 pub struct RenderTargetPool {
   // private fields
 }
-pub fn RenderTargetPool::acquire(Self, Int32, Int32, with_depth_stencil? : Bool) -> (@tycho.Texture, @tycho.Texture?) raise @tycho.RhiError
+pub fn RenderTargetPool::acquire(Self, Int32, Int32, with_depth_stencil? : Bool, samples? : @tycho.SampleCount) -> (@tycho.Texture, @tycho.Texture?) raise @tycho.RhiError
 pub fn RenderTargetPool::destroy(Self) -> Unit
 pub fn RenderTargetPool::new(@tycho.Device) -> Self
 pub fn RenderTargetPool::release_all(Self) -> Unit

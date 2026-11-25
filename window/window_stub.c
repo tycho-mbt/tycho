@@ -46,6 +46,8 @@ static struct {
   int (*XPending)(Display *);
   int (*XNextEvent)(Display *, XEvent *);
   KeySym (*XLookupKeysym)(XKeyEvent *, int);
+  int (*XLookupString)(XKeyEvent *, char *, int, KeySym *, void *);
+  Cursor (*XCreateFontCursor)(Display *, unsigned int);
   int (*XWarpPointer)(Display *, Window, Window, int, int, unsigned int,
                       unsigned int, int, int);
   Pixmap (*XCreateBitmapFromData)(Display *, Drawable, const char *,
@@ -83,6 +85,8 @@ static int tycho_x11_load(void) {
   XLOAD(XPending);
   XLOAD(XNextEvent);
   XLOAD(XLookupKeysym);
+  XLOAD(XLookupString);
+  XLOAD(XCreateFontCursor);
   XLOAD(XWarpPointer);
   XLOAD(XCreateBitmapFromData);
   XLOAD(XCreatePixmapCursor);
@@ -120,6 +124,7 @@ typedef struct TychoWindow {
   double mouse_x;
   double mouse_y;
   uint32_t mouse_buttons;
+  Cursor shape_cursors[6];
   TychoEvent events[TYCHO_MAX_EVENTS];
   int ev_head;
   int ev_tail;
@@ -151,6 +156,7 @@ extern int32_t tycho_wl_mouse_button(uint64_t p, int32_t btn);
 extern int32_t tycho_wl_next_event(uint64_t p, int32_t *out4);
 extern uint64_t tycho_wl_surface(uint64_t p);
 extern void tycho_wl_set_cursor_mode(uint64_t p, int32_t mode);
+extern void tycho_wl_set_cursor_shape(uint64_t p, int32_t shape);
 extern void tycho_wl_set_fullscreen(uint64_t p, int32_t fs);
 extern int32_t tycho_wl_is_fullscreen(uint64_t p);
 extern double tycho_wl_content_scale(uint64_t p);
@@ -479,6 +485,18 @@ MOONBIT_FFI_EXPORT void tycho_win_poll(void) {
       case KeyPress: {
         KeySym ks = X11.XLookupKeysym(&ev.xkey, 0);
         push_event(tw, 3, (int32_t)ks, (int32_t)ev.xkey.state, 0);
+        // Emit TextInput for printable characters when Ctrl/Alt are not held.
+        if (X11.XLookupString && !(ev.xkey.state & (ControlMask | Mod1Mask))) {
+          char tbuf[16];
+          KeySym tks = 0;
+          int tlen = X11.XLookupString(&ev.xkey, tbuf, (int)sizeof(tbuf) - 1, &tks, NULL);
+          for (int ti = 0; ti < tlen; ti++) {
+            unsigned char ch = (unsigned char)tbuf[ti];
+            if (ch >= 0x20 && ch != 0x7f) {
+              push_event(tw, 10, (int32_t)ch, 0, 0);
+            }
+          }
+        }
         break;
       }
       case KeyRelease: {
@@ -513,9 +531,13 @@ MOONBIT_FFI_EXPORT void tycho_win_poll(void) {
       case ButtonPress: {
         int btn = (int)ev.xbutton.button;
         if (btn == 4) {
-          push_event(tw, 8, 1, 0, 0);
+          push_event(tw, 8, 0, 1, 0);
         } else if (btn == 5) {
+          push_event(tw, 8, 0, -1, 0);
+        } else if (btn == 6) {
           push_event(tw, 8, -1, 0, 0);
+        } else if (btn == 7) {
+          push_event(tw, 8, 1, 0, 0);
         } else if (btn >= 1 && btn < 32) {
           tw->mouse_buttons |= (1u << (uint32_t)btn);
           push_event(tw, 6, (int32_t)btn, (int32_t)ev.xbutton.x, (int32_t)ev.xbutton.y);
@@ -524,7 +546,7 @@ MOONBIT_FFI_EXPORT void tycho_win_poll(void) {
       }
       case ButtonRelease: {
         int btn = (int)ev.xbutton.button;
-        if (btn != 4 && btn != 5 && btn >= 1 && btn < 32) {
+        if (btn != 4 && btn != 5 && btn != 6 && btn != 7 && btn >= 1 && btn < 32) {
           tw->mouse_buttons &= ~(1u << (uint32_t)btn);
           push_event(tw, 7, (int32_t)btn, (int32_t)ev.xbutton.x, (int32_t)ev.xbutton.y);
         }
@@ -611,6 +633,44 @@ MOONBIT_FFI_EXPORT void tycho_win_set_cursor_mode(uint64_t p, int32_t mode) {
 #endif
 }
 
+static char *g_x11_clipboard = NULL;
+
+MOONBIT_FFI_EXPORT void tycho_win_set_cursor_shape(uint64_t p, int32_t shape) {
+  if (g_use_wayland) { tycho_wl_set_cursor_shape(p, shape); return; }
+#if TYCHO_HAVE_XLIB
+  TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
+  if (!tw || !tw->dpy || !tw->win || tw->cursor_mode != 0) return;
+  if (shape <= 0 || shape > 5) {
+    X11.XUndefineCursor(tw->dpy, tw->win);
+    X11.XFlush(tw->dpy);
+    return;
+  }
+  if (!tw->shape_cursors[shape] && X11.XCreateFontCursor) {
+    static const unsigned int xc_ids[6] = {68, 60, 152, 34, 108, 116};
+    tw->shape_cursors[shape] = X11.XCreateFontCursor(tw->dpy, xc_ids[shape]);
+  }
+  if (tw->shape_cursors[shape]) {
+    X11.XDefineCursor(tw->dpy, tw->win, tw->shape_cursors[shape]);
+    X11.XFlush(tw->dpy);
+  }
+#else
+  (void)p; (void)shape;
+#endif
+}
+
+MOONBIT_FFI_EXPORT void tycho_win_set_clipboard(uint64_t p, uint64_t text_ptr) {
+  (void)p;
+  const char *text = (const char *)(uintptr_t)text_ptr;
+  free(g_x11_clipboard);
+  g_x11_clipboard = text ? strdup(text) : NULL;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_win_get_clipboard(uint64_t p) {
+  (void)p;
+  const char *s = g_x11_clipboard ? g_x11_clipboard : "";
+  return (uint64_t)(uintptr_t)strdup(s);
+}
+
 MOONBIT_FFI_EXPORT void tycho_win_set_fullscreen(uint64_t p, int32_t fs) {
   if (g_use_wayland) { tycho_wl_set_fullscreen(p, fs); return; }
 #if TYCHO_HAVE_XLIB
@@ -691,6 +751,9 @@ MOONBIT_FFI_EXPORT double tycho_win_time(void) { return 0.0; }
 MOONBIT_FFI_EXPORT uint64_t tycho_win_display(uint64_t p) { (void)p; return 0; }
 MOONBIT_FFI_EXPORT uint64_t tycho_win_handle(uint64_t p) { (void)p; return 0; }
 MOONBIT_FFI_EXPORT void tycho_win_set_cursor_mode(uint64_t p, int32_t m) { (void)p; (void)m; }
+MOONBIT_FFI_EXPORT void tycho_win_set_cursor_shape(uint64_t p, int32_t s) { (void)p; (void)s; }
+MOONBIT_FFI_EXPORT void tycho_win_set_clipboard(uint64_t p, uint64_t t) { (void)p; (void)t; }
+MOONBIT_FFI_EXPORT uint64_t tycho_win_get_clipboard(uint64_t p) { (void)p; return (uint64_t)(uintptr_t)strdup(""); }
 MOONBIT_FFI_EXPORT void tycho_win_set_fullscreen(uint64_t p, int32_t f) { (void)p; (void)f; }
 MOONBIT_FFI_EXPORT int32_t tycho_win_is_fullscreen(uint64_t p) { (void)p; return 0; }
 MOONBIT_FFI_EXPORT double tycho_win_content_scale(uint64_t p) { (void)p; return 1.0; }

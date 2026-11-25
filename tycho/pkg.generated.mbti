@@ -613,6 +613,7 @@ pub struct Swapchain {
 }
 pub fn Swapchain::begin_frame(Self) -> CommandBuffer raise RhiError
 pub fn Swapchain::begin_frame_commands(Self) -> CommandBuffer raise RhiError
+pub fn Swapchain::clipboard_text(Self) -> String
 pub fn Swapchain::color_format(Self) -> TextureFormat
 pub fn Swapchain::content_scale(Self) -> Double
 pub fn Swapchain::create_mesh_pipeline(Self, MeshPipelineDesc) -> Pipeline raise RhiError
@@ -628,7 +629,9 @@ pub fn Swapchain::mouse_pos(Self) -> (Double, Double)
 pub fn Swapchain::poll_events(Self) -> Array[@tycho_window.Event]
 pub fn Swapchain::present_texture(Self, Texture) -> Unit raise RhiError
 pub fn Swapchain::readback(Self) -> FixedArray[Byte]
+pub fn Swapchain::set_clipboard_text(Self, String) -> Unit
 pub fn Swapchain::set_cursor_mode(Self, @tycho_window.CursorMode) -> Unit
+pub fn Swapchain::set_cursor_shape(Self, @tycho_window.CursorShape) -> Unit
 pub fn Swapchain::set_fullscreen(Self, Bool) -> Unit
 pub fn Swapchain::set_title(Self, String) -> Unit
 pub fn Swapchain::should_close(Self) -> Bool
@@ -708,6 +711,8 @@ pub(all) enum VertexStepMode {
 
 // Type aliases
 pub using @tycho_window {type CursorMode}
+
+pub using @tycho_window {type CursorShape}
 
 pub using @tycho_window {type Event}
 

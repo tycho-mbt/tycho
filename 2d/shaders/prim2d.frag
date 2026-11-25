@@ -31,6 +31,7 @@ layout(location = 8) in vec2 v_screen_pos;
 layout(location = 9) in vec2 v_shape_pos;
 layout(location = 10) flat in vec4 v_grad_pts;
 layout(location = 11) flat in vec4 v_grad_meta;
+layout(location = 12) flat in vec4 v_grad_extra;
 
 layout(location = 0) out vec4 out_color;
 
@@ -63,6 +64,24 @@ vec4 evalGradient(vec2 pt) {
   int gtype = int(v_grad_meta.x + 0.5);
   if (gtype == 0) {
     return v_fill;
+  }
+  if (gtype == 4) {
+    // ImagePattern: inv_matrix in v_grad_pts + v_grad_extra.xy, tile_x in v_grad_meta.y, tile_y in v_params.w
+    vec2 puv = vec2(
+      v_grad_pts.x * pt.x + v_grad_pts.y * pt.y + v_grad_pts.z,
+      v_grad_pts.w * pt.x + v_grad_extra.x * pt.y + v_grad_extra.y
+    );
+    int packed_tile = int(v_grad_meta.y + 0.5);
+    int tx_mode = packed_tile & 3;
+    int ty_mode = (packed_tile >> 2) & 3;
+    if ((tx_mode == 3 && (puv.x < 0.0 || puv.x > 1.0)) ||
+        (ty_mode == 3 && (puv.y < 0.0 || puv.y > 1.0))) {
+      return vec4(0.0);
+    }
+    vec2 tuv = vec2(tileParam(puv.x, tx_mode), tileParam(puv.y, ty_mode));
+    vec2 auv = mix(v_uv_rect.xy, v_uv_rect.zw, tuv);
+    vec4 tex = texture(u_color_atlas, clamp(auv, v_uv_rect.xy, v_uv_rect.zw));
+    return vec4(tex.rgb * v_fill.rgb, tex.a * v_fill.a);
   }
   int tile = int(v_grad_meta.y + 0.5);
   float t = 0.0;
@@ -154,7 +173,8 @@ void main() {
 
   // kind == 0 or 4: filled + optional border + optional gradient
   vec4 base = evalGradient(v_shape_pos);
-  if (v_uv_rect.z > v_uv_rect.x) {
+  int gtype_check = int(v_grad_meta.x + 0.5);
+  if (gtype_check != 4 && v_uv_rect.z > v_uv_rect.x) {
     base *= texture(u_color_atlas, clamp(v_uv, v_uv_rect.xy, v_uv_rect.zw));
   }
   float bw = v_params.x;

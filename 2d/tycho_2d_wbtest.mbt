@@ -70,3 +70,41 @@ test "builtin font metrics and paragraph wrapping plus caret selection" {
   let boxes = p.get_boxes_for_range(0, 5)
   assert_true(boxes.length() == 1 && boxes[0].width > (0.0 : Float))
 }
+
+///|
+test "canvas records ImagePattern, ColorMatrix, DropShadow, and ClipOp::Difference" {
+  let c = Canvas::new()
+  let img = Image2D::from_bytes(1, 2, 2, Bytes::make(16, (255 : Byte)))
+  let pat_paint = Paint::new(
+    shader=Some(
+      Shader2D::ImagePattern(
+        img,
+        Matrix3::identity(),
+        @tycho.Filter::Linear,
+        TileMode::Repeat,
+        TileMode::Mirror,
+      ),
+    ),
+  )
+  c.draw_rect(Rect::new((0.0 : Float), (0.0 : Float), (40.0 : Float), (40.0 : Float)), pat_paint)
+  let _ = c.save()
+  c.clip_rect(Rect::new((5.0 : Float), (5.0 : Float), (10.0 : Float), (10.0 : Float)), op=ClipOp::Difference)
+  let mat : FixedArray[Float] = FixedArray::make(20, (0.0 : Float))
+  mat[0] = (1.0 : Float)
+  mat[6] = (1.0 : Float)
+  mat[12] = (1.0 : Float)
+  mat[18] = (1.0 : Float)
+  let _ = c.save_layer(paint=Paint::new(image_filter=Some(ImageFilter::ColorMatrix(mat))))
+  let p = PathBuilder::new().add_circle((20.0 : Float), (20.0 : Float), (12.0 : Float)).build()
+  c.draw_path(
+    p,
+    Paint::new(
+      color=Color::white(),
+      image_filter=Some(ImageFilter::DropShadow((2.0 : Float), (2.0 : Float), (4.0 : Float), (4.0 : Float), Color::black())),
+    ),
+  )
+  c.restore()
+  c.restore()
+  let dl = c.finish()
+  assert_true(dl.op_count() >= 6)
+}

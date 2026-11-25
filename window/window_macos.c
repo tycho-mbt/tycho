@@ -421,6 +421,25 @@ MOONBIT_FFI_EXPORT void tycho_win_poll(void) {
         case 10: { // NSKeyDown
           unsigned short kc = (unsigned short)call0_ulong(ev, "keyCode");
           push_event(tw, 3, mac_keycode_to_tycho(kc), mac_mods(flags), 0);
+          // Emit TextInput when Ctrl/Option/Cmd are not held
+          if (!(flags & ((1ul << 18) | (1ul << 19) | (1ul << 20)))) {
+            void *chars = call0(ev, "characters");
+            const char *u8 = chars ? (const char *)call0(chars, "UTF8String") : NULL;
+            if (u8) {
+              const unsigned char *s = (const unsigned char *)u8;
+              while (*s) {
+                uint32_t cp = 0;
+                if (*s < 0x80) { cp = *s++; }
+                else if ((*s & 0xE0) == 0xC0 && s[1]) { cp = ((*s & 0x1F) << 6) | (s[1] & 0x3F); s += 2; }
+                else if ((*s & 0xF0) == 0xE0 && s[1] && s[2]) { cp = ((*s & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F); s += 3; }
+                else if ((*s & 0xF8) == 0xF0 && s[1] && s[2] && s[3]) { cp = ((*s & 0x07) << 18) | ((s[1] & 0x3F) << 12) | ((s[2] & 0x3F) << 6) | (s[3] & 0x3F); s += 4; }
+                else { s++; continue; }
+                if (cp >= 0x20 && cp != 0x7F && !(cp >= 0xF700 && cp <= 0xF8FF)) {
+                  push_event(tw, 10, (int32_t)cp, 0, 0);
+                }
+              }
+            }
+          }
           break;
         }
         case 11: { // NSKeyUp
@@ -449,8 +468,11 @@ MOONBIT_FFI_EXPORT void tycho_win_poll(void) {
           break;
         }
         case 22: { // ScrollWheel
+          double dx = call0_double(ev, "scrollingDeltaX");
           double dy = call0_double(ev, "scrollingDeltaY");
-          if (dy != 0.0) push_event(tw, 8, dy > 0.0 ? 1 : -1, 0, 0);
+          int ix = dx > 0.0 ? 1 : (dx < 0.0 ? -1 : 0);
+          int iy = dy > 0.0 ? 1 : (dy < 0.0 ? -1 : 0);
+          if (ix != 0 || iy != 0) push_event(tw, 8, ix, iy, 0);
           break;
         }
         default: break;
@@ -513,6 +535,56 @@ MOONBIT_FFI_EXPORT void tycho_win_set_cursor_mode(uint64_t p, int32_t mode) {
     call0(c, "unhide");
     tw->cursor_hidden = 0;
   }
+}
+
+static char *g_mac_clipboard = NULL;
+
+MOONBIT_FFI_EXPORT void tycho_win_set_cursor_shape(uint64_t p, int32_t shape) {
+  TychoMacWindow *tw = (TychoMacWindow *)(uintptr_t)p;
+  if (!tw || tw->cursor_mode != 0) return;
+  void *c = cls("NSCursor");
+  if (!c) return;
+  static const char *sels[6] = {
+    "arrowCursor", "pointingHandCursor", "IBeamCursor",
+    "crosshairCursor", "resizeLeftRightCursor", "resizeUpDownCursor"
+  };
+  int s = (shape >= 0 && shape < 6) ? shape : 0;
+  void *cur = call0(c, sels[s]);
+  if (cur) call0(cur, "set");
+}
+
+MOONBIT_FFI_EXPORT void tycho_win_set_clipboard(uint64_t p, uint64_t text_ptr) {
+  (void)p;
+  const char *text = (const char *)(uintptr_t)text_ptr;
+  free(g_mac_clipboard);
+  g_mac_clipboard = text ? strdup(text) : NULL;
+  void *pb_cls = cls("NSPasteboard");
+  void *ns_cls = cls("NSString");
+  if (!pb_cls || !ns_cls || !text) return;
+  void *pb = call0(pb_cls, "generalPasteboard");
+  void *ns_str = call1_ptr(ns_cls, "stringWithUTF8String:", (void *)text);
+  void *ns_type = call1_ptr(ns_cls, "stringWithUTF8String:", (void *)"public.utf8-plain-text");
+  if (pb && ns_str && ns_type) {
+    call0(pb, "clearContents");
+    typedef signed char (*SetStrFn)(void *, void *, void *, void *);
+    ((SetStrFn)O.msgSend)(pb, sel("setString:forType:"), ns_str, ns_type);
+  }
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_win_get_clipboard(uint64_t p) {
+  (void)p;
+  void *pb_cls = cls("NSPasteboard");
+  void *ns_cls = cls("NSString");
+  if (pb_cls && ns_cls) {
+    void *pb = call0(pb_cls, "generalPasteboard");
+    void *ns_type = call1_ptr(ns_cls, "stringWithUTF8String:", (void *)"public.utf8-plain-text");
+    if (pb && ns_type) {
+      void *str = call1_ptr(pb, "stringForType:", ns_type);
+      const char *u8 = str ? (const char *)call0(str, "UTF8String") : NULL;
+      if (u8) return (uint64_t)(uintptr_t)strdup(u8);
+    }
+  }
+  return (uint64_t)(uintptr_t)strdup(g_mac_clipboard ? g_mac_clipboard : "");
 }
 
 MOONBIT_FFI_EXPORT void tycho_win_set_fullscreen(uint64_t p, int32_t fs) {

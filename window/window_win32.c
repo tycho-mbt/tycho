@@ -30,6 +30,8 @@ typedef struct TychoWin32Window {
   int focused;
   int cursor_mode; // 0=Normal, 1=Hidden, 2=Locked
   int cursor_hidden;
+  int cursor_shape;
+  uint16_t high_surrogate;
   int fullscreen;
   int ignore_warp;
   DWORD saved_style;
@@ -76,6 +78,12 @@ static struct {
   BOOL (WINAPI *ClientToScreen)(HWND, LPPOINT);
   SHORT (WINAPI *GetKeyState)(int);
   HCURSOR (WINAPI *LoadCursorA)(HINSTANCE, LPCSTR);
+  HCURSOR (WINAPI *SetCursor)(HCURSOR);
+  BOOL (WINAPI *OpenClipboard)(HWND);
+  BOOL (WINAPI *CloseClipboard)(void);
+  BOOL (WINAPI *EmptyClipboard)(void);
+  HANDLE (WINAPI *GetClipboardData)(UINT);
+  HANDLE (WINAPI *SetClipboardData)(UINT, HANDLE);
   UINT (WINAPI *GetDpiForWindow)(HWND);
   BOOL (WINAPI *SetProcessDpiAwarenessContext)(HANDLE);
 } U;
@@ -244,6 +252,22 @@ static LRESULT CALLBACK tycho_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_SYSKEYUP:
       push_event(tw, 4, vk_to_tycho_key(wp), query_mods(), 0);
       return 0;
+    case WM_CHAR: {
+      uint32_t ch = (uint32_t)wp;
+      if (ch >= 0xD800 && ch <= 0xDBFF) {
+        tw->high_surrogate = (uint16_t)ch;
+      } else if (ch >= 0xDC00 && ch <= 0xDFFF && tw->high_surrogate) {
+        uint32_t cp = 0x10000u + (((uint32_t)(tw->high_surrogate - 0xD800u) << 10) | (ch - 0xDC00u));
+        tw->high_surrogate = 0;
+        push_event(tw, 10, (int32_t)cp, 0, 0);
+      } else {
+        tw->high_surrogate = 0;
+        if (ch >= 0x20 && ch != 0x7F) {
+          push_event(tw, 10, (int32_t)ch, 0, 0);
+        }
+      }
+      return 0;
+    }
     case WM_MOUSEMOVE: {
       int x = (int)(short)LOWORD(lp);
       int y = (int)(short)HIWORD(lp);
@@ -293,9 +317,22 @@ static LRESULT CALLBACK tycho_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       return 0;
     case WM_MOUSEWHEEL: {
       short delta = GET_WHEEL_DELTA_WPARAM(wp);
+      if (delta != 0) push_event(tw, 8, 0, delta > 0 ? 1 : -1, 0);
+      return 0;
+    }
+    case 0x020E: { // WM_MOUSEHWHEEL
+      short delta = GET_WHEEL_DELTA_WPARAM(wp);
       if (delta != 0) push_event(tw, 8, delta > 0 ? 1 : -1, 0, 0);
       return 0;
     }
+    case WM_SETCURSOR:
+      if (LOWORD(lp) == 1 && tw->cursor_mode == 0 && U.LoadCursorA && U.SetCursor) {
+        static const uintptr_t ids[6] = {32512, 32649, 32513, 32515, 32644, 32645};
+        int s = (tw->cursor_shape >= 0 && tw->cursor_shape < 6) ? tw->cursor_shape : 0;
+        U.SetCursor(U.LoadCursorA(NULL, (LPCSTR)ids[s]));
+        return TRUE;
+      }
+      return U.DefWindowProcA ? U.DefWindowProcA(hwnd, msg, wp, lp) : 0;
     default:
       return U.DefWindowProcA ? U.DefWindowProcA(hwnd, msg, wp, lp) : 0;
   }
@@ -335,6 +372,12 @@ static int load_user32(void) {
   LOAD(ClientToScreen);
   LOAD(GetKeyState);
   LOAD(LoadCursorA);
+  LOAD(SetCursor);
+  LOAD(OpenClipboard);
+  LOAD(CloseClipboard);
+  LOAD(EmptyClipboard);
+  LOAD(GetClipboardData);
+  LOAD(SetClipboardData);
   LOAD(GetDpiForWindow);
   LOAD(SetProcessDpiAwarenessContext);
 #undef LOAD
@@ -522,6 +565,67 @@ MOONBIT_FFI_EXPORT void tycho_win_set_cursor_mode(uint64_t p, int32_t mode) {
   }
   update_clip(tw);
   if (mode == 2 && tw->focused) warp_to_center(tw);
+}
+
+static char *g_win32_clipboard = NULL;
+
+MOONBIT_FFI_EXPORT void tycho_win_set_cursor_shape(uint64_t p, int32_t shape) {
+  TychoWin32Window *tw = (TychoWin32Window *)(uintptr_t)p;
+  if (!tw) return;
+  tw->cursor_shape = shape;
+  if (tw->cursor_mode == 0 && U.LoadCursorA && U.SetCursor) {
+    static const uintptr_t ids[6] = {32512, 32649, 32513, 32515, 32644, 32645};
+    int s = (shape >= 0 && shape < 6) ? shape : 0;
+    U.SetCursor(U.LoadCursorA(NULL, (LPCSTR)ids[s]));
+  }
+}
+
+MOONBIT_FFI_EXPORT void tycho_win_set_clipboard(uint64_t p, uint64_t text_ptr) {
+  TychoWin32Window *tw = (TychoWin32Window *)(uintptr_t)p;
+  const char *text = (const char *)(uintptr_t)text_ptr;
+  free(g_win32_clipboard);
+  g_win32_clipboard = text ? _strdup(text) : NULL;
+  if (!text || !U.OpenClipboard || !U.EmptyClipboard || !U.SetClipboardData || !U.CloseClipboard) return;
+  if (!U.OpenClipboard(tw ? tw->hwnd : NULL)) return;
+  U.EmptyClipboard();
+  int wlen = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+  if (wlen > 0) {
+    HGLOBAL hg = GlobalAlloc(GMEM_MOVEABLE, (size_t)wlen * sizeof(wchar_t));
+    if (hg) {
+      wchar_t *dst = (wchar_t *)GlobalLock(hg);
+      if (dst) {
+        MultiByteToWideChar(CP_UTF8, 0, text, -1, dst, wlen);
+        GlobalUnlock(hg);
+        U.SetClipboardData(CF_UNICODETEXT, hg);
+      } else {
+        GlobalFree(hg);
+      }
+    }
+  }
+  U.CloseClipboard();
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_win_get_clipboard(uint64_t p) {
+  TychoWin32Window *tw = (TychoWin32Window *)(uintptr_t)p;
+  if (U.OpenClipboard && U.GetClipboardData && U.CloseClipboard &&
+      U.OpenClipboard(tw ? tw->hwnd : NULL)) {
+    HANDLE hg = U.GetClipboardData(CF_UNICODETEXT);
+    char *out = NULL;
+    if (hg) {
+      const wchar_t *ws = (const wchar_t *)GlobalLock(hg);
+      if (ws) {
+        int u8len = WideCharToMultiByte(CP_UTF8, 0, ws, -1, NULL, 0, NULL, NULL);
+        if (u8len > 0) {
+          out = (char *)malloc((size_t)u8len);
+          if (out) WideCharToMultiByte(CP_UTF8, 0, ws, -1, out, u8len, NULL, NULL);
+        }
+        GlobalUnlock(hg);
+      }
+    }
+    U.CloseClipboard();
+    if (out) return (uint64_t)(uintptr_t)out;
+  }
+  return (uint64_t)(uintptr_t)_strdup(g_win32_clipboard ? g_win32_clipboard : "");
 }
 
 MOONBIT_FFI_EXPORT void tycho_win_set_fullscreen(uint64_t p, int32_t fs) {

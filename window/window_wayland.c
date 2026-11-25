@@ -499,6 +499,12 @@ static void kb_key(void *d, struct wl_proxy *kb, uint32_t serial, uint32_t time,
   if (ks == 0) return;
   // state: 0 = released, 1 = pressed (2 = repeated, wl_keyboard v10+).
   wl_push_event(g_keyboard_focus, state ? 3 : 4, (int32_t)ks, (int32_t)g_xmods, 0);
+  if (state && !(g_xmods & 4u) && !(g_xmods & 8u)) {
+    // Emit printable ASCII/Latin-1 codepoint as TextInput (kind 10)
+    if (ks >= 0x20 && ks <= 0x7e) {
+      wl_push_event(g_keyboard_focus, 10, (int32_t)ks, 0, 0);
+    }
+  }
 }
 
 static void kb_modifiers(void *d, struct wl_proxy *kb, uint32_t serial, uint32_t depressed,
@@ -620,9 +626,12 @@ static void ptr_button(void *d, struct wl_proxy *p, uint32_t serial, uint32_t ti
 static void ptr_axis(void *d, struct wl_proxy *p, uint32_t time, uint32_t axis, wl_fixed_t v) {
   (void)d; (void)p; (void)time;
   TychoWlWindow *tw = g_pointer_focus;
-  if (!tw || axis != 0 /* VERTICAL_SCROLL */ || v == 0) return;
-  // Positive values scroll down (X11 button 5 -> -1), matching the Xlib backend.
-  wl_push_event(tw, 8, v > 0 ? -1 : 1, 0, 0);
+  if (!tw || v == 0) return;
+  if (axis == 0 /* VERTICAL_SCROLL */) {
+    wl_push_event(tw, 8, 0, v > 0 ? -1 : 1, 0);
+  } else if (axis == 1 /* HORIZONTAL_SCROLL */) {
+    wl_push_event(tw, 8, v > 0 ? 1 : -1, 0, 0);
+  }
 }
 
 static void ptr_frame(void *d, struct wl_proxy *p) { (void)d; (void)p; }
@@ -1099,6 +1108,26 @@ void tycho_wl_set_cursor_mode(uint64_t p, int32_t mode) {
     add_listener(tw->locked, &locked_listener, tw);
   }
   ensure_cursor_theme();
+  apply_cursor(tw);
+  W.display_flush(g_wl);
+}
+
+void tycho_wl_set_cursor_shape(uint64_t p, int32_t shape) {
+  TychoWlWindow *tw = (TychoWlWindow *)(uintptr_t)p;
+  if (!tw || !C.theme || !C.surface || tw->cursor_mode != 0) return;
+  static const char *names[6] = {"left_ptr", "pointer", "xterm", "crosshair", "ew-resize", "ns-resize"};
+  const char *name = (shape >= 0 && shape < 6) ? names[shape] : "left_ptr";
+  struct wl_cursor *cur = C.theme_get_cursor(C.theme, name);
+  if (!cur && shape == 1) cur = C.theme_get_cursor(C.theme, "hand2");
+  if (!cur && shape == 2) cur = C.theme_get_cursor(C.theme, "text");
+  if (!cur) cur = C.theme_get_cursor(C.theme, "left_ptr");
+  if (!cur || cur->image_count == 0) return;
+  C.image = cur->images[0];
+  struct wl_proxy *buf = C.image_get_buffer(C.image);
+  if (!buf) return;
+  W.proxy_marshal(C.surface, 1, buf, 0, 0);
+  W.proxy_marshal(C.surface, 2, 0, 0, (int32_t)C.image->width, (int32_t)C.image->height);
+  W.proxy_marshal(C.surface, 6);
   apply_cursor(tw);
   W.display_flush(g_wl);
 }

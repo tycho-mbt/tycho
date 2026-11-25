@@ -154,15 +154,44 @@ fn build_scene(font : @g2d.FontFace, badge : @g2d.Image2D) -> @g2d.DisplayList {
   )
   c.draw_circle(@g2d.Point::new((500.0 : Float), (232.0 : Float)), (60.0 : Float), @g2d.Paint::new(shader=Some(rad_grad)))
 
-  // save_layer group alpha: overlapping shapes stay uniform alpha instead of double-blending!
+  // save_layer group alpha + ColorMatrix tint + ImagePattern + ClipOp::Difference
   let _ = c.save_layer(paint=@g2d.Paint::fill(@g2d.Color::rgba((1.0 : Float), (1.0 : Float), (1.0 : Float), (0.55 : Float))))
   c.draw_rrect(
-    @g2d.RRect::uniform(@g2d.Rect::new((600.0 : Float), (176.0 : Float), (88.0 : Float), (88.0 : Float)), (12.0 : Float)),
+    @g2d.RRect::uniform(@g2d.Rect::new((590.0 : Float), (168.0 : Float), (76.0 : Float), (76.0 : Float)), (12.0 : Float)),
     @g2d.Paint::fill(@g2d.Color::from_rgba8(64, 184, 255)),
   )
   c.draw_rrect(
-    @g2d.RRect::uniform(@g2d.Rect::new((644.0 : Float), (210.0 : Float), (88.0 : Float), (88.0 : Float)), (12.0 : Float)),
+    @g2d.RRect::uniform(@g2d.Rect::new((626.0 : Float), (200.0 : Float), (76.0 : Float), (76.0 : Float)), (12.0 : Float)),
     @g2d.Paint::fill(@g2d.Color::from_rgba8(255, 148, 64)),
+  )
+  c.restore()
+
+  // ImagePattern + ClipOp::Difference mini tile swatch at (688, 168)
+  let pat_shader = @g2d.Shader2D::ImagePattern(
+    badge,
+    @g2d.Matrix3::scale((0.6 : Float), (0.6 : Float)),
+    @tycho.Filter::Linear,
+    @g2d.TileMode::Repeat,
+    @g2d.TileMode::Repeat,
+  )
+  let _ = c.save()
+  c.clip_rect(@g2d.Rect::new((712.0 : Float), (190.0 : Float), (20.0 : Float), (20.0 : Float)), op=@g2d.ClipOp::Difference)
+  c.draw_rrect(
+    @g2d.RRect::uniform(@g2d.Rect::new((696.0 : Float), (170.0 : Float), (54.0 : Float), (54.0 : Float)), (8.0 : Float)),
+    @g2d.Paint::new(shader=Some(pat_shader)),
+  )
+  c.restore()
+
+  // ColorMatrix save_layer badge at (702, 242) — standard 4x5 row-major matrix
+  let cmat : FixedArray[Float] = FixedArray::make(20, (0.0 : Float))
+  cmat[0] = (0.35 : Float); cmat[1] = (0.55 : Float); cmat[2] = (0.10 : Float)
+  cmat[5] = (0.35 : Float); cmat[6] = (0.55 : Float); cmat[7] = (0.10 : Float)
+  cmat[10] = (0.35 : Float); cmat[11] = (0.55 : Float); cmat[12] = (0.10 : Float)
+  cmat[18] = (1.0 : Float)
+  let _ = c.save_layer(paint=@g2d.Paint::new(image_filter=Some(@g2d.ImageFilter::ColorMatrix(cmat))))
+  c.draw_rrect(
+    @g2d.RRect::uniform(@g2d.Rect::new((702.0 : Float), (242.0 : Float), (48.0 : Float), (48.0 : Float)), (10.0 : Float)),
+    @g2d.Paint::fill(@g2d.Color::from_rgba8(240, 80, 120)),
   )
   c.restore()
 
@@ -266,6 +295,12 @@ fn main {
     // 5. Frosted glass boundary at (300, 405) shows tinted blurred backdrop (not pure black)
     let (fr, fg, fb, fa) = px_at(px, w, 300, 405)
     let frost_ok = fa > 200 && (fr + fg + fb) > 100
+    // 6. ClipOp::Difference cutout at (722, 200) stays dark card background
+    let (dr, dg, db, _) = px_at(px, w, 722, 200)
+    let diff_ok = dr < 55 && dg < 65 && db < 85
+    // 7. ColorMatrix grayscale layer at (726, 266) makes R == G == B
+    let (mr, mg, mb, _) = px_at(px, w, 726, 266)
+    let cmat_ok = mr > 100 && (mr - mg).abs() <= 4 && (mg - mb).abs() <= 4
 
     rt.destroy()
 
@@ -293,11 +328,11 @@ fn main {
     let used = dev.allocator_used_bytes()
     dev.destroy()
 
-    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && errs == 0 && used == (0 : UInt64) {
-      println("[54-tycho-2d-showcase] OK — SDF + EvenOdd stencil star + Bezier stroke + save_layer + frosted blur verified, 0 validation errors")
+    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && errs == 0 && used == (0 : UInt64) {
+      println("[54-tycho-2d-showcase] OK — SDF + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified, 0 validation errors")
     } else {
       println(
-        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} errs=\{errs} used=\{used}",
+        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) errs=\{errs} used=\{used}",
       )
     }
   } catch {

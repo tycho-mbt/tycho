@@ -41,6 +41,12 @@ extern "c" fn win_handle_ffi(win : UInt64) -> UInt64 = "tycho_win_handle"
 
 extern "c" fn win_set_cursor_mode_ffi(win : UInt64, mode : Int32) = "tycho_win_set_cursor_mode"
 
+extern "c" fn win_set_cursor_shape_ffi(win : UInt64, shape : Int32) = "tycho_win_set_cursor_shape"
+
+extern "c" fn win_set_clipboard_ffi(win : UInt64, text : UInt64) = "tycho_win_set_clipboard"
+
+extern "c" fn win_get_clipboard_ffi(win : UInt64) -> UInt64 = "tycho_win_get_clipboard"
+
 extern "c" fn win_set_fullscreen_ffi(win : UInt64, fs : Int32) = "tycho_win_set_fullscreen"
 
 extern "c" fn win_is_fullscreen_ffi(win : UInt64) -> Int32 = "tycho_win_is_fullscreen"
@@ -264,6 +270,17 @@ pub(all) enum CursorMode {
 
 ///|
 #derive(Eq, Debug)
+pub(all) enum CursorShape {
+  Default
+  Pointer
+  IBeam
+  Crosshair
+  HResize
+  VResize
+}
+
+///|
+#derive(Eq, Debug)
 pub(all) enum Event {
   CloseRequested
   Resized(Int, Int)
@@ -272,8 +289,9 @@ pub(all) enum Event {
   MouseMove(Int, Int)
   MouseDown(Int, Int, Int)
   MouseUp(Int, Int, Int)
-  MouseScroll(Int)
+  MouseScroll(Int, Int)
   FocusChanged(Bool)
+  TextInput(String)
 }
 
 ///|
@@ -344,6 +362,38 @@ pub fn set_cursor_mode(win : UInt64, mode : CursorMode) -> Unit {
 }
 
 ///|
+pub fn set_cursor_shape(win : UInt64, shape : CursorShape) -> Unit {
+  let s : Int32 = match shape {
+    CursorShape::Default => 0
+    CursorShape::Pointer => 1
+    CursorShape::IBeam => 2
+    CursorShape::Crosshair => 3
+    CursorShape::HResize => 4
+    CursorShape::VResize => 5
+  }
+  win_set_cursor_shape_ffi(win, s)
+}
+
+///|
+pub fn set_clipboard_text(win : UInt64, text : String) -> Unit {
+  let s = @vk.cstr(text)
+  win_set_clipboard_ffi(win, s)
+  @vk.free_ptr(s)
+}
+
+///|
+pub fn clipboard_text(win : UInt64) -> String {
+  let ptr = win_get_clipboard_ffi(win)
+  if ptr == (0 : UInt64) {
+    ""
+  } else {
+    let s = @vk.read_cstr(ptr)
+    @vk.free_ptr(ptr)
+    s
+  }
+}
+
+///|
 pub fn set_fullscreen(win : UInt64, fullscreen : Bool) -> Unit {
   win_set_fullscreen_ffi(win, if fullscreen { (1 : Int32) } else { (0 : Int32) })
 }
@@ -391,8 +441,12 @@ pub fn poll_events(win : UInt64) -> Array[Event] {
       5 => Event::MouseMove(a, b)
       6 => Event::MouseDown(a, b, c)
       7 => Event::MouseUp(a, b, c)
-      8 => Event::MouseScroll(a)
+      8 => Event::MouseScroll(a, b)
       9 => Event::FocusChanged(a != 0)
+      10 => {
+        let ch = Int::unsafe_to_char(a)
+        Event::TextInput(ch.to_string())
+      }
       _ => Event::CloseRequested
     }
     out.push(ev)

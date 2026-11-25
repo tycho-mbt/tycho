@@ -165,6 +165,24 @@ pub fn Swapchain::set_cursor_mode(self : Swapchain, mode : CursorMode) -> Unit {
 }
 
 ///|
+pub fn Swapchain::set_cursor_shape(
+  self : Swapchain,
+  shape : CursorShape,
+) -> Unit {
+  @win.set_cursor_shape(self.inner.window, shape)
+}
+
+///|
+pub fn Swapchain::clipboard_text(self : Swapchain) -> String {
+  @win.clipboard_text(self.inner.window)
+}
+
+///|
+pub fn Swapchain::set_clipboard_text(self : Swapchain, text : String) -> Unit {
+  @win.set_clipboard_text(self.inner.window, text)
+}
+
+///|
 pub fn Swapchain::set_fullscreen(self : Swapchain, fullscreen : Bool) -> Unit {
   @win.set_fullscreen(self.inner.window, fullscreen)
 }

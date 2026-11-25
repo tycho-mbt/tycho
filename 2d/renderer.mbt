@@ -23,6 +23,13 @@ priv struct RenderSaveState {
 }
 
 ///|
+priv struct CachedPathMesh {
+  verts : Array[Float]
+  bounds : Rect
+  mut last_frame : Int
+}
+
+///|
 pub struct Renderer2D {
   priv dev : @tycho.Device
   priv sampler : @tycho.Sampler
@@ -30,16 +37,25 @@ pub struct Renderer2D {
   priv color_atlas : DynamicAtlas
   priv rt_pool : RenderTargetPool
   priv uploaded_images : Map[Int, (Float, Float, Float, Float)]
+  priv msaa_supported : Bool
   // AOT pipelines (depth_format = Depth24Stencil8 for main / layer passes)
   priv prim_pipe : @tycho.Pipeline
   priv prim_clip_pipe : @tycho.Pipeline
+  priv bindless_heap : @tycho.BindlessHeap?
+  priv prim_bindless_pipe : @tycho.Pipeline?
+  priv prim_bindless_clip_pipe : @tycho.Pipeline?
   priv stencil_nz_pipe : @tycho.Pipeline
   priv stencil_eo_pipe : @tycho.Pipeline
   priv stencil_clip_pipe : @tycho.Pipeline
+  priv stencil_clear_clip_pipe : @tycho.Pipeline
   priv path_cover_pipe : @tycho.Pipeline
   priv path_cover_clip_pipe : @tycho.Pipeline
   priv stroke_pipe : @tycho.Pipeline
   priv stroke_clip_pipe : @tycho.Pipeline
+  priv stencil_nz_msaa_pipe : @tycho.Pipeline?
+  priv stencil_eo_msaa_pipe : @tycho.Pipeline?
+  priv path_cover_msaa_pipe : @tycho.Pipeline?
+  priv stroke_msaa_pipe : @tycho.Pipeline?
   priv composite_ds_pipe : @tycho.Pipeline
   priv composite_ds_dstin_pipe : @tycho.Pipeline
   priv composite_ds_srcin_pipe : @tycho.Pipeline
@@ -54,11 +70,17 @@ pub struct Renderer2D {
   priv max_stops : Int
   priv max_path_verts : Int
   priv prim_ssbo : @tycho.Buffer
+  priv overflow_prim_ssbos : Array[@tycho.Buffer]
+  priv mut active_prim_ssbo : @tycho.Buffer
+  priv mut active_prim_slot_base : Int
+  priv mut active_prim_chunk : Int
   priv grad_ssbo : @tycho.Buffer
+  priv color_mat_ssbo : @tycho.Buffer
   priv path_vbuf : @tycho.Buffer
   priv prim_scratch : FixedArray[Float]
   priv stop_scratch : FixedArray[Float]
   priv path_scratch : FixedArray[Float]
+  priv path_cache : Map[String, CachedPathMesh]
   priv mut frame_idx : Int
   // Per-frame active batch cursors
   priv mut prim_cursor : Int
@@ -85,6 +107,8 @@ fn make_rhi_stencil_pipeline(
   stencil : @tycho.StencilState,
   color_write : Bool,
   blend_mode : @tycho.BlendMode,
+  samples? : @tycho.SampleCount = @tycho.SampleCount::X1,
+  bindless_heap? : @tycho.BindlessHeap? = None,
 ) -> @tycho.Pipeline raise @tycho.RhiError {
   dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
@@ -93,9 +117,11 @@ fn make_rhi_stencil_pipeline(
       blend_mode=Some(blend_mode),
       color_write~,
       cull_mode=@tycho.CullMode::None,
+      samples~,
       color_format=Some(@tycho.TextureFormat::RGBA8),
       depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
       stencil=Some(stencil),
+      bindless_heap~,
     ),
   )
 }
@@ -211,6 +237,27 @@ pub fn Renderer2D::new(
     spv_path_stencil_vert,
     spv_path_stencil_frag,
     st_clip_wr,
+    false,
+    @tycho.BlendMode::Opaque,
+  )
+  let st_clip_clr = @tycho.StencilState::new(
+    front=@tycho.StencilFaceState::new(
+      pass_op=@tycho.StencilOp::Replace,
+      compare_op=@tycho.CompareOp::Always,
+    ),
+    back=@tycho.StencilFaceState::new(
+      pass_op=@tycho.StencilOp::Replace,
+      compare_op=@tycho.CompareOp::Always,
+    ),
+    compare_mask=(0x80 : UInt32),
+    write_mask=(0x80 : UInt32),
+    reference=(0 : UInt32),
+  )
+  let stencil_clear_clip_pipe = make_rhi_stencil_pipeline(
+    dev,
+    spv_path_stencil_vert,
+    spv_path_stencil_frag,
+    st_clip_clr,
     false,
     @tycho.BlendMode::Opaque,
   )
@@ -347,6 +394,89 @@ pub fn Renderer2D::new(
     ),
   )
 
+  let msaa_supported = dev.capabilities().max_framebuffer_samples >= 4
+  let (stencil_nz_msaa_pipe, stencil_eo_msaa_pipe, path_cover_msaa_pipe, stroke_msaa_pipe) = if msaa_supported {
+    (
+      Some(
+        make_rhi_stencil_pipeline(
+          dev,
+          spv_path_stencil_vert,
+          spv_path_stencil_frag,
+          st_nz,
+          false,
+          @tycho.BlendMode::Opaque,
+          samples=@tycho.SampleCount::X4,
+        ),
+      ),
+      Some(
+        make_rhi_stencil_pipeline(
+          dev,
+          spv_path_stencil_vert,
+          spv_path_stencil_frag,
+          st_eo,
+          false,
+          @tycho.BlendMode::Opaque,
+          samples=@tycho.SampleCount::X4,
+        ),
+      ),
+      Some(
+        make_rhi_stencil_pipeline(
+          dev,
+          spv_path_cover_vert,
+          spv_path_cover_frag,
+          st_cover,
+          true,
+          @tycho.BlendMode::Premultiplied,
+          samples=@tycho.SampleCount::X4,
+        ),
+      ),
+      Some(
+        dev.create_graphics_pipeline(
+          @tycho.PipelineDesc::from_spirv(
+            spv_path_cover_vert,
+            spv_path_cover_frag,
+            blend_mode=Some(@tycho.BlendMode::Premultiplied),
+            cull_mode=@tycho.CullMode::None,
+            samples=@tycho.SampleCount::X4,
+            color_format=Some(@tycho.TextureFormat::RGBA8),
+            depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+          ),
+        ),
+      ),
+    )
+  } else {
+    (None, None, None, None)
+  }
+
+  let (bindless_heap, prim_bindless_pipe, prim_bindless_clip_pipe) = if dev.capabilities().supports_bindless {
+    let heap = dev.create_bindless_heap(max_textures=256)
+    let _ = heap.register_texture(glyph_cache.atlas.texture, sampler)
+    let _ = heap.register_texture(color_atlas.texture, sampler)
+    let bp = dev.create_graphics_pipeline(
+      @tycho.PipelineDesc::from_spirv(
+        spv_prim2d_vert,
+        spv_prim2d_bindless_frag,
+        blend_mode=Some(@tycho.BlendMode::Premultiplied),
+        cull_mode=@tycho.CullMode::None,
+        color_format=Some(@tycho.TextureFormat::RGBA8),
+        depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+        bindless_heap=Some(heap),
+      ),
+    )
+    let bcp = make_rhi_stencil_pipeline(
+      dev,
+      spv_prim2d_vert,
+      spv_prim2d_bindless_frag,
+      st_test_clip,
+      true,
+      @tycho.BlendMode::Premultiplied,
+      bindless_heap=Some(heap),
+    )
+    (Some(heap), Some(bp), Some(bcp))
+  } else {
+    (None, None, None)
+  }
+
   let prim_ssbo = dev.create_buffer_with(
     2 * max_prims_per_frame * PRIM_BYTES,
     @tycho.BufferKind::Storage,
@@ -354,6 +484,11 @@ pub fn Renderer2D::new(
   )
   let grad_ssbo = dev.create_buffer_with(
     2 * max_stops_per_frame * STOP_BYTES,
+    @tycho.BufferKind::Storage,
+    location=@tycho.MemoryLocation::CpuToGpu,
+  )
+  let color_mat_ssbo = dev.create_buffer_with(
+    20 * 4,
     @tycho.BufferKind::Storage,
     location=@tycho.MemoryLocation::CpuToGpu,
   )
@@ -370,15 +505,24 @@ pub fn Renderer2D::new(
     color_atlas,
     rt_pool,
     uploaded_images: {},
+    msaa_supported,
     prim_pipe,
     prim_clip_pipe,
+    bindless_heap,
+    prim_bindless_pipe,
+    prim_bindless_clip_pipe,
     stencil_nz_pipe,
     stencil_eo_pipe,
     stencil_clip_pipe,
+    stencil_clear_clip_pipe,
     path_cover_pipe,
     path_cover_clip_pipe,
     stroke_pipe,
     stroke_clip_pipe,
+    stencil_nz_msaa_pipe,
+    stencil_eo_msaa_pipe,
+    path_cover_msaa_pipe,
+    stroke_msaa_pipe,
     composite_ds_pipe,
     composite_ds_dstin_pipe,
     composite_ds_srcin_pipe,
@@ -391,11 +535,17 @@ pub fn Renderer2D::new(
     max_stops: max_stops_per_frame,
     max_path_verts: max_path_verts_per_frame,
     prim_ssbo,
+    overflow_prim_ssbos: [],
+    active_prim_ssbo: prim_ssbo,
+    active_prim_slot_base: 0,
+    active_prim_chunk: 0,
     grad_ssbo,
+    color_mat_ssbo,
     path_vbuf,
     prim_scratch: FixedArray::make(PRIM_FLOATS, (0.0 : Float)),
     stop_scratch: FixedArray::make(STOP_FLOATS, (0.0 : Float)),
     path_scratch: FixedArray::make(max_path_verts_per_frame * PATH_VERT_FLOATS, (0.0 : Float)),
+    path_cache: {},
     frame_idx: 0,
     prim_cursor: 0,
     prim_batch_start: 0,
@@ -417,13 +567,42 @@ pub fn Renderer2D::new(
 pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
   self.prim_pipe.destroy()
   self.prim_clip_pipe.destroy()
+  match self.prim_bindless_pipe {
+    Some(p) => p.destroy()
+    None => ()
+  }
+  match self.prim_bindless_clip_pipe {
+    Some(p) => p.destroy()
+    None => ()
+  }
+  match self.bindless_heap {
+    Some(h) => h.destroy()
+    None => ()
+  }
   self.stencil_nz_pipe.destroy()
   self.stencil_eo_pipe.destroy()
   self.stencil_clip_pipe.destroy()
+  self.stencil_clear_clip_pipe.destroy()
   self.path_cover_pipe.destroy()
   self.path_cover_clip_pipe.destroy()
   self.stroke_pipe.destroy()
   self.stroke_clip_pipe.destroy()
+  match self.stencil_nz_msaa_pipe {
+    Some(p) => p.destroy()
+    None => ()
+  }
+  match self.stencil_eo_msaa_pipe {
+    Some(p) => p.destroy()
+    None => ()
+  }
+  match self.path_cover_msaa_pipe {
+    Some(p) => p.destroy()
+    None => ()
+  }
+  match self.stroke_msaa_pipe {
+    Some(p) => p.destroy()
+    None => ()
+  }
   self.composite_ds_pipe.destroy()
   self.composite_ds_dstin_pipe.destroy()
   self.composite_ds_srcin_pipe.destroy()
@@ -435,7 +614,11 @@ pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
     None => ()
   }
   self.prim_ssbo.destroy()
+  for ob in self.overflow_prim_ssbos {
+    ob.destroy()
+  }
   self.grad_ssbo.destroy()
+  self.color_mat_ssbo.destroy()
   self.path_vbuf.destroy()
   self.rt_pool.destroy()
   self.glyph_cache.destroy()
@@ -504,78 +687,182 @@ fn Renderer2D::push_gradient_stops(
 }
 
 ///|
+priv struct ResolvedShader {
+  fill : Color
+  grad_type : Float
+  tile_mode : Float
+  gp0 : Float
+  gp1 : Float
+  gp2 : Float
+  gp3 : Float
+  stop_off : Float
+  stop_cnt : Float
+  extra0 : Float
+  extra1 : Float
+  u0 : Float
+  v0 : Float
+  u1 : Float
+  v1 : Float
+}
+
+///|
+fn tile_mode_int(t : TileMode) -> Int {
+  match t {
+    TileMode::Clamp => 0
+    TileMode::Repeat => 1
+    TileMode::Mirror => 2
+    TileMode::Decal => 3
+  }
+}
+
+///|
 fn Renderer2D::resolve_paint_shader(
   self : Renderer2D,
   paint : Paint,
-) -> (Color, Float, Float, Float, Float, Float, Float, Float, Float) raise @tycho.RhiError {
+) -> ResolvedShader raise @tycho.RhiError {
   match paint.shader {
     None =>
-      (
-        paint.color,
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-      )
+      {
+        fill: paint.color,
+        grad_type: (0.0 : Float),
+        tile_mode: (0.0 : Float),
+        gp0: (0.0 : Float),
+        gp1: (0.0 : Float),
+        gp2: (0.0 : Float),
+        gp3: (0.0 : Float),
+        stop_off: (0.0 : Float),
+        stop_cnt: (0.0 : Float),
+        extra0: (0.0 : Float),
+        extra1: (0.0 : Float),
+        u0: (0.0 : Float),
+        v0: (0.0 : Float),
+        u1: (0.0 : Float),
+        v1: (0.0 : Float),
+      }
     Some(Shader2D::Solid(col)) =>
-      (
-        col,
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-      )
+      {
+        fill: col,
+        grad_type: (0.0 : Float),
+        tile_mode: (0.0 : Float),
+        gp0: (0.0 : Float),
+        gp1: (0.0 : Float),
+        gp2: (0.0 : Float),
+        gp3: (0.0 : Float),
+        stop_off: (0.0 : Float),
+        stop_cnt: (0.0 : Float),
+        extra0: (0.0 : Float),
+        extra1: (0.0 : Float),
+        u0: (0.0 : Float),
+        v0: (0.0 : Float),
+        u1: (0.0 : Float),
+        v1: (0.0 : Float),
+      }
     Some(Shader2D::LinearGradient(p0, p1, stops, tile)) => {
       let (soff, scnt) = self.push_gradient_stops(stops)
       let c0 = if stops.length() > 0 { stops[0].color } else { paint.color }
-      (c0, (1.0 : Float), tile_mode_float(tile), p0.x, p0.y, p1.x, p1.y, soff, scnt)
+      {
+        fill: c0,
+        grad_type: (1.0 : Float),
+        tile_mode: tile_mode_float(tile),
+        gp0: p0.x,
+        gp1: p0.y,
+        gp2: p1.x,
+        gp3: p1.y,
+        stop_off: soff,
+        stop_cnt: scnt,
+        extra0: (0.0 : Float),
+        extra1: (0.0 : Float),
+        u0: (0.0 : Float),
+        v0: (0.0 : Float),
+        u1: (0.0 : Float),
+        v1: (0.0 : Float),
+      }
     }
     Some(Shader2D::RadialGradient(center, radius, stops, tile)) => {
       let (soff, scnt) = self.push_gradient_stops(stops)
       let c0 = if stops.length() > 0 { stops[0].color } else { paint.color }
-      (
-        c0,
-        (2.0 : Float),
-        tile_mode_float(tile),
-        center.x,
-        center.y,
-        radius,
-        (0.0 : Float),
-        soff,
-        scnt,
-      )
+      {
+        fill: c0,
+        grad_type: (2.0 : Float),
+        tile_mode: tile_mode_float(tile),
+        gp0: center.x,
+        gp1: center.y,
+        gp2: radius,
+        gp3: (0.0 : Float),
+        stop_off: soff,
+        stop_cnt: scnt,
+        extra0: (0.0 : Float),
+        extra1: (0.0 : Float),
+        u0: (0.0 : Float),
+        v0: (0.0 : Float),
+        u1: (0.0 : Float),
+        v1: (0.0 : Float),
+      }
     }
     Some(Shader2D::SweepGradient(center, a0, a1, stops, tile)) => {
       let (soff, scnt) = self.push_gradient_stops(stops)
       let c0 = if stops.length() > 0 { stops[0].color } else { paint.color }
-      (c0, (3.0 : Float), tile_mode_float(tile), center.x, center.y, a0, a1, soff, scnt)
+      {
+        fill: c0,
+        grad_type: (3.0 : Float),
+        tile_mode: tile_mode_float(tile),
+        gp0: center.x,
+        gp1: center.y,
+        gp2: a0,
+        gp3: a1,
+        stop_off: soff,
+        stop_cnt: scnt,
+        extra0: (0.0 : Float),
+        extra1: (0.0 : Float),
+        u0: (0.0 : Float),
+        v0: (0.0 : Float),
+        u1: (0.0 : Float),
+        v1: (0.0 : Float),
+      }
     }
-    Some(Shader2D::ImagePattern(_img, _m, _f, _tx, _ty)) =>
-      (
-        paint.color,
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-        (0.0 : Float),
-      )
+    Some(Shader2D::ImagePattern(img, mat, _f, tx, ty)) => {
+      let (u0, v0, u1, v1) = self.ensure_image_uv(img)
+      let iw = if img.width > 0 { Float::from_int(img.width) } else { (1.0 : Float) }
+      let ih = if img.height > 0 { Float::from_int(img.height) } else { (1.0 : Float) }
+      let det = mat.a * mat.d - mat.b * mat.c
+      let (ia, ic, itx, ib, id_, ity) = if abs_f(det) > (1.0e-6 : Float) {
+        (
+          mat.d / det,
+          -mat.c / det,
+          (mat.c * mat.ty - mat.d * mat.tx) / det,
+          -mat.b / det,
+          mat.a / det,
+          (mat.b * mat.tx - mat.a * mat.ty) / det,
+        )
+      } else {
+        ((1.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float), (1.0 : Float), (0.0 : Float))
+      }
+      let packed = Float::from_int(tile_mode_int(tx) + tile_mode_int(ty) * 4)
+      {
+        fill: paint.color,
+        grad_type: (4.0 : Float),
+        tile_mode: packed,
+        gp0: ia / iw,
+        gp1: ic / iw,
+        gp2: itx / iw,
+        gp3: ib / ih,
+        stop_off: (0.0 : Float),
+        stop_cnt: (0.0 : Float),
+        extra0: id_ / ih,
+        extra1: ity / ih,
+        u0,
+        v0,
+        u1,
+        v1,
+      }
+    }
   }
 }
 
 ///|
 fn Renderer2D::emit_prim(
   self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
   rx : Float,
   ry : Float,
   rw : Float,
@@ -602,9 +889,28 @@ fn Renderer2D::emit_prim(
   gp3 : Float,
   stop_off : Float,
   stop_cnt : Float,
+  extra0? : Float = (-1.0 : Float),
+  extra1? : Float = (0.0 : Float),
 ) -> Unit raise @tycho.RhiError {
   if self.prim_cursor >= self.max_prims {
-    return
+    self.flush_prims(cmd)
+    let ov_idx = self.active_prim_chunk
+    self.active_prim_chunk = self.active_prim_chunk + 1
+    let buf = if ov_idx < self.overflow_prim_ssbos.length() {
+      self.overflow_prim_ssbos[ov_idx]
+    } else {
+      let nb = self.dev.create_buffer_with(
+        self.max_prims * PRIM_BYTES,
+        @tycho.BufferKind::Storage,
+        location=@tycho.MemoryLocation::CpuToGpu,
+      )
+      self.overflow_prim_ssbos.push(nb)
+      nb
+    }
+    self.active_prim_ssbo = buf
+    self.active_prim_slot_base = 0
+    self.prim_cursor = 0
+    self.prim_batch_start = 0
   }
   let p = self.prim_scratch
   let xf = self.cur_transform
@@ -646,10 +952,10 @@ fn Renderer2D::emit_prim(
   p[35] = gp3
   p[36] = stop_off
   p[37] = stop_cnt
-  p[38] = (0.0 : Float)
-  p[39] = (0.0 : Float)
-  let off = self.slot_prim_base() + self.prim_cursor * PRIM_BYTES
-  self.prim_ssbo.upload_floats(self.prim_scratch, offset=off, count=PRIM_FLOATS)
+  p[38] = extra0
+  p[39] = extra1
+  let off = self.active_prim_slot_base + self.prim_cursor * PRIM_BYTES
+  self.active_prim_ssbo.upload_floats(self.prim_scratch, offset=off, count=PRIM_FLOATS)
   self.prim_cursor = self.prim_cursor + 1
 }
 
@@ -660,7 +966,12 @@ fn Renderer2D::flush_prims(self : Renderer2D, cmd : @tycho.CommandBuffer) -> Uni
     self.prim_batch_start = self.prim_cursor
     return
   }
-  let pipe = if self.has_stencil_clip { self.prim_clip_pipe } else { self.prim_pipe }
+  let pipe = match (self.has_stencil_clip, self.prim_bindless_clip_pipe, self.prim_bindless_pipe) {
+    (true, Some(bcp), _) => bcp
+    (false, _, Some(bp)) => bp
+    (true, None, _) => self.prim_clip_pipe
+    (false, _, None) => self.prim_pipe
+  }
   cmd.bind_pipeline(pipe)
   if self.has_stencil_clip {
     cmd.set_stencil_reference(128)
@@ -668,8 +979,8 @@ fn Renderer2D::flush_prims(self : Renderer2D, cmd : @tycho.CommandBuffer) -> Uni
   cmd.bind_storage(
     pipe,
     0,
-    self.prim_ssbo,
-    offset=self.slot_prim_base(),
+    self.active_prim_ssbo,
+    offset=self.active_prim_slot_base,
     size=self.max_prims * PRIM_BYTES,
   )
   cmd.bind_storage(
@@ -681,6 +992,10 @@ fn Renderer2D::flush_prims(self : Renderer2D, cmd : @tycho.CommandBuffer) -> Uni
   )
   cmd.bind_texture(pipe, 0, self.glyph_cache.atlas.texture, self.sampler)
   cmd.bind_texture(pipe, 1, self.color_atlas.texture, self.sampler)
+  match self.bindless_heap {
+    Some(heap) => cmd.bind_bindless_heap(pipe, heap, set_index=1)
+    None => ()
+  }
   let fw = Float::from_int(self.active_w)
   let fh = Float::from_int(self.active_h)
   let (cx, cy, cw, ch, rtl, rtr, rbr, rbl) = match self.cur_clip_rrect {
@@ -845,23 +1160,70 @@ fn path_cover_pc(
 }
 
 ///|
-fn Renderer2D::draw_path_gpu(
+fn Renderer2D::tessellate_fill_cached(
+  self : Renderer2D,
+  path : Path,
+  xf : Matrix3,
+) -> (Array[Float], Rect) {
+  let aq = (xf.a * (16.0 : Float)).to_int()
+  let bq = (xf.b * (16.0 : Float)).to_int()
+  let cq = (xf.c * (16.0 : Float)).to_int()
+  let dq = (xf.d * (16.0 : Float)).to_int()
+  let key = "\{path.id()}:\{aq}:\{bq}:\{cq}:\{dq}"
+  let (base_verts, base_bounds) = match self.path_cache.get(key) {
+    Some(entry) => {
+      entry.last_frame = self.frame_idx
+      (entry.verts, entry.bounds)
+    }
+    None => {
+      if self.path_cache.length() >= 256 {
+        let mut oldest_key = ""
+        let mut oldest_frame = self.frame_idx + 1
+        for k, v in self.path_cache {
+          if v.last_frame < oldest_frame {
+            oldest_frame = v.last_frame
+            oldest_key = k
+          }
+        }
+        if oldest_key != "" {
+          self.path_cache.remove(oldest_key)
+        }
+      }
+      let linear_xf = Matrix3::{ a: xf.a, c: xf.c, tx: (0.0 : Float), b: xf.b, d: xf.d, ty: (0.0 : Float) }
+      let (verts, bounds) = tessellate_fill_fan(path, linear_xf)
+      self.path_cache[key] = { verts, bounds, last_frame: self.frame_idx }
+      (verts, bounds)
+    }
+  }
+  if xf.tx == (0.0 : Float) && xf.ty == (0.0 : Float) {
+    return (base_verts, base_bounds)
+  }
+  let n = base_verts.length()
+  let out = Array::make(n, (0.0 : Float))
+  let mut i = 0
+  while i + 1 < n {
+    out[i] = base_verts[i] + xf.tx
+    out[i + 1] = base_verts[i + 1] + xf.ty
+    i = i + 2
+  }
+  (out, base_bounds.offset(xf.tx, xf.ty))
+}
+
+///|
+fn Renderer2D::draw_path_raw(
   self : Renderer2D,
   cmd : @tycho.CommandBuffer,
   path : Path,
   paint : Paint,
+  xf : Matrix3,
+  target_w : Int,
+  target_h : Int,
+  use_msaa : Bool,
 ) -> Unit raise @tycho.RhiError {
-  self.flush_prims(cmd)
-  let fw = Float::from_int(self.active_w)
-  let fh = Float::from_int(self.active_h)
-  cmd.set_scissor(
-    self.cur_scissor.x.to_int(),
-    self.cur_scissor.y.to_int(),
-    self.cur_scissor.width.to_int(),
-    self.cur_scissor.height.to_int(),
-  )
+  let fw = Float::from_int(target_w)
+  let fh = Float::from_int(target_h)
   if paint.style == PaintStyle::Fill || paint.style == PaintStyle::StrokeAndFill {
-    let (verts, bounds) = tessellate_fill_fan(path, self.cur_transform)
+    let (verts, bounds) = self.tessellate_fill_cached(path, xf)
     let (vstart, vcnt) = self.upload_path_verts(verts)
     if vcnt >= 3 {
       let l = bounds.x
@@ -869,31 +1231,40 @@ fn Renderer2D::draw_path_gpu(
       let r = bounds.right()
       let b = bounds.bottom()
       let (cstart, ccnt) = self.upload_path_verts([l, t, r, t, r, b, l, t, r, b, l, b])
-      let st_pipe = match path.fill_rule() {
-        FillRule::NonZero => self.stencil_nz_pipe
-        FillRule::EvenOdd => self.stencil_eo_pipe
+      let st_pipe = if use_msaa {
+        match path.fill_rule() {
+          FillRule::NonZero => self.stencil_nz_msaa_pipe.unwrap()
+          FillRule::EvenOdd => self.stencil_eo_msaa_pipe.unwrap()
+        }
+      } else {
+        match path.fill_rule() {
+          FillRule::NonZero => self.stencil_nz_pipe
+          FillRule::EvenOdd => self.stencil_eo_pipe
+        }
       }
       cmd.bind_pipeline(st_pipe)
       cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
       cmd.push_constants_floats(st_pipe, [fw, fh, (1.0 : Float) / fw, (1.0 : Float) / fh])
       cmd.draw_instanced(vcnt, 1, vstart, 0)
 
-      let cov_pipe = if self.has_stencil_clip {
+      let cov_pipe = if use_msaa {
+        self.path_cover_msaa_pipe.unwrap()
+      } else if self.has_stencil_clip {
         self.path_cover_clip_pipe
       } else {
         self.path_cover_pipe
       }
       cmd.bind_pipeline(cov_pipe)
-      cmd.set_stencil_reference(if self.has_stencil_clip { 128 } else { 0 })
+      cmd.set_stencil_reference(if !use_msaa && self.has_stencil_clip { 128 } else { 0 })
       cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
-      cmd.push_constants_floats(cov_pipe, path_cover_pc(self.active_w, self.active_h, paint))
+      cmd.push_constants_floats(cov_pipe, path_cover_pc(target_w, target_h, paint))
       cmd.draw_instanced(ccnt, 1, cstart, 0)
     }
   }
   if paint.style == PaintStyle::Stroke || paint.style == PaintStyle::StrokeAndFill {
     let verts = tessellate_stroke(
       path,
-      self.cur_transform,
+      xf,
       paint.stroke_width,
       paint.stroke_cap,
       paint.stroke_join,
@@ -901,16 +1272,173 @@ fn Renderer2D::draw_path_gpu(
     )
     let (vstart, vcnt) = self.upload_path_verts(verts)
     if vcnt >= 3 {
-      let spipe = if self.has_stencil_clip { self.stroke_clip_pipe } else { self.stroke_pipe }
+      let spipe = if use_msaa {
+        self.stroke_msaa_pipe.unwrap()
+      } else if self.has_stencil_clip {
+        self.stroke_clip_pipe
+      } else {
+        self.stroke_pipe
+      }
       cmd.bind_pipeline(spipe)
-      if self.has_stencil_clip {
+      if !use_msaa && self.has_stencil_clip {
         cmd.set_stencil_reference(128)
       }
       cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
-      cmd.push_constants_floats(spipe, path_cover_pc(self.active_w, self.active_h, paint))
+      cmd.push_constants_floats(spipe, path_cover_pc(target_w, target_h, paint))
       cmd.draw_instanced(vcnt, 1, vstart, 0)
     }
   }
+}
+
+///|
+fn Renderer2D::draw_path_gpu(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+  path : Path,
+  paint : Paint,
+) -> Unit raise @tycho.RhiError {
+  self.flush_prims(cmd)
+  let use_msaa = paint.anti_alias && self.msaa_supported
+  let has_filter = match paint.image_filter {
+    Some(_) => true
+    None => false
+  }
+  if use_msaa || has_filter {
+    let raw_bounds = self.cur_transform.map_rect(path.bounds()).inflate(paint.stroke_width + (4.0 : Float))
+    let clipped = raw_bounds.intersect(self.cur_scissor)
+    if clipped.is_empty() {
+      return
+    }
+    let bx = clipped.x.floor()
+    let by = clipped.y.floor()
+    let bw = max_f((1.0 : Float), (clipped.right().ceil() - bx)).to_int()
+    let bh = max_f((1.0 : Float), (clipped.bottom().ceil() - by)).to_int()
+    let otex = self.active_tex.unwrap()
+    let ods = self.active_ds.unwrap()
+    let ow = self.active_w
+    let oh = self.active_h
+    cmd.end_render_pass()
+
+    let local_xf = Matrix3::{
+      a: self.cur_transform.a,
+      c: self.cur_transform.c,
+      tx: self.cur_transform.tx - bx,
+      b: self.cur_transform.b,
+      d: self.cur_transform.d,
+      ty: self.cur_transform.ty - by,
+    }
+    let (res_col, res_ds) = self.rt_pool.acquire(bw, bh, with_depth_stencil=!use_msaa)
+    if use_msaa {
+      let (msaa_col, msaa_ds_opt) = self.rt_pool.acquire(
+        bw,
+        bh,
+        with_depth_stencil=true,
+        samples=@tycho.SampleCount::X4,
+      )
+      let msaa_ds = msaa_ds_opt.unwrap()
+      cmd.begin_render_pass(
+        [
+          @tycho.RenderTargetDesc::new(
+            msaa_col,
+            load_op=@tycho.LoadOp::Clear,
+            store_op=@tycho.StoreOp::DontCare,
+            clear_color=@tycho.ClearColor::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float)),
+            resolve_texture=Some(res_col),
+          ),
+        ],
+        depth=Some(
+          @tycho.DepthTargetDesc::new(
+            msaa_ds,
+            load_op=@tycho.LoadOp::Clear,
+            store_op=@tycho.StoreOp::DontCare,
+            stencil_load_op=@tycho.LoadOp::Clear,
+            stencil_store_op=@tycho.StoreOp::DontCare,
+            clear_stencil=0,
+          ),
+        ),
+      )
+      cmd.set_viewport((0.0 : Float), (0.0 : Float), Float::from_int(msaa_col.width()), Float::from_int(msaa_col.height()))
+      cmd.set_scissor(0, 0, bw, bh)
+      self.draw_path_raw(cmd, path, paint, local_xf, msaa_col.width(), msaa_col.height(), true)
+      cmd.end_render_pass()
+    } else {
+      self.begin_target_pass(
+        cmd,
+        res_col,
+        res_ds.unwrap(),
+        res_col.width(),
+        res_col.height(),
+        @tycho.LoadOp::Clear,
+        Color::transparent(),
+        @tycho.LoadOp::Clear,
+      )
+      cmd.set_scissor(0, 0, bw, bh)
+      self.draw_path_raw(cmd, path, paint, local_xf, res_col.width(), res_col.height(), false)
+      cmd.end_render_pass()
+    }
+
+    let rw_f = Float::from_int(res_col.width())
+    let rh_f = Float::from_int(res_col.height())
+    let su1 = Float::from_int(bw) / rw_f
+    let sv1 = Float::from_int(bh) / rh_f
+    let dst_r = Rect::new(bx, by, Float::from_int(bw), Float::from_int(bh))
+
+    match paint.image_filter {
+      Some(ImageFilter::Blur(sx, sy, _)) => {
+        let (btex, bbw, bbh) = self.run_blur_passes(
+          cmd,
+          res_col,
+          bw,
+          bh,
+          sx,
+          sy,
+          src_u0=(0.0 : Float),
+          src_v0=(0.0 : Float),
+          src_u1=su1,
+          src_v1=sv1,
+        )
+        self.begin_target_pass(cmd, otex, ods, ow, oh, @tycho.LoadOp::Load, Color::transparent(), @tycho.LoadOp::Load)
+        let bu1 = Float::from_int(bbw) / Float::from_int(btex.width())
+        let bv1 = Float::from_int(bbh) / Float::from_int(btex.height())
+        self.composite_texture(cmd, btex, (0.0 : Float), (0.0 : Float), bu1, bv1, dst_r, Color::white(), paint.blend_mode, self.cur_clip_rrect)
+      }
+      Some(ImageFilter::DropShadow(dx, dy, sx, sy, scol)) => {
+        let (btex, bbw, bbh) = self.run_blur_passes(
+          cmd,
+          res_col,
+          bw,
+          bh,
+          sx,
+          sy,
+          src_u0=(0.0 : Float),
+          src_v0=(0.0 : Float),
+          src_u1=su1,
+          src_v1=sv1,
+        )
+        self.begin_target_pass(cmd, otex, ods, ow, oh, @tycho.LoadOp::Load, Color::transparent(), @tycho.LoadOp::Load)
+        let bu1 = Float::from_int(bbw) / Float::from_int(btex.width())
+        let bv1 = Float::from_int(bbh) / Float::from_int(btex.height())
+        self.composite_texture(cmd, btex, (0.0 : Float), (0.0 : Float), bu1, bv1, dst_r.offset(dx, dy), scol, paint.blend_mode, self.cur_clip_rrect, mode=(3.0 : Float))
+        self.composite_texture(cmd, res_col, (0.0 : Float), (0.0 : Float), su1, sv1, dst_r, Color::white(), paint.blend_mode, self.cur_clip_rrect)
+      }
+      Some(ImageFilter::ColorMatrix(mat)) => {
+        self.begin_target_pass(cmd, otex, ods, ow, oh, @tycho.LoadOp::Load, Color::transparent(), @tycho.LoadOp::Load)
+        self.composite_texture(cmd, res_col, (0.0 : Float), (0.0 : Float), su1, sv1, dst_r, Color::white(), paint.blend_mode, self.cur_clip_rrect, mode=(2.0 : Float), color_matrix=Some(mat))
+      }
+      None => {
+        self.begin_target_pass(cmd, otex, ods, ow, oh, @tycho.LoadOp::Load, Color::transparent(), @tycho.LoadOp::Load)
+        self.composite_texture(cmd, res_col, (0.0 : Float), (0.0 : Float), su1, sv1, dst_r, Color::white(), paint.blend_mode, self.cur_clip_rrect)
+      }
+    }
+    return
+  }
+  cmd.set_scissor(
+    self.cur_scissor.x.to_int(),
+    self.cur_scissor.y.to_int(),
+    self.cur_scissor.width.to_int(),
+    self.cur_scissor.height.to_int(),
+  )
+  self.draw_path_raw(cmd, path, paint, self.cur_transform, self.active_w, self.active_h, false)
 }
 
 ///|
@@ -951,6 +1479,7 @@ fn Renderer2D::run_blur_passes(
   cmd.set_scissor(0, 0, bw, bh)
   cmd.bind_pipeline(self.blur_pipe)
   cmd.bind_texture(self.blur_pipe, 0, src, self.sampler)
+  cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=0, size=80)
   cmd.push_constants_floats(self.blur_pipe, [
     (0.0 : Float),
     (0.0 : Float),
@@ -995,6 +1524,7 @@ fn Renderer2D::run_blur_passes(
   cmd.set_scissor(0, 0, bw, bh)
   cmd.bind_pipeline(self.blur_pipe)
   cmd.bind_texture(self.blur_pipe, 0, tex_a, self.sampler)
+  cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=0, size=80)
   cmd.push_constants_floats(self.blur_pipe, [
     (0.0 : Float),
     (0.0 : Float),
@@ -1085,7 +1615,16 @@ fn Renderer2D::composite_texture(
   tint : Color,
   blend_mode : BlendMode2D,
   clip_rrect : RRect?,
-) -> Unit {
+  mode? : Float = (1.0 : Float),
+  color_matrix? : FixedArray[Float]? = None,
+) -> Unit raise @tycho.RhiError {
+  match color_matrix {
+    Some(mat) =>
+      if mat.length() >= 20 {
+        self.color_mat_ssbo.upload_floats(mat, offset=0, count=20)
+      }
+    None => ()
+  }
   let pipe = match blend_mode {
     BlendMode2D::DstIn => self.composite_ds_dstin_pipe
     BlendMode2D::SrcIn => self.composite_ds_srcin_pipe
@@ -1117,6 +1656,7 @@ fn Renderer2D::composite_texture(
   )
   cmd.bind_pipeline(pipe)
   cmd.bind_texture(pipe, 0, src, self.sampler)
+  cmd.bind_storage(pipe, 0, self.color_mat_ssbo, offset=0, size=80)
   cmd.push_constants_floats(pipe, [
     dst_rect_px.x / aw_f,
     dst_rect_px.y / ah_f,
@@ -1129,7 +1669,7 @@ fn Renderer2D::composite_texture(
     (0.0 : Float),
     (0.0 : Float),
     aw_f,
-    (1.0 : Float),
+    mode,
     tint.r,
     tint.g,
     tint.b,
@@ -1159,6 +1699,7 @@ fn Renderer2D::replay_ops(
         let prev_xf = self.cur_transform
         self.cur_transform = Matrix3::identity()
         self.emit_prim(
+          cmd,
           (0.0 : Float),
           (0.0 : Float),
           Float::from_int(self.active_w),
@@ -1315,6 +1856,9 @@ fn Renderer2D::replay_ops(
               let mut draw_tex = ltex
               let mut src_u1 = (1.0 : Float)
               let mut src_v1 = (1.0 : Float)
+              let mut shadow_tex : @tycho.Texture? = None
+              let mut shadow_u1 = (1.0 : Float)
+              let mut shadow_v1 = (1.0 : Float)
               match st.layer_paint.image_filter {
                 Some(ImageFilter::Blur(sx, sy, _)) => {
                   let lw = Float::from_int(ltex.width())
@@ -1334,6 +1878,25 @@ fn Renderer2D::replay_ops(
                   draw_tex = btex
                   src_u1 = Float::from_int(bw) / Float::from_int(btex.width())
                   src_v1 = Float::from_int(bh) / Float::from_int(btex.height())
+                }
+                Some(ImageFilter::DropShadow(_, _, sx, sy, _)) => {
+                  let lw = Float::from_int(ltex.width())
+                  let lh = Float::from_int(ltex.height())
+                  let (btex, bw, bh) = self.run_blur_passes(
+                    cmd,
+                    ltex,
+                    st.scissor.width.to_int(),
+                    st.scissor.height.to_int(),
+                    sx,
+                    sy,
+                    src_u0=st.scissor.x / lw,
+                    src_v0=st.scissor.y / lh,
+                    src_u1=st.scissor.right() / lw,
+                    src_v1=st.scissor.bottom() / lh,
+                  )
+                  shadow_tex = Some(btex)
+                  shadow_u1 = Float::from_int(bw) / Float::from_int(btex.width())
+                  shadow_v1 = Float::from_int(bh) / Float::from_int(btex.height())
                 }
                 _ => ()
               }
@@ -1363,18 +1926,53 @@ fn Renderer2D::replay_ops(
                   (st.scissor.x / lw, st.scissor.y / lh)
                 }
               }
-              self.composite_texture(
-                cmd,
-                draw_tex,
-                src_u0,
-                src_v0,
-                src_u1,
-                src_v1,
-                st.scissor,
-                st.layer_paint.color,
-                st.layer_paint.blend_mode,
-                None,
-              )
+              match (st.layer_paint.image_filter, shadow_tex) {
+                (Some(ImageFilter::DropShadow(dx, dy, _, _, scol)), Some(stex)) =>
+                  self.composite_texture(
+                    cmd,
+                    stex,
+                    (0.0 : Float),
+                    (0.0 : Float),
+                    shadow_u1,
+                    shadow_v1,
+                    st.scissor.offset(dx, dy),
+                    scol,
+                    st.layer_paint.blend_mode,
+                    None,
+                    mode=(3.0 : Float),
+                  )
+                _ => ()
+              }
+              match st.layer_paint.image_filter {
+                Some(ImageFilter::ColorMatrix(mat)) =>
+                  self.composite_texture(
+                    cmd,
+                    draw_tex,
+                    src_u0,
+                    src_v0,
+                    src_u1,
+                    src_v1,
+                    st.scissor,
+                    st.layer_paint.color,
+                    st.layer_paint.blend_mode,
+                    None,
+                    mode=(2.0 : Float),
+                    color_matrix=Some(mat),
+                  )
+                _ =>
+                  self.composite_texture(
+                    cmd,
+                    draw_tex,
+                    src_u0,
+                    src_v0,
+                    src_u1,
+                    src_v1,
+                    st.scissor,
+                    st.layer_paint.color,
+                    st.layer_paint.blend_mode,
+                    None,
+                  )
+              }
             } else {
               let had_stencil = self.has_stencil_clip
               self.cur_transform = st.transform
@@ -1382,53 +1980,152 @@ fn Renderer2D::replay_ops(
               self.cur_clip_rrect = st.clip_rrect
               self.has_stencil_clip = st.has_stencil_clip
               if had_stencil && !st.has_stencil_clip {
-                // Re-clear stencil bit 0x80 via fast fullscreen pass? Only happens when leaving clip_path.
-                ()
+                // Re-clear stencil bit 0x80 via fast fullscreen quad
+                let fw = Float::from_int(self.active_w)
+                let fh = Float::from_int(self.active_h)
+                let (cstart, ccnt) = self.upload_path_verts([
+                  (0.0 : Float), (0.0 : Float), fw, (0.0 : Float), fw, fh,
+                  (0.0 : Float), (0.0 : Float), fw, fh, (0.0 : Float), fh,
+                ])
+                cmd.set_scissor(0, 0, self.active_w, self.active_h)
+                cmd.bind_pipeline(self.stencil_clear_clip_pipe)
+                cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
+                cmd.push_constants_floats(
+                  self.stencil_clear_clip_pipe,
+                  [fw, fh, (1.0 : Float) / fw, (1.0 : Float) / fh],
+                )
+                cmd.draw_instanced(ccnt, 1, cstart, 0)
               }
             }
           }
           None => ()
         }
       DrawOp::Concat(m) => self.cur_transform = self.cur_transform.concat(m)
-      DrawOp::ClipRect(r, _op) => {
+      DrawOp::ClipRect(r, op) => {
         self.flush_prims(cmd)
         let mapped = self.cur_transform.map_rect(r)
-        self.cur_scissor = self.cur_scissor.intersect(mapped)
+        match op {
+          ClipOp::Intersect => self.cur_scissor = self.cur_scissor.intersect(mapped)
+          ClipOp::Difference => {
+            let fw = Float::from_int(self.active_w)
+            let fh = Float::from_int(self.active_h)
+            if !self.has_stencil_clip {
+              let l = self.cur_scissor.x
+              let t = self.cur_scissor.y
+              let r_x = self.cur_scissor.right()
+              let b_y = self.cur_scissor.bottom()
+              let (sstart, scnt) = self.upload_path_verts([l, t, r_x, t, r_x, b_y, l, t, r_x, b_y, l, b_y])
+              cmd.set_scissor(0, 0, self.active_w, self.active_h)
+              cmd.bind_pipeline(self.stencil_clip_pipe)
+              cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
+              cmd.push_constants_floats(self.stencil_clip_pipe, [fw, fh, (1.0 : Float) / fw, (1.0 : Float) / fh])
+              cmd.draw_instanced(scnt, 1, sstart, 0)
+            }
+            let (cstart, ccnt) = self.upload_path_verts([
+              mapped.x, mapped.y, mapped.right(), mapped.y, mapped.right(), mapped.bottom(),
+              mapped.x, mapped.y, mapped.right(), mapped.bottom(), mapped.x, mapped.bottom(),
+            ])
+            cmd.set_scissor(0, 0, self.active_w, self.active_h)
+            cmd.bind_pipeline(self.stencil_clear_clip_pipe)
+            cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
+            cmd.push_constants_floats(self.stencil_clear_clip_pipe, [fw, fh, (1.0 : Float) / fw, (1.0 : Float) / fh])
+            cmd.draw_instanced(ccnt, 1, cstart, 0)
+            self.has_stencil_clip = true
+          }
+        }
       }
-      DrawOp::ClipRRect(rr, _op) => {
+      DrawOp::ClipRRect(rr, op) => {
         self.flush_prims(cmd)
         let mapped_r = self.cur_transform.map_rect(rr.rect)
-        self.cur_scissor = self.cur_scissor.intersect(mapped_r)
-        let sx = abs_f(self.cur_transform.a)
-        self.cur_clip_rrect = Some({
-          rect: mapped_r,
-          tl: rr.tl * sx,
-          tr: rr.tr * sx,
-          br: rr.br * sx,
-          bl: rr.bl * sx,
-        })
+        match op {
+          ClipOp::Intersect => {
+            self.cur_scissor = self.cur_scissor.intersect(mapped_r)
+            let sx = abs_f(self.cur_transform.a)
+            self.cur_clip_rrect = Some({
+              rect: mapped_r,
+              tl: rr.tl * sx,
+              tr: rr.tr * sx,
+              br: rr.br * sx,
+              bl: rr.bl * sx,
+            })
+          }
+          ClipOp::Difference => {
+            let pb = PathBuilder::new().add_rrect(rr).build()
+            let (verts, _b) = self.tessellate_fill_cached(pb, self.cur_transform)
+            let (vstart, vcnt) = self.upload_path_verts(verts)
+            if vcnt >= 3 {
+              let fw = Float::from_int(self.active_w)
+              let fh = Float::from_int(self.active_h)
+              if !self.has_stencil_clip {
+                let l = self.cur_scissor.x
+                let t = self.cur_scissor.y
+                let r_x = self.cur_scissor.right()
+                let b_y = self.cur_scissor.bottom()
+                let (sstart, scnt) = self.upload_path_verts([l, t, r_x, t, r_x, b_y, l, t, r_x, b_y, l, b_y])
+                cmd.set_scissor(0, 0, self.active_w, self.active_h)
+                cmd.bind_pipeline(self.stencil_clip_pipe)
+                cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
+                cmd.push_constants_floats(self.stencil_clip_pipe, [fw, fh, (1.0 : Float) / fw, (1.0 : Float) / fh])
+                cmd.draw_instanced(scnt, 1, sstart, 0)
+              }
+              cmd.set_scissor(0, 0, self.active_w, self.active_h)
+              cmd.bind_pipeline(self.stencil_clear_clip_pipe)
+              cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
+              cmd.push_constants_floats(self.stencil_clear_clip_pipe, [fw, fh, (1.0 : Float) / fw, (1.0 : Float) / fh])
+              cmd.draw_instanced(vcnt, 1, vstart, 0)
+              self.has_stencil_clip = true
+            }
+          }
+        }
       }
-      DrawOp::ClipPath(path, _op) => {
+      DrawOp::ClipPath(path, op) => {
         self.flush_prims(cmd)
-        let (verts, _bounds) = tessellate_fill_fan(path, self.cur_transform)
+        let (verts, _bounds) = self.tessellate_fill_cached(path, self.cur_transform)
         let (vstart, vcnt) = self.upload_path_verts(verts)
         if vcnt >= 3 {
           let fw = Float::from_int(self.active_w)
           let fh = Float::from_int(self.active_h)
-          cmd.set_scissor(
-            self.cur_scissor.x.to_int(),
-            self.cur_scissor.y.to_int(),
-            self.cur_scissor.width.to_int(),
-            self.cur_scissor.height.to_int(),
-          )
-          cmd.bind_pipeline(self.stencil_clip_pipe)
-          cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
-          cmd.push_constants_floats(
-            self.stencil_clip_pipe,
-            [fw, fh, (1.0 : Float) / fw, (1.0 : Float) / fh],
-          )
-          cmd.draw_instanced(vcnt, 1, vstart, 0)
-          self.has_stencil_clip = true
+          match op {
+            ClipOp::Intersect => {
+              cmd.set_scissor(
+                self.cur_scissor.x.to_int(),
+                self.cur_scissor.y.to_int(),
+                self.cur_scissor.width.to_int(),
+                self.cur_scissor.height.to_int(),
+              )
+              cmd.bind_pipeline(self.stencil_clip_pipe)
+              cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
+              cmd.push_constants_floats(
+                self.stencil_clip_pipe,
+                [fw, fh, (1.0 : Float) / fw, (1.0 : Float) / fh],
+              )
+              cmd.draw_instanced(vcnt, 1, vstart, 0)
+              self.has_stencil_clip = true
+            }
+            ClipOp::Difference => {
+              if !self.has_stencil_clip {
+                let l = self.cur_scissor.x
+                let t = self.cur_scissor.y
+                let r_x = self.cur_scissor.right()
+                let b_y = self.cur_scissor.bottom()
+                let (sstart, scnt) = self.upload_path_verts([l, t, r_x, t, r_x, b_y, l, t, r_x, b_y, l, b_y])
+                cmd.set_scissor(0, 0, self.active_w, self.active_h)
+                cmd.bind_pipeline(self.stencil_clip_pipe)
+                cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
+                cmd.push_constants_floats(self.stencil_clip_pipe, [fw, fh, (1.0 : Float) / fw, (1.0 : Float) / fh])
+                cmd.draw_instanced(scnt, 1, sstart, 0)
+              }
+              cmd.set_scissor(0, 0, self.active_w, self.active_h)
+              cmd.bind_pipeline(self.stencil_clear_clip_pipe)
+              cmd.bind_vertex(0, self.path_vbuf, offset=self.slot_path_base())
+              cmd.push_constants_floats(
+                self.stencil_clear_clip_pipe,
+                [fw, fh, (1.0 : Float) / fw, (1.0 : Float) / fh],
+              )
+              cmd.draw_instanced(vcnt, 1, vstart, 0)
+              self.has_stencil_clip = true
+            }
+          }
         }
       }
       DrawOp::DrawRect(r, paint) =>
@@ -1437,13 +2134,14 @@ fn Renderer2D::replay_ops(
         if paint.blend_mode != BlendMode2D::SrcOver {
           self.flush_prims(cmd)
         }
-        let (fill_col, gt, tm, gp0, gp1, gp2, gp3, soff, scnt) = self.resolve_paint_shader(paint)
+        let sh = self.resolve_paint_shader(paint)
         let (bw, border_col, stroke_only) = match paint.style {
           PaintStyle::Fill => ((0.0 : Float), Color::transparent(), (0.0 : Float))
           PaintStyle::Stroke => (paint.stroke_width, paint.color, (1.0 : Float))
           PaintStyle::StrokeAndFill => (paint.stroke_width, paint.color, (0.0 : Float))
         }
         self.emit_prim(
+          cmd,
           rr.rect.x,
           rr.rect.y,
           rr.rect.width,
@@ -1452,28 +2150,30 @@ fn Renderer2D::replay_ops(
           rr.tr,
           rr.br,
           rr.bl,
-          fill_col,
+          sh.fill,
           border_col,
-          (0.0 : Float),
-          (0.0 : Float),
-          (0.0 : Float),
-          (0.0 : Float),
+          sh.u0,
+          sh.v0,
+          sh.u1,
+          sh.v1,
           bw,
           (0.0 : Float),
           (0.0 : Float),
           stroke_only,
-          gt,
-          tm,
-          gp0,
-          gp1,
-          gp2,
-          gp3,
-          soff,
-          scnt,
+          sh.grad_type,
+          sh.tile_mode,
+          sh.gp0,
+          sh.gp1,
+          sh.gp2,
+          sh.gp3,
+          sh.stop_off,
+          sh.stop_cnt,
+          extra0=sh.extra0,
+          extra1=sh.extra1,
         )
       }
       DrawOp::DrawCircle(center, radius, paint) => {
-        let (fill_col, gt, tm, gp0, gp1, gp2, gp3, soff, scnt) = self.resolve_paint_shader(paint)
+        let sh = self.resolve_paint_shader(paint)
         let (bw, border_col, stroke_only) = match paint.style {
           PaintStyle::Fill => ((0.0 : Float), Color::transparent(), (0.0 : Float))
           PaintStyle::Stroke => (paint.stroke_width, paint.color, (1.0 : Float))
@@ -1481,6 +2181,7 @@ fn Renderer2D::replay_ops(
         }
         let d = radius * (2.0 : Float)
         self.emit_prim(
+          cmd,
           center.x - radius,
           center.y - radius,
           d,
@@ -1489,29 +2190,32 @@ fn Renderer2D::replay_ops(
           radius,
           radius,
           radius,
-          fill_col,
+          sh.fill,
           border_col,
-          (0.0 : Float),
-          (0.0 : Float),
-          (0.0 : Float),
-          (0.0 : Float),
+          sh.u0,
+          sh.v0,
+          sh.u1,
+          sh.v1,
           bw,
           (0.0 : Float),
           (4.0 : Float),
           stroke_only,
-          gt,
-          tm,
-          gp0,
-          gp1,
-          gp2,
-          gp3,
-          soff,
-          scnt,
+          sh.grad_type,
+          sh.tile_mode,
+          sh.gp0,
+          sh.gp1,
+          sh.gp2,
+          sh.gp3,
+          sh.stop_off,
+          sh.stop_cnt,
+          extra0=sh.extra0,
+          extra1=sh.extra1,
         )
       }
       DrawOp::DrawLine(p0, p1, paint) => {
-        let (fill_col, gt, tm, gp0, gp1, gp2, gp3, soff, scnt) = self.resolve_paint_shader(paint)
+        let sh = self.resolve_paint_shader(paint)
         self.emit_prim(
+          cmd,
           p0.x,
           p0.y,
           p1.x,
@@ -1520,24 +2224,26 @@ fn Renderer2D::replay_ops(
           p0.y,
           p1.x,
           p1.y,
-          fill_col,
+          sh.fill,
           Color::transparent(),
-          (0.0 : Float),
-          (0.0 : Float),
-          (0.0 : Float),
-          (0.0 : Float),
+          sh.u0,
+          sh.v0,
+          sh.u1,
+          sh.v1,
           max_f((0.5 : Float), paint.stroke_width * (0.5 : Float)),
           (0.0 : Float),
           (5.0 : Float),
           (0.0 : Float),
-          gt,
-          tm,
-          gp0,
-          gp1,
-          gp2,
-          gp3,
-          soff,
-          scnt,
+          sh.grad_type,
+          sh.tile_mode,
+          sh.gp0,
+          sh.gp1,
+          sh.gp2,
+          sh.gp3,
+          sh.stop_off,
+          sh.stop_cnt,
+          extra0=sh.extra0,
+          extra1=sh.extra1,
         )
       }
       DrawOp::DrawRRectShadow(rr, dx, dy, blur, spread, col) => {
@@ -1547,6 +2253,7 @@ fn Renderer2D::replay_ops(
         let br = if rr.br > (0.0 : Float) { max_f((0.0 : Float), rr.br + spread) } else { (0.0 : Float) }
         let bl = if rr.bl > (0.0 : Float) { max_f((0.0 : Float), rr.bl + spread) } else { (0.0 : Float) }
         self.emit_prim(
+          cmd,
           r.x,
           r.y,
           r.width,
@@ -1585,6 +2292,7 @@ fn Renderer2D::replay_ops(
         let su1 = u0 + (u1 - u0) * (src.right() / iw)
         let sv1 = v0 + (v1 - v0) * (src.bottom() / ih)
         self.emit_prim(
+          cmd,
           dst.x,
           dst.y,
           dst.width,
@@ -1621,6 +2329,7 @@ fn Renderer2D::replay_ops(
             let gx = pos.x + g.x + Float::from_int(ge.offset_x)
             let gy = pos.y + g.baseline_y + Float::from_int(ge.offset_y)
             self.emit_prim(
+              cmd,
               gx,
               gy,
               Float::from_int(ge.width),
@@ -1653,6 +2362,7 @@ fn Renderer2D::replay_ops(
         for ul in para.underline_rects() {
           let (ux, uy, uw, uh, ucol) = ul
           self.emit_prim(
+            cmd,
             pos.x + ux,
             pos.y + uy,
             uw,
@@ -1705,6 +2415,9 @@ fn Renderer2D::render_into_scene(
   let scene_ds = scene_ds_opt.unwrap()
   self.prim_cursor = 0
   self.prim_batch_start = 0
+  self.active_prim_ssbo = self.prim_ssbo
+  self.active_prim_slot_base = self.slot_prim_base()
+  self.active_prim_chunk = 0
   self.stop_cursor = 0
   self.path_cursor = 0
   self.cur_transform = Matrix3::identity()
@@ -1760,6 +2473,7 @@ pub fn Renderer2D::render_offscreen(
   cmd.set_scissor(0, 0, w, h)
   cmd.bind_pipeline(self.present_pipe)
   cmd.bind_texture(self.present_pipe, 0, scene_tex, self.sampler)
+  cmd.bind_storage(self.present_pipe, 0, self.color_mat_ssbo, offset=0, size=80)
   cmd.push_constants_floats(self.present_pipe, [
     (0.0 : Float),
     (0.0 : Float),
@@ -1849,6 +2563,7 @@ pub fn Renderer2D::render_swapchain(
   cmd.set_scissor(0, 0, w, h)
   cmd.bind_pipeline(sc_pipe)
   cmd.bind_texture(sc_pipe, 0, scene_tex, self.sampler)
+  cmd.bind_storage(sc_pipe, 0, self.color_mat_ssbo, offset=0, size=80)
   cmd.push_constants_floats(sc_pipe, [
     (0.0 : Float),
     (0.0 : Float),
