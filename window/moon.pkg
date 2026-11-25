@@ -5,5 +5,5 @@ import {
 pkgtype(kind: "foreign_library")
 
 options(
-  "native-stub": [ "window_stub.c", "window_wayland.c", "window_win32.c", "window_macos.c" ],
+  "native-stub": [ "window_stub.c", "window_x11.c", "window_wayland.c", "window_win32.c", "window_macos.c" ],
 )
