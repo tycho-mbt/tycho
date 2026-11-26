@@ -30,6 +30,9 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   map (two cascades: an inner half-radius fit at twice the density plus the
   full caster union), GGX-prefiltered (PMREM) environment IBL, HDR `RGBA16F`, separable
   bloom, and ACES tonemapping into `RGBA8Srgb`.
+- glTF: `load_gltf` uploads `parse_gltf` meshes and materials, decoding
+  embedded images through the RHI (base colour as sRGB, normal maps linear);
+  `examples/77` renders a self-contained textured document.
 - HDR environments: `decode_hdr` parses Radiance RGBE (RLE and flat
   scanlines, -Y/+Y and +X/-X), `encode_hdr` writes it, and
   `equirect_environment_cubemap` projects a linear equirect image into the

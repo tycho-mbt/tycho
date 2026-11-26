@@ -48,6 +48,32 @@ fn add_gltf_node(
 }
 
 ///|
+fn upload_gltf_texture(
+  renderer : Renderer3D,
+  gltf : @tgeo.GltfScene,
+  index : Int,
+  srgb : Bool,
+) -> TextureHandle? raise {
+  if index < 0 || index >= gltf.textures.length() {
+    return None
+  }
+  let src = gltf.textures[index].source
+  if src < 0 || src >= gltf.images.length() {
+    return None
+  }
+  match @tycho.decode_image(gltf.images[src]) {
+    Some((rgba, w, h)) => {
+      let px = FixedArray::make(rgba.length(), (0 : Byte))
+      for i = 0; i < rgba.length(); i = i + 1 {
+        px[i] = rgba[i]
+      }
+      Some(renderer.create_texture(w, h, px, srgb~))
+    }
+    None => None
+  }
+}
+
+///|
 /// Upload every glTF mesh/material and instantiate its node hierarchy under
 /// `parent`. Returns the created nodes in pre-order.
 pub fn load_gltf(
@@ -67,6 +93,14 @@ pub fn load_gltf(
       @tgeo.GltfAlphaMode::Opaque => desc
       @tgeo.GltfAlphaMode::Mask(c) => desc.with_alpha(AlphaMode::Mask(c))
       @tgeo.GltfAlphaMode::Blend => desc.with_alpha(AlphaMode::Blend)
+    }
+    match upload_gltf_texture(renderer, gltf, m.base_color_tex, true) {
+      Some(h) => desc = desc.with_albedo_tex(h)
+      None => ()
+    }
+    match upload_gltf_texture(renderer, gltf, m.normal_tex, false) {
+      Some(h) => desc = desc.with_normal_tex(h)
+      None => ()
     }
     materials.push(renderer.create_material(desc))
   }
