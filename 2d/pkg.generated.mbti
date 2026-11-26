@@ -318,6 +318,7 @@ pub fn Path::fill_rule(Self) -> FillRule
 pub fn Path::id(Self) -> UInt64
 pub fn Path::is_empty(Self) -> Bool
 pub fn Path::measure(Self, force_closed? : Bool, tolerance? : Float) -> PathMeasure
+pub fn Path::op(Self, Self, PathOp) -> Self?
 pub fn Path::revision(Self) -> Int32
 pub fn Path::transform(Self, Matrix3) -> Self
 pub fn Path::translated(Self, Float, Float) -> Self
@@ -350,6 +351,14 @@ pub fn PathMeasure::length(Self) -> Float
 pub fn PathMeasure::new(Path, force_closed? : Bool, tolerance? : Float) -> Self
 pub fn PathMeasure::pos_at(Self, Float) -> (Point, Point)?
 pub fn PathMeasure::segment(Self, Float, Float) -> Path
+
+#derive(Eq, @debug.Debug)
+pub(all) enum PathOp {
+  Union
+  Intersect
+  Difference
+  Xor
+}
 
 #derive(Eq, @debug.Debug)
 pub(all) enum PathVerb {

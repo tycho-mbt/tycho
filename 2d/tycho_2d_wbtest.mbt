@@ -307,3 +307,47 @@ test "canvas shape helpers: oval, arc, drrect, points, nine-patch, atlas, dash" 
   let m = PathMeasure::new(dashed)
   assert_true(m.length() > (49.0 : Float) && m.length() < (51.0 : Float))
 }
+
+///|
+test "path ops: union, intersect, difference, xor with a convex clip" {
+  let a = PathBuilder::new()
+    .add_rect(Rect::new((0.0 : Float), (0.0 : Float), (10.0 : Float), (10.0 : Float)))
+    .build()
+  let b = PathBuilder::new()
+    .add_rect(Rect::new((4.0 : Float), (6.0 : Float), (10.0 : Float), (10.0 : Float)))
+    .build()
+  let u = a.op(b, PathOp::Union).unwrap()
+  assert_true(u.contains((2.0 : Float), (2.0 : Float)))
+  assert_true(u.contains((7.0 : Float), (7.0 : Float)))
+  assert_true(u.contains((12.0 : Float), (12.0 : Float)))
+  assert_true(u.bounds().width >= (14.0 : Float))
+  let i = a.op(b, PathOp::Intersect).unwrap()
+  let ib = i.compute_tight_bounds()
+  assert_true(ib.x > (3.5 : Float) && ib.x < (4.5 : Float))
+  assert_true(ib.y > (5.5 : Float) && ib.y < (6.5 : Float))
+  assert_true(ib.width > (5.5 : Float) && ib.width < (6.5 : Float))
+  assert_true(ib.height > (3.5 : Float) && ib.height < (4.5 : Float))
+  assert_true(i.contains((7.0 : Float), (7.0 : Float)))
+  assert_true(!i.contains((2.0 : Float), (2.0 : Float)))
+  let d = a.op(b, PathOp::Difference).unwrap()
+  assert_true(d.contains((2.0 : Float), (2.0 : Float)))
+  assert_true(!d.contains((7.0 : Float), (7.0 : Float)))
+  assert_true(!d.contains((12.0 : Float), (12.0 : Float)))
+  let x = a.op(b, PathOp::Xor).unwrap()
+  assert_true(x.contains((2.0 : Float), (2.0 : Float)))
+  assert_true(!x.contains((7.0 : Float), (7.0 : Float)))
+  assert_true(x.contains((12.0 : Float), (12.0 : Float)))
+  // Non-convex clips are rejected so callers can fall back.
+  let notch = PathBuilder::new()
+    .move_to((0.0 : Float), (0.0 : Float))
+    .line_to((10.0 : Float), (0.0 : Float))
+    .line_to((5.0 : Float), (5.0 : Float))
+    .line_to((10.0 : Float), (10.0 : Float))
+    .line_to((0.0 : Float), (10.0 : Float))
+    .close()
+    .build()
+  match a.op(notch, PathOp::Intersect) {
+    Some(_) => assert_true(false)
+    None => assert_true(true)
+  }
+}
