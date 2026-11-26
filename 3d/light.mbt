@@ -124,3 +124,38 @@ pub fn Light::cast_shadow(self : Light) -> Bool {
     _ => false
   }
 }
+
+///|
+/// Add a directional light node whose -Z axis points along `direction`
+/// (the same convention as cameras). Absorbs the repeated rotation boilerplate.
+pub fn add_sun(
+  scene : Scene,
+  direction : @tmath.Vec3,
+  color? : @tmath.Vec3 = @tmath.Vec3::one(),
+  intensity? : Float = 1.0,
+  shadow? : Bool = true,
+) -> NodeId {
+  scene.create_node(
+    transform=@tmath.Transform::new(
+      @tmath.Vec3::zero(),
+      @tmath.Quat::from_rotation_arc(@tmath.Vec3::neg_z(), direction.normalize()),
+      @tmath.Vec3::one(),
+    ),
+    payload=NodePayload::Light(
+      Light::directional(
+        color,
+        intensity,
+        shadow=if shadow { Some(ShadowDesc::default()) } else { None },
+      ),
+    ),
+  )
+}
+
+///|
+pub fn add_ambient(
+  scene : Scene,
+  color? : @tmath.Vec3 = @tmath.Vec3::one(),
+  intensity? : Float = 0.2,
+) -> NodeId {
+  scene.create_node(payload=NodePayload::Light(Light::ambient(color, intensity)))
+}

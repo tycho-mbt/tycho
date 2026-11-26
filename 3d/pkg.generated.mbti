@@ -14,6 +14,10 @@ pub const MESH_VERTEX_BYTES : Int32 = 48
 
 pub const MESH_VERTEX_FLOATS : Int32 = 12
 
+pub fn add_ambient(Scene, color? : @tycho_math.Vec3, intensity? : Float) -> NodeId
+
+pub fn add_sun(Scene, @tycho_math.Vec3, color? : @tycho_math.Vec3, intensity? : Float, shadow? : Bool) -> NodeId
+
 pub fn default_environment_cubemap(@tycho.Device) -> @tycho.Texture raise
 
 pub fn load_gltf(Renderer3D, Scene, @tycho_geometry.GltfScene, parent? : NodeId?) -> Array[NodeId] raise
@@ -239,6 +243,8 @@ pub fn Renderer3D::add_debug_aabb(Self, @tycho_math.Aabb3, @tycho_math.Vec3) -> 
 pub fn Renderer3D::add_debug_line(Self, @tycho_math.Vec3, @tycho_math.Vec3, @tycho_math.Vec3) -> Unit
 pub fn Renderer3D::clear_debug_lines(Self) -> Unit
 pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
+pub fn Renderer3D::create_mesh_node(Self, Scene, MeshHandle, MaterialHandle, transform? : @tycho_math.Transform, name? : String) -> NodeId
+pub fn Renderer3D::create_pbr_node(Self, Scene, MeshHandle, MaterialDesc, transform? : @tycho_math.Transform, name? : String) -> NodeId raise
 pub fn Renderer3D::create_texture(Self, Int32, Int32, FixedArray[Byte], srgb? : Bool) -> TextureHandle raise
 pub fn Renderer3D::destroy(Self) -> Unit
 pub fn Renderer3D::mesh_bounds(Self, MeshHandle) -> @tycho_math.Aabb3?
@@ -247,6 +253,7 @@ pub fn Renderer3D::pick(Self, Scene, NodeId, Float, Float, layer_mask? : UInt32)
 pub fn Renderer3D::render_offscreen(Self, Scene, NodeId, @tycho.Texture) -> Unit raise
 pub fn Renderer3D::render_swapchain(Self, @tycho.Swapchain, Scene, NodeId) -> Unit raise
 pub fn Renderer3D::set_environment(Self, @tycho.Texture, @tycho_math.Vec3, intensity? : Float) -> Unit
+pub fn Renderer3D::set_procedural_environment(Self, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> Unit raise
 pub fn Renderer3D::stats(Self) -> RenderStats3D
 pub fn Renderer3D::update_material(Self, MaterialHandle, MaterialDesc) -> Unit raise
 pub fn Renderer3D::upload_mesh(Self, @tycho_geometry.MeshData) -> MeshHandle raise

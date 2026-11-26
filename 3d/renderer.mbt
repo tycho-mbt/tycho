@@ -1848,3 +1848,54 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   self.env_sampler.destroy()
   self.shadow_sampler.destroy()
 }
+
+///|
+/// Create a mesh node and register its local bounds in one call.
+pub fn Renderer3D::create_mesh_node(
+  self : Renderer3D,
+  scene : Scene,
+  mesh : MeshHandle,
+  material : MaterialHandle,
+  transform? : @tmath.Transform = @tmath.Transform::identity(),
+  name? : String = "",
+) -> NodeId {
+  let node = scene.create_node(
+    transform=transform,
+    payload=NodePayload::Mesh(MeshInstance::new(mesh, material)),
+    name=name,
+  )
+  scene.set_local_bounds(node, self.mesh_bounds(mesh))
+  node
+}
+
+///|
+/// Build and own a procedural PMREM environment for `sun_dir`.
+pub fn Renderer3D::set_procedural_environment(
+  self : Renderer3D,
+  sun_dir : @tmath.Vec3,
+  size? : Int = 256,
+  samples? : Int = 128,
+) -> Unit raise {
+  let cube = procedural_environment_cubemap(self.dev, sun_dir, size~, samples~)
+  if self.owns_env {
+    self.env_cube.destroy()
+  }
+  self.env_cube = cube
+  self.env_sun = sun_dir.normalize()
+  self.env_intensity = 1.0
+  self.owns_env = true
+}
+
+///|
+/// Create a material from `desc` and attach a mesh node using it.
+pub fn Renderer3D::create_pbr_node(
+  self : Renderer3D,
+  scene : Scene,
+  mesh : MeshHandle,
+  desc : MaterialDesc,
+  transform? : @tmath.Transform = @tmath.Transform::identity(),
+  name? : String = "",
+) -> NodeId raise {
+  let mat = self.create_material(desc)
+  self.create_mesh_node(scene, mesh, mat, transform~, name~)
+}
