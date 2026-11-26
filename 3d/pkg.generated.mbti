@@ -56,6 +56,35 @@ pub(all) struct AmbientLight {
   intensity : Float
 }
 
+pub(all) struct AnimationChannel {
+  node : NodeId
+  track : TransformTrack
+}
+pub fn AnimationChannel::new(NodeId, TransformTrack) -> Self
+
+pub(all) struct AnimationClip {
+  name : String
+  channels : Array[AnimationChannel]
+}
+pub fn AnimationClip::duration(Self) -> Float
+pub fn AnimationClip::new(String, Array[AnimationChannel]) -> Self
+
+pub(all) struct AnimationPlayer {
+  clip : AnimationClip
+  // private fields
+}
+pub fn AnimationPlayer::apply(Self, Scene) -> Unit
+pub fn AnimationPlayer::duration(Self) -> Float
+pub fn AnimationPlayer::is_playing(Self) -> Bool
+pub fn AnimationPlayer::new(AnimationClip) -> Self
+pub fn AnimationPlayer::pause(Self) -> Unit
+pub fn AnimationPlayer::play(Self) -> Unit
+pub fn AnimationPlayer::seek(Self, Float) -> Unit
+pub fn AnimationPlayer::set_looping(Self, Bool) -> Unit
+pub fn AnimationPlayer::set_speed(Self, Float) -> Unit
+pub fn AnimationPlayer::time(Self) -> Float
+pub fn AnimationPlayer::update(Self, Scene, Float) -> Unit
+
 pub(all) struct Camera {
   projection : Projection
   clip : @tycho_math.ClipSpace
@@ -114,6 +143,11 @@ pub(all) struct HemisphereLight {
   sky : @tycho_math.Vec3
   ground : @tycho_math.Vec3
   intensity : Float
+}
+
+pub(all) enum Interpolation {
+  Linear
+  Step
 }
 
 pub(all) enum Light {
@@ -243,6 +277,15 @@ pub(all) enum Projection {
   Orthographic(OrthoParams)
 }
 
+pub(all) struct QuatTrack {
+  times : Array[Float]
+  values : Array[@tycho_math.Quat]
+  interpolation : Interpolation
+}
+pub fn QuatTrack::duration(Self) -> Float
+pub fn QuatTrack::new(Array[Float], Array[@tycho_math.Quat], interpolation? : Interpolation) -> Self
+pub fn QuatTrack::sample(Self, Float) -> @tycho_math.Quat
+
 pub(all) struct RenderStats3D {
   mut draw_calls : Int32
   mut triangles : Int32
@@ -353,6 +396,24 @@ pub(all) struct TextureHandle {
 }
 pub fn TextureHandle::from_id(Int32) -> Self
 pub fn TextureHandle::id(Self) -> Int32
+
+pub(all) struct TransformTrack {
+  translation : Vec3Track?
+  rotation : QuatTrack?
+  scale : Vec3Track?
+}
+pub fn TransformTrack::duration(Self) -> Float
+pub fn TransformTrack::new(translation? : Vec3Track?, rotation? : QuatTrack?, scale? : Vec3Track?) -> Self
+pub fn TransformTrack::sample_with(Self, @tycho_math.Transform, Float) -> @tycho_math.Transform
+
+pub(all) struct Vec3Track {
+  times : Array[Float]
+  values : Array[@tycho_math.Vec3]
+  interpolation : Interpolation
+}
+pub fn Vec3Track::duration(Self) -> Float
+pub fn Vec3Track::new(Array[Float], Array[@tycho_math.Vec3], interpolation? : Interpolation) -> Self
+pub fn Vec3Track::sample(Self, Float) -> @tycho_math.Vec3
 
 // Type aliases
 

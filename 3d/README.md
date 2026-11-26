@@ -8,6 +8,10 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
 - `Scene`: arena-based scene graph with generation-checked `NodeId` handles,
   dirty-flag world-transform propagation, reparenting with `keep_world`,
   layers, traversal, subtree destruction, and frustum-culled collection.
+- `AnimationClip` / `AnimationPlayer`: translation / rotation / scale keyframe
+  tracks with linear (Vec3) or slerp (Quat) interpolation, per-channel node
+  binding, looping or clamped playback, and `update(scene, dt)` that writes
+  local transforms (example 76).
 - `Camera`: perspective (infinite reversed-Z by default) / orthographic
   reversed-Z projections, view/view-projection matrices, screen rays, and an
   analytic sky ray matrix.

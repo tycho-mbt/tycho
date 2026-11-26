@@ -331,3 +331,67 @@ test "float16 decode" {
   }
   need(f16_to_float(f16_bits(-3.0)) < 0.0, "f16 sign")
 }
+
+///|
+test "vec3 track sampling" {
+  let tr = Vec3Track::new(
+    [0.0, 1.0, 2.0],
+    [
+      @tmath.Vec3::zero(),
+      @tmath.Vec3::new(2.0, 0.0, 0.0),
+      @tmath.Vec3::new(2.0, 2.0, 0.0),
+    ],
+  )
+  need_vec3(tr.sample(-1.0), @tmath.Vec3::zero())
+  need_vec3(tr.sample(0.5), @tmath.Vec3::new(1.0, 0.0, 0.0))
+  need_vec3(tr.sample(1.5), @tmath.Vec3::new(2.0, 1.0, 0.0))
+  need_vec3(tr.sample(9.0), @tmath.Vec3::new(2.0, 2.0, 0.0))
+  need(close(tr.duration(), 2.0), "track duration")
+}
+
+///|
+test "quat track slerp" {
+  let tr = QuatTrack::new(
+    [0.0, 1.0],
+    [@tmath.Quat::identity(), @tmath.Quat::from_rotation_y(@tmath.PI * 0.5)],
+  )
+  let mid = tr.sample(0.5)
+  let dir = mid.mul_vec3(@tmath.Vec3::new(0.0, 0.0, 1.0))
+  let s = @tmath.sin(@tmath.PI * 0.25)
+  need_vec3(dir, @tmath.Vec3::new(s, 0.0, s), eps=1.0e-3)
+}
+
+///|
+test "animation player" {
+  let scene = Scene::new()
+  let node = scene.create_node()
+  let clip = AnimationClip::new(
+    "slide",
+    [
+      AnimationChannel::new(
+        node,
+        TransformTrack::new(
+          translation=Some(
+            Vec3Track::new(
+              [0.0, 2.0],
+              [@tmath.Vec3::zero(), @tmath.Vec3::new(4.0, 0.0, 0.0)],
+            ),
+          ),
+        ),
+      ),
+    ],
+  )
+  let p = AnimationPlayer::new(clip)
+  p.update(scene, 1.0)
+  need_vec3(scene.transform(node).translation, @tmath.Vec3::new(2.0, 0.0, 0.0))
+  // Looping wrap: 2.5 -> 0.5.
+  p.update(scene, 1.5)
+  need_vec3(scene.transform(node).translation, @tmath.Vec3::new(1.0, 0.0, 0.0))
+  p.set_looping(false)
+  p.seek(0.0)
+  p.update(scene, 5.0)
+  need_vec3(scene.transform(node).translation, @tmath.Vec3::new(4.0, 0.0, 0.0))
+  p.pause()
+  p.update(scene, 1.0)
+  need_vec3(scene.transform(node).translation, @tmath.Vec3::new(4.0, 0.0, 0.0))
+}
