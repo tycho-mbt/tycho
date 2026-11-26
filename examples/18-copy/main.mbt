@@ -190,12 +190,12 @@ fn main {
   let (msaa, msaa_mem) = make_image(dev, dfn, ifn, phys, fmt, @vk.VK_SAMPLE_COUNT_4_BIT, color_usage | @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
   let (depth, depth_mem) = make_image(dev, dfn, ifn, phys, @vk.VK_FORMAT_D32_SFLOAT, one, @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT | @vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
   let host = @vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | @vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-  let local = @vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+  let dev_local = @vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
   let npix = 64 * 64
   let bytes = (npix * 4).to_uint64()
   let (up, up_mem) = make_buffer(dev, dfn, ifn, phys, bytes, @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT, host)
   let (rb, rb_mem) = make_buffer(dev, dfn, ifn, phys, bytes, @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT, host)
-  let (fill, fill_mem) = make_buffer(dev, dfn, ifn, phys, (1024 : UInt64), @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT | @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT, local)
+  let (fill, fill_mem) = make_buffer(dev, dfn, ifn, phys, (1024 : UInt64), @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT | @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT, dev_local)
   let (qbuf, qbuf_mem) = make_buffer(dev, dfn, ifn, phys, (64 : UInt64), @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT, host)
 
   let parr : Array[Byte] = []

@@ -5,7 +5,7 @@
 // vkCmdSetDepthBias2EXT, vkCmdSetSampleLocationsEXT,
 // vkCmdSetAttachmentFeedbackLoopEnableEXT, vkCmdBindShadersEXT.
 
-let g_errors : Ref[Int] = Ref::new(0)
+let g_errors : Ref[Int] = Ref(0)
 
 ///|
 fn main {

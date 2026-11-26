@@ -183,19 +183,8 @@ fn bind_lights_bytes(count : Int) -> Int {
 }
 
 ///|
-fn pc_bytes(index : Int) -> Bytes {
-  let v = index.reinterpret_as_uint()
-  let arr : Array[Byte] = []
-  arr.push((v & (0xFF : UInt)).to_byte())
-  arr.push(((v >> 8) & (0xFF : UInt)).to_byte())
-  arr.push(((v >> 16) & (0xFF : UInt)).to_byte())
-  arr.push(((v >> 24) & (0xFF : UInt)).to_byte())
-  Bytes::from_array(arr)
-}
-
-///|
 fn byte_of(v : Int) -> Byte {
-  (v.to_uint() & (0xFF : UInt)).to_byte()
+  (v.reinterpret_as_uint() & (0xFF : UInt)).to_byte()
 }
 
 ///|
@@ -283,10 +272,10 @@ fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
   if unlit {
     flags = flags | 1
   }
-  if m.albedo_tex.is_some() {
+  if m.albedo_tex is Some(_) {
     flags = flags | 2
   }
-  if m.normal_tex.is_some() {
+  if m.normal_tex is Some(_) {
     flags = flags | 4
   }
   let cutoff : Float = match m.alpha_mode {
@@ -297,12 +286,12 @@ fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
   w.push_float(m.roughness)
   w.push_float(cutoff)
   w.push_float(f_of_int(flags))
-  let albedo = if m.albedo_tex.is_some() {
+  let albedo = if m.albedo_tex is Some(_) {
     self.texture_index(m.albedo_tex)
   } else {
     self.white_index
   }
-  let normal = if m.normal_tex.is_some() {
+  let normal = if m.normal_tex is Some(_) {
     self.texture_index(m.normal_tex)
   } else {
     self.flat_normal_index
@@ -1292,7 +1281,7 @@ fn Renderer3D::render_frame(
     for b in solid_batches {
       if b.cull_cmd >= 0 {
         let o = b.cull_cmd * 5
-        cmds[o] = self.meshes[b.mesh].index_count().to_uint()
+        cmds[o] = self.meshes[b.mesh].index_count().reinterpret_as_uint()
         cmds[o + 1] = 0
         cmds[o + 2] = 0
         cmds[o + 3] = 0
@@ -1393,7 +1382,7 @@ fn Renderer3D::render_frame(
       @tycho.RenderTargetDesc::new(
         targets.hdr,
         load_op=@tycho.LoadOp::Clear,
-        store_op=if targets.hdr_resolve.is_some() {
+        store_op=if targets.hdr_resolve is Some(_) {
           @tycho.StoreOp::DontCare
         } else {
           @tycho.StoreOp::Store

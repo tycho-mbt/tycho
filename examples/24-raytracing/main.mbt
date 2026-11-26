@@ -145,7 +145,7 @@ fn main {
     mi.reinterpret_as_uint()
   }
   let host = @vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | @vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-  let local = @vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+  let dev_local = @vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
   let addr_flags = @vk.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
   let mkbuf = fn(size : UInt64, usage : UInt32, props : UInt32) -> (@vk.VkBuffer, @vk.VkDeviceMemory) {
     let ci = @vk.VkBufferCreateInfo::new()
@@ -238,7 +238,7 @@ fn main {
   let _ = (dfn.vkCreateAccelerationStructureKHR)(dev, bci, na, blas_out)
   n = n + 1
   let blas = blas_out[0]
-  let (scratch, scratchmem) = mkbuf(sizes.get_buildScratchSize(), @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, local)
+  let (scratch, scratchmem) = mkbuf(sizes.get_buildScratchSize(), @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, dev_local)
   binfo.set_dstAccelerationStructure(blas)
   binfo.set_scratchData(devaddr_mut(baddr(scratch)))
   let rangeinfo = @vk.VkAccelerationStructureBuildRangeInfoKHR::new()
@@ -304,7 +304,7 @@ fn main {
   tinfo.set_pGeometries(tgeoi)
   let tsizes = @vk.VkAccelerationStructureBuildSizesInfoKHR::new()
   (dfn.vkGetAccelerationStructureBuildSizesKHR)(dev, @vk.VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, tinfo, primcount, tsizes)
-  let (tlasbuf, tlasmem) = mkbuf(tsizes.get_accelerationStructureSize(), as_usage, local)
+  let (tlasbuf, tlasmem) = mkbuf(tsizes.get_accelerationStructureSize(), as_usage, dev_local)
   let tci = @vk.VkAccelerationStructureCreateInfoKHR::new()
   tci.set_buffer(tlasbuf)
   tci.set_size(tsizes.get_accelerationStructureSize())
@@ -312,7 +312,7 @@ fn main {
   let tlas_out = FixedArray::make(1, @vk.VkAccelerationStructureKHR::null())
   let _ = (dfn.vkCreateAccelerationStructureKHR)(dev, tci, na, tlas_out)
   let tlas = tlas_out[0]
-  let (tscratch, tscratchmem) = mkbuf(tsizes.get_buildScratchSize(), @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, local)
+  let (tscratch, tscratchmem) = mkbuf(tsizes.get_buildScratchSize(), @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, dev_local)
   tinfo.set_dstAccelerationStructure(tlas)
   tinfo.set_scratchData(devaddr_mut(baddr(tscratch)))
   let trange = @vk.VkAccelerationStructureBuildRangeInfoKHR::new()
@@ -339,7 +339,7 @@ fn main {
   let _ = (dfn.vkResetFences)(dev, (1 : UInt32), fence_out)
   let taddr_i = @vk.VkAccelerationStructureDeviceAddressInfoKHR::new()
   taddr_i.set_accelerationStructure(tlas)
-  let tlas_addr = (dfn.vkGetAccelerationStructureDeviceAddressKHR)(dev, taddr_i)
+  let _tlas_addr = (dfn.vkGetAccelerationStructureDeviceAddressKHR)(dev, taddr_i)
 
   // ray tracing pipeline: raygen + miss + closesthit
   let rgen = @shader.compile_shader_file_env("examples/24-raytracing/shader.rgen", @shader.SHADER_KIND_RAYGEN, @shader.SHADER_ENV_VULKAN_1_3)

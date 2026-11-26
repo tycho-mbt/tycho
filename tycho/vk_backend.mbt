@@ -1674,7 +1674,7 @@ fn vk_texture_upload_subregions(
   let staging = vk_buffer_create(d, total, BufferKind::Staging)
   let mut off = 0
   for r in regions {
-    let (x, y, w, h, pixels) = r
+    let (_x, _y, w, h, pixels) = r
     let need = w * h * bpp
     vk_buffer_upload_ptr(staging, @vk.bytes_ptr(pixels), need, offset=off)
     off = off + need
@@ -1698,7 +1698,7 @@ fn vk_texture_upload_subregions(
   )
   let mut off2 = 0
   for r in regions {
-    let (x, y, w, h, pixels) = r
+    let (x, y, w, h, _pixels) = r
     let need = w * h * bpp
     let offset = @vk.VkOffset3D::new()
     offset.set_x(x)
@@ -3212,19 +3212,18 @@ fn alloc_pipeline_descriptors(
     return (set_layout, pools, frame_sets)
   }
 
+  errdefer {
+    for p in pools {
+      (d.dfn.vkDestroyDescriptorPool)(d.dev, p, na)
+    }
+    (d.dfn.vkDestroyDescriptorSetLayout)(d.dev, set_layout, na)
+  }
+
   for f = 0; f < MAX_FRAMES; f = f + 1 {
     let (pool, chunk) = alloc_descriptor_pool_chunk(
       d, set_layout, uniform_slots, texture_slots, storage_slots, storage_image_slots,
       accel_slots, SETS_PER_FRAME,
-    ) catch {
-      err => {
-        for p in pools {
-          (d.dfn.vkDestroyDescriptorPool)(d.dev, p, na)
-        }
-        (d.dfn.vkDestroyDescriptorSetLayout)(d.dev, set_layout, na)
-        raise err
-      }
-    }
+    )
     pools.push(pool)
     for s in chunk {
       frame_sets[f].push(s)

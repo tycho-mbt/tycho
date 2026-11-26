@@ -32,7 +32,7 @@ fn main {
     inst, ifn,
     @vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
     @vk.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
-    (sev, _ty, data, _ud) => {
+    (_sev, _ty, data, _ud) => {
       g_errors.val = g_errors.val + 1
       println("[19-draw] VALIDATION: \{@vk.read_cstr(data.get_pMessage())}")
       (0 : UInt32)
@@ -516,9 +516,9 @@ fn main {
   let cbstate = @vk.VkPipelineColorBlendStateCreateInfo::new()
   cbstate.set_attachmentCount((1 : UInt32))
   cbstate.set_pAttachments(cba)
-  let dyn = @vk.VkPipelineDynamicStateCreateInfo::new()
-  dyn.set_dynamicStateCount(ds.length().reinterpret_as_uint())
-  dyn.set_pDynamicStates(ds)
+  let dyn_state = @vk.VkPipelineDynamicStateCreateInfo::new()
+  dyn_state.set_dynamicStateCount(ds.length().reinterpret_as_uint())
+  dyn_state.set_pDynamicStates(ds)
   let prci = @vk.VkPipelineRenderingCreateInfo::new()
   prci.set_colorAttachmentCount((1 : UInt32))
   prci.set_pColorAttachmentFormats(FixedArray::make(1, @vk.VK_FORMAT_R8G8B8A8_UNORM))
@@ -532,7 +532,7 @@ fn main {
   gpci.set_pRasterizationState(rast)
   gpci.set_pMultisampleState(ms)
   gpci.set_pColorBlendState(cbstate)
-  gpci.set_pDynamicState(dyn)
+  gpci.set_pDynamicState(dyn_state)
   gpci.set_layout(layout)
   let pipe_out = FixedArray::make(1, @vk.VkPipeline::null())
   let gpr = (dfn.vkCreateGraphicsPipelines)(dev, @vk.VkPipelineCache::null(), (1 : UInt32), gpci, na, pipe_out)
@@ -674,10 +674,10 @@ fn main {
   vp.set_width((64.0 : Float))
   vp.set_height((64.0 : Float))
   vp.set_maxDepth((1.0 : Float))
-  let vps = FixedArray::make(1, vp)
+  let _vps = FixedArray::make(1, vp)
   let sc = @vk.VkRect2D::new()
   sc.set_extent(ext2)
-  let scs = FixedArray::make(1, sc)
+  let _scs = FixedArray::make(1, sc)
   if gpr2 == 0 {
     (dfn.vkCmdBindPipeline)(cb, @vk.VK_PIPELINE_BIND_POINT_GRAPHICS, pipe2)
     if has("vkCmdSetViewport") {
@@ -950,11 +950,11 @@ fn main {
     (dfn.vkCmdSetPrimitiveRestartEnableEXT)(cb, (0 : UInt32))
     n = n + 1
   }
-  if has("vkCmdSetLineStippleEXT") && eds3q.get_extendedDynamicState3LineStippleEnable() != 0 || f14q.get_stippledRectangularLines() != 0 {
+  if (has("vkCmdSetLineStippleEXT") && eds3q.get_extendedDynamicState3LineStippleEnable() != 0) || f14q.get_stippledRectangularLines() != 0 {
     (dfn.vkCmdSetLineStippleEXT)(cb, (1 : UInt32), (0xFFFF : UInt))
     n = n + 1
   }
-  if has("vkCmdSetLineStippleKHR") && eds3q.get_extendedDynamicState3LineStippleEnable() != 0 || f14q.get_stippledRectangularLines() != 0 {
+  if (has("vkCmdSetLineStippleKHR") && eds3q.get_extendedDynamicState3LineStippleEnable() != 0) || f14q.get_stippledRectangularLines() != 0 {
     (dfn.vkCmdSetLineStippleKHR)(cb, (1 : UInt32), (0xFFFF : UInt))
     n = n + 1
   }

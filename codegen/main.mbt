@@ -55,13 +55,13 @@ async fn main raise {
   // Typed UInt32 constants for every enum value (core + extension + bitmask) so
   // users write @vk.VK_* instead of C magic numbers. Dedup by name; skip aliases
   // and non-integer literals; negative values become two's-complement hex.
-  let seen : @hashmap.HashMap[String, Unit] = @hashmap.HashMap::new()
+  let seen : @hashmap.HashMap[String, Unit] = @hashmap.HashMap([])
   // vk.xml marks 64-bit enum groups with bitwidth="64"; their values must be
   // UInt64 or `1 << bitpos` silently truncates at bit 32.
-  let group_width : @hashmap.HashMap[String, Int] = @hashmap.HashMap::new()
+  let group_width : @hashmap.HashMap[String, Int] = @hashmap.HashMap([])
   // Resolved constant values, so alias enums (VK_DYNAMIC_STATE_CULL_MODE_EXT ->
   // ..._CULL_MODE) can be emitted too instead of silently missing.
-  let values : @hashmap.HashMap[String, (String, String)] = @hashmap.HashMap::new()
+  let values : @hashmap.HashMap[String, (String, String)] = @hashmap.HashMap([])
   let aliases : Array[(String, String)] = []
   let mut cur_width = 32
   let mut nconst = 0
@@ -233,7 +233,7 @@ async fn main raise {
   for f64 in header_flags64([header_text, xlib_text, win32_text, metal_text]) {
     types.flags64.push(f64)
   }
-  let defined : @hashmap.HashMap[String, Unit] = @hashmap.HashMap::new()
+  let defined : @hashmap.HashMap[String, Unit] = @hashmap.HashMap([])
   for ht in [
     header_text, xlib_text, win32_text, metal_text, beta_text, xcb_text, wayland_text,
   ] {
@@ -256,7 +256,7 @@ async fn main raise {
   }
   // Platform of a type is decided by the header that declares it, not by its
   // name (e.g. VkD3D12FenceSubmitInfoKHR lives in vulkan_win32.h).
-  let platforms : @hashmap.HashMap[String, String] = @hashmap.HashMap::new()
+  let platforms : @hashmap.HashMap[String, String] = @hashmap.HashMap([])
   for tn in header_defined_types(xlib_text) {
     platforms.set(tn, "VK_USE_PLATFORM_XLIB_KHR")
   }
@@ -274,7 +274,7 @@ async fn main raise {
   }
   // Callback typedefs -> typed FuncRef signatures, so structs holding a PFN
   // member (debug messengers, allocation callbacks) are generatable.
-  let fp_types : @hashmap.HashMap[String, String] = @hashmap.HashMap::new()
+  let fp_types : @hashmap.HashMap[String, String] = @hashmap.HashMap([])
   for fp in parse_funcpointers(registry) {
     let as_cmd : VkCommand = { name: fp.name, ret: fp.ret, params: fp.params, alias_of: None }
     fp_types.set(fp.name, funcref_type(as_cmd, types))

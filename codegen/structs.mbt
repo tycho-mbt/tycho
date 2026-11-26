@@ -33,19 +33,6 @@ fn str_has(arr : Array[String], x : String) -> Bool {
 }
 
 ///|
-// Escape member names that collide with MoonBit keywords when used as method names.
-fn safe_method(f : String) -> String {
-  match f {
-    "type" | "module" | "fn" | "let" | "mut" | "match" | "if" | "else" | "for" | "while" |
-    "return" | "struct" | "enum" | "trait" | "impl" | "pub" | "priv" | "extern" | "import" |
-    "true" | "false" | "as" | "in" | "is" | "break" | "continue" | "defer" | "guard" | "raise" |
-    "try" | "catch" | "async" | "await" | "const" | "self" | "where" | "with" | "do" | "export" |
-    "static" | "super" | "yield" | "finally" | "throw" => f + "_"
-    _ => f
-  }
-}
-
-///|
 pub fn parse_struct_members(registry : XmlNode, name : String) -> Array[VkMember] {
   let out : Array[VkMember] = []
   let seen : Array[String] = []
@@ -82,7 +69,7 @@ pub fn header_defined_types(text : String) -> Array[String] {
   for line in text.split("\n") {
     let l = line.trim().to_owned()
     if l.has_prefix("} Vk") && l.has_suffix(";") {
-      let name = l.substring(start=2, end=l.length() - 1).trim().to_owned()
+      let name = l[2:l.length() - 1].trim().to_owned()
       if name.has_prefix("Vk") && !name.contains_char(' ') {
         out.push(name)
       }
@@ -103,7 +90,7 @@ pub fn header_defined_types(text : String) -> Array[String] {
       }
     }
     if l.has_prefix("typedef") && l.has_suffix(";") {
-      let body = l.substring(start=0, end=l.length() - 1)
+      let body = l[:l.length() - 1].to_owned()
       let mut last = ""
       for tok in body.split(" ") {
         let t = tok.trim().to_owned()
@@ -722,7 +709,7 @@ pub fn emit_structs(
   c.write_string(
     "typedef struct TychoPin { uint64_t owner; void *obj; struct TychoPin *next; } TychoPin;\nstatic TychoPin *g_tycho_pins = NULL;\nstatic void tycho_pin_impl(void *owner, void *obj) { moonbit_incref(obj); TychoPin *e = (TychoPin*)malloc(sizeof(TychoPin)); e->owner = (uint64_t)(uintptr_t)owner; e->obj = obj; e->next = g_tycho_pins; g_tycho_pins = e; }\nMOONBIT_FFI_EXPORT void tycho_release_pins(void *owner) { TychoPin **pp = &g_tycho_pins; while (*pp) { TychoPin *e = *pp; if (e->owner == (uint64_t)(uintptr_t)owner) { moonbit_decref(e->obj); *pp = e->next; free(e); } else { pp = &e->next; } } }\n\n",
   )
-  let pins : @hashmap.HashMap[String, Unit] = @hashmap.HashMap::new()
+  let pins : @hashmap.HashMap[String, Unit] = @hashmap.HashMap([])
   let mut generated = 0
   for name in names {
     if !defined.contains(name) {

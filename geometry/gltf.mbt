@@ -50,14 +50,19 @@ priv struct Accessor {
 }
 
 ///|
+fn jget(j : @json.Json, key : String) -> @json.Json? {
+  if j is Object(obj) {
+    obj.get(key)
+  } else {
+    None
+  }
+}
+
+///|
 fn jnum(j : @json.Json, key : String, d : Double) -> Double {
-  match j.value(key) {
-    Some(v) =>
-      match v.as_number() {
-        Some(n) => n
-        None => d
-      }
-    None => d
+  match jget(j, key) {
+    Some(Number(n, ..)) => n
+    _ => d
   }
 }
 
@@ -68,33 +73,25 @@ fn jint(j : @json.Json, key : String, d : Int) -> Int {
 
 ///|
 fn jstr(j : @json.Json, key : String, d : String) -> String {
-  match j.value(key) {
-    Some(v) =>
-      match v.as_string() {
-        Some(s) => s
-        None => d
-      }
-    None => d
+  match jget(j, key) {
+    Some(String(s)) => s
+    _ => d
   }
 }
 
 ///|
 fn jarr(j : @json.Json, key : String) -> Array[@json.Json] {
-  match j.value(key) {
-    Some(v) =>
-      match v.as_array() {
-        Some(a) => a
-        None => []
-      }
-    None => []
+  match jget(j, key) {
+    Some(Array(a)) => a
+    _ => []
   }
 }
 
 ///|
 fn jnum_at(j : @json.Json, d : Float) -> Float {
-  match j.as_number() {
-    Some(n) => Float::from_double(n)
-    None => d
+  match j {
+    Number(n, ..) => Float::from_double(n)
+    _ => d
   }
 }
 
@@ -133,13 +130,13 @@ fn f32_at(bytes : Bytes, off : Int) -> Float {
   let b1 = bytes[off + 1].to_int()
   let b2 = bytes[off + 2].to_int()
   let b3 = bytes[off + 3].to_int()
-  let u : UInt = b0.to_uint() |
-    (b1.to_uint() << 8) |
-    (b2.to_uint() << 16) |
-    (b3.to_uint() << 24)
+  let u : UInt = b0.reinterpret_as_uint() |
+    (b1.reinterpret_as_uint() << 8) |
+    (b2.reinterpret_as_uint() << 16) |
+    (b3.reinterpret_as_uint() << 24)
   let sign : Float = if ((u >> 31) & (1 : UInt)) == 1 { -1.0 } else { 1.0 }
-  let exp = ((u >> 23) & (0xFF : UInt)).to_int()
-  let mant = (u & (0x7FFFFF : UInt)).to_int().to_double()
+  let exp = ((u >> 23) & (0xFF : UInt)).reinterpret_as_int()
+  let mant = (u & (0x7FFFFF : UInt)).reinterpret_as_int().to_double()
   if exp == 0 {
     if mant == 0.0 {
       return 0.0 * sign
@@ -203,7 +200,7 @@ fn read_indices(acc : Accessor, buffers : Array[Bytes]) -> FixedArray[UInt] {
       (buf[off + 2].to_int() << 16) |
       (buf[off + 3].to_int() << 24)
     }
-    out[e] = v.to_uint()
+    out[e] = v.reinterpret_as_uint()
   }
   out
 }
@@ -220,9 +217,9 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
         if head.has_prefix("data:") {
           @base64.decode(data)
         } else {
-          Bytes::new(0)
+          Bytes::make(0, b'\x00')
         }
-      None => Bytes::new(0)
+      None => Bytes::make(0, b'\x00')
     }
     buffers.push(bytes)
   }
@@ -256,7 +253,7 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
     let groups : Array[MeshGroup] = []
     let mut has_normals = true
     for pj in jarr(mj, "primitives") {
-      let attrs = match pj.value("attributes") {
+      let attrs = match jget(pj, "attributes") {
         Some(a) => a
         None => @json.Json::empty_object()
       }
@@ -298,11 +295,11 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
       if ix_i >= 0 && ix_i < accessors.length() {
         let src = read_indices(accessors[ix_i], buffers)
         for i = 0; i < src.length(); i = i + 1 {
-          indices.push(src[i] + base.to_uint())
+          indices.push(src[i] + base.reinterpret_as_uint())
         }
       } else {
         for i = 0; i < n; i = i + 1 {
-          indices.push((base + i).to_uint())
+          indices.push((base + i).reinterpret_as_uint())
         }
       }
       let mat = jint(pj, "material", -1)
@@ -325,7 +322,7 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
 
   let materials : Array[GltfMaterial] = []
   for mj in jarr(root, "materials") {
-    let pbr = match mj.value("pbrMetallicRoughness") {
+    let pbr = match jget(mj, "pbrMetallicRoughness") {
       Some(p) => p
       None => @json.Json::empty_object()
     }
@@ -340,10 +337,7 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
       metallic: Float::from_double(jnum(pbr, "metallicFactor", 1.0)),
       roughness: Float::from_double(jnum(pbr, "roughnessFactor", 1.0)),
       alpha_mode,
-      double_sided: match mj.value("doubleSided") {
-        Some(v) => v.as_bool() == Some(true)
-        None => false
-      },
+      double_sided: jget(mj, "doubleSided") is Some(True),
     })
   }
 
@@ -352,26 +346,22 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
     let mut translation = @tmath.Vec3::zero()
     let mut rotation = @tmath.Quat::identity()
     let mut scale = @tmath.Vec3::one()
-    match nj.value("matrix") {
-      Some(mj) =>
-        match mj.as_array() {
-          Some(arr) => {
-            let vals = FixedArray::make(16, (0.0 : Float))
-            for i = 0; i < 16 && i < arr.length(); i = i + 1 {
-              vals[i] = jnum_at(arr[i], 0.0)
-            }
-            match @tmath.Transform::from_mat4(@tmath.Mat4::from_cols_array(vals)) {
-              Some(tr) => {
-                translation = tr.translation
-                rotation = tr.rotation
-                scale = tr.scale
-              }
-              None => ()
-            }
+    match jget(nj, "matrix") {
+      Some(Array(arr)) => {
+        let vals = FixedArray::make(16, (0.0 : Float))
+        for i = 0; i < 16 && i < arr.length(); i = i + 1 {
+          vals[i] = jnum_at(arr[i], 0.0)
+        }
+        match @tmath.Transform::from_mat4(@tmath.Mat4::from_cols_array(vals)) {
+          Some(tr) => {
+            translation = tr.translation
+            rotation = tr.rotation
+            scale = tr.scale
           }
           None => ()
         }
-      None => {
+      }
+      _ => {
         translation = jvec3(nj, "translation", @tmath.Vec3::zero())
         let q = jarr(nj, "rotation")
         if q.length() >= 4 {
@@ -400,18 +390,14 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
   }
 
   let roots : Array[Int] = []
-  match root.value("scenes") {
-    Some(scenes) =>
-      match scenes.as_array() {
-        Some(arr) =>
-          if arr.length() > 0 {
-            for n in jarr(arr[0], "nodes") {
-              roots.push(jnum_at(n, 0.0).to_double().to_int())
-            }
-          }
-        None => ()
+  match jget(root, "scenes") {
+    Some(Array(scenes)) =>
+      if scenes.length() > 0 {
+        for n in jarr(scenes[0], "nodes") {
+          roots.push(jnum_at(n, 0.0).to_double().to_int())
+        }
       }
-    None => ()
+    _ => ()
   }
   if roots.length() == 0 {
     let referenced : Array[Bool] = []

@@ -277,7 +277,7 @@ pub fn header_flags64(texts : Array[String]) -> Array[String] {
       if !l.has_prefix("typedef") || !l.has_suffix(";") {
         continue
       }
-      let body = l.substring(start=0, end=l.length() - 1)
+      let body = l[:l.length() - 1].to_owned()
       let toks : Array[String] = []
       for tok in body.split(" ") {
         let t = tok.trim().to_owned()
@@ -290,7 +290,7 @@ pub fn header_flags64(texts : Array[String]) -> Array[String] {
       }
     }
   }
-  let set : @hashmap.HashMap[String, Unit] = @hashmap.HashMap::new()
+  let set : @hashmap.HashMap[String, Unit] = @hashmap.HashMap([])
   set.set("uint64_t", ())
   let mut changed = true
   while changed {

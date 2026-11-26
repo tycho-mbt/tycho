@@ -408,11 +408,11 @@ fn main {
       @g2d.Paint::fill(@g2d.Color::from_rgba8(0, 0, 255)),
     )
     renderer.render_offscreen(cb.finish(), rt_bgra)
-    let pxb = rt_bgra.readback()
+    let bgra_px = rt_bgra.readback()
     let bi = (16 * w2 + 16) * 4
-    let bgra_ok = pxb[bi].to_int() > 200 &&
-      pxb[bi + 1].to_int() < 50 &&
-      pxb[bi + 2].to_int() < 50
+    let bgra_ok = bgra_px[bi].to_int() > 200 &&
+      bgra_px[bi + 1].to_int() < 50 &&
+      bgra_px[bi + 2].to_int() < 50
     rt_bgra.destroy()
 
     // S3: rect-clip changes plus save/restore must not split the prim batch,

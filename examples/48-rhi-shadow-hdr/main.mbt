@@ -38,7 +38,7 @@ fn parse_float_slice(b : Bytes, start : Int32, end : Int32) -> Float {
   while i < end && b[i] != b'.' {
     let c = b[i].to_int()
     if c >= 48 && c <= 57 {
-      int_part = int_part * 10.0 + Double::from_int(c - 48)
+      int_part = int_part * 10.0 + (c - 48).to_double()
     }
     i = i + 1
   }
@@ -49,7 +49,7 @@ fn parse_float_slice(b : Bytes, start : Int32, end : Int32) -> Float {
     while i < end {
       let c = b[i].to_int()
       if c >= 48 && c <= 57 {
-        frac_part = frac_part * 10.0 + Double::from_int(c - 48)
+        frac_part = frac_part * 10.0 + (c - 48).to_double()
         scale = scale * 10.0
       }
       i = i + 1

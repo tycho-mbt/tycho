@@ -953,6 +953,10 @@ fn alloc_font_id() -> Int {
 }
 
 ///|
+// `gdef` is inspected by the whitebox tests (`GDEF classes drive GSUB lookup
+// flags`); it is not read by the shaping hot path, which reaches GDEF through
+// `GsubData`.
+#warnings("-unused_field")
 pub struct FontFace {
   priv id : Int
   priv ttf : TtfData?

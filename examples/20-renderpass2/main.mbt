@@ -119,7 +119,7 @@ fn main {
     mi.reinterpret_as_uint()
   }
   let host = @vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | @vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-  let local = @vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+  let dev_local = @vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 
   // offscreen color target
   let fmt = @vk.VK_FORMAT_R8G8B8A8_UNORM
@@ -143,7 +143,7 @@ fn main {
   (dfn.vkGetImageMemoryRequirements)(dev, img, ireq)
   let imai = @vk.VkMemoryAllocateInfo::new()
   imai.set_allocationSize(ireq.get_size())
-  imai.set_memoryTypeIndex(memtype(ireq.get_memoryTypeBits(), local))
+  imai.set_memoryTypeIndex(memtype(ireq.get_memoryTypeBits(), dev_local))
   let imem_out = FixedArray::make(1, @vk.VkDeviceMemory::null())
   let _ = (dfn.vkAllocateMemory)(dev, imai, na, imem_out)
   let _ = (dfn.vkBindImageMemory)(dev, img, imem_out[0], (0 : UInt64))

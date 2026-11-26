@@ -9,7 +9,7 @@ fn to_f(i : Int) -> Float {
 
 ///|
 fn byte_of(v : Int) -> Byte {
-  (v.to_uint() & (0xFF : UInt)).to_byte()
+  (v.reinterpret_as_uint() & (0xFF : UInt)).to_byte()
 }
 
 ///|

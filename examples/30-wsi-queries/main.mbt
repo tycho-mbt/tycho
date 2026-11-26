@@ -3,7 +3,7 @@
 // present capabilities/modes/rectangles, AcquireNextImage2KHR, HDR metadata,
 // swapchain status, and present-wait / release-swapchain-images when supported.
 
-let g_errors : Ref[Int] = Ref::new(0)
+let g_errors : Ref[Int] = Ref(0)
 
 ///|
 fn main {

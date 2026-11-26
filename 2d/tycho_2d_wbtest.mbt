@@ -988,9 +988,9 @@ test "gvar changes glyph outline" {
       Some(font) => {
         let gid = font.glyph_id(72)
         font.set_variation("wght", (100.0 : Float))
-        let (tx, ty, tw, th, thin) = font.rasterize_bitmap(gid, 72, (64.0 : Float), false, false)
+        let (_tx, _ty, tw, _th, thin) = font.rasterize_bitmap(gid, 72, (64.0 : Float), false, false)
         font.set_variation("wght", (900.0 : Float))
-        let (bx, by, bw, bh, bold) = font.rasterize_bitmap(gid, 72, (64.0 : Float), false, false)
+        let (_bx, _by, bw, _bh, bold) = font.rasterize_bitmap(gid, 72, (64.0 : Float), false, false)
         let mut thin_px = 0
         let mut bold_px = 0
         for p in thin {

@@ -130,7 +130,7 @@ fn main {
     mi.reinterpret_as_uint()
   }
   let host = @vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | @vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-  let local = @vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+  let dev_local = @vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
   let fmt = @vk.VK_FORMAT_R8G8B8A8_UNORM
   let w = 64
   let npix = w * w
@@ -182,7 +182,7 @@ fn main {
     (dfn.vkGetImageMemoryRequirements)(dev, o[0], rq)
     let ai = @vk.VkMemoryAllocateInfo::new()
     ai.set_allocationSize(rq.get_size())
-    ai.set_memoryTypeIndex(memtype(rq.get_memoryTypeBits(), local))
+    ai.set_memoryTypeIndex(memtype(rq.get_memoryTypeBits(), dev_local))
     let mo = FixedArray::make(1, @vk.VkDeviceMemory::null())
     let _ = (dfn.vkAllocateMemory)(dev, ai, na, mo)
     let _ = (dfn.vkBindImageMemory)(dev, o[0], mo[0], (0 : UInt64))
@@ -489,14 +489,14 @@ fn main {
   let si2 = @vk.VkSubmitInfo2::new()
   si2.set_commandBufferInfoCount((1 : UInt32))
   si2.set_pCommandBufferInfos(cbsi)
-  let sr = if has("vkQueueSubmit2KHR") {
+  let _sr = if has("vkQueueSubmit2KHR") {
     let r = (dfn.vkQueueSubmit2KHR)(queue, (1 : UInt32), si2, fence_out[0])
     n = n + 1
     r
   } else {
     (dfn.vkQueueSubmit2)(queue, (1 : UInt32), si2, fence_out[0])
   }
-  let wr = (dfn.vkWaitForFences)(dev, (1 : UInt32), fence_out, (1 : UInt32), (10000000000 : UInt64))
+  let _wr = (dfn.vkWaitForFences)(dev, (1 : UInt32), fence_out, (1 : UInt32), (10000000000 : UInt64))
   let got = @vk.download_buffer(dev, sbmem_out[0], 32)
   let v0 = got[0].to_int() + got[1].to_int() * 256
   let v7 = got[28].to_int() + got[29].to_int() * 256

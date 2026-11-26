@@ -2,7 +2,7 @@
 // Image Capture Data, Buffer Device Address EXT, Host Image Copy EXT, and
 // NVIDIA Cooperative Matrix 2 / Copy Memory Indirect queries.
 
-let g_errors : Ref[Int] = Ref::new(0)
+let g_errors : Ref[Int] = Ref(0)
 
 ///|
 fn main {

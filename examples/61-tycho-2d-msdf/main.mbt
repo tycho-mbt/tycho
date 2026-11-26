@@ -71,7 +71,7 @@ fn render_at(
   font : @g2d.FontFace,
   size : Float,
   w : Int,
-  h : Int,
+  _h : Int,
   bg : @g2d.Color,
 ) -> @g2d.DisplayList {
   let c = @g2d.Canvas::new()
@@ -160,7 +160,7 @@ fn main {
       )
     } else {
       println(
-        "[61-tycho-2d-msdf] FAIL — worst=\{worst} scores=\{scores} errs=\{errs}",
+        "[61-tycho-2d-msdf] FAIL — worst=\{worst} scores=\{Repr(scores)} errs=\{errs}",
       )
     }
     if show_win {

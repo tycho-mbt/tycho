@@ -141,7 +141,7 @@ fn emit_level(
 
 ///|
 fn group(commands : Array[VkCommand]) -> (Array[VkCommand], Array[VkCommand], Array[VkCommand]) {
-  let core : @hashmap.HashMap[String, VkCommand] = @hashmap.HashMap::new()
+  let core : @hashmap.HashMap[String, VkCommand] = @hashmap.HashMap([])
   for cmd in commands {
     if cmd.alias_of is None {
       core.set(cmd.name, cmd)
