@@ -1,5 +1,8 @@
 import {
   "laplaceliu/tycho" @tycho,
+  "laplaceliu/tycho_math" @tmath,
+  "laplaceliu/tycho_math/f64" @dmath,
+  "moonbitlang/core/math" @math,
 }
 
 pkgtype(kind: "executable")

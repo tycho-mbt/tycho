@@ -160,120 +160,15 @@ fn parse_obj(b : Bytes) -> Array[Float] {
 }
 
 ///|
-fn v3_sub(
-  a : (Double, Double, Double),
-  b : (Double, Double, Double),
-) -> (Double, Double, Double) {
-  (a.0 - b.0, a.1 - b.1, a.2 - b.2)
-}
-
-///|
-fn v3_dot(a : (Double, Double, Double), b : (Double, Double, Double)) -> Double {
-  a.0 * b.0 + a.1 * b.1 + a.2 * b.2
-}
-
-///|
-fn v3_cross(
-  a : (Double, Double, Double),
-  b : (Double, Double, Double),
-) -> (Double, Double, Double) {
-  (a.1 * b.2 - a.2 * b.1, a.2 * b.0 - a.0 * b.2, a.0 * b.1 - a.1 * b.0)
-}
-
-///|
-fn v3_norm(v : (Double, Double, Double)) -> (Double, Double, Double) {
-  let len = (v.0 * v.0 + v.1 * v.1 + v.2 * v.2).sqrt()
-  (v.0 / len, v.1 / len, v.2 / len)
-}
-
-///|
-fn look_at(
-  eye : (Double, Double, Double),
-  target : (Double, Double, Double),
-  up : (Double, Double, Double),
-) -> FixedArray[Double] {
-  let f = v3_norm(v3_sub(target, eye))
-  let r = v3_norm(v3_cross(f, up))
-  let u = v3_cross(r, f)
-  let m = FixedArray::make(16, 0.0)
-  m[0] = r.0
-  m[4] = r.1
-  m[8] = r.2
-  m[12] = -v3_dot(r, eye)
-  m[1] = u.0
-  m[5] = u.1
-  m[9] = u.2
-  m[13] = -v3_dot(u, eye)
-  m[2] = -f.0
-  m[6] = -f.1
-  m[10] = -f.2
-  m[14] = v3_dot(f, eye)
-  m[15] = 1.0
-  m
-}
-
-///|
-fn ortho_vk(
-  half_w : Double,
-  half_h : Double,
-  near : Double,
-  far : Double,
-) -> FixedArray[Double] {
-  let m = FixedArray::make(16, 0.0)
-  m[0] = 1.0 / half_w
-  m[5] = -1.0 / half_h
-  m[10] = -1.0 / (far - near)
-  m[14] = -near / (far - near)
-  m[15] = 1.0
-  m
-}
-
-///|
-fn persp_vk(
-  f : Double,
-  aspect : Double,
-  near : Double,
-  far : Double,
-) -> FixedArray[Double] {
-  let m = FixedArray::make(16, 0.0)
-  m[0] = f / aspect
-  m[5] = -f
-  m[10] = far / (near - far)
-  m[11] = -1.0
-  m[14] = near * far / (near - far)
-  m
-}
-
-///|
-fn mat4_mul(
-  a : FixedArray[Double],
-  b : FixedArray[Double],
-) -> FixedArray[Double] {
-  let out = FixedArray::make(16, 0.0)
-  for col = 0; col < 4; col = col + 1 {
-    for row = 0; row < 4; row = row + 1 {
-      let mut s = 0.0
-      for k = 0; k < 4; k = k + 1 {
-        s = s + a[k * 4 + row] * b[col * 4 + k]
-      }
-      out[col * 4 + row] = s
-    }
-  }
-  out
-}
-
-///|
 fn project_px(
-  vp : FixedArray[Double],
-  p : (Double, Double, Double),
+  vp : @dmath.DMat4,
+  p : @dmath.DVec3,
   w : Int32,
   h : Int32,
 ) -> (Int32, Int32, Bool) {
-  let cx = vp[0] * p.0 + vp[4] * p.1 + vp[8] * p.2 + vp[12]
-  let cy = vp[1] * p.0 + vp[5] * p.1 + vp[9] * p.2 + vp[13]
-  let cw = vp[3] * p.0 + vp[7] * p.1 + vp[11] * p.2 + vp[15]
-  let nx = cx / cw
-  let ny = cy / cw
+  let v = vp.mul_vec4(p.extend_w(1.0))
+  let nx = v.x / v.w
+  let ny = v.y / v.w
   let px = ((nx * 0.5 + 0.5) * Double::from_int(w)).to_int()
   let py = ((ny * 0.5 + 0.5) * Double::from_int(h)).to_int()
   let ok = px >= 4 && px < w - 4 && py >= 4 && py < h - 4
@@ -467,28 +362,44 @@ fn main {
       ),
     )
 
-    let cam_vp = mat4_mul(
-      persp_vk(1.4, 1.0, 0.2, 20.0),
-      look_at((0.0, 3.0, 4.8), (0.0, -0.3, 0.0), (0.0, 1.0, 0.0)),
-    )
-    let light_pos = (-2.0, 2.0, 0.8)
-    let light_vp = mat4_mul(
-      ortho_vk(1.25, 1.25, 0.1, 10.0),
-      look_at(light_pos, (0.0, 0.0, 0.0), (0.0, 0.0, 1.0)),
-    )
-    let ldir = v3_norm(light_pos)
+    // The camera was authored as `f = 1 / tan(fov_y / 2) = 1.4`; recover the
+    // angle in double precision so the matrix matches bit-for-bit.
+    let fov_y = 2.0 * @math.atan(1.0 / 1.4)
+    let cam_vp = @dmath.dperspective_rh(
+        fov_y,
+        1.0,
+        0.2,
+        20.0,
+        clip=@tmath.ClipSpace::Vulkan,
+      ) *
+      @dmath.dlook_at_rh(
+        @dmath.DVec3::new(0.0, 3.0, 4.8),
+        @dmath.DVec3::new(0.0, -0.3, 0.0),
+        @dmath.DVec3::unit_y(),
+      )
+    let light_pos = @dmath.DVec3::new(-2.0, 2.0, 0.8)
+    let light_vp = @dmath.dorthographic_rh(
+        -1.25,
+        1.25,
+        -1.25,
+        1.25,
+        0.1,
+        10.0,
+        clip=@tmath.ClipSpace::Vulkan,
+      ) *
+      @dmath.dlook_at_rh(light_pos, @dmath.DVec3::zero(), @dmath.DVec3::unit_z())
+    let ldir = light_pos.normalize()
 
-    let light_pc = FixedArray::makei(16, fn(i) {
-      Float::from_double(light_vp[i])
-    })
+    let light_pc = light_vp.to_mat4().to_cols_array()
+    let cam_vp_f = cam_vp.to_mat4().to_cols_array()
     let ubo_floats = FixedArray::make(36, (0.0 : Float))
     for i = 0; i < 16; i = i + 1 {
-      ubo_floats[i] = Float::from_double(cam_vp[i])
-      ubo_floats[16 + i] = Float::from_double(light_vp[i])
+      ubo_floats[i] = cam_vp_f[i]
+      ubo_floats[16 + i] = light_pc[i]
     }
-    ubo_floats[32] = Float::from_double(ldir.0)
-    ubo_floats[33] = Float::from_double(ldir.1)
-    ubo_floats[34] = Float::from_double(ldir.2)
+    ubo_floats[32] = Float::from_double(ldir.x)
+    ubo_floats[33] = Float::from_double(ldir.y)
+    ubo_floats[34] = Float::from_double(ldir.z)
     ubo_floats[35] = (0.0 : Float)
 
     let scene_ubo = dev.create_buffer(144, @tycho.BufferKind::Uniform)
@@ -567,10 +478,10 @@ fn main {
     //   B (-1.10, -0.50, 0.00): lit ground inside shadow frustum
     //   C (1.70, -0.50, 1.70): lit ground OUTSIDE shadow frustum (tests ClampToBorder OpaqueWhite)
     //   D (-0.25, 0.20, 0.35): occluder front face (tests Texture2DArray layer 1 upload_subregion green patch)
-    let (ax, ay, a_in) = project_px(cam_vp, (0.80, -0.50, 0.00), 256, 256)
-    let (bx, by, b_in) = project_px(cam_vp, (-1.10, -0.50, 0.00), 256, 256)
-    let (cx, cy, c_in) = project_px(cam_vp, (1.70, -0.50, 1.70), 256, 256)
-    let (dx, dy, d_in) = project_px(cam_vp, (-0.25, 0.20, 0.35), 256, 256)
+    let (ax, ay, a_in) = project_px(cam_vp, @dmath.DVec3::new(0.80, -0.50, 0.00), 256, 256)
+    let (bx, by, b_in) = project_px(cam_vp, @dmath.DVec3::new(-1.10, -0.50, 0.00), 256, 256)
+    let (cx, cy, c_in) = project_px(cam_vp, @dmath.DVec3::new(1.70, -0.50, 1.70), 256, 256)
+    let (dx, dy, d_in) = project_px(cam_vp, @dmath.DVec3::new(-0.25, 0.20, 0.35), 256, 256)
 
     let (ar, ag, ab) = sample_rgba(px, 256, ax, ay)
     let (br, bg, bb) = sample_rgba(px, 256, bx, by)

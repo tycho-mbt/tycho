@@ -7,167 +7,6 @@
 // - Default headless verification; pass `--window` for interactive WASD/Q/E/mouse camera
 
 ///|
-fn sin_cos(theta : Double) -> (Double, Double) {
-  let pi = 3.141592653589793
-  let two_pi = 6.283185307179586
-  let mut x = theta % two_pi
-  if x > pi {
-    x = x - two_pi
-  } else if x < -pi {
-    x = x + two_pi
-  }
-  let half_pi = 1.5707963267948966
-  let mut cos_sign = 1.0
-  let mut sx = x
-  if sx > half_pi {
-    sx = pi - sx
-    cos_sign = -1.0
-  } else if sx < -half_pi {
-    sx = -pi - sx
-    cos_sign = -1.0
-  }
-  let x2 = sx * sx
-  let s = sx *
-    (1.0 - x2 / 6.0 * (1.0 - x2 / 20.0 * (1.0 - x2 / 42.0 * (1.0 - x2 / 72.0))))
-  let c = cos_sign *
-    (1.0 - x2 / 2.0 * (1.0 - x2 / 12.0 * (1.0 - x2 / 30.0 * (1.0 - x2 / 56.0))))
-  (s, c)
-}
-
-///|
-fn v3_sub(a : (Double, Double, Double), b : (Double, Double, Double)) -> (Double, Double, Double) {
-  (a.0 - b.0, a.1 - b.1, a.2 - b.2)
-}
-
-///|
-fn v3_dot(a : (Double, Double, Double), b : (Double, Double, Double)) -> Double {
-  a.0 * b.0 + a.1 * b.1 + a.2 * b.2
-}
-
-///|
-fn v3_cross(a : (Double, Double, Double), b : (Double, Double, Double)) -> (Double, Double, Double) {
-  (a.1 * b.2 - a.2 * b.1, a.2 * b.0 - a.0 * b.2, a.0 * b.1 - a.1 * b.0)
-}
-
-///|
-fn v3_norm(v : (Double, Double, Double)) -> (Double, Double, Double) {
-  let l = (v.0 * v.0 + v.1 * v.1 + v.2 * v.2).sqrt()
-  (v.0 / l, v.1 / l, v.2 / l)
-}
-
-///|
-fn look_at_basis(
-  eye : (Double, Double, Double),
-  forward : (Double, Double, Double),
-) -> (FixedArray[Double], (Double, Double, Double), (Double, Double, Double), (Double, Double, Double)) {
-  let f = v3_norm(forward)
-  let r = v3_norm(v3_cross(f, (0.0, 1.0, 0.0)))
-  let u = v3_cross(r, f)
-  let m = FixedArray::make(16, 0.0)
-  m[0] = r.0
-  m[4] = r.1
-  m[8] = r.2
-  m[12] = -v3_dot(r, eye)
-  m[1] = u.0
-  m[5] = u.1
-  m[9] = u.2
-  m[13] = -v3_dot(u, eye)
-  m[2] = -f.0
-  m[6] = -f.1
-  m[10] = -f.2
-  m[14] = v3_dot(f, eye)
-  m[15] = 1.0
-  (m, r, u, f)
-}
-
-///|
-fn look_at(
-  eye : (Double, Double, Double),
-  target : (Double, Double, Double),
-  up : (Double, Double, Double),
-) -> FixedArray[Double] {
-  let f = v3_norm(v3_sub(target, eye))
-  let r = v3_norm(v3_cross(f, up))
-  let u = v3_cross(r, f)
-  let m = FixedArray::make(16, 0.0)
-  m[0] = r.0
-  m[4] = r.1
-  m[8] = r.2
-  m[12] = -v3_dot(r, eye)
-  m[1] = u.0
-  m[5] = u.1
-  m[9] = u.2
-  m[13] = -v3_dot(u, eye)
-  m[2] = -f.0
-  m[6] = -f.1
-  m[10] = -f.2
-  m[14] = v3_dot(f, eye)
-  m[15] = 1.0
-  m
-}
-
-///|
-fn persp_vk(f : Double, aspect : Double, near : Double, far : Double) -> FixedArray[Double] {
-  let m = FixedArray::make(16, 0.0)
-  m[0] = f / aspect
-  m[5] = -f
-  m[10] = far / (near - far)
-  m[11] = -1.0
-  m[14] = near * far / (near - far)
-  m
-}
-
-///|
-fn ortho_vk(hw : Double, hh : Double, near : Double, far : Double) -> FixedArray[Double] {
-  let m = FixedArray::make(16, 0.0)
-  m[0] = 1.0 / hw
-  m[5] = -1.0 / hh
-  m[10] = -1.0 / (far - near)
-  m[14] = -near / (far - near)
-  m[15] = 1.0
-  m
-}
-
-///|
-fn mat4_mul(a : FixedArray[Double], b : FixedArray[Double]) -> FixedArray[Double] {
-  let out = FixedArray::make(16, 0.0)
-  for col = 0; col < 4; col = col + 1 {
-    for row = 0; row < 4; row = row + 1 {
-      let mut s = 0.0
-      for k = 0; k < 4; k = k + 1 {
-        s = s + a[k * 4 + row] * b[col * 4 + k]
-      }
-      out[col * 4 + row] = s
-    }
-  }
-  out
-}
-
-///|
-fn make_inv_rot_proj(
-  r : (Double, Double, Double),
-  u : (Double, Double, Double),
-  f : (Double, Double, Double),
-  focal : Double,
-  aspect : Double,
-) -> FixedArray[Double] {
-  let m = FixedArray::make(16, 0.0)
-  let sx = aspect / focal
-  let sy = -1.0 / focal
-  m[0] = r.0 * sx
-  m[1] = r.1 * sx
-  m[2] = r.2 * sx
-  m[4] = u.0 * sy
-  m[5] = u.1 * sy
-  m[6] = u.2 * sy
-  m[12] = f.0
-  m[13] = f.1
-  m[14] = f.2
-  m[15] = 1.0
-  m
-}
-
-///|
 fn build_scene_mesh() -> (FixedArray[Float], FixedArray[UInt16], Int) {
   let stacks = 18
   let slices = 28
@@ -177,11 +16,11 @@ fn build_scene_mesh() -> (FixedArray[Float], FixedArray[UInt16], Int) {
   for st = 0; st <= stacks; st = st + 1 {
     let v = st.to_double() / stacks.to_double()
     let phi = v * pi
-    let (sp, cp) = sin_cos(phi)
+    let (sp, cp) = (@math.sin(phi), @math.cos(phi))
     for sl = 0; sl <= slices; sl = sl + 1 {
       let u = sl.to_double() / slices.to_double()
       let theta = u * 2.0 * pi
-      let (st_h, ct_h) = sin_cos(theta)
+      let (st_h, ct_h) = (@math.sin(theta), @math.cos(theta))
       let nx = sp * ct_h
       let ny = cp
       let nz = sp * st_h
@@ -235,20 +74,20 @@ fn build_scene_mesh() -> (FixedArray[Float], FixedArray[UInt16], Int) {
 }
 
 ///|
-fn cube_dir(face : Int, u : Double, v : Double) -> (Double, Double, Double) {
+fn cube_dir(face : Int, u : Double, v : Double) -> @dmath.DVec3 {
   let raw = match face {
-    0 => (1.0, -v, -u)
-    1 => (-1.0, -v, u)
-    2 => (u, 1.0, v)
-    3 => (u, -1.0, -v)
-    4 => (u, -v, 1.0)
-    _ => (-u, -v, -1.0)
+    0 => @dmath.DVec3::new(1.0, -v, -u)
+    1 => @dmath.DVec3::new(-1.0, -v, u)
+    2 => @dmath.DVec3::new(u, 1.0, v)
+    3 => @dmath.DVec3::new(u, -1.0, -v)
+    4 => @dmath.DVec3::new(u, -v, 1.0)
+    _ => @dmath.DVec3::new(-u, -v, -1.0)
   }
-  v3_norm(raw)
+  raw.normalize()
 }
 
 ///|
-fn make_env_cubemap(sun_dir : (Double, Double, Double)) -> Array[Bytes] {
+fn make_env_cubemap(sun_dir : @dmath.DVec3) -> Array[Bytes] {
   let sz = 32
   let faces : Array[Bytes] = []
   for f = 0; f < 6; f = f + 1 {
@@ -258,16 +97,16 @@ fn make_env_cubemap(sun_dir : (Double, Double, Double)) -> Array[Bytes] {
       for x = 0; x < sz; x = x + 1 {
         let u = (x.to_double() + 0.5) / sz.to_double() * 2.0 - 1.0
         let d = cube_dir(f, u, v)
-        let (r, g, b) = if d.1 >= 0.0 {
-          let t = d.1
+        let (r, g, b) = if d.y >= 0.0 {
+          let t = d.y
           let rr = 0.85 * (1.0 - t) + 0.16 * t
           let gg = 0.58 * (1.0 - t) + 0.34 * t
           let bb = 0.42 * (1.0 - t) + 0.78 * t
-          let sd = v3_dot(d, sun_dir)
+          let sd = d.dot(sun_dir)
           let sun = if sd > 0.0 { sd * sd * sd * sd * sd * sd * 0.45 } else { 0.0 }
           (rr + sun, gg + sun * 0.9, bb + sun * 0.6)
         } else {
-          let t = -d.1
+          let t = -d.y
           (0.26 * (1.0 - t) + 0.09 * t, 0.24 * (1.0 - t) + 0.10 * t, 0.28 * (1.0 - t) + 0.13 * t)
         }
         let clamp255 = fn(val : Double) {
@@ -312,8 +151,7 @@ fn main {
     )
     ibuf.upload_uint16(indices)
 
-    let sun_pos = (4.0, 3.6, -2.2)
-    let sun_dir = v3_norm(sun_pos)
+    let sun_dir = @dmath.DVec3::new(4.0, 3.6, -2.2).normalize()
     let env_cube = dev.create_cubemap(
       32,
       @tycho.TextureFormat::RGBA8,
@@ -425,10 +263,21 @@ fn main {
     let scene_ubo = dev.create_buffer(176, @tycho.BufferKind::Uniform)
     let sky_ubo = dev.create_buffer(80, @tycho.BufferKind::Uniform)
 
-    let light_vp = mat4_mul(
-      ortho_vk(4.5, 4.5, 0.5, 18.0),
-      look_at((5.5, 5.0, -3.0), (0.0, -0.4, 0.0), (0.0, 1.0, 0.0)),
-    )
+    let light_vp = @dmath.dorthographic_rh(
+        -4.5,
+        4.5,
+        -4.5,
+        4.5,
+        0.5,
+        18.0,
+        clip=@tmath.ClipSpace::Vulkan,
+      ) *
+      @dmath.dlook_at_rh(
+        @dmath.DVec3::new(5.5, 5.0, -3.0),
+        @dmath.DVec3::new(0.0, -0.4, 0.0),
+        @dmath.DVec3::unit_y(),
+      )
+    let light_vp_f = light_vp.to_mat4().to_cols_array()
 
     let col_x : Array[Float] = [-2.0, -1.0, 0.0, 1.0, 2.0]
     let roughs : Array[Float] = [0.12, 0.28, 0.48, 0.70, 0.90]
@@ -449,31 +298,49 @@ fn main {
 
     let record_scene = fn(
       cmd : @tycho.CommandBuffer,
-      cam_pos : (Double, Double, Double),
+      cam_pos : @dmath.DVec3,
       yaw : Double,
       pitch : Double,
       measure : Bool,
     ) raise @tycho.RhiError {
-      let (sy, cy) = sin_cos(yaw)
-      let (sp, cp) = sin_cos(pitch)
-      let fwd = (cp * cy, sp, cp * sy)
-      let (view, r_axis, u_axis, f_axis) = look_at_basis(cam_pos, fwd)
+      let (sy, cy) = (@math.sin(yaw), @math.cos(yaw))
+      let (sp, cp) = (@math.sin(pitch), @math.cos(pitch))
+      let fwd = @dmath.DVec3::new(cp * cy, sp, cp * sy)
+      let view = @dmath.dlook_to_rh(cam_pos, fwd, @dmath.DVec3::unit_y())
       let aspect = 800.0 / 600.0
+      // focal = 1 / tan(fov_y / 2); recover the angle in double precision.
       let focal = 1.65
-      let vp = mat4_mul(persp_vk(focal, aspect, 0.1, 40.0), view)
-      let inv_rp = make_inv_rot_proj(r_axis, u_axis, f_axis, focal, aspect)
+      let fov_y = 2.0 * @math.atan(1.0 / focal)
+      let vp = @dmath.dperspective_rh(
+          fov_y,
+          aspect,
+          0.1,
+          40.0,
+          clip=@tmath.ClipSpace::Vulkan,
+        ) *
+        view
+      // Direction -> NDC matrix used by the sky pass: view rotation scaled by
+      // (aspect / focal, -1 / focal) with the forward axis restored to +Z.
+      let inv_rp = @dmath.DMat4::from_dmat3(
+        view.to_dmat3().transpose() *
+        @dmath.DMat3::from_diagonal(
+          @dmath.DVec3::new(aspect / focal, -1.0 / focal, -1.0),
+        ),
+      )
+      let vp_f = vp.to_mat4().to_cols_array()
+      let inv_rp_f = inv_rp.to_mat4().to_cols_array()
 
       let su = FixedArray::make(44, (0.0 : Float))
       for i = 0; i < 16; i = i + 1 {
-        su[i] = Float::from_double(vp[i])
-        su[16 + i] = Float::from_double(light_vp[i])
+        su[i] = vp_f[i]
+        su[16 + i] = light_vp_f[i]
       }
-      su[32] = Float::from_double(cam_pos.0)
-      su[33] = Float::from_double(cam_pos.1)
-      su[34] = Float::from_double(cam_pos.2)
-      su[36] = Float::from_double(sun_dir.0)
-      su[37] = Float::from_double(sun_dir.1)
-      su[38] = Float::from_double(sun_dir.2)
+      su[32] = Float::from_double(cam_pos.x)
+      su[33] = Float::from_double(cam_pos.y)
+      su[34] = Float::from_double(cam_pos.z)
+      su[36] = Float::from_double(sun_dir.x)
+      su[37] = Float::from_double(sun_dir.y)
+      su[38] = Float::from_double(sun_dir.z)
       su[40] = (4.6 : Float)
       su[41] = (4.1 : Float)
       su[42] = (3.5 : Float)
@@ -481,11 +348,11 @@ fn main {
 
       let ku = FixedArray::make(20, (0.0 : Float))
       for i = 0; i < 16; i = i + 1 {
-        ku[i] = Float::from_double(inv_rp[i])
+        ku[i] = inv_rp_f[i]
       }
-      ku[16] = Float::from_double(sun_dir.0)
-      ku[17] = Float::from_double(sun_dir.1)
-      ku[18] = Float::from_double(sun_dir.2)
+      ku[16] = Float::from_double(sun_dir.x)
+      ku[17] = Float::from_double(sun_dir.y)
+      ku[18] = Float::from_double(sun_dir.z)
       sky_ubo.upload_floats(ku)
 
       if measure {
@@ -503,7 +370,7 @@ fn main {
       cmd.bind_index(ibuf, @tycho.IndexType::Uint16)
       let spc = FixedArray::make(20, (0.0 : Float))
       for i = 0; i < 16; i = i + 1 {
-        spc[i] = Float::from_double(light_vp[i])
+        spc[i] = light_vp_f[i]
       }
       for row = 0; row < 2; row = row + 1 {
         let zz : Float = if row == 0 { -0.75 } else { 0.75 }
@@ -604,7 +471,7 @@ fn main {
       }
     }
 
-    let mut cam_pos = (0.0, 1.75, 4.3)
+    let mut cam_pos = @dmath.DVec3::new(0.0, 1.75, 4.3)
     let mut yaw = -1.5707963
     let mut pitch = -0.36
     let cmd0 = dev.begin_commands()
@@ -651,22 +518,22 @@ fn main {
           match ev {
             @tycho.Event::CloseRequested => quit = true
             @tycho.Event::KeyDown(k, _) => {
-              let (sy, cy) = sin_cos(yaw)
+              let (sy, cy) = (@math.sin(yaw), @math.cos(yaw))
               let step = 0.18
               if k == @tycho.KEY_ESCAPE {
                 quit = true
               } else if k == @tycho.KEY_W {
-                cam_pos = (cam_pos.0 + cy * step, cam_pos.1, cam_pos.2 + sy * step)
+                cam_pos = @dmath.DVec3::new(cam_pos.x + cy * step, cam_pos.y, cam_pos.z + sy * step)
               } else if k == @tycho.KEY_S {
-                cam_pos = (cam_pos.0 - cy * step, cam_pos.1, cam_pos.2 - sy * step)
+                cam_pos = @dmath.DVec3::new(cam_pos.x - cy * step, cam_pos.y, cam_pos.z - sy * step)
               } else if k == @tycho.KEY_A {
-                cam_pos = (cam_pos.0 + sy * step, cam_pos.1, cam_pos.2 - cy * step)
+                cam_pos = @dmath.DVec3::new(cam_pos.x + sy * step, cam_pos.y, cam_pos.z - cy * step)
               } else if k == @tycho.KEY_D {
-                cam_pos = (cam_pos.0 - sy * step, cam_pos.1, cam_pos.2 + cy * step)
+                cam_pos = @dmath.DVec3::new(cam_pos.x - sy * step, cam_pos.y, cam_pos.z + cy * step)
               } else if k == @tycho.KEY_E {
-                cam_pos = (cam_pos.0, cam_pos.1 + step, cam_pos.2)
+                cam_pos = @dmath.DVec3::new(cam_pos.x, cam_pos.y + step, cam_pos.z)
               } else if k == @tycho.KEY_Q {
-                cam_pos = (cam_pos.0, cam_pos.1 - step, cam_pos.2)
+                cam_pos = @dmath.DVec3::new(cam_pos.x, cam_pos.y - step, cam_pos.z)
               } else if k == @tycho.KEY_LEFT {
                 yaw = yaw - 0.06
               } else if k == @tycho.KEY_RIGHT {
