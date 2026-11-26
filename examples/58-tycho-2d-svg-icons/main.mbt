@@ -7,7 +7,7 @@
 
 const PI58 : Float = 3.141592653589793
 
-const ICON_COUNT : Int = 300
+const ICON_COUNT : Int = 3000
 
 ///|
 fn make_icon(index : Int, cx : Float, cy : Float) -> @g2d.Path {
@@ -15,7 +15,7 @@ fn make_icon(index : Int, cx : Float, cy : Float) -> @g2d.Path {
   if variant == 0 {
     // Concave N-point star.
     let spokes = 5 + index % 6
-    let r_out = (20.0 : Float) + Float::from_int(index % 5) * (3.0 : Float)
+    let r_out = (6.0 : Float) + Float::from_int(index % 5)
     let r_in = r_out * (0.45 : Float)
     let pb = @g2d.PathBuilder::new()
     for k = 0; k < spokes * 2; k = k + 1 {
@@ -32,14 +32,14 @@ fn make_icon(index : Int, cx : Float, cy : Float) -> @g2d.Path {
     pb.close().build()
   } else if variant == 1 {
     // Ring with an EvenOdd hole.
-    let r = (18.0 : Float) + Float::from_int(index % 4) * (2.0 : Float)
+    let r = (5.0 : Float) + Float::from_int(index % 4)
     @g2d.PathBuilder::new()
       .add_circle(cx, cy, r)
       .add_circle(cx, cy, r * (0.5 : Float))
       .build(fill_rule=@g2d.FillRule::EvenOdd)
   } else {
     // Rounded square.
-    let half = (16.0 : Float) + Float::from_int(index % 3) * (3.0 : Float)
+    let half = (4.0 : Float) + Float::from_int(index % 3)
     let rr = @g2d.RRect::uniform(
       @g2d.Rect::new(
         cx - half,
@@ -126,10 +126,10 @@ fn main {
     let c = @g2d.Canvas::new()
     c.clear(bg)
     for i = 0; i < ICON_COUNT; i = i + 1 {
-      let col = i % 30
-      let row = i / 30
-      let cx = Float::from_int(32 + col * 62)
-      let cy = Float::from_int(60 + row * 100)
+      let col = i % 60
+      let row = i / 60
+      let cx = Float::from_int(16 + col * 32)
+      let cy = Float::from_int(10 + row * 21)
       let p = make_icon(i, cx, cy)
       let r = 90 + (i * 37) % 150
       let g = 90 + (i * 53) % 150
@@ -137,7 +137,7 @@ fn main {
       c.draw_path(p, @g2d.Paint::fill(@g2d.Color::from_rgba8(r, g, b)))
     }
     let dl = c.finish()
-    let renderer = @g2d.Renderer2D::new(dev)
+    let renderer = @g2d.Renderer2D::new(dev, max_path_verts_per_frame=262144)
     let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
 
     renderer.set_coverage_enabled(true)
@@ -150,23 +150,43 @@ fn main {
     let msaa_stats = renderer.stats()
     let msaa_px = rt.readback()
 
+    // "Animation zoom": rebuild the scene at 1.1x and render coverage only.
+    let cz = @g2d.Canvas::new()
+    cz.clear(bg)
+    cz.scale((1.1 : Float), (1.1 : Float))
+    for i = 0; i < ICON_COUNT; i = i + 1 {
+      let col = i % 60
+      let row = i / 60
+      let cx = Float::from_int(16 + col * 32)
+      let cy = Float::from_int(10 + row * 21)
+      let p = make_icon(i, cx, cy)
+      let r = 90 + (i * 37) % 150
+      let g = 90 + (i * 53) % 150
+      let b = 90 + (i * 71) % 150
+      cz.draw_path(p, @g2d.Paint::fill(@g2d.Color::from_rgba8(r, g, b)))
+    }
+    renderer.set_coverage_enabled(true)
+    renderer.render_offscreen(cz.finish(), rt, clear_color=bg)
+    let zoom_stats = renderer.stats()
+
     let score = windowed_ssim(cov_px, msaa_px, w, h)
     println(
-      "{\"ssim\":\{score},\"coverage_draws\":\{cov_stats.coverage_draws},\"coverage_passes\":\{cov_stats.path_passes},\"msaa_passes\":\{msaa_stats.path_passes},\"coverage_draw_calls\":\{cov_stats.draw_calls},\"msaa_draw_calls\":\{msaa_stats.draw_calls}}",
+      "{\"ssim\":\{score},\"coverage_draws\":\{cov_stats.coverage_draws},\"coverage_passes\":\{cov_stats.path_passes},\"msaa_passes\":\{msaa_stats.path_passes},\"zoom_coverage_draws\":\{zoom_stats.coverage_draws},\"coverage_draw_calls\":\{cov_stats.draw_calls},\"msaa_draw_calls\":\{msaa_stats.draw_calls}}",
     )
     let errs = dev.validation_errors()
     let ok = score >= 0.98 &&
       cov_stats.coverage_draws == ICON_COUNT &&
       cov_stats.path_passes <= 1 &&
-      msaa_stats.path_passes > 10 &&
+      msaa_stats.path_passes > 100 &&
+      zoom_stats.coverage_draws == ICON_COUNT &&
       errs == 0
     if ok {
       println(
-        "[58-tycho-2d-svg-icons] OK — SSIM=\{score}, coverage \{cov_stats.coverage_draws} icons / \{cov_stats.path_passes} passes, MSAA \{msaa_stats.path_passes} passes, 0 validation errors",
+        "[58-tycho-2d-svg-icons] OK — SSIM=\{score}, coverage \{cov_stats.coverage_draws} icons / \{cov_stats.path_passes} passes, MSAA \{msaa_stats.path_passes} passes, zoom coverage \{zoom_stats.coverage_draws}, 0 validation errors",
       )
     } else {
       println(
-        "[58-tycho-2d-svg-icons] FAIL — ssim=\{score} cov_draws=\{cov_stats.coverage_draws} cov_passes=\{cov_stats.path_passes} msaa_passes=\{msaa_stats.path_passes} errs=\{errs}",
+        "[58-tycho-2d-svg-icons] FAIL — ssim=\{score} cov_draws=\{cov_stats.coverage_draws} cov_passes=\{cov_stats.path_passes} msaa_passes=\{msaa_stats.path_passes} zoom=\{zoom_stats.coverage_draws} errs=\{errs}",
       )
     }
     rt.destroy()

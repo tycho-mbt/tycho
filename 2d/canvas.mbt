@@ -143,15 +143,53 @@ pub fn Canvas::clear(self : Canvas, color : Color) -> Unit {
 }
 
 ///|
+// Paint-level filters apply per draw: wrap the draw in a single-op layer so
+// the layer composite performs the blur/color-matrix. Returns the paint to use
+// for the inner draw and whether a matching restore is required.
+fn Canvas::begin_filtered(
+  self : Canvas,
+  bounds : Rect,
+  paint : Paint,
+) -> (Paint, Bool) {
+  let has = match (paint.color_filter, paint.mask_filter) {
+    (None, None) => false
+    _ => true
+  }
+  if !has {
+    return (paint, false)
+  }
+  self.expand_bounds(bounds)
+  let _ = self.save_layer(bounds=Some(bounds), paint=paint)
+  ({ ..paint, color_filter: None, mask_filter: None }, true)
+}
+
+///|
+fn Canvas::end_filtered(self : Canvas, layered : Bool) -> Unit {
+  if layered {
+    self.restore()
+  }
+}
+
+///|
 pub fn Canvas::draw_rect(self : Canvas, rect : Rect, paint : Paint) -> Unit {
+  let (p, layered) = self.begin_filtered(rect, paint)
   self.expand_bounds(rect)
-  self.ops.push(DrawOp::DrawRect(rect, paint))
+  self.ops.push(DrawOp::DrawRect(rect, p))
+  self.end_filtered(layered)
 }
 
 ///|
 pub fn Canvas::draw_rrect(self : Canvas, rrect : RRect, paint : Paint) -> Unit {
+  let pad = if paint.style == PaintStyle::Fill {
+    (0.0 : Float)
+  } else {
+    paint.stroke_width * (0.5 : Float)
+  }
+  let bounds = rrect.rect.inflate(pad)
+  let (p, layered) = self.begin_filtered(bounds, paint)
   self.expand_bounds(rrect.rect)
-  self.ops.push(DrawOp::DrawRRect(rrect, paint))
+  self.ops.push(DrawOp::DrawRRect(rrect, p))
+  self.end_filtered(layered)
 }
 
 ///|
@@ -162,8 +200,11 @@ pub fn Canvas::draw_circle(
   paint : Paint,
 ) -> Unit {
   let d = radius * (2.0 : Float)
-  self.expand_bounds(Rect::new(center.x - radius, center.y - radius, d, d))
-  self.ops.push(DrawOp::DrawCircle(center, radius, paint))
+  let bounds = Rect::new(center.x - radius, center.y - radius, d, d)
+  let (p, layered) = self.begin_filtered(bounds, paint)
+  self.expand_bounds(bounds)
+  self.ops.push(DrawOp::DrawCircle(center, radius, p))
+  self.end_filtered(layered)
 }
 
 ///|
@@ -180,8 +221,10 @@ pub fn Canvas::draw_line(
     @tmath.max_f(p0.x, p1.x) + pad,
     @tmath.max_f(p0.y, p1.y) + pad,
   )
+  let (p, layered) = self.begin_filtered(r, paint)
   self.expand_bounds(r)
-  self.ops.push(DrawOp::DrawLine(p0, p1, paint))
+  self.ops.push(DrawOp::DrawLine(p0, p1, p))
+  self.end_filtered(layered)
 }
 
 ///|
@@ -206,8 +249,37 @@ pub fn Canvas::draw_path(self : Canvas, path : Path, paint : Paint) -> Unit {
   } else {
     paint.stroke_width * (0.5 : Float)
   }
-  self.expand_bounds(path.bounds().inflate(pad))
-  self.ops.push(DrawOp::DrawPath(path, paint))
+  let bounds = path.bounds().inflate(pad)
+  let (p, layered) = self.begin_filtered(bounds, paint)
+  self.expand_bounds(bounds)
+  self.ops.push(DrawOp::DrawPath(path, p))
+  self.end_filtered(layered)
+}
+
+///|
+// Drop shadow for an arbitrary path: offset the path, draw it into a layer,
+// and blur the layer on composite.
+pub fn Canvas::draw_path_shadow(
+  self : Canvas,
+  path : Path,
+  dx : Float,
+  dy : Float,
+  blur : Float,
+  color : Color,
+) -> Unit {
+  let shadow_path = path.translated(dx, dy)
+  if blur <= (0.0 : Float) {
+    self.draw_path(shadow_path, Paint::fill(color))
+    return
+  }
+  let b = shadow_path.bounds().inflate(blur + (2.0 : Float))
+  self.expand_bounds(b)
+  let _ = self.save_layer(
+    bounds=Some(b),
+    paint=Paint::new(mask_filter=Some(MaskFilter::Blur(blur, blur))),
+  )
+  self.draw_path(shadow_path, Paint::fill(color))
+  self.restore()
 }
 
 ///|
@@ -310,8 +382,56 @@ pub fn Canvas::draw_image_rect(
   dst : Rect,
   paint? : Paint = Paint::new(),
 ) -> Unit {
+  let (p, layered) = self.begin_filtered(dst, paint)
   self.expand_bounds(dst)
-  self.ops.push(DrawOp::DrawImage(image, src, dst, paint))
+  self.ops.push(DrawOp::DrawImage(image, src, dst, p))
+  self.end_filtered(layered)
+}
+
+///|
+// Emit many sub-rects of one image as a single indexed mesh (one draw).
+fn Canvas::draw_image_quads(
+  self : Canvas,
+  image : Image2D,
+  quads : Array[(Rect, Rect)],
+  paint : Paint,
+) -> Unit {
+  if quads.length() == 0 {
+    return
+  }
+  let iw = Float::from_int(image.width)
+  let ih = Float::from_int(image.height)
+  if iw <= (0.0 : Float) || ih <= (0.0 : Float) {
+    return
+  }
+  let verts : Array[Vertex2D] = []
+  let idx : Array[Int] = []
+  for q in quads {
+    let src = q.0
+    let dst = q.1
+    if dst.width <= (0.0 : Float) || dst.height <= (0.0 : Float) {
+      continue
+    }
+    let u0 = src.x / iw
+    let v0 = src.y / ih
+    let u1 = src.right() / iw
+    let v1 = src.bottom() / ih
+    let base = verts.length()
+    verts.push(Vertex2D::new(dst.x, dst.y, u=u0, v=v0))
+    verts.push(Vertex2D::new(dst.right(), dst.y, u=u1, v=v0))
+    verts.push(Vertex2D::new(dst.right(), dst.bottom(), u=u1, v=v1))
+    verts.push(Vertex2D::new(dst.x, dst.bottom(), u=u0, v=v1))
+    idx.push(base)
+    idx.push(base + 1)
+    idx.push(base + 2)
+    idx.push(base)
+    idx.push(base + 2)
+    idx.push(base + 3)
+  }
+  if verts.length() == 0 {
+    return
+  }
+  self.draw_vertices(verts, idx, paint~, image=Some(image))
 }
 
 ///|
@@ -333,35 +453,36 @@ pub fn Canvas::draw_nine_patch(
   let sy : Array[Float] = [(0.0 : Float), t, ih - b, ih]
   let dx : Array[Float] = [dst.x, dst.x + l, dst.right() - r, dst.right()]
   let dy : Array[Float] = [dst.y, dst.y + t, dst.bottom() - b, dst.bottom()]
+  let quads : Array[(Rect, Rect)] = []
   for row = 0; row < 3; row = row + 1 {
     for col = 0; col < 3; col = col + 1 {
       let sw = sx[col + 1] - sx[col]
       let sh = sy[row + 1] - sy[row]
       let dw = dx[col + 1] - dx[col]
       let dh = dy[row + 1] - dy[row]
-      if sw > (0.0 : Float) && sh > (0.0 : Float) && dw > (0.0 : Float) && dh > (0.0 : Float) {
-        self.draw_image_rect(
-          image,
+      if sw > (0.0 : Float) &&
+        sh > (0.0 : Float) &&
+        dw > (0.0 : Float) &&
+        dh > (0.0 : Float) {
+        quads.push((
           Rect::new(sx[col], sy[row], sw, sh),
           Rect::new(dx[col], dy[row], dw, dh),
-          paint~,
-        )
+        ))
       }
     }
   }
+  self.draw_image_quads(image, quads, paint)
 }
 
 ///|
-// Draw many sub-rects of one image in a single call.
+// Draw many sub-rects of one image as a single indexed mesh.
 pub fn Canvas::draw_atlas(
   self : Canvas,
   image : Image2D,
   entries : Array[(Rect, Rect)],
   paint? : Paint = Paint::new(),
 ) -> Unit {
-  for e in entries {
-    self.draw_image_rect(image, e.0, e.1, paint~)
-  }
+  self.draw_image_quads(image, entries, paint)
 }
 
 ///|
@@ -406,10 +527,14 @@ pub fn Canvas::draw_vertices(
       }
     }
   }
-  if has {
-    self.expand_bounds(Rect::from_ltrb(min_x, min_y, max_x, max_y))
+  if !has {
+    return
   }
-  self.ops.push(DrawOp::DrawVertices(vertices, indices, paint, image))
+  let bounds = Rect::from_ltrb(min_x, min_y, max_x, max_y)
+  let (p, layered) = self.begin_filtered(bounds, paint)
+  self.expand_bounds(bounds)
+  self.ops.push(DrawOp::DrawVertices(vertices, indices, p, image))
+  self.end_filtered(layered)
 }
 
 ///|
@@ -418,7 +543,8 @@ pub fn Canvas::draw_paragraph(
   paragraph : Paragraph,
   pos : Point,
 ) -> Unit {
-  self.expand_bounds(Rect::new(pos.x, pos.y, paragraph.width(), paragraph.height()))
+  let bounds = Rect::new(pos.x, pos.y, paragraph.width(), paragraph.height())
+  self.expand_bounds(bounds)
   self.ops.push(DrawOp::DrawParagraph(paragraph, pos))
 }
 

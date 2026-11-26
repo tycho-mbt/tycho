@@ -152,8 +152,9 @@ fn path_polygons(path : Path) -> Array[Array[Point]] {
 
 ///|
 // Boolean op with a convex `other`. Returns None when `other` is not convex
-// or the result is unsupported; callers may fall back to coverage compositing.
-pub fn Path::op(self : Path, other : Path, op : PathOp) -> Path? {
+// or the result is unsupported; `Path::op` then falls back to scanline
+// compositing.
+fn Path::op_convex(self : Path, other : Path, op : PathOp) -> Path? {
   let a_polys = path_polygons(self)
   let b_polys = path_polygons(other)
   if a_polys.length() == 0 || b_polys.length() != 1 {
@@ -217,6 +218,261 @@ pub fn Path::op(self : Path, other : Path, op : PathOp) -> Path? {
       }
       add_polygon(pb, b)
       Some(pb.build(fill_rule=FillRule::EvenOdd))
+    }
+  }
+}
+
+///|
+fn interval_sort(xs : Array[Float], dirs : Array[Int]) -> Unit {
+  for i = 1; i < xs.length(); i = i + 1 {
+    let kx = xs[i]
+    let kd = dirs[i]
+    let mut j = i - 1
+    while j >= 0 && xs[j] > kx {
+      xs[j + 1] = xs[j]
+      dirs[j + 1] = dirs[j]
+      j = j - 1
+    }
+    xs[j + 1] = kx
+    dirs[j + 1] = kd
+  }
+}
+
+///|
+fn scanline_intervals(
+  polys : Array[Array[Point]],
+  y : Float,
+  rule : FillRule,
+) -> Array[(Float, Float)] {
+  let xs : Array[Float] = []
+  let dirs : Array[Int] = []
+  for pts in polys {
+    let n = pts.length()
+    if n < 2 {
+      continue
+    }
+    for i = 0; i < n; i = i + 1 {
+      let a = pts[i]
+      let b = pts[(i + 1) % n]
+      let up = a.y <= y && b.y > y
+      let dn = b.y <= y && a.y > y
+      if up || dn {
+        let t = (y - a.y) / (b.y - a.y)
+        xs.push(a.x + (b.x - a.x) * t)
+        dirs.push(if up { 1 } else { -1 })
+      }
+    }
+  }
+  interval_sort(xs, dirs)
+  let out : Array[(Float, Float)] = []
+  match rule {
+    FillRule::EvenOdd => {
+      let mut i = 0
+      while i + 1 < xs.length() {
+        if xs[i + 1] - xs[i] > (1.0e-5 : Float) {
+          out.push((xs[i], xs[i + 1]))
+        }
+        i = i + 2
+      }
+    }
+    FillRule::NonZero => {
+      let mut w = 0
+      let mut start = (0.0 : Float)
+      for i = 0; i < xs.length(); i = i + 1 {
+        let before = w
+        w = w + dirs[i]
+        if before == 0 && w != 0 {
+          start = xs[i]
+        } else if before != 0 && w == 0 {
+          if xs[i] - start > (1.0e-5 : Float) {
+            out.push((start, xs[i]))
+          }
+        }
+      }
+    }
+  }
+  out
+}
+
+///|
+fn merge_intervals(
+  a : Array[(Float, Float)],
+  b : Array[(Float, Float)],
+) -> Array[(Float, Float)] {
+  let all : Array[(Float, Float)] = []
+  for v in a {
+    all.push(v)
+  }
+  for v in b {
+    all.push(v)
+  }
+  for i = 1; i < all.length(); i = i + 1 {
+    let kv = all[i]
+    let mut j = i - 1
+    while j >= 0 && all[j].0 > kv.0 {
+      all[j + 1] = all[j]
+      j = j - 1
+    }
+    all[j + 1] = kv
+  }
+  let out : Array[(Float, Float)] = []
+  for v in all {
+    let n = out.length()
+    if n > 0 && v.0 <= out[n - 1].1 + (1.0e-4 : Float) {
+      let last = out[n - 1]
+      out[n - 1] = (last.0, @tmath.max_f(last.1, v.1))
+    } else {
+      out.push(v)
+    }
+  }
+  out
+}
+
+///|
+fn intersect_intervals(
+  a : Array[(Float, Float)],
+  b : Array[(Float, Float)],
+) -> Array[(Float, Float)] {
+  let out : Array[(Float, Float)] = []
+  for x in a {
+    for y in b {
+      let lo = @tmath.max_f(x.0, y.0)
+      let hi = @tmath.min_f(x.1, y.1)
+      if hi - lo > (1.0e-5 : Float) {
+        out.push((lo, hi))
+      }
+    }
+  }
+  out
+}
+
+///|
+fn subtract_intervals(
+  a : Array[(Float, Float)],
+  b : Array[(Float, Float)],
+) -> Array[(Float, Float)] {
+  let out : Array[(Float, Float)] = []
+  for x in a {
+    let mut pieces : Array[(Float, Float)] = [x]
+    for y in b {
+      let next : Array[(Float, Float)] = []
+      for p in pieces {
+        if y.1 <= p.0 || y.0 >= p.1 {
+          next.push(p)
+        } else {
+          if p.0 < y.0 {
+            next.push((p.0, y.0))
+          }
+          if y.1 < p.1 {
+            next.push((y.1, p.1))
+          }
+        }
+      }
+      pieces = next
+    }
+    for p in pieces {
+      if p.1 - p.0 > (1.0e-5 : Float) {
+        out.push(p)
+      }
+    }
+  }
+  out
+}
+
+///|
+fn combine_intervals(
+  a : Array[(Float, Float)],
+  b : Array[(Float, Float)],
+  op : PathOp,
+) -> Array[(Float, Float)] {
+  match op {
+    PathOp::Union => merge_intervals(a, b)
+    PathOp::Intersect => intersect_intervals(a, b)
+    PathOp::Difference => subtract_intervals(a, b)
+    PathOp::Xor => merge_intervals(subtract_intervals(a, b), subtract_intervals(b, a))
+  }
+}
+
+///|
+// Coverage-compositing fallback: scanline intervals combined per op, emitted
+// as half-pixel-tall strips. Works for concave/self-intersecting paths and
+// holes, at the cost of a polygonal (stair-stepped) result.
+fn scanline_op(
+  a : Array[Array[Point]],
+  b : Array[Array[Point]],
+  rule_a : FillRule,
+  rule_b : FillRule,
+  op : PathOp,
+) -> Path? {
+  let mut has = false
+  let mut min_x = (1.0e30 : Float)
+  let mut min_y = (1.0e30 : Float)
+  let mut max_x = (-1.0e30 : Float)
+  let mut max_y = (-1.0e30 : Float)
+  for polys in [a, b] {
+    for pts in polys {
+      for p in pts {
+        if !has {
+          has = true
+          min_x = p.x
+          max_x = p.x
+          min_y = p.y
+          max_y = p.y
+        } else {
+          if p.x < min_x {
+            min_x = p.x
+          }
+          if p.x > max_x {
+            max_x = p.x
+          }
+          if p.y < min_y {
+            min_y = p.y
+          }
+          if p.y > max_y {
+            max_y = p.y
+          }
+        }
+      }
+    }
+  }
+  if !has {
+    return Some(PathBuilder::new().build())
+  }
+  if max_x - min_x > (4096.0 : Float) || max_y - min_y > (4096.0 : Float) {
+    return None
+  }
+  let step = (0.5 : Float)
+  let pb = PathBuilder::new()
+  let mut rects = 0
+  let mut y = (min_y / step).floor() * step + step * (0.5 : Float)
+  while y < max_y {
+    let ia = scanline_intervals(a, y, rule_a)
+    let ib = scanline_intervals(b, y, rule_b)
+    let out = combine_intervals(ia, ib, op)
+    for v in out {
+      if v.1 - v.0 > (1.0e-4 : Float) {
+        let _ = pb.add_rect(Rect::new(v.0, y - step * (0.5 : Float), v.1 - v.0, step))
+        rects = rects + 1
+        if rects > 20000 {
+          return None
+        }
+      }
+    }
+    y = y + step
+  }
+  Some(pb.build(fill_rule=FillRule::EvenOdd))
+}
+
+///|
+// Boolean op. Convex clips use exact clipping; anything else falls back to
+// scanline coverage compositing.
+pub fn Path::op(self : Path, other : Path, op : PathOp) -> Path? {
+  match self.op_convex(other, op) {
+    Some(p) => Some(p)
+    None => {
+      let a = path_polygons(self)
+      let b = path_polygons(other)
+      scanline_op(a, b, self.fill_rule(), other.fill_rule(), op)
     }
   }
 }

@@ -63,6 +63,7 @@ pub fn Canvas::draw_nine_patch(Self, Image2D, Rect, Rect, paint? : Paint) -> Uni
 pub fn Canvas::draw_oval(Self, Rect, Paint) -> Unit
 pub fn Canvas::draw_paragraph(Self, Paragraph, Point) -> Unit
 pub fn Canvas::draw_path(Self, Path, Paint) -> Unit
+pub fn Canvas::draw_path_shadow(Self, Path, Float, Float, Float, Color) -> Unit
 pub fn Canvas::draw_points(Self, Array[Point], Paint) -> Unit
 pub fn Canvas::draw_rect(Self, Rect, Paint) -> Unit
 pub fn Canvas::draw_rrect(Self, RRect, Paint) -> Unit

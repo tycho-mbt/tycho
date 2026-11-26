@@ -276,12 +276,13 @@ test "canvas shape helpers: oval, arc, drrect, points, nine-patch, atlas, dash" 
     Paint::stroke(Color::white(), (4.0 : Float)),
   )
   let img = Image2D::from_bytes(9, 4, 4, Bytes::make(64, (255 : Byte)))
-  c.draw_nine_patch(
+  let ci = Canvas::new()
+  ci.draw_nine_patch(
     img,
     Rect::new((1.0 : Float), (1.0 : Float), (2.0 : Float), (2.0 : Float)),
     Rect::new((0.0 : Float), (0.0 : Float), (100.0 : Float), (100.0 : Float)),
   )
-  c.draw_atlas(img, [
+  ci.draw_atlas(img, [
     (
       Rect::new((0.0 : Float), (0.0 : Float), (2.0 : Float), (2.0 : Float)),
       Rect::new((0.0 : Float), (0.0 : Float), (10.0 : Float), (10.0 : Float)),
@@ -291,6 +292,8 @@ test "canvas shape helpers: oval, arc, drrect, points, nine-patch, atlas, dash" 
       Rect::new((10.0 : Float), (10.0 : Float), (10.0 : Float), (10.0 : Float)),
     ),
   ])
+  // Both nine-patch and atlas collapse into one indexed mesh each.
+  assert_eq(ci.finish().op_count(), 2)
   let line = PathBuilder::new()
     .move_to((0.0 : Float), (0.0 : Float))
     .line_to((100.0 : Float), (0.0 : Float))
@@ -302,7 +305,7 @@ test "canvas shape helpers: oval, arc, drrect, points, nine-patch, atlas, dash" 
     Paint::stroke(Color::white(), (2.0 : Float)),
   )
   let dl = c.finish()
-  assert_true(dl.op_count() >= 7)
+  assert_true(dl.op_count() >= 6)
   let dashed = line.dashed([(10.0 : Float), (10.0 : Float)])
   let m = PathMeasure::new(dashed)
   assert_true(m.length() > (49.0 : Float) && m.length() < (51.0 : Float))
@@ -337,7 +340,7 @@ test "path ops: union, intersect, difference, xor with a convex clip" {
   assert_true(x.contains((2.0 : Float), (2.0 : Float)))
   assert_true(!x.contains((7.0 : Float), (7.0 : Float)))
   assert_true(x.contains((12.0 : Float), (12.0 : Float)))
-  // Non-convex clips are rejected so callers can fall back.
+  // Non-convex clips fall back to scanline compositing.
   let notch = PathBuilder::new()
     .move_to((0.0 : Float), (0.0 : Float))
     .line_to((10.0 : Float), (0.0 : Float))
@@ -346,10 +349,18 @@ test "path ops: union, intersect, difference, xor with a convex clip" {
     .line_to((0.0 : Float), (10.0 : Float))
     .close()
     .build()
-  match a.op(notch, PathOp::Intersect) {
-    Some(_) => assert_true(false)
-    None => assert_true(true)
-  }
+  let ni = a.op(notch, PathOp::Intersect).unwrap()
+  assert_true(ni.contains((2.0 : Float), (4.0 : Float)))
+  assert_true(!ni.contains((9.0 : Float), (4.0 : Float)))
+  let nd = a.op(notch, PathOp::Difference).unwrap()
+  assert_true(nd.contains((9.0 : Float), (4.0 : Float)))
+  assert_true(!nd.contains((2.0 : Float), (4.0 : Float)))
+  let nu = a.op(notch, PathOp::Union).unwrap()
+  assert_true(nu.contains((2.0 : Float), (4.0 : Float)))
+  assert_true(nu.contains((9.0 : Float), (4.0 : Float)))
+  let nx = a.op(notch, PathOp::Xor).unwrap()
+  assert_true(nx.contains((9.0 : Float), (4.0 : Float)))
+  assert_true(!nx.contains((2.0 : Float), (4.0 : Float)))
 }
 
 ///|
@@ -391,4 +402,16 @@ test "draw_vertices records a mesh and expands bounds" {
   assert_true(b.y <= (20.0 : Float))
   assert_true(b.width >= (40.0 : Float))
   assert_true(b.height >= (40.0 : Float))
+}
+
+///|
+test "draw_path_shadow wraps a blurred layer" {
+  let c = Canvas::new()
+  let p = PathBuilder::new()
+    .add_rect(Rect::new((0.0 : Float), (0.0 : Float), (20.0 : Float), (20.0 : Float)))
+    .build()
+  c.draw_path_shadow(p, (2.0 : Float), (2.0 : Float), (4.0 : Float), Color::from_rgba8(0, 0, 0))
+  let dl = c.finish()
+  // SaveLayer + DrawPath + Restore.
+  assert_eq(dl.op_count(), 3)
 }

@@ -574,6 +574,44 @@ fn main {
       cfpx[cfi + 2].to_int() < 30
     rt_cf.destroy()
 
+    // Direct-draw color filter (auto layer) and Blend Multiply.
+    let rt_df = dev.create_render_target(32, 32, @tycho.TextureFormat::RGBA8)
+    let dfi = (16 * 32 + 16) * 4
+    let cdf = @g2d.Canvas::new()
+    cdf.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cdf.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+      @g2d.Paint::new(
+        color=@g2d.Color::white(),
+        color_filter=Some(@g2d.ColorFilter::Matrix(inv)),
+      ),
+    )
+    renderer.render_offscreen(cdf.finish(), rt_df)
+    let dfpx = rt_df.readback()
+    let df_ok = dfpx[dfi].to_int() < 30 &&
+      dfpx[dfi + 1].to_int() < 30 &&
+      dfpx[dfi + 2].to_int() < 30
+    let cbm = @g2d.Canvas::new()
+    cbm.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cbm.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+      @g2d.Paint::new(
+        color=@g2d.Color::white(),
+        color_filter=Some(
+          @g2d.ColorFilter::Blend(
+            @g2d.Color::rgba((0.5 : Float), (0.5 : Float), (0.5 : Float), (1.0 : Float)),
+            @g2d.BlendMode2D::Multiply,
+          ),
+        ),
+      ),
+    )
+    renderer.render_offscreen(cbm.finish(), rt_df)
+    let bmpx = rt_df.readback()
+    let bm_ok = near(bmpx[dfi].to_int(), 128) &&
+      near(bmpx[dfi + 1].to_int(), 128) &&
+      near(bmpx[dfi + 2].to_int(), 128)
+    rt_df.destroy()
+
     // B6: custom indexed vertex mesh (solid + textured).
     let rt_v = dev.create_render_target(64, 64, @tycho.TextureFormat::RGBA8)
     let vc = @g2d.Color::rgba((0.2 : Float), (0.4 : Float), (0.6 : Float), (1.0 : Float))
@@ -646,11 +684,11 @@ fn main {
     let used = dev.allocator_used_bytes()
     dev.destroy()
 
-    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && blend2d_ok && alpha_ok && cf_ok && verts_ok && verts_tex_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
+    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && blend2d_ok && alpha_ok && cf_ok && df_ok && bm_ok && verts_ok && verts_tex_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
       println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus/Darken/Lighten blend + premultiplied images + Paint.color_filter + custom vertices + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries} coverage=\{st.coverage_draws}), 0 validation errors")
     } else {
       println(
-        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) blend2d=\{blend2d_ok} alpha=\{alpha_ok}(\{apx[ai]},\{apx[ai + 3]}) cf=\{cf_ok}(\{cfpx[cfi]}) verts=\{verts_ok}(\{vpx[vi]},\{vpx[vi + 1]},\{vpx[vi + 2]}) vtex=\{verts_tex_ok}(\{vpx2[vi]},\{vpx2[vi + 1]},\{vpx2[vi + 2]}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
+        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) blend2d=\{blend2d_ok} alpha=\{alpha_ok}(\{apx[ai]},\{apx[ai + 3]}) cf=\{cf_ok}(\{cfpx[cfi]}) df=\{df_ok}(\{dfpx[dfi]}) bm=\{bm_ok}(\{bmpx[dfi]}) verts=\{verts_ok}(\{vpx[vi]},\{vpx[vi + 1]},\{vpx[vi + 2]}) vtex=\{verts_tex_ok}(\{vpx2[vi]},\{vpx2[vi + 1]},\{vpx2[vi + 2]}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
       )
     }
   } catch {

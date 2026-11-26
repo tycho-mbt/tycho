@@ -2206,6 +2206,35 @@ fn Renderer2D::try_draw_coverage(
 }
 
 ///|
+// Map a Paint color filter onto the layer's color-matrix path. Blend filters
+// are supported for Multiply/Screen (both are affine for a constant color).
+fn color_filter_matrix(cf : ColorFilter) -> FixedArray[Float]? {
+  match cf {
+    ColorFilter::Matrix(m) => Some(m)
+    ColorFilter::Blend(c, BlendMode2D::Multiply) => {
+      let m : FixedArray[Float] = FixedArray::make(20, (0.0 : Float))
+      m[0] = c.r
+      m[6] = c.g
+      m[12] = c.b
+      m[18] = (1.0 : Float)
+      Some(m)
+    }
+    ColorFilter::Blend(c, BlendMode2D::Screen) => {
+      let m : FixedArray[Float] = FixedArray::make(20, (0.0 : Float))
+      m[0] = (1.0 : Float) - c.r
+      m[4] = c.r
+      m[6] = (1.0 : Float) - c.g
+      m[9] = c.g
+      m[12] = (1.0 : Float) - c.b
+      m[14] = c.b
+      m[18] = (1.0 : Float)
+      Some(m)
+    }
+    _ => None
+  }
+}
+
+///|
 fn Renderer2D::vert_pipe_for(
   self : Renderer2D,
   fi : Int,
@@ -3164,8 +3193,12 @@ fn Renderer2D::replay_ops(
                 Some(ImageFilter::Blur(sx, sy, TileMode::Clamp))
               None =>
                 match paint.color_filter {
-                  Some(ColorFilter::Matrix(m)) => Some(ImageFilter::ColorMatrix(m))
-                  _ => None
+                  Some(cf) =>
+                    match color_filter_matrix(cf) {
+                      Some(m) => Some(ImageFilter::ColorMatrix(m))
+                      None => None
+                    }
+                  None => None
                 }
             }
         }
