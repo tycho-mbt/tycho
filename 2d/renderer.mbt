@@ -1322,6 +1322,17 @@ pub fn Renderer2D::stats(self : Renderer2D) -> RenderStats {
 }
 
 ///|
+// Compact single-line summary suitable for a debug/performance overlay.
+pub fn RenderStats::summary(self : RenderStats) -> String {
+  "draws \{self.draw_calls} | passes \{self.path_passes} | prims \{self.prims} | uploads \{self.upload_bytes}B | glyphs \{self.glyph_entries} | atlas resets \{self.atlas_resets}/\{self.atlas_overflows}"
+}
+
+///|
+pub fn RenderStats::to_json(self : RenderStats) -> String {
+  "{\"draws\":\{self.draw_calls},\"path_passes\":\{self.path_passes},\"prims\":\{self.prims},\"uploads\":\{self.upload_bytes},\"glyphs\":\{self.glyph_entries},\"atlas_images\":\{self.image_entries},\"atlas_resets\":\{self.atlas_resets},\"atlas_overflows\":\{self.atlas_overflows}}"
+}
+
+///|
 // The Tier-1 shaders expect straight-alpha texels and premultiply them at
 // output (`rgb * a`). Convert premultiplied input back to straight alpha on
 // upload so both encodings render identically.

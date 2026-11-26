@@ -116,9 +116,7 @@ fn main {
     let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
     renderer.render_offscreen(dl, rt, clear_color=@g2d.Color::from_rgba8(18, 22, 34))
     let st = renderer.stats()
-    println(
-      "{\"draws\":\{st.draw_calls},\"path_passes\":\{st.path_passes},\"prims\":\{st.prims},\"uploads\":\{st.upload_bytes},\"glyphs\":\{st.glyph_entries},\"atlas_images\":\{st.image_entries}}",
-    )
+    println(st.to_json())
     let errs = dev.validation_errors()
     let ok = st.prims >= 5000 &&
       st.draw_calls > 0 &&

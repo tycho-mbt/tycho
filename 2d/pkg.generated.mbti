@@ -396,6 +396,8 @@ pub(all) struct RenderStats {
   atlas_resets : Int32
   atlas_overflows : Int32
 }
+pub fn RenderStats::summary(Self) -> String
+pub fn RenderStats::to_json(Self) -> String
 
 pub struct RenderTargetPool {
   // private fields
