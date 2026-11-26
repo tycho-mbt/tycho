@@ -14,8 +14,10 @@ pub struct FrameRing {
 }
 
 ///|
-fn align16(n : Int) -> Int {
-  ((n + 15) / 16) * 16
+/// Vulkan requires buffer offsets to respect `minStorageBufferOffsetAlignment`.
+/// 256 bytes covers every current desktop limit at negligible cost.
+fn align256(n : Int) -> Int {
+  ((n + 255) / 256) * 256
 }
 
 ///|
@@ -28,7 +30,7 @@ pub fn FrameRing::new(
   kind? : @tycho.BufferKind = @tycho.BufferKind::Storage,
 ) -> FrameRing raise @tycho.RhiError {
   let n = if slots < 1 { 1 } else { slots }
-  let per = if bytes_per_slot < 16 { 16 } else { bytes_per_slot }
+  let per = align256(bytes_per_slot)
   let buffer = dev.create_buffer_with(
     per * n,
     kind,
@@ -46,11 +48,11 @@ pub fn FrameRing::begin_frame(self : FrameRing, slot : Int) -> Unit {
 }
 
 ///|
-/// Reserve `bytes` (16-byte aligned) in the current slot. Returns the byte
+/// Reserve `bytes` (256-byte aligned) in the current slot. Returns the byte
 /// offset to pass to `bind_storage(..., offset=...)` or `upload_*`, or `None`
 /// when this slot is exhausted (callers fall back to an overflow allocation).
 pub fn FrameRing::alloc(self : FrameRing, bytes : Int) -> Int? {
-  let aligned = align16(bytes)
+  let aligned = align256(bytes)
   let end = (self.slot + 1) * self.slot_bytes
   if self.cursor + aligned > end {
     return None
