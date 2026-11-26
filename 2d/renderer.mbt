@@ -115,6 +115,8 @@ pub struct Renderer2D {
   priv color_mat_ssbo : @tycho.Buffer
   priv path_vbuf : @tycho.Buffer
   priv prim_scratch : FixedArray[Float]
+  // CPU staging for one prim batch; uploaded in a single call at flush time.
+  priv prim_batch_scratch : FixedArray[Float]
   priv stop_scratch : FixedArray[Float]
   priv path_scratch : FixedArray[Float]
   priv path_cache : Map[String, CachedPathMesh]
@@ -592,6 +594,7 @@ pub fn Renderer2D::new(
     color_mat_ssbo,
     path_vbuf,
     prim_scratch: FixedArray::make(PRIM_FLOATS, (0.0 : Float)),
+    prim_batch_scratch: FixedArray::make(max_prims_per_frame * PRIM_FLOATS, (0.0 : Float)),
     stop_scratch: FixedArray::make(STOP_FLOATS, (0.0 : Float)),
     path_scratch: FixedArray::make(max_path_verts_per_frame * PATH_VERT_FLOATS, (0.0 : Float)),
     path_cache: {},
@@ -1047,8 +1050,10 @@ fn Renderer2D::emit_prim(
   p[45] = self.cur_scissor.y
   p[46] = self.cur_scissor.width
   p[47] = self.cur_scissor.height
-  let off = self.active_prim_slot_base + self.prim_cursor * PRIM_BYTES
-  self.active_prim_ssbo.upload_floats(self.prim_scratch, offset=off, count=PRIM_FLOATS)
+  let dst_base = (self.prim_cursor - self.prim_batch_start) * PRIM_FLOATS
+  for i = 0; i < PRIM_FLOATS; i = i + 1 {
+    self.prim_batch_scratch[dst_base + i] = self.prim_scratch[i]
+  }
   self.prim_cursor = self.prim_cursor + 1
 }
 
@@ -1218,10 +1223,22 @@ fn Renderer2D::flush_prims(
   ])
   // Clipping is applied per instance in the fragment shader, so the hardware
   // scissor stays at the full target and batches survive rect-clip changes.
+  // One upload per batch instead of one per primitive.
+  self.active_prim_ssbo.upload_floats(
+    self.prim_batch_scratch,
+    offset=self.active_prim_slot_base + self.prim_batch_start * PRIM_BYTES,
+    count=count * PRIM_FLOATS,
+  )
   cmd.set_scissor(0, 0, self.active_w, self.active_h)
   self.prim_draw_count = self.prim_draw_count + 1
   cmd.draw_instanced(6, count, 0, self.prim_batch_start)
   self.prim_batch_start = self.prim_cursor
+}
+
+///|
+fn Renderer2D::flush_atlas_uploads(self : Renderer2D) -> Unit raise @tycho.RhiError {
+  self.glyph_cache.atlas.flush_uploads()
+  self.color_atlas.flush_uploads()
 }
 
 ///|
@@ -3168,6 +3185,7 @@ pub fn Renderer2D::render_offscreen(
   self.flush_path_batch(cmd)
   self.flush_prims(cmd)
   cmd.end_render_pass()
+  self.flush_atlas_uploads()
   self.dev.end_commands(cmd)
   self.rt_pool.release_slot(2)
 }
@@ -3213,6 +3231,7 @@ pub fn Renderer2D::render_swapchain(
     self.flush_path_batch(cmd)
     self.flush_prims(cmd)
     cmd.end_swapchain_pass()
+    self.flush_atlas_uploads()
     sc.end_frame(cmd)
     return
   }
@@ -3308,5 +3327,6 @@ pub fn Renderer2D::render_swapchain(
   ])
   cmd.draw(6, 1)
   cmd.end_swapchain_pass()
+  self.flush_atlas_uploads()
   sc.end_frame(cmd)
 }

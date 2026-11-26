@@ -739,6 +739,17 @@ pub fn Texture::layers(self : Texture) -> Int {
 }
 
 ///|
+// Upload several subregions in one submit. Each entry is (x, y, w, h, pixels);
+// all regions target layer 0 / mip 0. Prefer this over repeated
+// upload_subregion calls when populating an atlas.
+pub fn Texture::upload_subregions(
+  self : Texture,
+  regions : Array[(Int, Int, Int, Int, Bytes)],
+) -> Unit raise RhiError {
+  vk_texture_upload_subregions(self.inner, regions)
+}
+
+///|
 pub fn Texture::upload_subregion(
   self : Texture,
   x : Int,

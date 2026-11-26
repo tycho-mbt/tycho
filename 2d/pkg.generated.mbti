@@ -118,10 +118,12 @@ pub struct DynamicAtlas {
   width : Int32
   height : Int32
   packer : SkylinePacker
+  // private fields
 }
 pub fn DynamicAtlas::alloc_and_upload(Self, Int32, Int32, Bytes, padding? : Int32) -> (Int32, Int32)? raise @tycho.RhiError
 pub fn DynamicAtlas::alloc_and_upload_padded(Self, Int32, Int32, Bytes, padding? : Int32) -> (Int32, Int32, Int32, Int32)? raise @tycho.RhiError
 pub fn DynamicAtlas::destroy(Self) -> Unit
+pub fn DynamicAtlas::flush_uploads(Self) -> Unit raise @tycho.RhiError
 pub fn DynamicAtlas::new(@tycho.Device, Int32, Int32, @tycho.TextureFormat) -> Self raise @tycho.RhiError
 pub fn DynamicAtlas::reset(Self) -> Unit
 pub fn DynamicAtlas::uv_rect(Self, Int32, Int32, Int32, Int32) -> (Float, Float, Float, Float)

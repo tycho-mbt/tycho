@@ -670,6 +670,7 @@ pub fn Texture::mip_levels(Self) -> Int32
 pub fn Texture::readback(Self) -> FixedArray[Byte] raise RhiError
 pub fn Texture::readback_mip(Self, Int32) -> FixedArray[Byte] raise RhiError
 pub fn Texture::upload_subregion(Self, Int32, Int32, Int32, Int32, Bytes, layer? : Int32, mip_level? : Int32) -> Unit raise RhiError
+pub fn Texture::upload_subregions(Self, Array[(Int32, Int32, Int32, Int32, Bytes)]) -> Unit raise RhiError
 pub fn Texture::width(Self) -> Int32
 
 #derive(Eq, @debug.Debug)

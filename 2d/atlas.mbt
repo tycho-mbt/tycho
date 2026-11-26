@@ -141,6 +141,9 @@ pub struct DynamicAtlas {
   width : Int
   height : Int
   packer : SkylinePacker
+  // Deferred glyph/image uploads, flushed in one submit before the frame's
+  // draw commands are submitted.
+  priv pending : Array[(Int, Int, Int, Int, Bytes)]
 }
 
 ///|
@@ -161,7 +164,17 @@ pub fn DynamicAtlas::new(
     width,
     height,
     packer: SkylinePacker::new(width, height),
+    pending: [],
   }
+}
+
+///|
+pub fn DynamicAtlas::flush_uploads(self : DynamicAtlas) -> Unit raise @tycho.RhiError {
+  if self.pending.length() == 0 {
+    return
+  }
+  self.texture.upload_subregions(self.pending)
+  self.pending.clear()
 }
 
 ///|
@@ -179,7 +192,7 @@ pub fn DynamicAtlas::alloc_and_upload(
       let tx = ax + padding
       let ty = ay + padding
       if w > 0 && h > 0 {
-        self.texture.upload_subregion(tx, ty, w, h, pixels)
+        self.pending.push((tx, ty, w, h, pixels))
       }
       Some((tx, ty))
     }
@@ -204,7 +217,7 @@ pub fn DynamicAtlas::alloc_and_upload_padded(
   match self.packer.alloc(pw, ph) {
     Some((ax, ay)) => {
       if w > 0 && h > 0 {
-        self.texture.upload_subregion(ax + padding, ay + padding, w, h, pixels)
+        self.pending.push((ax + padding, ay + padding, w, h, pixels))
       }
       Some((ax, ay, pw, ph))
     }
@@ -233,9 +246,11 @@ pub fn DynamicAtlas::uv_rect(
 ///|
 pub fn DynamicAtlas::reset(self : DynamicAtlas) -> Unit {
   self.packer.reset()
+  self.pending.clear()
 }
 
 ///|
 pub fn DynamicAtlas::destroy(self : DynamicAtlas) -> Unit {
+  self.pending.clear()
   self.texture.destroy()
 }

@@ -1645,6 +1645,120 @@ fn vk_texture_upload_subregion(
 }
 
 ///|
+fn vk_texture_upload_subregions(
+  t : VkTextureState,
+  regions : Array[(Int, Int, Int, Int, Bytes)],
+) -> Unit raise RhiError {
+  if regions.length() == 0 {
+    return
+  }
+  if is_depth_format(t.format) {
+    raise InvalidArgument("Cannot upload pixels to a depth texture")
+  }
+  let bpp = texture_format_bytes(t.format)
+  let mut total = 0
+  for r in regions {
+    let (x, y, w, h, pixels) = r
+    if x < 0 || y < 0 || w <= 0 || h <= 0 {
+      raise InvalidArgument("Subregion offset/size invalid")
+    }
+    let need = w * h * bpp
+    if pixels.length() < need {
+      raise InvalidArgument(
+        "Subregion bytes (\{pixels.length()}) smaller than \{need}",
+      )
+    }
+    total = total + need
+  }
+  let d = t.device
+  let staging = vk_buffer_create(d, total, BufferKind::Staging)
+  let mut off = 0
+  for r in regions {
+    let (x, y, w, h, pixels) = r
+    let need = w * h * bpp
+    vk_buffer_upload_ptr(staging, @vk.bytes_ptr(pixels), need, offset=off)
+    off = off + need
+  }
+  let cmd = begin_one_time(d)
+  let prev_layout = t.layout
+  cmd_image_barrier2_mips(
+    d,
+    cmd,
+    t.image,
+    t.aspect,
+    0,
+    t.mip_levels,
+    @vk.VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    prev_layout,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    layer_count=t.layers,
+  )
+  let mut off2 = 0
+  for r in regions {
+    let (x, y, w, h, pixels) = r
+    let need = w * h * bpp
+    let offset = @vk.VkOffset3D::new()
+    offset.set_x(x)
+    offset.set_y(y)
+    offset.set_z(0)
+    let extent = @vk.VkExtent3D::new()
+    extent.set_width(w.reinterpret_as_uint())
+    extent.set_height(h.reinterpret_as_uint())
+    extent.set_depth((1 : UInt32))
+    let sub = @vk.VkImageSubresourceLayers::new()
+    sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+    sub.set_mipLevel((0 : UInt32))
+    sub.set_baseArrayLayer((0 : UInt32))
+    sub.set_layerCount((1 : UInt32))
+    let region = @vk.VkBufferImageCopy::new()
+    region.set_bufferOffset(off2.to_uint64())
+    region.set_imageSubresource(sub)
+    region.set_imageOffset(offset)
+    region.set_imageExtent(extent)
+    (d.dfn.vkCmdCopyBufferToImage)(
+      cmd,
+      staging.buffer,
+      t.image,
+      @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      (1 : UInt32),
+      region,
+    )
+    offset.free()
+    extent.free()
+    sub.free()
+    region.free()
+    off2 = off2 + need
+  }
+  let restore_layout = if prev_layout == @vk.VK_IMAGE_LAYOUT_UNDEFINED {
+    @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+  } else {
+    prev_layout
+  }
+  cmd_image_barrier2_mips(
+    d,
+    cmd,
+    t.image,
+    t.aspect,
+    0,
+    t.mip_levels,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    restore_layout,
+    layer_count=t.layers,
+  )
+  end_one_time(d, cmd)
+  execute_delete(d, DeleteBuffer(staging.buffer, staging.alloc))
+  t.layout = restore_layout
+}
+
+///|
 fn vk_texture_create_mipmapped(
   d : VkDeviceState,
   width : Int,
