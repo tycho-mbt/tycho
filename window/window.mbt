@@ -6,7 +6,7 @@ extern "c" fn win_init_ffi() -> Int32 = "tycho_win_init"
 
 extern "c" fn win_terminate_ffi() = "tycho_win_terminate"
 
-extern "c" fn win_create_ffi(w : Int32, h : Int32, title : UInt64) -> UInt64 = "tycho_win_create"
+extern "c" fn win_create_ffi(w : Int, h : Int, title : UInt64) -> UInt64 = "tycho_win_create"
 
 extern "c" fn win_destroy_ffi(win : UInt64) = "tycho_win_destroy"
 
@@ -320,7 +320,7 @@ pub fn terminate() -> Unit {
 }
 
 ///|
-pub fn create(w : Int32, h : Int32, title : String) -> UInt64 {
+pub fn create(w : Int, h : Int, title : String) -> UInt64 {
   win_create_ffi(w, h, @vk.cstr(title))
 }
 

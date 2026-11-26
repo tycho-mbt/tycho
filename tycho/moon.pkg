@@ -1,5 +1,6 @@
 import {
   "laplaceliu/tycho_vulkan" @vk,
+  "laplaceliu/tycho_dx12" @dx12,
   "laplaceliu/tycho_window" @win,
   "laplaceliu/tycho_shader" @shader,
   "laplaceliu/tycho_math" @tmath,

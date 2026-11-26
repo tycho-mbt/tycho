@@ -546,7 +546,8 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_pipeline(uint64_t cmd_p, uint64_t 
   return 1;
 }
 
-MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd_p, uint64_t tex_p, int32_t vertices) {
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd_p, uint64_t tex_p, int32_t vertices,
+                                              int32_t instances) {
   TychoDxCommands *cmds = as_commands(cmd_p);
   TychoDxTexture *tex = as_texture(tex_p);
   D3D12_VIEWPORT vp;
@@ -571,7 +572,8 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd_p, uint64_t tex_p, i
   cmds->list->lpVtbl->RSSetScissorRects(cmds->list, 1, &scissor);
   cmds->list->lpVtbl->IASetPrimitiveTopology(cmds->list,
                                              D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-  cmds->list->lpVtbl->DrawInstanced(cmds->list, (UINT)vertices, 1, 0, 0);
+  cmds->list->lpVtbl->DrawInstanced(cmds->list, (UINT)vertices,
+                                    instances > 0 ? (UINT)instances : 1U, 0, 0);
   return 1;
 }
 
@@ -1217,10 +1219,12 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_pipeline(uint64_t cmd, uint64_t pi
   return 0;
 }
 
-MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd, uint64_t tex, int32_t vertices) {
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd, uint64_t tex, int32_t vertices,
+                                              int32_t instances) {
   (void)cmd;
   (void)tex;
   (void)vertices;
+  (void)instances;
   return 0;
 }
 

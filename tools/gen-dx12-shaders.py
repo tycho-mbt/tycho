@@ -31,6 +31,15 @@ TARGETS = [
         ],
     ),
     (
+        "examples/76-rhi-dx12-triangle",
+        "shaders.hlsl",
+        "shaders_dxil.mbt",
+        [
+            ("dx12_rhi_vs", "vs_main", "vs_6_0"),
+            ("dx12_rhi_ps", "ps_main", "ps_6_0"),
+        ],
+    ),
+    (
         "examples/75-dx12-present",
         "shaders.hlsl",
         "shaders_dxil.mbt",

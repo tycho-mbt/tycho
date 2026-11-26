@@ -143,6 +143,8 @@ pub fn compile_slang(String, String) -> FixedArray[UInt32]
 
 pub fn decode_image(Bytes) -> (Bytes, Int32, Int32)?
 
+pub fn dx12_available() -> Bool
+
 pub fn load_hdr_image(String) -> (FixedArray[Float], Int32, Int32)
 
 pub fn load_image(String) -> (FixedArray[Byte], Int32, Int32)
@@ -170,6 +172,7 @@ pub suberror RhiError {
   AllocationFailed(String)
   CommandFailed(String)
   InvalidArgument(String)
+  BackendUnsupported(String)
 }
 pub impl Show for RhiError
 
@@ -189,6 +192,7 @@ pub(all) enum AddressMode {
 #derive(Eq, @debug.Debug)
 pub(all) enum BackendKind {
   Vulkan
+  Dx12
 }
 
 pub struct BindlessHeap {
@@ -418,8 +422,9 @@ pub(all) struct DeviceDesc {
   validation : Bool
   headless : Bool
   pipeline_cache : Bytes
+  backend : BackendKind
 }
-pub fn DeviceDesc::new(String, validation? : Bool, headless? : Bool, pipeline_cache? : Bytes) -> Self
+pub fn DeviceDesc::new(String, validation? : Bool, headless? : Bool, pipeline_cache? : Bytes, backend? : BackendKind) -> Self
 
 pub struct Fence {
   // private fields

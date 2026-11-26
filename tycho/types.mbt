@@ -9,6 +9,8 @@ pub suberror RhiError {
   AllocationFailed(String)
   CommandFailed(String)
   InvalidArgument(String)
+  /// The selected backend does not implement this operation yet.
+  BackendUnsupported(String)
 }
 
 ///|
@@ -21,6 +23,7 @@ pub impl Show for RhiError with output(self, logger) {
     AllocationFailed(msg) => logger.write_string("AllocationFailed(\{msg})")
     CommandFailed(msg) => logger.write_string("CommandFailed(\{msg})")
     InvalidArgument(msg) => logger.write_string("InvalidArgument(\{msg})")
+    BackendUnsupported(msg) => logger.write_string("BackendUnsupported(\{msg})")
   }
 }
 
@@ -28,6 +31,7 @@ pub impl Show for RhiError with output(self, logger) {
 #derive(Eq, Debug)
 pub(all) enum BackendKind {
   Vulkan
+  Dx12
 }
 
 ///|
@@ -52,6 +56,7 @@ pub(all) struct DeviceDesc {
   validation : Bool
   headless : Bool
   pipeline_cache : Bytes
+  backend : BackendKind
 }
 
 ///|
@@ -60,8 +65,9 @@ pub fn DeviceDesc::new(
   validation? : Bool = false,
   headless? : Bool = false,
   pipeline_cache? : Bytes = b"",
+  backend? : BackendKind = BackendKind::Vulkan,
 ) -> DeviceDesc {
-  { app_name, validation, headless, pipeline_cache }
+  { app_name, validation, headless, pipeline_cache, backend }
 }
 
 ///|

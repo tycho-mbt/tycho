@@ -2,19 +2,81 @@
 // Users import only `"laplaceliu/tycho" @tycho` — zero Vulkan handles, descriptor
 // sets, sync primitives, or C stubs are exposed.
 
+// Backend selection: the Vulkan path keeps its existing state objects, the DX12
+// path holds the matching laplaceliu/tycho_dx12 handles. Methods that only exist
+// on one backend funnel through `vk()` / `dx12()` and raise `BackendUnsupported`
+// instead of silently doing nothing.
+
+///|
+priv enum DeviceBackend {
+  VkDevice(VkDeviceState)
+  Dx12Device(Dx12DeviceState)
+}
+
+///|
+priv enum SwapchainBackend {
+  VkSwapchain(VkSwapchainState)
+  Dx12Swapchain(Dx12SwapchainState)
+}
+
+///|
+priv enum PipelineBackend {
+  VkPipeline(VkPipelineState)
+  Dx12Pipeline(@dx12.Pipeline)
+}
+
+///|
+priv enum CommandsBackend {
+  VkCommands(VkCmdState)
+  Dx12Commands(Dx12CommandState)
+}
+
 ///|
 pub struct Device {
-  priv inner : VkDeviceState
+  priv backend : DeviceBackend
 }
 
 ///|
 pub struct Swapchain {
-  priv inner : VkSwapchainState
+  priv backend : SwapchainBackend
 }
 
 ///|
 pub struct Pipeline {
-  priv inner : VkPipelineState
+  priv backend : PipelineBackend
+}
+
+///|
+fn Device::vk(self : Device) -> VkDeviceState raise RhiError {
+  match self.backend {
+    VkDevice(state) => state
+    Dx12Device(_) =>
+      raise RhiError::BackendUnsupported(
+        "this device operation is not implemented on the DX12 backend",
+      )
+  }
+}
+
+///|
+fn Swapchain::vk(self : Swapchain) -> VkSwapchainState raise RhiError {
+  match self.backend {
+    VkSwapchain(state) => state
+    Dx12Swapchain(_) =>
+      raise RhiError::BackendUnsupported(
+        "this swapchain operation is not implemented on the DX12 backend",
+      )
+  }
+}
+
+///|
+fn CommandBuffer::vk(self : CommandBuffer) -> VkCmdState raise RhiError {
+  match self.backend {
+    VkCommands(state) => state
+    Dx12Commands(_) =>
+      raise RhiError::BackendUnsupported(
+        "this command is not implemented on the DX12 backend",
+      )
+  }
 }
 
 ///|
@@ -54,7 +116,37 @@ pub struct AccelStruct {
 
 ///|
 pub struct CommandBuffer {
-  priv inner : VkCmdState
+  priv backend : CommandsBackend
+}
+
+// Vulkan-only handles: they are only ever produced by the Vulkan backend, so the
+// accessors below cannot fail.
+fn Buffer::vk(self : Buffer) -> VkBufferState {
+  self.inner
+}
+
+fn Texture::vk(self : Texture) -> VkTextureState {
+  self.inner
+}
+
+fn Sampler::vk(self : Sampler) -> VkSamplerState {
+  self.inner
+}
+
+fn Fence::vk(self : Fence) -> VkFenceState {
+  self.inner
+}
+
+fn TimestampPool::vk(self : TimestampPool) -> VkTimestampPoolState {
+  self.inner
+}
+
+fn BindlessHeap::vk(self : BindlessHeap) -> VkBindlessHeapState {
+  self.inner
+}
+
+fn AccelStruct::vk(self : AccelStruct) -> VkAccelStructState {
+  self.inner
 }
 
 ///|
@@ -66,49 +158,86 @@ pub fn Device::new(
 }
 
 ///|
+/// Whether the DX12 backend can be created on this host (`d3d12.dll` / `dxgi.dll`
+/// loadable). Callers use this to SKIP instead of failing on non-Windows hosts.
+pub fn dx12_available() -> Bool {
+  @dx12.available()
+}
+
+///|
 pub fn Device::new_desc(desc : DeviceDesc) -> Device raise RhiError {
-  { inner: vk_device_create(desc) }
+  match desc.backend {
+    BackendKind::Vulkan => { backend: VkDevice(vk_device_create(desc)) }
+    BackendKind::Dx12 => { backend: Dx12Device(dx12_device_create(desc)) }
+  }
 }
 
 ///|
 pub fn Device::capabilities(self : Device) -> DeviceCapabilities {
-  self.inner.caps
+  match self.backend {
+    VkDevice(state) => state.caps
+    Dx12Device(state) => dx12_capabilities(state)
+  }
 }
 
 ///|
 pub fn Device::pipeline_cache_data(self : Device) -> Bytes {
-  vk_device_pipeline_cache_data(self.inner)
+  match self.backend {
+    VkDevice(state) => vk_device_pipeline_cache_data(state)
+    Dx12Device(_) => b""
+  }
 }
 
 ///|
 pub fn Device::backend(self : Device) -> BackendKind {
-  let _ = self
-  BackendKind::Vulkan
+  match self.backend {
+    VkDevice(_) => BackendKind::Vulkan
+    Dx12Device(_) => BackendKind::Dx12
+  }
 }
 
 ///|
 pub fn Device::validation_errors(self : Device) -> Int {
-  g_rhi_validation_errors.val - self.inner.error_baseline
+  match self.backend {
+    VkDevice(state) => g_rhi_validation_errors.val - state.error_baseline
+    Dx12Device(state) => state.device.validation_errors()
+  }
 }
 
 ///|
 pub fn Device::allocator_stats(self : Device) -> (Int, Int) {
-  self.inner.alloc.stats()
+  match self.backend {
+    VkDevice(state) => state.alloc.stats()
+    // DX12 allocates committed resources per object today; the free-list
+    // allocator is the next piece of the backend.
+    Dx12Device(_) => (0, 0)
+  }
 }
 
 ///|
 pub fn Device::allocator_used_bytes(self : Device) -> UInt64 {
-  self.inner.alloc.used_bytes()
+  match self.backend {
+    VkDevice(state) => state.alloc.used_bytes()
+    Dx12Device(_) => (0 : UInt64)
+  }
 }
 
 ///|
 pub fn Device::wait_idle(self : Device) -> Unit {
-  vk_device_wait_idle(self.inner)
+  match self.backend {
+    VkDevice(state) => vk_device_wait_idle(state)
+    Dx12Device(state) => {
+      let _ = state.device.wait_idle()
+    }
+  }
 }
 
 ///|
 pub fn Device::destroy(self : Device) -> Unit {
-  vk_device_destroy(self.inner)
+  match self.backend {
+    VkDevice(state) => vk_device_destroy(state)
+    Dx12Device(state) => dx12_device_destroy(state)
+  }
 }
 
 ///|
@@ -126,42 +255,72 @@ pub fn Device::create_swapchain_desc(
   self : Device,
   desc : SwapchainDesc,
 ) -> Swapchain raise RhiError {
-  { inner: vk_swapchain_create(self.inner, desc) }
+  match self.backend {
+    VkDevice(state) => { backend: VkSwapchain(vk_swapchain_create(state, desc)) }
+    Dx12Device(state) => { backend: Dx12Swapchain(dx12_swapchain_create(state, desc)) }
+  }
 }
 
 ///|
 pub fn Swapchain::width(self : Swapchain) -> Int {
-  self.inner.width
+  match self.backend {
+    VkSwapchain(state) => state.width
+    Dx12Swapchain(state) => state.width
+  }
 }
 
 ///|
 pub fn Swapchain::height(self : Swapchain) -> Int {
-  self.inner.height
+  match self.backend {
+    VkSwapchain(state) => state.height
+    Dx12Swapchain(state) => state.height
+  }
 }
 
 ///|
 pub fn Swapchain::color_format(self : Swapchain) -> TextureFormat {
-  vk_swapchain_color_format(self.inner)
+  match self.backend {
+    VkSwapchain(state) => vk_swapchain_color_format(state)
+    Dx12Swapchain(_) => TextureFormat::RGBA8
+  }
 }
 
 ///|
 pub fn Swapchain::has_depth(self : Swapchain) -> Bool {
-  self.inner.has_depth
+  match self.backend {
+    VkSwapchain(state) => state.has_depth
+    Dx12Swapchain(_) => false
+  }
 }
 
 ///|
 pub fn Swapchain::depth_format(self : Swapchain) -> TextureFormat {
-  self.inner.depth_format
+  match self.backend {
+    VkSwapchain(state) => state.depth_format
+    Dx12Swapchain(_) => TextureFormat::Depth32F
+  }
+}
+
+///|
+/// The native window handle backing this swapchain (HWND on Windows).
+fn Swapchain::window(self : Swapchain) -> UInt64 {
+  match self.backend {
+    VkSwapchain(state) => state.window
+    Dx12Swapchain(state) => state.window
+  }
 }
 
 ///|
 pub fn Swapchain::should_close(self : Swapchain) -> Bool {
-  @win.should_close(self.inner.window) != 0
+  match self.backend {
+    VkSwapchain(state) => @win.should_close(state.window) != 0
+    Dx12Swapchain(state) => @win.should_close(state.window) != 0
+  }
 }
 
 ///|
 pub fn Swapchain::sync_size(self : Swapchain) -> Unit raise RhiError {
-  vk_swapchain_sync_size(self.inner)
+  vk_swapchain_sync_size(self.vk())
 }
 
 ///|
@@ -171,17 +330,20 @@ pub fn Swapchain::wait_events(timeout_ms? : Int = 4) -> Unit {
 
 ///|
 pub fn Swapchain::poll_events(self : Swapchain) -> Array[Event] {
-  @win.poll_events(self.inner.window)
+  match self.backend {
+    VkSwapchain(state) => @win.poll_events(state.window)
+    Dx12Swapchain(state) => @win.poll_events(state.window)
+  }
 }
 
 ///|
 pub fn Swapchain::set_title(self : Swapchain, title : String) -> Unit {
-  @win.set_title(self.inner.window, title)
+  @win.set_title(self.window(), title)
 }
 
 ///|
 pub fn Swapchain::set_cursor_mode(self : Swapchain, mode : CursorMode) -> Unit {
-  @win.set_cursor_mode(self.inner.window, mode)
+  @win.set_cursor_mode(self.window(), mode)
 }
 
 ///|
@@ -189,47 +351,47 @@ pub fn Swapchain::set_cursor_shape(
   self : Swapchain,
   shape : CursorShape,
 ) -> Unit {
-  @win.set_cursor_shape(self.inner.window, shape)
+  @win.set_cursor_shape(self.window(), shape)
 }
 
 ///|
 pub fn Swapchain::clipboard_text(self : Swapchain) -> String {
-  @win.clipboard_text(self.inner.window)
+  @win.clipboard_text(self.window())
 }
 
 ///|
 pub fn Swapchain::set_clipboard_text(self : Swapchain, text : String) -> Unit {
-  @win.set_clipboard_text(self.inner.window, text)
+  @win.set_clipboard_text(self.window(), text)
 }
 
 ///|
 pub fn Swapchain::set_fullscreen(self : Swapchain, fullscreen : Bool) -> Unit {
-  @win.set_fullscreen(self.inner.window, fullscreen)
+  @win.set_fullscreen(self.window(), fullscreen)
 }
 
 ///|
 pub fn Swapchain::is_fullscreen(self : Swapchain) -> Bool {
-  @win.is_fullscreen(self.inner.window)
+  @win.is_fullscreen(self.window())
 }
 
 ///|
 pub fn Swapchain::content_scale(self : Swapchain) -> Double {
-  @win.content_scale(self.inner.window)
+  @win.content_scale(self.window())
 }
 
 ///|
 pub fn Swapchain::framebuffer_size(self : Swapchain) -> (Int, Int) {
-  @win.framebuffer_size(self.inner.window)
+  @win.framebuffer_size(self.window())
 }
 
 ///|
 pub fn Swapchain::mouse_pos(self : Swapchain) -> (Double, Double) {
-  @win.mouse_pos(self.inner.window)
+  @win.mouse_pos(self.window())
 }
 
 ///|
 pub fn Swapchain::is_mouse_down(self : Swapchain, button : Int) -> Bool {
-  @win.is_mouse_down(self.inner.window, button)
+  @win.is_mouse_down(self.window(), button)
 }
 
 ///|
@@ -239,19 +401,41 @@ pub fn Swapchain::time() -> Double {
 
 ///|
 pub fn Swapchain::begin_frame(self : Swapchain) -> CommandBuffer raise RhiError {
-  { inner: vk_swapchain_begin_frame(self.inner) }
+  match self.backend {
+    VkSwapchain(state) => { backend: VkCommands(vk_swapchain_begin_frame(state)) }
+    Dx12Swapchain(state) => { backend: Dx12Commands(dx12_begin_frame(state)) }
+  }
 }
 
 ///|
 pub fn Swapchain::begin_frame_commands(
   self : Swapchain,
 ) -> CommandBuffer raise RhiError {
-  { inner: vk_swapchain_begin_frame_commands(self.inner) }
+  match self.backend {
+    VkSwapchain(state) => { backend: VkCommands(vk_swapchain_begin_frame_commands(state)) }
+    Dx12Swapchain(state) => { backend: Dx12Commands(dx12_begin_frame_commands(state)) }
+  }
+}
+
+///|
+/// Runs `apply` with the Vulkan command state; a no-op on the DX12 backend,
+/// which does not implement these recording calls yet.
+fn CommandBuffer::on_vk(
+  self : CommandBuffer,
+  apply : (VkCmdState) -> Unit,
+) -> Unit {
+  match self.backend {
+    VkCommands(state) => apply(state)
+    Dx12Commands(_) => ()
+  }
 }
 
 ///|
 pub fn CommandBuffer::frame_slot(self : CommandBuffer) -> Int {
-  self.inner.frame_idx
+  match self.backend {
+    VkCommands(state) => state.frame_idx
+    Dx12Commands(_) => 0
+  }
 }
 
 ///|
@@ -260,7 +444,15 @@ pub fn CommandBuffer::blit_to_swapchain(
   src : Texture,
   swapchain : Swapchain,
 ) -> Unit {
-  vk_cmd_blit_to_swapchain(self.inner, src.inner, swapchain.inner)
+  match self.backend {
+    VkCommands(state) =>
+      match swapchain.backend {
+        VkSwapchain(sc) => vk_cmd_blit_to_swapchain(state, src.inner, sc)
+        Dx12Swapchain(_) => ()
+      }
+    // Texture upload/blit is a Vulkan-backend feature today.
+    Dx12Commands(_) => ()
+  }
 }
 
 ///|
@@ -280,12 +472,23 @@ pub fn CommandBuffer::begin_swapchain_pass(
   load_op? : LoadOp = LoadOp::Clear,
   clear_color? : ClearColor? = None,
 ) -> Unit {
-  vk_cmd_begin_swapchain_pass(self.inner, swapchain.inner, load_op, clear_color)
+  match self.backend {
+    VkCommands(state) =>
+      match swapchain.backend {
+        VkSwapchain(sc) => vk_cmd_begin_swapchain_pass(state, sc, load_op, clear_color)
+        Dx12Swapchain(_) => ()
+      }
+    Dx12Commands(state) => dx12_begin_swapchain_pass(state, load_op, clear_color)
+  }
 }
 
 ///|
 pub fn CommandBuffer::end_swapchain_pass(self : CommandBuffer) -> Unit {
-  vk_cmd_end_swapchain_pass(self.inner)
+  match self.backend {
+    VkCommands(state) => vk_cmd_end_swapchain_pass(state)
+    // The DX12 pass ending is the barrier to PRESENT, emitted by end_frame.
+    Dx12Commands(_) => ()
+  }
 }
 
 ///|
@@ -293,17 +496,36 @@ pub fn Swapchain::end_frame(
   self : Swapchain,
   cmd : CommandBuffer,
 ) -> Unit raise RhiError {
-  vk_swapchain_end_frame(self.inner, cmd.inner)
+  match self.backend {
+    VkSwapchain(state) =>
+      match cmd.backend {
+        VkCommands(commands) => vk_swapchain_end_frame(state, commands)
+        Dx12Commands(_) =>
+          raise RhiError::InvalidArgument("DX12 command buffer given to a Vulkan swapchain")
+      }
+    Dx12Swapchain(state) =>
+      match cmd.backend {
+        Dx12Commands(commands) => dx12_end_frame(state, commands)
+        VkCommands(_) =>
+          raise RhiError::InvalidArgument("Vulkan command buffer given to a DX12 swapchain")
+      }
+  }
 }
 
 ///|
 pub fn Swapchain::readback(self : Swapchain) -> FixedArray[Byte] {
-  vk_swapchain_readback(self.inner)
+  match self.backend {
+    VkSwapchain(state) => vk_swapchain_readback(state)
+    Dx12Swapchain(state) => dx12_swapchain_readback(state)
+  }
 }
 
 ///|
 pub fn Swapchain::destroy(self : Swapchain) -> Unit {
-  vk_swapchain_destroy(self.inner)
+  match self.backend {
+    VkSwapchain(state) => vk_swapchain_destroy(state)
+    Dx12Swapchain(state) => dx12_swapchain_destroy(state)
+  }
 }
 
 ///|
@@ -313,6 +535,13 @@ pub fn Swapchain::create_pipeline(
   frag_spv : FixedArray[UInt32],
   uniform_slots : Int,
 ) -> Pipeline raise RhiError {
+  match self.backend {
+    Dx12Swapchain(state) =>
+      return {
+        backend: Dx12Pipeline(dx12_pipeline_create(state, vert_spv, frag_spv, uniform_slots)),
+      }
+    VkSwapchain(_) => ()
+  }
   self.create_pipeline_desc(
     PipelineDesc::new(vert_spv, frag_spv, uniform_slots~),
   )
@@ -324,11 +553,7 @@ pub fn Swapchain::create_pipeline_desc(
   desc : PipelineDesc,
 ) -> Pipeline raise RhiError {
   {
-    inner: vk_graphics_pipeline_create(
-      self.inner.device,
-      desc,
-      self.inner.format,
-    ),
+    backend: VkPipeline(vk_graphics_pipeline_create(self.vk().device, desc, self.vk().format)),
   }
 }
 
@@ -337,7 +562,7 @@ pub fn Device::create_graphics_pipeline(
   self : Device,
   desc : PipelineDesc,
 ) -> Pipeline raise RhiError {
-  { inner: vk_graphics_pipeline_create_default(self.inner, desc) }
+  { backend: VkPipeline(vk_graphics_pipeline_create_default(self.vk(), desc)) }
 }
 
 ///|
@@ -345,7 +570,7 @@ pub fn Device::create_mesh_pipeline(
   self : Device,
   desc : MeshPipelineDesc,
 ) -> Pipeline raise RhiError {
-  { inner: vk_mesh_pipeline_create_default(self.inner, desc) }
+  { backend: VkPipeline(vk_mesh_pipeline_create_default(self.vk(), desc)) }
 }
 
 ///|
@@ -354,11 +579,7 @@ pub fn Swapchain::create_mesh_pipeline(
   desc : MeshPipelineDesc,
 ) -> Pipeline raise RhiError {
   {
-    inner: vk_mesh_pipeline_create(
-      self.inner.device,
-      desc,
-      self.inner.format,
-    ),
+    backend: VkPipeline(vk_mesh_pipeline_create(self.vk().device, desc, self.vk().format)),
   }
 }
 
@@ -386,8 +607,8 @@ pub fn Device::create_compute_pipeline(
     uniform_slots + storage_slots + storage_image_slots,
   )
   {
-    inner: vk_compute_pipeline_create(
-      self.inner,
+    backend: VkPipeline(vk_compute_pipeline_create(
+      self.vk(),
       spv,
       u_binds,
       t_binds,
@@ -395,7 +616,7 @@ pub fn Device::create_compute_pipeline(
       si_binds,
       a_binds,
       push_constant_size,
-    ),
+    )),
   }
 }
 
@@ -435,8 +656,8 @@ pub fn Device::create_compute_pipeline_auto(
   si_arr.sort_by(fn(a, b) { a - b })
   a_arr.sort_by(fn(a, b) { a - b })
   {
-    inner: vk_compute_pipeline_create(
-      self.inner,
+    backend: VkPipeline(vk_compute_pipeline_create(
+      self.vk(),
       spv,
       FixedArray::makei(u_arr.length(), fn(i) { u_arr[i] }),
       FixedArray::makei(t_arr.length(), fn(i) { t_arr[i] }),
@@ -444,13 +665,16 @@ pub fn Device::create_compute_pipeline_auto(
       FixedArray::makei(si_arr.length(), fn(i) { si_arr[i] }),
       FixedArray::makei(a_arr.length(), fn(i) { a_arr[i] }),
       refl.push_constant_size,
-    ),
+    )),
   }
 }
 
 ///|
 pub fn Pipeline::destroy(self : Pipeline) -> Unit {
-  vk_pipeline_destroy(self.inner)
+  match self.backend {
+    VkPipeline(state) => vk_pipeline_destroy(state)
+    Dx12Pipeline(pipe) => pipe.destroy()
+  }
 }
 
 ///|
@@ -469,12 +693,12 @@ pub fn Device::create_buffer_with(
   kind : BufferKind,
   location? : MemoryLocation = MemoryLocation::CpuToGpu,
 ) -> Buffer raise RhiError {
-  { inner: vk_buffer_create(self.inner, size, kind, location~) }
+  { inner: vk_buffer_create(self.vk(), size, kind, location~) }
 }
 
 ///|
 pub fn Buffer::size(self : Buffer) -> Int {
-  self.inner.size
+  self.vk().size
 }
 
 ///|
@@ -498,7 +722,7 @@ pub fn Buffer::upload_bytes(
   count? : Int = -1,
 ) -> Unit raise RhiError {
   let n = resolve_upload_count(count, data.length())
-  vk_buffer_upload_bytes(self.inner, data, offset, n)
+  vk_buffer_upload_bytes(self.vk(), data, offset, n)
 }
 
 ///|
@@ -509,7 +733,7 @@ pub fn Buffer::upload_floats(
   count? : Int = -1,
 ) -> Unit raise RhiError {
   let n = resolve_upload_count(count, data.length())
-  vk_buffer_upload_floats(self.inner, data, offset, n)
+  vk_buffer_upload_floats(self.vk(), data, offset, n)
 }
 
 ///|
@@ -534,7 +758,7 @@ pub fn Buffer::upload_uint32(
   count? : Int = -1,
 ) -> Unit raise RhiError {
   let n = resolve_upload_count(count, data.length())
-  vk_buffer_upload_uint32(self.inner, data, offset, n)
+  vk_buffer_upload_uint32(self.vk(), data, offset, n)
 }
 
 ///|
@@ -558,12 +782,12 @@ pub fn Buffer::upload_uint16(
 
 ///|
 pub fn Buffer::download(self : Buffer) -> Bytes raise RhiError {
-  vk_buffer_download(self.inner)
+  vk_buffer_download(self.vk())
 }
 
 ///|
 pub fn Buffer::destroy(self : Buffer) -> Unit {
-  vk_buffer_destroy(self.inner)
+  vk_buffer_destroy(self.vk())
 }
 
 ///|
@@ -584,7 +808,7 @@ pub fn Device::create_texture_format(
   format : TextureFormat,
   pixels : Bytes,
 ) -> Texture raise RhiError {
-  { inner: vk_texture_create_uploaded(self.inner, width, height, format, pixels) }
+  { inner: vk_texture_create_uploaded(self.vk(), width, height, format, pixels) }
 }
 
 ///|
@@ -596,7 +820,7 @@ pub fn Device::create_texture_mipmapped(
   pixels : Bytes,
 ) -> Texture raise RhiError {
   {
-    inner: vk_texture_create_mipmapped(self.inner, width, height, format, pixels),
+    inner: vk_texture_create_mipmapped(self.vk(), width, height, format, pixels),
   }
 }
 
@@ -607,7 +831,7 @@ pub fn Device::create_storage_texture(
   height : Int,
   format : TextureFormat,
 ) -> Texture raise RhiError {
-  { inner: vk_texture_create_storage(self.inner, width, height, format) }
+  { inner: vk_texture_create_storage(self.vk(), width, height, format) }
 }
 
 ///|
@@ -630,7 +854,7 @@ pub fn Device::create_cubemap(
       (0 : Byte)
     }
   })
-  { inner: vk_texture_create_cubemap(self.inner, size, format, total) }
+  { inner: vk_texture_create_cubemap(self.vk(), size, format, total) }
 }
 
 ///|
@@ -663,7 +887,7 @@ pub fn Device::create_cubemap_mipmapped(
   }
   {
     inner: vk_texture_create_cubemap_mipmapped(
-      self.inner,
+      self.vk(),
       size,
       format,
       levels.length(),
@@ -683,7 +907,7 @@ pub fn Device::create_texture_array(
 ) -> Texture raise RhiError {
   {
     inner: vk_texture_create_2d_array(
-      self.inner,
+      self.vk(),
       width,
       height,
       layers,
@@ -706,7 +930,7 @@ pub fn Device::create_render_target(
   }
   {
     inner: vk_texture_create_render_target(
-      self.inner,
+      self.vk(),
       width,
       height,
       format,
@@ -743,7 +967,7 @@ pub fn Device::create_depth_texture_format(
   }
   {
     inner: vk_texture_create_depth_target(
-      self.inner,
+      self.vk(),
       width,
       height,
       format,
@@ -754,27 +978,27 @@ pub fn Device::create_depth_texture_format(
 
 ///|
 pub fn Texture::width(self : Texture) -> Int {
-  self.inner.width
+  self.vk().width
 }
 
 ///|
 pub fn Texture::format(self : Texture) -> TextureFormat {
-  self.inner.format
+  self.vk().format
 }
 
 ///|
 pub fn Texture::height(self : Texture) -> Int {
-  self.inner.height
+  self.vk().height
 }
 
 ///|
 pub fn Texture::mip_levels(self : Texture) -> Int {
-  self.inner.mip_levels
+  self.vk().mip_levels
 }
 
 ///|
 pub fn Texture::layers(self : Texture) -> Int {
-  self.inner.layers
+  self.vk().layers
 }
 
 ///|
@@ -785,7 +1009,7 @@ pub fn Texture::upload_subregions(
   self : Texture,
   regions : Array[(Int, Int, Int, Int, Bytes)],
 ) -> Unit raise RhiError {
-  vk_texture_upload_subregions(self.inner, regions)
+  vk_texture_upload_subregions(self.vk(), regions)
 }
 
 ///|
@@ -800,7 +1024,7 @@ pub fn Texture::upload_subregion(
   mip_level? : Int = 0,
 ) -> Unit raise RhiError {
   vk_texture_upload_subregion(
-    self.inner,
+    self.vk(),
     x,
     y,
     width,
@@ -813,7 +1037,7 @@ pub fn Texture::upload_subregion(
 
 ///|
 pub fn Texture::readback(self : Texture) -> FixedArray[Byte] raise RhiError {
-  vk_texture_readback(self.inner)
+  vk_texture_readback(self.vk())
 }
 
 ///|
@@ -821,12 +1045,12 @@ pub fn Texture::readback_mip(
   self : Texture,
   level : Int,
 ) -> FixedArray[Byte] raise RhiError {
-  vk_texture_readback_mip(self.inner, level)
+  vk_texture_readback_mip(self.vk(), level)
 }
 
 ///|
 pub fn Texture::destroy(self : Texture) -> Unit {
-  vk_texture_destroy(self.inner)
+  vk_texture_destroy(self.vk())
 }
 
 ///|
@@ -839,12 +1063,12 @@ pub fn Device::create_sampler_desc(
   self : Device,
   desc : SamplerDesc,
 ) -> Sampler raise RhiError {
-  { inner: vk_sampler_create(self.inner, desc) }
+  { inner: vk_sampler_create(self.vk(), desc) }
 }
 
 ///|
 pub fn Sampler::destroy(self : Sampler) -> Unit {
-  let s = self.inner
+  let s = self.vk()
   enqueue_delete(s.device, DeleteSampler(s.sampler))
 }
 
@@ -853,22 +1077,22 @@ pub fn Device::create_fence(
   self : Device,
   signaled : Bool,
 ) -> Fence raise RhiError {
-  { inner: vk_fence_create(self.inner, signaled) }
+  { inner: vk_fence_create(self.vk(), signaled) }
 }
 
 ///|
 pub fn Fence::wait(self : Fence) -> Unit {
-  vk_fence_wait(self.inner)
+  vk_fence_wait(self.vk())
 }
 
 ///|
 pub fn Fence::reset(self : Fence) -> Unit {
-  vk_fence_reset(self.inner)
+  vk_fence_reset(self.vk())
 }
 
 ///|
 pub fn Fence::destroy(self : Fence) -> Unit {
-  vk_fence_destroy(self.inner)
+  vk_fence_destroy(self.vk())
 }
 
 ///|
@@ -876,14 +1100,14 @@ pub fn Device::create_timestamp_pool(
   self : Device,
   count : Int,
 ) -> TimestampPool raise RhiError {
-  { inner: vk_timestamp_pool_create(self.inner, count) }
+  { inner: vk_timestamp_pool_create(self.vk(), count) }
 }
 
 ///|
 pub fn TimestampPool::resolve_ns(
   self : TimestampPool,
 ) -> FixedArray[Double] raise RhiError {
-  vk_timestamp_pool_resolve_ns(self.inner)
+  vk_timestamp_pool_resolve_ns(self.vk())
 }
 
 ///|
@@ -894,8 +1118,8 @@ pub fn TimestampPool::elapsed_ms(
 ) -> Double raise RhiError {
   if start_idx < 0 ||
     end_idx < 0 ||
-    start_idx >= self.inner.count ||
-    end_idx >= self.inner.count {
+    start_idx >= self.vk().count ||
+    end_idx >= self.vk().count {
     raise InvalidArgument("Timestamp query index out of range")
   }
   let ns = self.resolve_ns()
@@ -905,7 +1129,7 @@ pub fn TimestampPool::elapsed_ms(
 
 ///|
 pub fn TimestampPool::destroy(self : TimestampPool) -> Unit {
-  vk_timestamp_pool_destroy(self.inner)
+  vk_timestamp_pool_destroy(self.vk())
 }
 
 ///|
@@ -913,7 +1137,7 @@ pub fn Device::create_bindless_heap(
   self : Device,
   max_textures? : Int = 1024,
 ) -> BindlessHeap raise RhiError {
-  { inner: vk_bindless_heap_create(self.inner, max_textures) }
+  { inner: vk_bindless_heap_create(self.vk(), max_textures) }
 }
 
 ///|
@@ -922,29 +1146,29 @@ pub fn BindlessHeap::register_texture(
   texture : Texture,
   sampler : Sampler,
 ) -> Int raise RhiError {
-  vk_bindless_heap_register(self.inner, texture.inner, sampler.inner)
+  vk_bindless_heap_register(self.vk(), texture.inner, sampler.inner)
 }
 
 ///|
 pub fn BindlessHeap::unregister_texture(self : BindlessHeap, index : Int) -> Unit {
-  vk_bindless_heap_unregister(self.inner, index)
+  vk_bindless_heap_unregister(self.vk(), index)
 }
 
 ///|
 pub fn BindlessHeap::destroy(self : BindlessHeap) -> Unit {
-  vk_bindless_heap_destroy(self.inner)
+  vk_bindless_heap_destroy(self.vk())
 }
 
 ///|
 pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
-  let d = self.inner
+  let d = self.vk()
   let cmd = begin_one_time(d)
   let fi = (d.current_gen.to_int() + d.active_recordings) & 1
   d.active_recordings = d.active_recordings + 1
   let frame_gen = d.next_cmd_gen
   d.next_cmd_gen = d.next_cmd_gen + (1 : UInt64)
   {
-    inner: {
+    backend: VkCommands({
       device: d,
       cmd,
       frame_idx: fi,
@@ -961,7 +1185,7 @@ pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
       swapchain_image_initialized: false,
       render_w: 0,
       render_h: 0,
-    },
+    }),
   }
 }
 
@@ -970,11 +1194,11 @@ pub fn Device::end_commands(
   self : Device,
   cmd : CommandBuffer,
 ) -> Unit raise RhiError {
-  let d = self.inner
+  let d = self.vk()
   if d.active_recordings > 0 {
     d.active_recordings = d.active_recordings - 1
   }
-  end_one_time(d, cmd.inner.cmd)
+  end_one_time(d, cmd.vk().cmd)
   d.completed_gen = d.current_gen
   d.current_gen = d.current_gen + (1 : UInt64)
   flush_deletes(d, false)
@@ -986,7 +1210,7 @@ pub fn Device::submit_commands(
   cmd : CommandBuffer,
   fence : Fence,
 ) -> Unit raise RhiError {
-  vk_device_submit_commands(self.inner, cmd.inner, fence.inner)
+  vk_device_submit_commands(self.vk(), cmd.vk(), fence.inner)
 }
 
 ///|
@@ -995,12 +1219,15 @@ pub fn CommandBuffer::begin_render_pass(
   colors : Array[RenderTargetDesc],
   depth? : DepthTargetDesc? = None,
 ) -> Unit raise RhiError {
-  vk_cmd_begin_render_pass(self.inner, colors, depth)
+  vk_cmd_begin_render_pass(self.vk(), colors, depth)
 }
 
 ///|
 pub fn CommandBuffer::end_render_pass(self : CommandBuffer) -> Unit {
-  vk_cmd_end_render_pass(self.inner)
+  match self.backend {
+    VkCommands(state) => vk_cmd_end_render_pass(state)
+    Dx12Commands(_) => ()
+  }
 }
 
 ///|
@@ -1008,7 +1235,18 @@ pub fn CommandBuffer::bind_pipeline(
   self : CommandBuffer,
   pipeline : Pipeline,
 ) -> Unit {
-  vk_cmd_bind_pipeline(self.inner, pipeline)
+  match self.backend {
+    VkCommands(state) =>
+      match pipeline.backend {
+        VkPipeline(pipe) => vk_cmd_bind_pipeline(state, pipe)
+        Dx12Pipeline(_) => ()
+      }
+    Dx12Commands(state) =>
+      match pipeline.backend {
+        Dx12Pipeline(pipe) => dx12_bind_pipeline(state, pipe)
+        VkPipeline(_) => ()
+      }
+  }
 }
 
 ///|
@@ -1020,7 +1258,10 @@ pub fn CommandBuffer::bind_uniform(
   offset? : Int = 0,
   size? : Int = -1,
 ) -> Unit {
-  self.inner.pending_uniforms.push((pipeline, slot, buffer, offset, size))
+  match pipeline.backend {
+    VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_uniforms.push((pipe, slot, buffer, offset, size)) })
+    Dx12Pipeline(_) => ()
+  }
 }
 
 ///|
@@ -1031,7 +1272,10 @@ pub fn CommandBuffer::bind_texture(
   texture : Texture,
   sampler : Sampler,
 ) -> Unit {
-  self.inner.pending_textures.push((pipeline, slot, texture, sampler))
+  match pipeline.backend {
+    VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_textures.push((pipe, slot, texture, sampler)) })
+    Dx12Pipeline(_) => ()
+  }
 }
 
 ///|
@@ -1043,7 +1287,10 @@ pub fn CommandBuffer::bind_storage(
   offset? : Int = 0,
   size? : Int = -1,
 ) -> Unit {
-  self.inner.pending_storage.push((pipeline, slot, buffer, offset, size))
+  match pipeline.backend {
+    VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_storage.push((pipe, slot, buffer, offset, size)) })
+    Dx12Pipeline(_) => ()
+  }
 }
 
 ///|
@@ -1053,7 +1300,10 @@ pub fn CommandBuffer::bind_storage_image(
   slot : Int,
   texture : Texture,
 ) -> Unit {
-  self.inner.pending_storage_images.push((pipeline, slot, texture))
+  match pipeline.backend {
+    VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_storage_images.push((pipe, slot, texture)) })
+    Dx12Pipeline(_) => ()
+  }
 }
 
 ///|
@@ -1061,7 +1311,12 @@ pub fn CommandBuffer::transition_for_compute(
   self : CommandBuffer,
   texture : Texture,
 ) -> Unit {
-  vk_cmd_transition_for_compute(self.inner, texture.inner)
+  match self.backend {
+    VkCommands(state) => vk_cmd_transition_for_compute(state, texture.inner)
+    Dx12Commands(state) => {
+      let _ = state.commands.transition(state.target, @dx12.ResourceState::UnorderedAccess)
+    }
+  }
 }
 
 ///|
@@ -1069,7 +1324,12 @@ pub fn CommandBuffer::transition_for_sampling(
   self : CommandBuffer,
   texture : Texture,
 ) -> Unit {
-  vk_cmd_transition_for_sampling(self.inner, texture.inner)
+  match self.backend {
+    VkCommands(state) => vk_cmd_transition_for_sampling(state, texture.inner)
+    Dx12Commands(state) => {
+      let _ = state.commands.transition(state.target, @dx12.ResourceState::ShaderResource)
+    }
+  }
 }
 
 ///|
@@ -1079,7 +1339,7 @@ pub fn CommandBuffer::blit_texture(
   dst : Texture,
   filter? : Filter = Filter::Linear,
 ) -> Unit {
-  vk_cmd_blit_texture(self.inner, src.inner, dst.inner, filter)
+  self.on_vk(fn(state) { vk_cmd_blit_texture(state, src.inner, dst.inner, filter) })
 }
 
 ///|
@@ -1087,7 +1347,7 @@ pub fn CommandBuffer::reset_timestamps(
   self : CommandBuffer,
   pool : TimestampPool,
 ) -> Unit {
-  vk_cmd_reset_timestamps(self.inner, pool.inner)
+  self.on_vk(fn(state) { vk_cmd_reset_timestamps(state, pool.inner) })
 }
 
 ///|
@@ -1097,7 +1357,7 @@ pub fn CommandBuffer::write_timestamp(
   index : Int,
   at_start? : Bool = false,
 ) -> Unit {
-  vk_cmd_write_timestamp(self.inner, pool.inner, index, at_start)
+  self.on_vk(fn(state) { vk_cmd_write_timestamp(state, pool.inner, index, at_start) })
 }
 
 ///|
@@ -1107,7 +1367,7 @@ pub fn CommandBuffer::bind_vertex(
   buffer : Buffer,
   offset? : Int = 0,
 ) -> Unit {
-  vk_cmd_bind_vertex(self.inner, slot, buffer.inner, offset)
+  self.on_vk(fn(state) { vk_cmd_bind_vertex(state, slot, buffer.inner, offset) })
 }
 
 ///|
@@ -1117,7 +1377,7 @@ pub fn CommandBuffer::bind_index(
   index_type : IndexType,
   offset? : Int = 0,
 ) -> Unit {
-  vk_cmd_bind_index(self.inner, buffer.inner, index_type, offset)
+  self.on_vk(fn(state) { vk_cmd_bind_index(state, buffer.inner, index_type, offset) })
 }
 
 ///|
@@ -1127,7 +1387,10 @@ pub fn CommandBuffer::push_constants_floats(
   data : FixedArray[Float],
   offset? : Int = 0,
 ) -> Unit {
-  vk_cmd_push_constants_floats(self.inner, pipeline.inner, data, offset)
+  match pipeline.backend {
+    VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_push_constants_floats(state, pipe, data, offset) })
+    Dx12Pipeline(_) => ()
+  }
 }
 
 ///|
@@ -1148,7 +1411,10 @@ pub fn CommandBuffer::push_constants_bytes(
   data : Bytes,
   offset? : Int = 0,
 ) -> Unit {
-  vk_cmd_push_constants_bytes(self.inner, pipeline.inner, data, offset)
+  match pipeline.backend {
+    VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_push_constants_bytes(state, pipe, data, offset) })
+    Dx12Pipeline(_) => ()
+  }
 }
 
 ///|
@@ -1159,7 +1425,7 @@ pub fn CommandBuffer::set_viewport(
   w : Float,
   h : Float,
 ) -> Unit {
-  vk_cmd_set_viewport(self.inner, x, y, w, h)
+  self.on_vk(fn(state) { vk_cmd_set_viewport(state, x, y, w, h) })
 }
 
 ///|
@@ -1170,7 +1436,7 @@ pub fn CommandBuffer::set_scissor(
   w : Int,
   h : Int,
 ) -> Unit {
-  vk_cmd_set_scissor(self.inner, x, y, w, h)
+  self.on_vk(fn(state) { vk_cmd_set_scissor(state, x, y, w, h) })
 }
 
 ///|
@@ -1178,7 +1444,7 @@ pub fn CommandBuffer::set_stencil_reference(
   self : CommandBuffer,
   reference : Int,
 ) -> Unit {
-  vk_cmd_set_stencil_reference(self.inner, reference)
+  self.on_vk(fn(state) { vk_cmd_set_stencil_reference(state, reference) })
 }
 
 ///|
@@ -1188,7 +1454,10 @@ pub fn CommandBuffer::bind_accel_struct(
   slot : Int,
   accel : AccelStruct,
 ) -> Unit {
-  self.inner.pending_accel.push((pipeline, slot, accel))
+  match pipeline.backend {
+    VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_accel.push((pipe, slot, accel)) })
+    Dx12Pipeline(_) => ()
+  }
 }
 
 ///|
@@ -1196,7 +1465,7 @@ pub fn Device::create_blas(
   self : Device,
   geometries : Array[RayGeometryDesc],
 ) -> AccelStruct raise RhiError {
-  { inner: vk_create_blas(self.inner, geometries) }
+  { inner: vk_create_blas(self.vk(), geometries) }
 }
 
 ///|
@@ -1204,12 +1473,12 @@ pub fn Device::create_tlas(
   self : Device,
   instances : Array[RayInstanceDesc],
 ) -> AccelStruct raise RhiError {
-  { inner: vk_create_tlas(self.inner, instances) }
+  { inner: vk_create_tlas(self.vk(), instances) }
 }
 
 ///|
 pub fn AccelStruct::destroy(self : AccelStruct) -> Unit {
-  vk_accel_struct_destroy(self.inner)
+  vk_accel_struct_destroy(self.vk())
 }
 
 ///|
@@ -1229,13 +1498,11 @@ pub fn CommandBuffer::draw_instanced(
   first_vertex : Int,
   first_instance : Int,
 ) -> Unit {
-  vk_cmd_draw_instanced(
-    self.inner,
-    vertices,
-    instances,
-    first_vertex,
-    first_instance,
-  )
+  match self.backend {
+    Dx12Commands(state) => dx12_draw(state, vertices, instances)
+    VkCommands(state) =>
+      vk_cmd_draw_instanced(state, vertices, instances, first_vertex, first_instance)
+  }
 }
 
 ///|
@@ -1256,14 +1523,9 @@ pub fn CommandBuffer::draw_indexed_full(
   vertex_offset : Int,
   first_instance : Int,
 ) -> Unit {
-  vk_cmd_draw_indexed_full(
-    self.inner,
-    index_count,
-    instances,
-    first_index,
-    vertex_offset,
-    first_instance,
-  )
+  self.on_vk(fn(state) {
+    vk_cmd_draw_indexed_full(state, index_count, instances, first_index, vertex_offset, first_instance)
+  })
 }
 
 ///|
@@ -1273,7 +1535,7 @@ pub fn CommandBuffer::dispatch(
   y : Int,
   z : Int,
 ) -> Unit {
-  vk_cmd_dispatch(self.inner, x, y, z)
+  self.on_vk(fn(state) { vk_cmd_dispatch(state, x, y, z) })
 }
 
 ///|
@@ -1284,7 +1546,7 @@ pub fn CommandBuffer::draw_indirect(
   offset? : Int = 0,
   stride? : Int = 16,
 ) -> Unit {
-  vk_cmd_draw_indirect(self.inner, buffer.inner, draw_count, offset, stride)
+  self.on_vk(fn(state) { vk_cmd_draw_indirect(state, buffer.inner, draw_count, offset, stride) })
 }
 
 ///|
@@ -1295,13 +1557,7 @@ pub fn CommandBuffer::draw_indexed_indirect(
   offset? : Int = 0,
   stride? : Int = 20,
 ) -> Unit {
-  vk_cmd_draw_indexed_indirect(
-    self.inner,
-    buffer.inner,
-    draw_count,
-    offset,
-    stride,
-  )
+  self.on_vk(fn(state) { vk_cmd_draw_indexed_indirect(state, buffer.inner, draw_count, offset, stride) })
 }
 
 ///|
@@ -1314,15 +1570,9 @@ pub fn CommandBuffer::draw_indirect_count(
   count_offset? : Int = 0,
   stride? : Int = 16,
 ) -> Unit {
-  vk_cmd_draw_indirect_count(
-    self.inner,
-    buffer.inner,
-    count_buffer.inner,
-    max_draw_count,
-    offset,
-    count_offset,
-    stride,
-  )
+  self.on_vk(fn(state) {
+    vk_cmd_draw_indirect_count(state, buffer.inner, count_buffer.inner, max_draw_count, offset, count_offset, stride)
+  })
 }
 
 ///|
@@ -1335,15 +1585,9 @@ pub fn CommandBuffer::draw_indexed_indirect_count(
   count_offset? : Int = 0,
   stride? : Int = 20,
 ) -> Unit {
-  vk_cmd_draw_indexed_indirect_count(
-    self.inner,
-    buffer.inner,
-    count_buffer.inner,
-    max_draw_count,
-    offset,
-    count_offset,
-    stride,
-  )
+  self.on_vk(fn(state) {
+    vk_cmd_draw_indexed_indirect_count(state, buffer.inner, count_buffer.inner, max_draw_count, offset, count_offset, stride)
+  })
 }
 
 ///|
@@ -1352,7 +1596,7 @@ pub fn CommandBuffer::dispatch_indirect(
   buffer : Buffer,
   offset? : Int = 0,
 ) -> Unit {
-  vk_cmd_dispatch_indirect(self.inner, buffer.inner, offset)
+  self.on_vk(fn(state) { vk_cmd_dispatch_indirect(state, buffer.inner, offset) })
 }
 
 ///|
@@ -1362,7 +1606,7 @@ pub fn CommandBuffer::draw_mesh_tasks(
   y : Int,
   z : Int,
 ) -> Unit {
-  vk_cmd_draw_mesh_tasks(self.inner, x, y, z)
+  self.on_vk(fn(state) { vk_cmd_draw_mesh_tasks(state, x, y, z) })
 }
 
 ///|
@@ -1373,13 +1617,7 @@ pub fn CommandBuffer::draw_mesh_tasks_indirect(
   offset? : Int = 0,
   stride? : Int = 12,
 ) -> Unit {
-  vk_cmd_draw_mesh_tasks_indirect(
-    self.inner,
-    buffer.inner,
-    draw_count,
-    offset,
-    stride,
-  )
+  self.on_vk(fn(state) { vk_cmd_draw_mesh_tasks_indirect(state, buffer.inner, draw_count, offset, stride) })
 }
 
 ///|
@@ -1389,7 +1627,10 @@ pub fn CommandBuffer::bind_bindless_heap(
   heap : BindlessHeap,
   set_index? : Int = 1,
 ) -> Unit {
-  vk_cmd_bind_bindless_heap(self.inner, pipeline.inner, heap.inner, set_index)
+  match pipeline.backend {
+    VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_bind_bindless_heap(state, pipe, heap.inner, set_index) })
+    Dx12Pipeline(_) => ()
+  }
 }
 
 ///|
@@ -1399,10 +1640,10 @@ pub fn CommandBuffer::copy_buffer(
   dst : Buffer,
   size : Int,
 ) -> Unit {
-  vk_cmd_copy_buffer(self.inner, src.inner, dst.inner, size)
+  self.on_vk(fn(state) { vk_cmd_copy_buffer(state, src.inner, dst.inner, size) })
 }
 
 ///|
 pub fn CommandBuffer::barrier(self : CommandBuffer) -> Unit {
-  vk_cmd_barrier(self.inner)
+  self.on_vk(fn(state) { vk_cmd_barrier(state) })
 }

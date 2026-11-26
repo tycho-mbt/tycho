@@ -198,12 +198,12 @@ priv struct VkCmdState {
   cmd : @vk.VkCommandBuffer
   frame_idx : Int
   frame_gen : UInt64
-  pending_uniforms : Array[(Pipeline, Int, Buffer, Int, Int)]
-  pending_textures : Array[(Pipeline, Int, Texture, Sampler)]
-  pending_storage : Array[(Pipeline, Int, Buffer, Int, Int)]
-  pending_storage_images : Array[(Pipeline, Int, Texture)]
-  pending_accel : Array[(Pipeline, Int, AccelStruct)]
-  mut bound : Pipeline?
+  pending_uniforms : Array[(VkPipelineState, Int, Buffer, Int, Int)]
+  pending_textures : Array[(VkPipelineState, Int, Texture, Sampler)]
+  pending_storage : Array[(VkPipelineState, Int, Buffer, Int, Int)]
+  pending_storage_images : Array[(VkPipelineState, Int, Texture)]
+  pending_accel : Array[(VkPipelineState, Int, AccelStruct)]
+  mut bound : VkPipelineState?
   mut active_render_targets : Array[RenderTargetDesc]
   mut active_depth_target : DepthTargetDesc?
   mut in_swapchain_pass : Bool
@@ -4056,7 +4056,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
   let f = c.frame_idx % MAX_FRAMES
   for entry in c.pending_uniforms {
     let (p, slot, buf, offset, size) = entry
-    let ps = p.inner
+    let ps = p
     if slot >= 0 && slot < ps.uniform_slots {
       let same = match ps.cur_uniforms[slot] {
         Some((prev, prev_off, prev_size)) =>
@@ -4074,7 +4074,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
   c.pending_uniforms.clear()
   for entry in c.pending_textures {
     let (p, slot, tex, samp) = entry
-    let ps = p.inner
+    let ps = p
     if slot >= 0 && slot < ps.texture_slots {
       let same = match ps.cur_textures[slot] {
         Some((ptex, psamp)) =>
@@ -4091,7 +4091,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
   c.pending_textures.clear()
   for entry in c.pending_storage {
     let (p, slot, buf, offset, size) = entry
-    let ps = p.inner
+    let ps = p
     if slot >= 0 && slot < ps.storage_slots {
       let same = match ps.cur_storage[slot] {
         Some((prev, prev_off, prev_size)) =>
@@ -4109,7 +4109,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
   c.pending_storage.clear()
   for entry in c.pending_storage_images {
     let (p, slot, tex) = entry
-    let ps = p.inner
+    let ps = p
     if slot >= 0 && slot < ps.storage_image_slots {
       let same = match ps.cur_storage_images[slot] {
         Some(ptex) => ptex.inner.image.as_ptr() == tex.inner.image.as_ptr()
@@ -4124,7 +4124,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
   c.pending_storage_images.clear()
   for entry in c.pending_accel {
     let (p, slot, accel) = entry
-    let ps = p.inner
+    let ps = p
     if slot >= 0 && slot < ps.accel_slots {
       let same = match ps.cur_accel[slot] {
         Some(pa) => pa.inner.accel.as_ptr() == accel.inner.accel.as_ptr()
@@ -4140,7 +4140,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
 
   match c.bound {
     Some(p) => {
-      let ps = p.inner
+      let ps = p
       let total = ps.uniform_slots +
         ps.texture_slots +
         ps.storage_slots +
@@ -5615,14 +5615,14 @@ fn vk_device_submit_commands(
 }
 
 ///|
-fn vk_cmd_bind_pipeline(c : VkCmdState, pipeline : Pipeline) -> Unit {
-  let point = if pipeline.inner.compute {
+fn vk_cmd_bind_pipeline(c : VkCmdState, state : VkPipelineState) -> Unit {
+  let point = if state.compute {
     @vk.VK_PIPELINE_BIND_POINT_COMPUTE
   } else {
     @vk.VK_PIPELINE_BIND_POINT_GRAPHICS
   }
-  (c.device.dfn.vkCmdBindPipeline)(c.cmd, point, pipeline.inner.pipeline)
-  match pipeline.inner.stencil_ref {
+  (c.device.dfn.vkCmdBindPipeline)(c.cmd, point, state.pipeline)
+  match state.stencil_ref {
     Some(r) =>
       (c.device.dfn.vkCmdSetStencilReference)(
         c.cmd,
@@ -5631,7 +5631,7 @@ fn vk_cmd_bind_pipeline(c : VkCmdState, pipeline : Pipeline) -> Unit {
       )
     None => ()
   }
-  c.bound = Some(pipeline)
+  c.bound = Some(state)
 }
 
 ///|

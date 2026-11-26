@@ -175,3 +175,4 @@ if dev.capabilities().supports_ray_query {
 | `73-win32-window` | Windows Win32 WSI (`user32.dll` + `VK_KHR_win32_surface`), fullscreen-resize swapchain recreation, clipboard, DPI `content_scale` |
 | `74-dx12-triangle` | Direct3D 12 raw binding: device + command list + DXIL PSO + offscreen RTV + readback, on hardware or WARP |
 | `75-dx12-present` | Direct3D 12 DXGI flip-model swapchain on a Win32 window: back-buffer rendering, `Present`, `ResizeBuffers`, resource-state tracking |
+| `76-rhi-dx12-triangle` | The unified RHI on the DX12 backend (`BackendKind::Dx12`): same façade as `08-rhi-triangle`, DXIL pipeline, windowed present + readback |

@@ -67,7 +67,7 @@ extern "c" fn cmd_clear_ffi(cmds : UInt64, tex : UInt64, r : Float, g : Float, b
 
 extern "c" fn cmd_set_pipeline_ffi(cmds : UInt64, pipe : UInt64) -> Int32 = "tycho_dx12_cmd_set_pipeline"
 
-extern "c" fn cmd_draw_ffi(cmds : UInt64, tex : UInt64, vertices : Int) -> Int32 = "tycho_dx12_cmd_draw"
+extern "c" fn cmd_draw_ffi(cmds : UInt64, tex : UInt64, vertices : Int, instances : Int) -> Int32 = "tycho_dx12_cmd_draw"
 
 extern "c" fn cmd_copy_to_readback_ffi(cmds : UInt64, tex : UInt64, rb : UInt64) -> Int32 = "tycho_dx12_cmd_copy_to_readback"
 
@@ -397,8 +397,13 @@ pub fn CommandList::set_pipeline(self : CommandList, pipe : Pipeline) -> Bool {
 }
 
 ///|
-pub fn CommandList::draw(self : CommandList, tex : Texture, vertices : Int) -> Bool {
-  cmd_draw_ffi(self.handle, tex.handle, vertices) != 0
+pub fn CommandList::draw(
+  self : CommandList,
+  tex : Texture,
+  vertices : Int,
+  instances? : Int = 1,
+) -> Bool {
+  cmd_draw_ffi(self.handle, tex.handle, vertices, instances) != 0
 }
 
 ///|
