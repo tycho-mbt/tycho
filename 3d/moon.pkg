@@ -1,0 +1,3 @@
+import {
+  "laplaceliu/tycho_math" @tmath,
+}
