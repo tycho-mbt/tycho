@@ -1253,3 +1253,21 @@ pub fn load_hdr_image(path : String) -> (FixedArray[Float], Int, Int) {
   let (px, w, h) = @shader.load_hdr_image(path)
   (px, w.to_int(), h.to_int())
 }
+
+///|
+/// Decode PNG/JPEG bytes into tight RGBA8 (`Some((pixels, width, height))`).
+pub fn decode_image(bytes : Bytes) -> (Bytes, Int, Int)? {
+  match @shader.decode_image(bytes) {
+    Some((px, w, h)) => Some((px, w.to_int(), h.to_int()))
+    None => None
+  }
+}
+
+///|
+/// Load a PNG/JPEG file as tight RGBA8.
+pub fn load_image_rgba(path : String) -> (Bytes, Int, Int)? {
+  match @shader.load_image_rgba(path) {
+    Some((px, w, h)) => Some((px, w.to_int(), h.to_int()))
+    None => None
+  }
+}
