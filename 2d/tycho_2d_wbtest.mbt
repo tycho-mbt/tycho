@@ -569,13 +569,22 @@ test "legacy kern and RTL visual order" {
       // Arabic joining forms: beh+alef -> initial beh + final alef.
       let ar1 = shape_run(font, "با")
       assert_eq(ar1.length(), 2)
-      assert_eq(ar1[0].cp, 0xFE91)
-      assert_eq(ar1[1].cp, 0xFE8E)
+      assert_eq(ar1[0].cp, 0x0628)
+      assert_eq(ar1[1].cp, 0x0627)
+      assert_eq(ar1[0].glyph_id, font.glyph_id(0xFE91))
+      assert_eq(ar1[1].glyph_id, font.glyph_id(0xFE8E))
       // alef+beh -> isolated alef + isolated beh.
       let ar2 = shape_run(font, "اب")
       assert_eq(ar2.length(), 2)
       assert_eq(ar2[0].cp, 0xFE8D)
       assert_eq(ar2[1].cp, 0xFE8F)
+      assert_eq(ar2[0].glyph_id, font.glyph_id(0xFE8D))
+      assert_eq(ar2[1].glyph_id, font.glyph_id(0xFE8F))
+      // `rlig` combines lam+alef into one glyph with one source cluster.
+      let la = shape_run(font, "لا")
+      assert_eq(la.length(), 1)
+      assert_eq(la[0].source_start, 0)
+      assert_eq(la[0].source_end, 2)
     }
     None => ()
   }

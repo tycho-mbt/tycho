@@ -133,7 +133,9 @@ fn main {
         }
         let mut arabic_forms = 0
         for g in p3.placed_glyphs() {
-          if g.codepoint >= 0xFE70 && g.codepoint <= 0xFEFF {
+          if g.codepoint >= 0x0600 &&
+            g.codepoint <= 0x06FF &&
+            g.glyph_id != g.font.glyph_id(g.codepoint) {
             arabic_forms = arabic_forms + 1
           }
         }

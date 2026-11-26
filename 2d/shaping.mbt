@@ -1,8 +1,8 @@
 // Minimal shaping subset:
 // - Latin ligatures first use real GSUB `liga` lookups (glyph-id rendering);
 //   fonts without liga fall back to Unicode presentation forms (U+FB00..FB06).
-// - Arabic joining forms map to Arabic Presentation Forms-B based on
-//   neighbouring joining types, only when the face has the glyph.
+// - Arabic joining uses GSUB init/medi/fina/isol (and rlig for lam-alef),
+//   falling back to Arabic Presentation Forms-B when the face has no GSUB.
 //
 // This keeps the default pipeline pure MoonBit. Latin ligatures carry a source
 // range so caret/selection mapping stays monotonic. GPOS `kern` is read
@@ -196,6 +196,94 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
         is_space: shaping_is_space(cp),
       })
       i = i + 1
+      continue
+    }
+    // Arabic run: GSUB joining forms + `rlig` (lam-alef etc.).
+    if types[i] != 0 {
+      let start = i
+      let mut j = i
+      while j < n && types[j] != 0 {
+        j = j + 1
+      }
+      let run : Array[ShapedChar] = []
+      for k = start; k < j; k = k + 1 {
+        let cpk = cps[k]
+        let mut gid = font.glyph_id(cpk)
+        let mut out_cp = cpk
+        if types[k] == 1 || types[k] == 2 {
+          let form = if joins_prev[k] && joins_next[k] {
+            3
+          } else if joins_prev[k] {
+            1
+          } else if joins_next[k] {
+            2
+          } else {
+            0
+          }
+          match font.arabic_form_gid(cpk, form) {
+            Some(v) => gid = v
+            None =>
+              match arabic_presentation(cpk, form) {
+                Some(pres) =>
+                  if font.has_glyph(pres) {
+                    out_cp = pres
+                    gid = font.glyph_id(pres)
+                  }
+                None => ()
+              }
+          }
+        }
+        run.push({
+          cp: out_cp,
+          source_start: k,
+          source_end: k + 1,
+          glyph_id: gid,
+          is_newline: false,
+          is_space: false,
+        })
+      }
+      let gids : Array[Int] = []
+      for sc in run {
+        gids.push(sc.glyph_id)
+      }
+      let ligated = font.rlig_ligate(gids)
+      let mut has_multi = false
+      for pair in ligated {
+        let (_gid, comps) = pair
+        if comps > 1 {
+          has_multi = true
+        }
+      }
+      if has_multi {
+        let mut idx = 0
+        for pair in ligated {
+          let (gid, comps) = pair
+          if idx >= run.length() {
+            break
+          }
+          let mut ce = idx + comps
+          if ce > run.length() {
+            ce = run.length()
+          }
+          if ce <= idx {
+            ce = idx + 1
+          }
+          out.push({
+            cp: run[idx].cp,
+            source_start: run[idx].source_start,
+            source_end: run[ce - 1].source_end,
+            glyph_id: gid,
+            is_newline: false,
+            is_space: false,
+          })
+          idx = ce
+        }
+      } else {
+        for sc in run {
+          out.push(sc)
+        }
+      }
+      i = j
       continue
     }
     // Real GSUB `liga` for contiguous ASCII segments.

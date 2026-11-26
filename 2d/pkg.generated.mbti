@@ -192,6 +192,7 @@ pub struct FontFace {
   // private fields
 }
 pub fn FontFace::advance_width(Self, Int32, Float) -> Float
+pub fn FontFace::arabic_form_gid(Self, Int32, Int32) -> Int32?
 pub fn FontFace::builtin() -> Self
 pub fn FontFace::color_bitmap(Self, Int32, Float) -> ColorBitmap?
 pub fn FontFace::color_glyph(Self, Int32, Float) -> (ColorBitmap, DecodedImage)?
@@ -208,6 +209,7 @@ pub fn FontFace::kern(Self, Int32, Int32, Float) -> Float
 pub fn FontFace::kern_gid(Self, Int32, Int32, Float) -> Float
 pub fn FontFace::ligate_glyphs(Self, Array[Int32]) -> Array[(Int32, Int32)]
 pub fn FontFace::metrics(Self, Float) -> (Float, Float, Float)
+pub fn FontFace::rlig_ligate(Self, Array[Int32]) -> Array[(Int32, Int32)]
 pub fn FontFace::set_png_decoder((Bytes) -> DecodedImage?) -> Unit
 
 pub(all) struct FontFallbackChain {

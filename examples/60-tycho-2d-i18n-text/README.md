@@ -10,9 +10,10 @@ M8 integration example mixing:
 - Justified paragraph, selection boxes and caret
 
 The fallback chain is DejaVuSans -> DroidSansFallbackFull -> NotoColorEmoji.
-Latin ligatures use GSUB `liga` with glyph-id rendering; Arabic uses
-Presentation Forms-B; GPOS `kern` is applied by glyph id. Indic clusters and
-full UAX #9 remain future work.
+Latin ligatures use GSUB `liga` with glyph-id rendering; Arabic uses GSUB
+`init/medi/fina/isol` joining plus `rlig` (lam-alef), with Presentation Forms-B
+as fallback; GPOS `kern` is applied by glyph id. Indic clusters and full
+UAX #9 remain future work.
 
 ## Run
 
@@ -32,6 +33,6 @@ moon build --target native 60-tycho-2d-i18n-text
 Sample output:
 
 ```json
-{"ligature":true,"arabic_forms":9,"rtl_first":1501,"selection_boxes":1,"yellow_pixels":1157}
-[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining, 9 Arabic forms, 0 validation errors
+{"ligature":true,"arabic_forms":7,"rtl_first":1501,"selection_boxes":1,"yellow_pixels":1157}
+[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining, 7 Arabic forms, 0 validation errors
 ```

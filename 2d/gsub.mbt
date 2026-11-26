@@ -10,6 +10,11 @@ priv struct GsubData {
   bytes : Bytes
   base : Int
   liga_lookups : Array[Int]
+  arab_isol : Array[Int]
+  arab_init : Array[Int]
+  arab_medi : Array[Int]
+  arab_fina : Array[Int]
+  arab_rlig : Array[Int]
 }
 
 ///|
@@ -100,12 +105,30 @@ fn GsubData::parse(bytes : Bytes, base : Int) -> GsubData? {
   if base + 10 > bytes.length() {
     return None
   }
-  let tmp : GsubData = { bytes, base, liga_lookups: [] }
+  let tmp : GsubData = {
+    bytes,
+    base,
+    liga_lookups: [],
+    arab_isol: [],
+    arab_init: [],
+    arab_medi: [],
+    arab_fina: [],
+    arab_rlig: [],
+  }
   let mut lookups = gsub_feature_lookups(tmp, "latn", "liga")
   if lookups.length() == 0 {
     lookups = gsub_feature_lookups(tmp, "DFLT", "liga")
   }
-  Some({ bytes, base, liga_lookups: lookups })
+  Some({
+    bytes,
+    base,
+    liga_lookups: lookups,
+    arab_isol: gsub_feature_lookups(tmp, "arab", "isol"),
+    arab_init: gsub_feature_lookups(tmp, "arab", "init"),
+    arab_medi: gsub_feature_lookups(tmp, "arab", "medi"),
+    arab_fina: gsub_feature_lookups(tmp, "arab", "fina"),
+    arab_rlig: gsub_feature_lookups(tmp, "arab", "rlig"),
+  })
 }
 
 ///|
@@ -238,14 +261,101 @@ fn gsub_apply_lookup(
 }
 
 ///|
-fn GsubData::ligate(self : GsubData, gids : Array[Int]) -> Array[(Int, Int)] {
+fn gsub_apply_single_lookup(
+  g : GsubData,
+  lookup_off : Int,
+  gid : Int,
+) -> Int {
+  let b = g.bytes
+  if gsub_u16(b, lookup_off) != 1 {
+    return gid
+  }
+  let sub_count = gsub_u16(b, lookup_off + 4)
+  for si = 0; si < sub_count; si = si + 1 {
+    let sub = lookup_off + gsub_u16(b, lookup_off + 6 + si * 2)
+    let fmt = gsub_u16(b, sub)
+    let cov = sub + gsub_u16(b, sub + 2)
+    match gsub_coverage_index(g, cov, gid) {
+      Some(idx) =>
+        if fmt == 1 {
+          return (gid + be_i16(b, sub + 4)) & 0xFFFF
+        } else if fmt == 2 {
+          let count = gsub_u16(b, sub + 4)
+          if idx < count {
+            return gsub_u16(b, sub + 6 + idx * 2)
+          }
+        }
+      None => ()
+    }
+  }
+  gid
+}
+
+///|
+fn GsubData::substitute(
+  self : GsubData,
+  lookups : Array[Int],
+  gid : Int,
+) -> Int {
+  let b = self.bytes
+  let lookup_list = self.base + gsub_u16(b, self.base + 8)
+  let mut cur = gid
+  for idx in lookups {
+    let off = lookup_list + gsub_u16(b, lookup_list + 2 + idx * 2)
+    if off + 6 > b.length() {
+      continue
+    }
+    cur = gsub_apply_single_lookup(self, off, cur)
+  }
+  cur
+}
+
+///|
+// Map an Arabic base codepoint to its joining-form glyph id via GSUB.
+// form: 0 isolated, 1 final, 2 initial, 3 medial.
+pub fn FontFace::arabic_form_gid(
+  self : FontFace,
+  cp : Int,
+  form : Int,
+) -> Int? {
+  let g = match self.gsub {
+    Some(g) => g
+    None => return None
+  }
+  let gid = self.glyph_id(cp)
+  if gid <= 0 {
+    return None
+  }
+  let lookups = if form == 1 {
+    g.arab_fina
+  } else if form == 2 {
+    g.arab_init
+  } else if form == 3 {
+    g.arab_medi
+  } else {
+    g.arab_isol
+  }
+  let out = g.substitute(lookups, gid)
+  if out != gid && out > 0 {
+    Some(out)
+  } else {
+    None
+  }
+}
+
+///|
+fn GsubData::ligate_with(
+  self : GsubData,
+  gids : Array[Int],
+  lookups : Array[Int],
+) -> Array[(Int, Int)] {
   let b = self.bytes
   let lookup_list = self.base + gsub_u16(b, self.base + 8)
   let mut cur : Array[(Int, Int)] = []
   for gid in gids {
     cur.push((gid, 1))
   }
-  for idx in self.liga_lookups {
+  for idx in lookups {
     let off = lookup_list + gsub_u16(b, lookup_list + 2 + idx * 2)
     if off + 6 > b.length() {
       continue
@@ -253,6 +363,28 @@ fn GsubData::ligate(self : GsubData, gids : Array[Int]) -> Array[(Int, Int)] {
     cur = gsub_apply_lookup(self, off, cur)
   }
   cur
+}
+
+///|
+fn GsubData::ligate(self : GsubData, gids : Array[Int]) -> Array[(Int, Int)] {
+  self.ligate_with(gids, self.liga_lookups)
+}
+
+///|
+pub fn FontFace::rlig_ligate(
+  self : FontFace,
+  gids : Array[Int],
+) -> Array[(Int, Int)] {
+  match self.gsub {
+    Some(g) => g.ligate_with(gids, g.arab_rlig)
+    None => {
+      let out : Array[(Int, Int)] = []
+      for gid in gids {
+        out.push((gid, 1))
+      }
+      out
+    }
+  }
 }
 
 ///|
