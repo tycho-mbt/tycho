@@ -1488,6 +1488,76 @@ fn Renderer2D::draw_path_gpu(
 }
 
 ///|
+fn Renderer2D::downsample_region(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+  src : @tycho.Texture,
+  src_w : Int,
+  src_h : Int,
+  src_u0 : Float,
+  src_v0 : Float,
+  src_u1 : Float,
+  src_v1 : Float,
+  dst_w : Int,
+  dst_h : Int,
+) -> (@tycho.Texture, Int, Int) raise @tycho.RhiError {
+  let (dst, _) = self.rt_pool.acquire(
+    dst_w,
+    dst_h,
+    with_depth_stencil=false,
+    slot=self.active_rt_slot,
+  )
+  let dw = Float::from_int(dst.width())
+  let dh = Float::from_int(dst.height())
+  let sw = if src_w > 0 { src_w } else { 1 }
+  let sh = if src_h > 0 { src_h } else { 1 }
+  let texel_u = (src_u1 - src_u0) / Float::from_int(sw)
+  let texel_v = (src_v1 - src_v0) / Float::from_int(sh)
+  cmd.begin_render_pass([
+    @tycho.RenderTargetDesc::new(
+      dst,
+      load_op=@tycho.LoadOp::Clear,
+      store_op=@tycho.StoreOp::Store,
+      clear_color=@tycho.ClearColor::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float)),
+    ),
+  ])
+  cmd.set_viewport((0.0 : Float), (0.0 : Float), dw, dh)
+  cmd.set_scissor(0, 0, dst_w, dst_h)
+  cmd.bind_pipeline(self.blur_pipe)
+  cmd.bind_texture(self.blur_pipe, 0, src, self.sampler)
+  cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
+  cmd.push_constants_floats(self.blur_pipe, [
+    (0.0 : Float),
+    (0.0 : Float),
+    Float::from_int(dst_w) / dw,
+    Float::from_int(dst_h) / dh,
+    src_u0,
+    src_v0,
+    src_u1,
+    src_v1,
+    texel_u,
+    texel_v,
+    dw,
+    (4.0 : Float),
+    (1.0 : Float),
+    (1.0 : Float),
+    (1.0 : Float),
+    (1.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (-1.0 : Float),
+    (-1.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+  ])
+  cmd.draw(6, 1)
+  cmd.end_render_pass()
+  (dst, dst_w, dst_h)
+}
+
+///|
 fn Renderer2D::run_blur_passes(
   self : Renderer2D,
   cmd : @tycho.CommandBuffer,
@@ -1501,16 +1571,56 @@ fn Renderer2D::run_blur_passes(
   src_u1? : Float = (1.0 : Float),
   src_v1? : Float = (1.0 : Float),
 ) -> (@tycho.Texture, Int, Int) raise @tycho.RhiError {
-  let bw = if src_w / 2 > 1 { src_w / 2 } else { 1 }
-  let bh = if src_h / 2 > 1 { src_h / 2 } else { 1 }
+  // The embedded 9-tap kernel has sigma ~= 1.7 texels. Downsample by 2 until the
+  // requested sigma is representable with a step <= 4 texels, so large-radius
+  // blurs stay well sampled instead of becoming sparse and banded.
+  let mut cur_tex = src
+  let mut cur_w = src_w
+  let mut cur_h = src_h
+  let mut cu0 = src_u0
+  let mut cv0 = src_v0
+  let mut cu1 = src_u1
+  let mut cv1 = src_v1
+  let sigma = @tmath.max_f(@tmath.max_f(sx, sy), (0.01 : Float))
+  let mut level = 0
+  while level < 4 &&
+    sigma / Float::from_int(1 << level) > (6.8 : Float) &&
+    cur_w > 2 &&
+    cur_h > 2 {
+    let nw = if cur_w / 2 > 1 { cur_w / 2 } else { 1 }
+    let nh = if cur_h / 2 > 1 { cur_h / 2 } else { 1 }
+    let (ds, dw, dh) = self.downsample_region(
+      cmd,
+      cur_tex,
+      cur_w,
+      cur_h,
+      cu0,
+      cv0,
+      cu1,
+      cv1,
+      nw,
+      nh,
+    )
+    cur_tex = ds
+    cur_w = dw
+    cur_h = dh
+    cu0 = (0.0 : Float)
+    cv0 = (0.0 : Float)
+    cu1 = Float::from_int(dw) / Float::from_int(ds.width())
+    cv1 = Float::from_int(dh) / Float::from_int(ds.height())
+    level = level + 1
+  }
+  let scale = Float::from_int(1 << level)
+  let bw = if cur_w / 2 > 1 { cur_w / 2 } else { 1 }
+  let bh = if cur_h / 2 > 1 { cur_h / 2 } else { 1 }
   let (tex_a, _) = self.rt_pool.acquire(bw, bh, with_depth_stencil=false, slot=self.active_rt_slot)
   let (tex_b, _) = self.rt_pool.acquire(bw, bh, with_depth_stencil=false, slot=self.active_rt_slot)
   let aw_f = Float::from_int(tex_a.width())
   let ah_f = Float::from_int(tex_a.height())
   let bw_norm = Float::from_int(bw) / aw_f
   let bh_norm = Float::from_int(bh) / ah_f
-  let rad_x = @tmath.clamp_f(sx * (0.25 : Float), (0.5 : Float), (4.0 : Float))
-  let rad_y = @tmath.clamp_f(sy * (0.25 : Float), (0.5 : Float), (4.0 : Float))
+  let rad_x = @tmath.clamp_f(sx / scale / (1.7 : Float), (0.5 : Float), (4.0 : Float))
+  let rad_y = @tmath.clamp_f(sy / scale / (1.7 : Float), (0.5 : Float), (4.0 : Float))
 
   // Horizontal pass into tex_a
   cmd.begin_render_pass([
@@ -1524,18 +1634,18 @@ fn Renderer2D::run_blur_passes(
   cmd.set_viewport(0.0, 0.0, aw_f, ah_f)
   cmd.set_scissor(0, 0, bw, bh)
   cmd.bind_pipeline(self.blur_pipe)
-  cmd.bind_texture(self.blur_pipe, 0, src, self.sampler)
+  cmd.bind_texture(self.blur_pipe, 0, cur_tex, self.sampler)
   cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
   cmd.push_constants_floats(self.blur_pipe, [
     (0.0 : Float),
     (0.0 : Float),
     bw_norm,
     bh_norm,
-    src_u0,
-    src_v0,
-    src_u1,
-    src_v1,
-    rad_x / Float::from_int(src.width()),
+    cu0,
+    cv0,
+    cu1,
+    cv1,
+    rad_x / Float::from_int(cur_tex.width()),
     (0.0 : Float),
     aw_f,
     (0.0 : Float),

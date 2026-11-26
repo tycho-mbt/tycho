@@ -30,6 +30,16 @@ void main() {
   int mode = int(pc.params.w + 0.5);
   vec2 uv_min = min(pc.src_uv.xy, pc.src_uv.zw);
   vec2 uv_max = max(pc.src_uv.xy, pc.src_uv.zw);
+  if (mode == 4) {
+    // 4-tap box downsample: params.xy = source texel size in UV units.
+    vec2 t = pc.params.xy;
+    vec4 s = texture(u_tex, clamp(v_uv, uv_min, uv_max));
+    s += texture(u_tex, clamp(v_uv + vec2(t.x, 0.0), uv_min, uv_max));
+    s += texture(u_tex, clamp(v_uv + vec2(0.0, t.y), uv_min, uv_max));
+    s += texture(u_tex, clamp(v_uv + t, uv_min, uv_max));
+    out_color = s * 0.25;
+    return;
+  }
   if (mode == 1 || mode == 2 || mode == 3) {
     float cov = 1.0;
     if (pc.clip_rect.z > 0.0 && pc.clip_rect.w > 0.0) {
