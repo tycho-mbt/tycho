@@ -16,6 +16,8 @@ import {
   "laplaceliu/tycho_shader@0.7.0",
   "laplaceliu/tycho@0.9.0",
   "laplaceliu/tycho_math@0.9.0",
+  "laplaceliu/tycho_geometry@0.10.0",
+  "laplaceliu/tycho_3d@0.10.0",
   "laplaceliu/tycho_2d@0.9.0",
   "laplaceliu/tycho_ui@0.9.0",
 }
