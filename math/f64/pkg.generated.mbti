@@ -1,0 +1,250 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_math/f64"
+
+import {
+  "laplaceliu/tycho_math",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const EPSILON : Double = 1.0e-12
+
+pub fn dlook_at_lh(DVec3, DVec3, DVec3) -> DMat4
+
+pub fn dlook_at_rh(DVec3, DVec3, DVec3) -> DMat4
+
+pub fn dlook_to_lh(DVec3, DVec3, DVec3) -> DMat4
+
+pub fn dlook_to_rh(DVec3, DVec3, DVec3) -> DMat4
+
+pub fn dorthographic_rh(Double, Double, Double, Double, Double, Double, clip? : @tycho_math.ClipSpace) -> DMat4
+
+pub fn dorthographic_rh_reverse(Double, Double, Double, Double, Double, Double, clip? : @tycho_math.ClipSpace) -> DMat4
+
+pub fn dperspective_infinite_reverse_rh(Double, Double, Double, clip? : @tycho_math.ClipSpace) -> DMat4
+
+pub fn dperspective_lh(Double, Double, Double, Double, clip? : @tycho_math.ClipSpace) -> DMat4
+
+pub fn dperspective_rh(Double, Double, Double, Double, clip? : @tycho_math.ClipSpace) -> DMat4
+
+pub fn dperspective_rh_reverse(Double, Double, Double, Double, clip? : @tycho_math.ClipSpace) -> DMat4
+
+pub fn dproject(DMat4, DVec3) -> DVec3
+
+pub fn dunproject(DMat4, DVec3) -> DVec3
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct DAffine3 {
+  matrix3 : DMat3
+  translation : DVec3
+}
+pub fn DAffine3::approx_eq(Self, Self, eps? : Double) -> Bool
+pub fn DAffine3::determinant(Self) -> Double
+pub fn DAffine3::from_cols(DMat3, DVec3) -> Self
+pub fn DAffine3::from_dmat4(DMat4) -> Self
+pub fn DAffine3::from_translation(DVec3) -> Self
+pub fn DAffine3::identity() -> Self
+pub fn DAffine3::inverse(Self) -> Self?
+pub fn DAffine3::to_affine3(Self) -> @tycho_math.Affine3
+pub fn DAffine3::to_dmat4(Self) -> DMat4
+pub fn DAffine3::to_mat4(Self) -> @tycho_math.Mat4
+pub fn DAffine3::transform_point3(Self, DVec3) -> DVec3
+pub fn DAffine3::transform_vector3(Self, DVec3) -> DVec3
+pub impl Mul for DAffine3
+pub impl Show for DAffine3
+
+#derive(Eq, @debug.Debug)
+pub(all) struct DMat3 {
+  x_axis : DVec3
+  y_axis : DVec3
+  z_axis : DVec3
+}
+pub fn DMat3::approx_eq(Self, Self, eps? : Double) -> Bool
+pub fn DMat3::determinant(Self) -> Double
+pub fn DMat3::from_cols(DVec3, DVec3, DVec3) -> Self
+pub fn DMat3::from_diagonal(DVec3) -> Self
+pub fn DMat3::from_dquat(DQuat) -> Self
+pub fn DMat3::from_rotation_x(Double) -> Self
+pub fn DMat3::from_rotation_y(Double) -> Self
+pub fn DMat3::from_rotation_z(Double) -> Self
+pub fn DMat3::identity() -> Self
+pub fn DMat3::inverse(Self) -> Self?
+pub fn DMat3::inverse_transpose(Self) -> Self?
+pub fn DMat3::mul_vec3(Self, DVec3) -> DVec3
+pub fn DMat3::row0(Self) -> DVec3
+pub fn DMat3::row1(Self) -> DVec3
+pub fn DMat3::row2(Self) -> DVec3
+pub fn DMat3::to_dmat4(Self) -> DMat4
+pub fn DMat3::to_mat3(Self) -> @tycho_math.Mat3
+pub fn DMat3::transpose(Self) -> Self
+pub impl Add for DMat3
+pub impl Mul for DMat3
+pub impl Show for DMat3
+pub impl Sub for DMat3
+
+#derive(Eq, @debug.Debug)
+pub(all) struct DMat4 {
+  x_axis : DVec4
+  y_axis : DVec4
+  z_axis : DVec4
+  w_axis : DVec4
+}
+pub fn DMat4::approx_eq(Self, Self, eps? : Double) -> Bool
+pub fn DMat4::determinant(Self) -> Double
+pub fn DMat4::from_axis_angle(DVec3, Double) -> Self
+pub fn DMat4::from_cols(DVec4, DVec4, DVec4, DVec4) -> Self
+pub fn DMat4::from_dmat3(DMat3) -> Self
+pub fn DMat4::from_dquat(DQuat) -> Self
+pub fn DMat4::from_scale(DVec3) -> Self
+pub fn DMat4::from_scale_rotation_translation(DVec3, DQuat, DVec3) -> Self
+pub fn DMat4::from_translation(DVec3) -> Self
+pub fn DMat4::identity() -> Self
+pub fn DMat4::inverse(Self) -> Self?
+pub fn DMat4::mul_vec4(Self, DVec4) -> DVec4
+pub fn DMat4::project_point3(Self, DVec3) -> DVec3
+pub fn DMat4::row0(Self) -> DVec4
+pub fn DMat4::row1(Self) -> DVec4
+pub fn DMat4::row2(Self) -> DVec4
+pub fn DMat4::row3(Self) -> DVec4
+pub fn DMat4::to_dmat3(Self) -> DMat3
+pub fn DMat4::to_mat4(Self) -> @tycho_math.Mat4
+pub fn DMat4::transform_point3(Self, DVec3) -> DVec3
+pub fn DMat4::transform_vector3(Self, DVec3) -> DVec3
+pub fn DMat4::translation(Self) -> DVec3
+pub fn DMat4::transpose(Self) -> Self
+pub impl Mul for DMat4
+pub impl Show for DMat4
+
+#derive(Eq, @debug.Debug)
+pub(all) struct DQuat {
+  x : Double
+  y : Double
+  z : Double
+  w : Double
+}
+pub fn DQuat::approx_eq(Self, Self, eps? : Double) -> Bool
+pub fn DQuat::conjugate(Self) -> Self
+pub fn DQuat::dot(Self, Self) -> Double
+pub fn DQuat::from_axis_angle(DVec3, Double) -> Self
+pub fn DQuat::from_euler(@tycho_math.EulerOrder, Double, Double, Double) -> Self
+pub fn DQuat::from_mat3(DMat3) -> Self
+pub fn DQuat::from_quat(@tycho_math.Quat) -> Self
+pub fn DQuat::from_rotation_arc(DVec3, DVec3) -> Self
+pub fn DQuat::from_rotation_x(Double) -> Self
+pub fn DQuat::from_rotation_y(Double) -> Self
+pub fn DQuat::from_rotation_z(Double) -> Self
+pub fn DQuat::from_xyzw(Double, Double, Double, Double) -> Self
+pub fn DQuat::identity() -> Self
+pub fn DQuat::inverse(Self) -> Self
+pub fn DQuat::length(Self) -> Double
+pub fn DQuat::length_sq(Self) -> Double
+pub fn DQuat::mul_vec3(Self, DVec3) -> DVec3
+pub fn DQuat::nlerp(Self, Self, Double) -> Self
+pub fn DQuat::normalize(Self) -> Self
+pub fn DQuat::scale(Self, Double) -> Self
+pub fn DQuat::slerp(Self, Self, Double) -> Self
+pub fn DQuat::to_dmat3(Self) -> DMat3
+pub fn DQuat::to_mat3(Self) -> @tycho_math.Mat3
+pub fn DQuat::to_quat(Self) -> @tycho_math.Quat
+pub impl Add for DQuat
+pub impl Mul for DQuat
+pub impl Neg for DQuat
+pub impl Show for DQuat
+pub impl Sub for DQuat
+
+#derive(Eq, @debug.Debug)
+pub(all) struct DVec2 {
+  x : Double
+  y : Double
+}
+pub fn DVec2::approx_eq(Self, Self, eps? : Double) -> Bool
+pub fn DVec2::cross(Self, Self) -> Double
+pub fn DVec2::dot(Self, Self) -> Double
+pub fn DVec2::from_vec2(@tycho_math.Vec2) -> Self
+pub fn DVec2::length(Self) -> Double
+pub fn DVec2::length_sq(Self) -> Double
+pub fn DVec2::lerp(Self, Self, Double) -> Self
+pub fn DVec2::new(Double, Double) -> Self
+pub fn DVec2::normalize(Self) -> Self
+pub fn DVec2::one() -> Self
+pub fn DVec2::scale(Self, Double) -> Self
+pub fn DVec2::splat(Double) -> Self
+pub fn DVec2::to_vec2(Self) -> @tycho_math.Vec2
+pub fn DVec2::zero() -> Self
+pub impl Add for DVec2
+pub impl Div for DVec2
+pub impl Mul for DVec2
+pub impl Neg for DVec2
+pub impl Show for DVec2
+pub impl Sub for DVec2
+
+#derive(Eq, @debug.Debug)
+pub(all) struct DVec3 {
+  x : Double
+  y : Double
+  z : Double
+}
+pub fn DVec3::approx_eq(Self, Self, eps? : Double) -> Bool
+pub fn DVec3::cross(Self, Self) -> Self
+pub fn DVec3::distance(Self, Self) -> Double
+pub fn DVec3::dot(Self, Self) -> Double
+pub fn DVec3::extend_w(Self, Double) -> DVec4
+pub fn DVec3::from_vec3(@tycho_math.Vec3) -> Self
+pub fn DVec3::is_finite(Self) -> Bool
+pub fn DVec3::length(Self) -> Double
+pub fn DVec3::length_sq(Self) -> Double
+pub fn DVec3::lerp(Self, Self, Double) -> Self
+pub fn DVec3::max(Self, Self) -> Self
+pub fn DVec3::min(Self, Self) -> Self
+pub fn DVec3::new(Double, Double, Double) -> Self
+pub fn DVec3::normalize(Self) -> Self
+pub fn DVec3::one() -> Self
+pub fn DVec3::scale(Self, Double) -> Self
+pub fn DVec3::splat(Double) -> Self
+pub fn DVec3::to_vec3(Self) -> @tycho_math.Vec3
+pub fn DVec3::truncate(Self) -> DVec2
+pub fn DVec3::try_normalize(Self) -> Self?
+pub fn DVec3::unit_x() -> Self
+pub fn DVec3::unit_y() -> Self
+pub fn DVec3::unit_z() -> Self
+pub fn DVec3::zero() -> Self
+pub impl Add for DVec3
+pub impl Div for DVec3
+pub impl Mul for DVec3
+pub impl Neg for DVec3
+pub impl Show for DVec3
+pub impl Sub for DVec3
+
+#derive(Eq, @debug.Debug)
+pub(all) struct DVec4 {
+  x : Double
+  y : Double
+  z : Double
+  w : Double
+}
+pub fn DVec4::approx_eq(Self, Self, eps? : Double) -> Bool
+pub fn DVec4::dot(Self, Self) -> Double
+pub fn DVec4::length(Self) -> Double
+pub fn DVec4::length_sq(Self) -> Double
+pub fn DVec4::new(Double, Double, Double, Double) -> Self
+pub fn DVec4::normalize(Self) -> Self
+pub fn DVec4::one() -> Self
+pub fn DVec4::scale(Self, Double) -> Self
+pub fn DVec4::splat(Double) -> Self
+pub fn DVec4::to_vec4(Self) -> @tycho_math.Vec4
+pub fn DVec4::truncate(Self) -> DVec3
+pub fn DVec4::unit_w() -> Self
+pub fn DVec4::xyz(Self) -> DVec3
+pub fn DVec4::zero() -> Self
+pub impl Add for DVec4
+pub impl Mul for DVec4
+pub impl Neg for DVec4
+pub impl Show for DVec4
+pub impl Sub for DVec4
+
+// Type aliases
+
+// Traits

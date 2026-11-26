@@ -1,0 +1,4 @@
+import {
+  "laplaceliu/tycho_math" @tmath,
+  "moonbitlang/core/math" @math,
+}
