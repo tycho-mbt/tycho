@@ -61,6 +61,8 @@ priv struct TtfData {
   cbdt_off : Int
   // Legacy `kern` table, -1 when absent.
   kern_off : Int
+  // GSUB table, -1 when absent.
+  gsub_off : Int
 }
 
 ///|
@@ -82,6 +84,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
   let mut cblc_off = -1
   let mut cbdt_off = -1
   let mut kern_off = -1
+  let mut gsub_off = -1
   for i = 0; i < num_tables; i = i + 1 {
     let rec = 12 + i * 16
     let off = be_i32(bytes, rec + 8)
@@ -95,6 +98,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     else if tag_eq(bytes, rec, "CBLC") { cblc_off = off }
     else if tag_eq(bytes, rec, "CBDT") { cbdt_off = off }
     else if tag_eq(bytes, rec, "kern") { kern_off = off }
+    else if tag_eq(bytes, rec, "GSUB") { gsub_off = off }
   }
   if head_off < 0 || hhea_off < 0 || maxp_off < 0 || hmtx_off < 0 ||
     cmap_off < 0 {
@@ -157,6 +161,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     cblc_off,
     cbdt_off,
     kern_off,
+    gsub_off,
   })
 }
 
@@ -487,7 +492,18 @@ fn rasterize_ttf_glyph(
   if t.glyf_off < 0 || t.loca_off < 0 {
     return (0, 0, 0, 0, b"")
   }
-  let gid = ttf_glyph_id(t, cp)
+  rasterize_ttf_glyph_gid(t, ttf_glyph_id(t, cp), size_px)
+}
+
+///|
+fn rasterize_ttf_glyph_gid(
+  t : TtfData,
+  gid : Int,
+  size_px : Float,
+) -> (Int, Int, Int, Int, Bytes) {
+  if t.glyf_off < 0 || t.loca_off < 0 || gid <= 0 {
+    return (0, 0, 0, 0, b"")
+  }
   let scale = size_px.to_double() / t.units_per_em.to_double()
   let edges : Array[RasterEdge] = []
   collect_ttf_edges(t, gid, scale, 0.0, 0.0, edges, 0)
@@ -715,17 +731,25 @@ fn alloc_font_id() -> Int {
 pub struct FontFace {
   priv id : Int
   priv ttf : TtfData?
+  priv gsub : GsubData?
 }
 
 ///|
 pub fn FontFace::builtin() -> FontFace {
-  { id: 0, ttf: None }
+  { id: 0, ttf: None, gsub: None }
 }
 
 ///|
 pub fn FontFace::from_ttf_bytes(bytes : Bytes) -> FontFace? {
   match parse_ttf(bytes) {
-    Some(ttf) => Some({ id: alloc_font_id(), ttf: Some(ttf) })
+    Some(ttf) => {
+      let gsub = if ttf.gsub_off >= 0 {
+        GsubData::parse(bytes, ttf.gsub_off)
+      } else {
+        None
+      }
+      Some({ id: alloc_font_id(), ttf: Some(ttf), gsub })
+    }
     None => None
   }
 }
@@ -997,6 +1021,16 @@ pub fn FontFace::color_glyph(
 ///|
 // Legacy `kern` format-0 pair adjustment, in pixels at `size_px`.
 pub fn FontFace::kern(self : FontFace, cp1 : Int, cp2 : Int, size_px : Float) -> Float {
+  self.kern_gid(self.glyph_id(cp1), self.glyph_id(cp2), size_px)
+}
+
+///|
+pub fn FontFace::kern_gid(
+  self : FontFace,
+  g1 : Int,
+  g2 : Int,
+  size_px : Float,
+) -> Float {
   let t = match self.ttf {
     Some(t) => t
     None => return (0.0 : Float)
@@ -1004,8 +1038,6 @@ pub fn FontFace::kern(self : FontFace, cp1 : Int, cp2 : Int, size_px : Float) ->
   if t.kern_off < 0 {
     return (0.0 : Float)
   }
-  let g1 = ttf_glyph_id(t, cp1)
-  let g2 = ttf_glyph_id(t, cp2)
   if g1 == 0 || g2 == 0 {
     return (0.0 : Float)
   }
@@ -1192,13 +1224,39 @@ pub fn GlyphCache::get_or_rasterize(
   cp : Int,
   size_px : Float,
 ) -> GlyphEntry raise @tycho.RhiError {
+  self.get_or_rasterize_impl(font, cp, -1, size_px)
+}
+
+///|
+pub fn GlyphCache::get_or_rasterize_gid(
+  self : GlyphCache,
+  font : FontFace,
+  gid : Int,
+  cp : Int,
+  size_px : Float,
+) -> GlyphEntry raise @tycho.RhiError {
+  self.get_or_rasterize_impl(font, cp, gid, size_px)
+}
+
+///|
+fn GlyphCache::get_or_rasterize_impl(
+  self : GlyphCache,
+  font : FontFace,
+  cp : Int,
+  gid : Int,
+  size_px : Float,
+) -> GlyphEntry raise @tycho.RhiError {
   // Quantize the requested size to 1/4 px. This keeps animated/zoomed text from
   // re-rasterizing on every integer step while staying small enough to be
   // visually smooth.
   let clamped = @tmath.max_f((6.0 : Float), size_px)
   let q4 = (clamped * (4.0 : Float) + (0.5 : Float)).to_int()
   let px_size = Float::from_int(q4) * (0.25 : Float)
-  let key = "\{font.id}:\{cp}:\{q4}"
+  let key = if gid > 0 {
+    "\{font.id}:g\{gid}:\{q4}"
+  } else {
+    "\{font.id}:\{cp}:\{q4}"
+  }
   match self.entries.get(key) {
     Some(e) => {
       match self.bitmaps.get(key) {
@@ -1209,9 +1267,17 @@ pub fn GlyphCache::get_or_rasterize(
     }
     None => ()
   }
-  let adv = font.advance_width(cp, px_size)
+  let adv = if gid > 0 {
+    font.glyph_advance(gid, px_size)
+  } else {
+    font.advance_width(cp, px_size)
+  }
   let (ox, oy, gw, gh, pixels) = match font.ttf {
-    Some(t) => rasterize_ttf_glyph(t, cp, px_size)
+    Some(t) => if gid > 0 {
+      rasterize_ttf_glyph_gid(t, gid, px_size)
+    } else {
+      rasterize_ttf_glyph(t, cp, px_size)
+    }
     None => rasterize_builtin_glyph(cp, px_size)
   }
   // Padding around each glyph so a quad shifted by a fraction of a pixel

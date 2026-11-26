@@ -13,6 +13,7 @@ priv struct ShapedChar {
   cp : Int
   source_start : Int
   source_end : Int
+  glyph_id : Int
   is_newline : Bool
   is_space : Bool
 }
@@ -190,11 +191,55 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
         cp,
         source_start: i,
         source_end: i + 1,
+        glyph_id: 0,
         is_newline: is_nl,
         is_space: shaping_is_space(cp),
       })
       i = i + 1
       continue
+    }
+    // Real GSUB `liga` for contiguous ASCII segments.
+    if types[i] == 0 && cp > 32 && cp < 127 && font.has_liga() {
+      let mut j = i
+      while j < n && types[j] == 0 && cps[j] > 32 && cps[j] < 127 {
+        j = j + 1
+      }
+      let gids : Array[Int] = []
+      for k = i; k < j; k = k + 1 {
+        gids.push(font.glyph_id(cps[k]))
+      }
+      let ligated = font.ligate_glyphs(gids)
+      let mut has_multi = false
+      for pair in ligated {
+        let (_gid, comps) = pair
+        if comps > 1 {
+          has_multi = true
+        }
+      }
+      if has_multi {
+        let mut src = i
+        for pair in ligated {
+          let (gid, comps) = pair
+          let mut ce = src + comps
+          if ce > j {
+            ce = j
+          }
+          if ce <= src {
+            ce = src + 1
+          }
+          out.push({
+            cp: cps[src],
+            source_start: src,
+            source_end: ce,
+            glyph_id: gid,
+            is_newline: false,
+            is_space: false,
+          })
+          src = ce
+        }
+        i = j
+        continue
+      }
     }
     if types[i] == 0 {
       match shape_latin_ligature(font, cps, i) {
@@ -203,6 +248,7 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
             cp: lig,
             source_start: i,
             source_end: i + len,
+            glyph_id: font.glyph_id(lig),
             is_newline: false,
             is_space: false,
           })
@@ -232,6 +278,7 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
       cp: shaped_cp,
       source_start: i,
       source_end: i + 1,
+      glyph_id: font.glyph_id(shaped_cp),
       is_newline: false,
       is_space: false,
     })

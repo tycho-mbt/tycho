@@ -88,6 +88,8 @@ pub(all) struct LineMetrics {
 ///|
 pub(all) struct PlacedGlyph {
   codepoint : Int
+  // Resolved glyph id (0 = builtin rasterizer / codepoint path).
+  glyph_id : Int
   font : FontFace
   font_size : Float
   x : Float
@@ -100,6 +102,7 @@ pub(all) struct PlacedGlyph {
 ///|
 priv struct LayoutChar {
   cp : Int
+  glyph_id : Int
   style : TextStyle
   font : FontFace
   mut advance : Float
@@ -247,11 +250,15 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
         // feedback; this keeps the char advance precomputable.
         face.advance_width(32, sp.style.font_size) * (4.0 : Float) +
         sp.style.letter_spacing
+      } else if sc.glyph_id > 0 {
+        face.glyph_advance(sc.glyph_id, sp.style.font_size) +
+        sp.style.letter_spacing
       } else {
         face.advance_width(cp, sp.style.font_size) + sp.style.letter_spacing
       }
       chars.push({
         cp,
+        glyph_id: sc.glyph_id,
         style: sp.style,
         font: face,
         advance: adv,
@@ -278,7 +285,11 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       b.cp != 9 &&
       a.font.id() == b.font.id() &&
       a.style.font_size == b.style.font_size {
-      let k = a.font.kern(a.cp, b.cp, a.style.font_size)
+      let k = if a.glyph_id > 0 && b.glyph_id > 0 {
+        a.font.kern_gid(a.glyph_id, b.glyph_id, a.style.font_size)
+      } else {
+        a.font.kern(a.cp, b.cp, a.style.font_size)
+      }
       if k != (0.0 : Float) {
         chars[i].advance = chars[i].advance + k
       }
@@ -460,6 +471,7 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       if !ch.is_space && !ch.is_newline {
         self.glyphs.push({
           codepoint: ch.cp,
+          glyph_id: ch.glyph_id,
           font: ch.font,
           font_size: ch.style.font_size,
           x: cx,
@@ -488,6 +500,7 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
         let eadv = est.font.advance_width(ecp, est.font_size)
         self.glyphs.push({
           codepoint: ecp,
+          glyph_id: est.font.glyph_id(ecp),
           font: est.font,
           font_size: est.font_size,
           x: cx,

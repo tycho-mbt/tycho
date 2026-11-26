@@ -540,10 +540,13 @@ test "legacy kern and RTL visual order" {
       assert_eq(gr[1].codepoint, 0x05D1)
       assert_eq(gr[2].codepoint, 0x05D0)
 
-      // Latin presentation-form ligature.
+      // Real GSUB `liga` ligature: two source chars -> one glyph id.
       let lig = shape_run(font, "fi")
       assert_eq(lig.length(), 1)
-      assert_eq(lig[0].cp, 0xFB01)
+      assert_eq(lig[0].cp, 102)
+      assert_eq(lig[0].source_end, 2)
+      assert_true(lig[0].glyph_id > 0)
+      assert_eq(lig[0].glyph_id, font.glyph_id(0xFB01))
       let pl = ParagraphBuilder::new()
         .add_text(
           "fi",
@@ -553,7 +556,8 @@ test "legacy kern and RTL visual order" {
       pl.layout((1000.0 : Float))
       let gl = pl.placed_glyphs()
       assert_eq(gl.length(), 1)
-      assert_eq(gl[0].codepoint, 0xFB01)
+      assert_eq(gl[0].codepoint, 102)
+      assert_eq(gl[0].glyph_id, font.glyph_id(0xFB01))
 
       // Arabic joining forms: beh+alef -> initial beh + final alef.
       let ar1 = shape_run(font, "با")

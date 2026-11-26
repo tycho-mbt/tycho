@@ -196,10 +196,15 @@ pub fn FontFace::builtin() -> Self
 pub fn FontFace::color_bitmap(Self, Int32, Float) -> ColorBitmap?
 pub fn FontFace::color_glyph(Self, Int32, Float) -> (ColorBitmap, DecodedImage)?
 pub fn FontFace::from_ttf_bytes(Bytes) -> Self?
+pub fn FontFace::glyph_advance(Self, Int32, Float) -> Float
+pub fn FontFace::glyph_id(Self, Int32) -> Int32
 pub fn FontFace::has_color_bitmap(Self, Int32) -> Bool
 pub fn FontFace::has_glyph(Self, Int32) -> Bool
+pub fn FontFace::has_liga(Self) -> Bool
 pub fn FontFace::id(Self) -> Int32
 pub fn FontFace::kern(Self, Int32, Int32, Float) -> Float
+pub fn FontFace::kern_gid(Self, Int32, Int32, Float) -> Float
+pub fn FontFace::ligate_glyphs(Self, Array[Int32]) -> Array[(Int32, Int32)]
 pub fn FontFace::metrics(Self, Float) -> (Float, Float, Float)
 pub fn FontFace::set_png_decoder((Bytes) -> DecodedImage?) -> Unit
 
@@ -223,6 +228,7 @@ pub fn GlyphCache::destroy(Self) -> Unit
 pub fn GlyphCache::entry_count(Self) -> Int32
 pub fn GlyphCache::generation(Self) -> Int32
 pub fn GlyphCache::get_or_rasterize(Self, FontFace, Int32, Float) -> GlyphEntry raise @tycho.RhiError
+pub fn GlyphCache::get_or_rasterize_gid(Self, FontFace, Int32, Int32, Float) -> GlyphEntry raise @tycho.RhiError
 pub fn GlyphCache::new(@tycho.Device, width? : Int32, height? : Int32) -> Self raise @tycho.RhiError
 
 pub(all) struct GlyphEntry {
@@ -416,6 +422,7 @@ pub(all) enum PathVerb {
 
 pub(all) struct PlacedGlyph {
   codepoint : Int32
+  glyph_id : Int32
   font : FontFace
   font_size : Float
   x : Float

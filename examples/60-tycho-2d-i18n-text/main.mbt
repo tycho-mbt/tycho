@@ -125,7 +125,7 @@ fn main {
         let lig_ok = {
           let mut found = false
           for g in p1.placed_glyphs() {
-            if g.codepoint == 0xFB01 {
+            if g.glyph_id > 0 && g.glyph_id == g.font.glyph_id(0xFB01) {
               found = true
             }
           }
