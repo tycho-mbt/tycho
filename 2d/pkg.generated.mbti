@@ -176,8 +176,16 @@ pub struct FontFace {
 pub fn FontFace::advance_width(Self, Int32, Float) -> Float
 pub fn FontFace::builtin() -> Self
 pub fn FontFace::from_ttf_bytes(Bytes) -> Self?
+pub fn FontFace::has_glyph(Self, Int32) -> Bool
 pub fn FontFace::id(Self) -> Int32
 pub fn FontFace::metrics(Self, Float) -> (Float, Float, Float)
+
+pub(all) struct FontFallbackChain {
+  // private fields
+}
+pub fn FontFallbackChain::face_for(Self, Int32) -> FontFace
+pub fn FontFallbackChain::faces(Self) -> Array[FontFace]
+pub fn FontFallbackChain::new(FontFace, fallbacks? : Array[FontFace]) -> Self
 
 pub struct GlyphCache {
   atlas : DynamicAtlas
@@ -554,8 +562,9 @@ pub(all) struct TextStyle {
   color : Color
   letter_spacing : Float
   underline : Bool
+  fallback : FontFallbackChain?
 }
-pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool) -> Self
+pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool, fallback? : FontFallbackChain?) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum TileMode {

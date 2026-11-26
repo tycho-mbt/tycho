@@ -415,3 +415,37 @@ test "draw_path_shadow wraps a blurred layer" {
   // SaveLayer + DrawPath + Restore.
   assert_eq(dl.op_count(), 3)
 }
+
+///|
+test "font fallback chain picks per-codepoint faces" {
+  let latin_bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  )
+  let cjk_bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+  )
+  match (
+    FontFace::from_ttf_bytes(latin_bytes),
+    FontFace::from_ttf_bytes(cjk_bytes),
+  ) {
+    (Some(latin), Some(cjk)) => {
+      let chain = FontFallbackChain::new(latin, fallbacks=[cjk])
+      assert_eq(chain.face_for(65).id(), latin.id())
+      assert_eq(chain.face_for(0x4E2D).id(), cjk.id())
+      let p = ParagraphBuilder::new()
+        .add_text(
+          "A中B",
+          style=TextStyle::new(font=latin, fallback=Some(chain)),
+        )
+        .build()
+      p.layout((1000.0 : Float))
+      let gs = p.placed_glyphs()
+      assert_eq(gs.length(), 3)
+      assert_eq(gs[1].codepoint, 0x4E2D)
+      assert_eq(gs[0].font.id(), latin.id())
+      assert_eq(gs[1].font.id(), cjk.id())
+      assert_eq(gs[2].font.id(), latin.id())
+    }
+    _ => ()
+  }
+}

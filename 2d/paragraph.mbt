@@ -15,6 +15,7 @@ pub(all) struct TextStyle {
   color : Color
   letter_spacing : Float
   underline : Bool
+  fallback : FontFallbackChain?
 }
 
 ///|
@@ -24,8 +25,17 @@ pub fn TextStyle::new(
   color? : Color = Color::white(),
   letter_spacing? : Float = (0.0 : Float),
   underline? : Bool = false,
+  fallback? : FontFallbackChain? = None,
 ) -> TextStyle {
-  { font, font_size, color, letter_spacing, underline }
+  { font, font_size, color, letter_spacing, underline, fallback }
+}
+
+///|
+fn style_face(style : TextStyle, cp : Int) -> FontFace {
+  match style.fallback {
+    Some(chain) => chain.face_for(cp)
+    None => style.font
+  }
 }
 
 ///|
@@ -90,6 +100,7 @@ pub(all) struct PlacedGlyph {
 priv struct LayoutChar {
   cp : Int
   style : TextStyle
+  font : FontFace
   advance : Float
   char_index : Int
   is_newline : Bool
@@ -188,15 +199,16 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       let cp = ch.to_int()
       let is_nl = cp == 10
       let is_sp = cp == 32 || cp == 9
+      let face = style_face(sp.style, cp)
       let adv = if is_nl {
         (0.0 : Float)
       } else {
-        sp.style.font.advance_width(cp, sp.style.font_size) +
-        sp.style.letter_spacing
+        face.advance_width(cp, sp.style.font_size) + sp.style.letter_spacing
       }
       chars.push({
         cp,
         style: sp.style,
+        font: face,
         advance: adv,
         char_index: idx,
         is_newline: is_nl,
@@ -285,7 +297,7 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
     } else {
       for k = rs; k < re; k = k + 1 {
         let ch = chars[k]
-        let (asc, _desc, lh) = ch.style.font.metrics(ch.style.font_size)
+        let (asc, _desc, lh) = ch.font.metrics(ch.style.font_size)
         if asc > max_asc { max_asc = asc }
         let sh = lh * self.pstyle.line_height_scale
         if sh > max_h { max_h = sh }
@@ -295,7 +307,10 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
         let last_st = chars[re - 1].style
         let mut ell_w = (0.0 : Float)
         for ech in ell {
-          ell_w = ell_w + last_st.font.advance_width(ech.to_int(), last_st.font_size)
+          ell_w = ell_w + style_face(last_st, ech.to_int()).advance_width(
+            ech.to_int(),
+            last_st.font_size,
+          )
         }
         while end_idx > rs && line_w + ell_w > mw {
           end_idx = end_idx - 1
@@ -321,7 +336,7 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       if !ch.is_space && !ch.is_newline {
         self.glyphs.push({
           codepoint: ch.cp,
-          font: ch.style.font,
+          font: ch.font,
           font_size: ch.style.font_size,
           x: cx,
           baseline_y: baseline,

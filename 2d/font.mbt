@@ -721,6 +721,53 @@ pub fn FontFace::advance_width(self : FontFace, cp : Int, size_px : Float) -> Fl
 }
 
 ///|
+// True when the face can render `cp` (builtin covers printable ASCII, TTF
+// consults cmap).
+pub fn FontFace::has_glyph(self : FontFace, cp : Int) -> Bool {
+  match self.ttf {
+    Some(t) => ttf_glyph_id(t, cp) != 0
+    None => cp >= 32 && cp <= 126
+  }
+}
+
+///|
+// Ordered font fallback: the first face that has a glyph wins.
+pub(all) struct FontFallbackChain {
+  priv faces : Array[FontFace]
+}
+
+///|
+pub fn FontFallbackChain::new(
+  primary : FontFace,
+  fallbacks? : Array[FontFace] = [],
+) -> FontFallbackChain {
+  let faces : Array[FontFace] = [primary]
+  for f in fallbacks {
+    faces.push(f)
+  }
+  { faces: faces }
+}
+
+///|
+pub fn FontFallbackChain::face_for(self : FontFallbackChain, cp : Int) -> FontFace {
+  for f in self.faces {
+    if f.has_glyph(cp) {
+      return f
+    }
+  }
+  self.faces[0]
+}
+
+///|
+pub fn FontFallbackChain::faces(self : FontFallbackChain) -> Array[FontFace] {
+  let out : Array[FontFace] = []
+  for f in self.faces {
+    out.push(f)
+  }
+  out
+}
+
+///|
 pub fn FontFace::metrics(self : FontFace, size_px : Float) -> (Float, Float, Float) {
   // Returns (ascent, descent, line_height)
   match self.ttf {
