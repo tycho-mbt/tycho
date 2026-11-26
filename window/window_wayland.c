@@ -188,6 +188,35 @@ static const struct wl_message xdg_wm_base_events[] = {
 static const struct wl_interface xdg_wm_base_iface = {
     "xdg_wm_base", 5, 4, xdg_wm_base_requests, 1, xdg_wm_base_events};
 
+// zwp_text_input_v3 (hand-written from the upstream unstable-v3 XML)
+static const struct wl_message ti_requests[] = {
+    {"destroy", "", nulls},
+    {"enable", "", nulls},
+    {"disable", "", nulls},
+    {"set_surrounding_text", "suu", nulls},
+    {"set_text_change_cause", "u", nulls},
+    {"set_content_type", "uu", nulls},
+    {"set_cursor_rectangle", "iiii", nulls},
+    {"commit", "", nulls},
+};
+static const struct wl_message ti_events[] = {
+    {"enter", "o", nulls},
+    {"leave", "o", nulls},
+    {"preedit_string", "suu", nulls},
+    {"commit_string", "s", nulls},
+    {"delete_surrounding_text", "uu", nulls},
+    {"done", "u", nulls},
+};
+static const struct wl_interface zwp_text_input_v3_iface = {
+    "zwp_text_input_v3", 1, 8, ti_requests, 6, ti_events};
+static const struct wl_interface *ti_get_types[] = {&zwp_text_input_v3_iface, NULL};
+static const struct wl_message ti_mgr_requests[] = {
+    {"destroy", "", nulls},
+    {"get_text_input", "no", ti_get_types},
+};
+static const struct wl_interface zwp_text_input_manager_v3_iface = {
+    "zwp_text_input_manager_v3", 1, 2, ti_mgr_requests, 0, 0};
+
 // zxdg_decoration_manager_v1 / zxdg_toplevel_decoration_v1
 static const struct wl_message zxdg_toplevel_decoration_requests[] = {
     {"destroy", "", nulls},
@@ -290,6 +319,8 @@ typedef struct TychoWlOutput {
 static struct wl_display *g_wl = NULL;
 static struct wl_proxy *g_registry, *g_compositor, *g_wm_base, *g_seat, *g_shm;
 static struct wl_proxy *g_deco_mgr, *g_constraints, *g_rel_mgr;
+static struct wl_proxy *g_ti_mgr, *g_ti;
+static TychoWlWindow *g_ti_focus;
 static struct wl_proxy *g_pointer, *g_keyboard, *g_relative;
 static uint32_t g_seat_version = 1;
 static uint32_t g_pointer_serial = 0;
@@ -315,6 +346,81 @@ static void wl_push_event(TychoWlWindow *tw, int32_t kind, int32_t a, int32_t b,
   tw->ev_count++;
 }
 
+static TychoWlWindow *wl_find_window(struct wl_proxy *surface);
+
+static void wl_push_utf8(TychoWlWindow *tw, int32_t kind, const char *s, int len) {
+  if (!tw || !s) return;
+  int i = 0;
+  while (i < len && s[i]) {
+    unsigned char c = (unsigned char)s[i];
+    uint32_t cp = 0;
+    int n = 1;
+    if (c < 0x80) cp = c;
+    else if ((c & 0xE0) == 0xC0 && i + 1 < len) {
+      cp = ((uint32_t)(c & 0x1F) << 6) | ((unsigned char)s[i + 1] & 0x3F);
+      n = 2;
+    } else if ((c & 0xF0) == 0xE0 && i + 2 < len) {
+      cp = ((uint32_t)(c & 0x0F) << 12) | (((unsigned char)s[i + 1] & 0x3F) << 6) |
+           ((unsigned char)s[i + 2] & 0x3F);
+      n = 3;
+    } else if ((c & 0xF8) == 0xF0 && i + 3 < len) {
+      cp = ((uint32_t)(c & 0x07) << 18) | (((unsigned char)s[i + 1] & 0x3F) << 12) |
+           (((unsigned char)s[i + 2] & 0x3F) << 6) | ((unsigned char)s[i + 3] & 0x3F);
+      n = 4;
+    }
+    wl_push_event(tw, kind, (int32_t)cp, 0, 0);
+    i += n;
+  }
+}
+
+static void ti_enter(void *d, struct wl_proxy *ti, struct wl_proxy *surface) {
+  (void)d; (void)ti;
+  TychoWlWindow *tw = wl_find_window(surface);
+  g_ti_focus = tw;
+  if (!tw || !g_ti) return;
+  W.proxy_marshal(g_ti, 1);                    // enable
+  W.proxy_marshal(g_ti, 5, 0u, 0u);            // set_content_type
+  W.proxy_marshal(g_ti, 6, 0, 0, tw->width, tw->height);
+  W.proxy_marshal(g_ti, 7);                    // commit
+}
+
+static void ti_leave(void *d, struct wl_proxy *ti, struct wl_proxy *surface) {
+  (void)d; (void)ti; (void)surface;
+  g_ti_focus = NULL;
+}
+
+static void ti_preedit(void *d, struct wl_proxy *ti, const char *text,
+                       uint32_t cursor_begin, uint32_t cursor_end) {
+  (void)d; (void)ti; (void)cursor_begin; (void)cursor_end;
+  TychoWlWindow *tw = g_ti_focus;
+  if (!tw) return;
+  wl_push_event(tw, 12, 0, 0, 0);
+  if (text) wl_push_utf8(tw, 11, text, (int)strlen(text));
+}
+
+static void ti_commit(void *d, struct wl_proxy *ti, const char *text) {
+  (void)d; (void)ti;
+  TychoWlWindow *tw = g_ti_focus;
+  if (tw && text) wl_push_utf8(tw, 13, text, (int)strlen(text));
+}
+
+static void ti_delete(void *d, struct wl_proxy *ti, uint32_t before, uint32_t after) {
+  (void)d; (void)ti; (void)before; (void)after;
+}
+
+static void ti_done(void *d, struct wl_proxy *ti, uint32_t serial) {
+  (void)d; (void)ti; (void)serial;
+}
+
+static const struct {
+  void (*enter)(void *, struct wl_proxy *, struct wl_proxy *);
+  void (*leave)(void *, struct wl_proxy *, struct wl_proxy *);
+  void (*preedit_string)(void *, struct wl_proxy *, const char *, uint32_t, uint32_t);
+  void (*commit_string)(void *, struct wl_proxy *, const char *);
+  void (*delete_surrounding_text)(void *, struct wl_proxy *, uint32_t, uint32_t);
+  void (*done)(void *, struct wl_proxy *, uint32_t);
+} ti_listener = {ti_enter, ti_leave, ti_preedit, ti_commit, ti_delete, ti_done};
+
 static TychoWlWindow *wl_find_window(struct wl_proxy *surface) {
   if (!surface) return NULL;
   for (int i = 0; i < TYCHO_WL_MAX_WINDOWS; i++) {
@@ -325,6 +431,13 @@ static TychoWlWindow *wl_find_window(struct wl_proxy *surface) {
 
 static void add_listener(struct wl_proxy *p, const void *listener, void *data) {
   if (p) W.proxy_add_listener(p, (wl_fn *)listener, data);
+}
+ 
+static void wl_ensure_text_input(void) {
+  if (g_ti || !g_ti_mgr || !g_seat) return;
+  g_ti = W.proxy_marshal_constructor(g_ti_mgr, 1, &zwp_text_input_v3_iface,
+                                     NULL, g_seat);
+  if (g_ti) add_listener(g_ti, &ti_listener, NULL);
 }
 
 static void destroy_with_request(struct wl_proxy *p, uint32_t destroy_opcode) {
@@ -500,8 +613,11 @@ static void kb_key(void *d, struct wl_proxy *kb, uint32_t serial, uint32_t time,
   // state: 0 = released, 1 = pressed (2 = repeated, wl_keyboard v10+).
   wl_push_event(g_keyboard_focus, state ? 3 : 4, (int32_t)ks, (int32_t)g_xmods, 0);
   if (state && !(g_xmods & 4u) && !(g_xmods & 8u)) {
-    // Emit printable ASCII/Latin-1 codepoint as TextInput (kind 10)
-    if (ks >= 0x20 && ks <= 0x7e) {
+    // Unicode keysyms (0x01000000 + codepoint) are already composed by the
+    // compositor's keymap; expose them as IME commits. ASCII uses TextInput.
+    if (ks >= 0x01000100 && ks <= 0x0110FFFF) {
+      wl_push_event(g_keyboard_focus, 13, (int32_t)(ks - 0x01000000), 0, 0);
+    } else if (ks >= 0x20 && ks <= 0x7e) {
       wl_push_event(g_keyboard_focus, 10, (int32_t)ks, 0, 0);
     }
   }
@@ -773,6 +889,7 @@ static void registry_global(void *d, struct wl_proxy *reg, uint32_t name, const 
     g_seat_version = min_u32(version, 5);
     g_seat = bind_global(name, W.seat_iface, g_seat_version);
     add_listener(g_seat, &seat_listener, NULL);
+    wl_ensure_text_input();
   } else if (strcmp(iface, "wl_shm") == 0 && !g_shm) {
     g_shm = bind_global(name, W.shm_iface, 1);
   } else if (strcmp(iface, "wl_output") == 0 && g_n_outputs < TYCHO_WL_MAX_OUTPUTS) {
@@ -790,6 +907,9 @@ static void registry_global(void *d, struct wl_proxy *reg, uint32_t name, const 
     g_constraints = bind_global(name, &zwp_pointer_constraints_iface, 1);
   } else if (strcmp(iface, "zwp_relative_pointer_manager_v1") == 0 && !g_rel_mgr) {
     g_rel_mgr = bind_global(name, &zwp_relative_pointer_manager_iface, 1);
+  } else if (strcmp(iface, "zwp_text_input_manager_v3") == 0 && !g_ti_mgr) {
+    g_ti_mgr = bind_global(name, &zwp_text_input_manager_v3_iface, 1);
+    wl_ensure_text_input();
   }
 }
 

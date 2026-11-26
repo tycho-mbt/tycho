@@ -10,7 +10,11 @@ Thin pure-MoonBit native windowing, input event queue, and Vulkan WSI surface wr
   - **macOS**: pure-C Cocoa (`NSWindow`) + `CAMetalLayer` via `libobjc.A.dylib` runtime dispatch, Retina `backingScaleFactor`, `VK_EXT_metal_surface`
 - Window lifecycle: `initialize`, `create`, `destroy`, `terminate`, `should_close`, `set_should_close`, `set_title`, `is_wayland`
 - Resize & geometry: `width`, `height`, `framebuffer_size`, `take_resized`, `content_scale`, `set_fullscreen`, `is_fullscreen`
-- Event & input queries: `poll`, `poll_events` (`Event::CloseRequested`, `Resized`, `KeyDown`, `KeyUp`, `MouseMove`, `MouseDown`, `MouseUp`, `MouseScroll`, `FocusChanged`), `wait_events`, `mouse_pos`, `is_mouse_down`, `set_cursor_mode`, `set_cursor_shape`, `time`, KeySym constants (`KEY_ESCAPE`, `KEY_W`, `KEY_A`, `KEY_S`, `KEY_D`, etc.)
+- Event & input queries: `poll`, `poll_events` (`Event::CloseRequested`, `Resized`, `KeyDown`, `KeyUp`, `MouseMove`, `MouseDown`, `MouseUp`, `MouseScroll`, `FocusChanged`, `TextInput`), `wait_events`, `mouse_pos`, `is_mouse_down`, `set_cursor_mode`, `set_cursor_shape`, `time`, KeySym constants (`KEY_ESCAPE`, `KEY_W`, `KEY_A`, `KEY_S`, `KEY_D`, etc.)
+- IME:
+  - X11 uses XIM (`XFilterEvent` + preedit draw callback + `Xutf8LookupString`) and emits `Event::ImePreedit` / `ImePreeditClear` / `ImeCommit` / `ImeCancel`.
+  - Wayland binds `zwp_text_input_manager_v3` / `zwp_text_input_v3` (hand-written protocol tables) for native preedit/commit; Unicode keymap commits still work as a fallback.
+  - Hosts feed these into `ui.TextController::set_preedit` / `commit_preedit` / `clear_preedit`.
 - Clipboard & appearance: `set_clipboard_text` / `clipboard_text`, `set_bg_color`
 - Vulkan WSI surface creation: `create_surface` (`VK_KHR_wayland_surface`, `VK_KHR_xlib_surface`, `VK_KHR_win32_surface`, `VK_EXT_metal_surface`), `surface_extensions`, `platform`
 

@@ -248,19 +248,6 @@ fn is_no_end(cp : Int) -> Bool {
 }
 
 ///|
-// Strong RTL ranges for the bidi subset (Hebrew + Arabic blocks).
-fn is_rtl(cp : Int) -> Bool {
-  (cp >= 0x0590 && cp <= 0x05FF) ||
-  (cp >= 0x0600 && cp <= 0x06FF) ||
-  (cp >= 0x0700 && cp <= 0x074F) ||
-  (cp >= 0x0750 && cp <= 0x077F) ||
-  (cp >= 0x08A0 && cp <= 0x08FF) ||
-  (cp >= 0xFB1D && cp <= 0xFB4F) ||
-  (cp >= 0xFB50 && cp <= 0xFDFF) ||
-  (cp >= 0xFE70 && cp <= 0xFEFF)
-}
-
-///|
 pub struct Paragraph {
   priv spans : Array[TextSpan]
   priv pstyle : ParagraphStyle
@@ -636,26 +623,8 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
     } else {
       (0.0 : Float)
     }
-    // Visual order: reverse contiguous RTL runs. This is a UAX #9 subset
-    // (strong RTL ranges only); Arabic joining still depends on GSUB.
-    let order : Array[Int] = []
-    let mut oi = rs
-    while oi < end_idx {
-      if is_rtl(chars[oi].cp) {
-        let st = oi
-        while oi < end_idx && is_rtl(chars[oi].cp) {
-          oi = oi + 1
-        }
-        let mut j = oi - 1
-        while j >= st {
-          order.push(j)
-          j = j - 1
-        }
-      } else {
-        order.push(oi)
-        oi = oi + 1
-      }
-    }
+    // UAX #9 subset: weak/neutral resolution + implicit levels + reorder.
+    let order = bidi_visual_order(chars, rs, end_idx)
     let x_start = match self.pstyle.align {
       TextAlign::Left => (0.0 : Float)
       TextAlign::Justify => (0.0 : Float)

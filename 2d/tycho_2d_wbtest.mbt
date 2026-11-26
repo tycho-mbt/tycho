@@ -699,6 +699,7 @@ test "SDF glyph encoding keeps inside/outside distances" {
             height: 80,
             advance: 40.0,
             is_sdf: true,
+            is_msdf: false,
             sdf_base: (64.0 : Float),
           }
           let s = scale_glyph_entry(e, (1.5 : Float), (60.0 : Float))
@@ -726,6 +727,41 @@ fn test_u32(a : Array[Byte], off : Int, v : Int) -> Unit {
   a[off + 1] = ((v >> 16) & 0xFF).to_byte()
   a[off + 2] = ((v >> 8) & 0xFF).to_byte()
   a[off + 3] = (v & 0xFF).to_byte()
+}
+
+///|
+test "bidi weak/neutral resolution orders digits and Hebrew" {
+  let p = ParagraphBuilder::new()
+    .add_text("ABC אבג", style=TextStyle::new(font_size=(16.0 : Float)))
+    .build()
+  p.layout((1000.0 : Float))
+  let cps : Array[Int] = []
+  for g in p.placed_glyphs() {
+    cps.push(g.codepoint)
+  }
+  assert_eq(cps.length(), 6)
+  assert_eq(cps[0], 65)
+  assert_eq(cps[1], 66)
+  assert_eq(cps[2], 67)
+  assert_eq(cps[3], 0x05D2)
+  assert_eq(cps[4], 0x05D1)
+  assert_eq(cps[5], 0x05D0)
+
+  let p2 = ParagraphBuilder::new()
+    .add_text("אבג 123", style=TextStyle::new(font_size=(16.0 : Float)))
+    .build()
+  p2.layout((1000.0 : Float))
+  let cps2 : Array[Int] = []
+  for g in p2.placed_glyphs() {
+    cps2.push(g.codepoint)
+  }
+  assert_eq(cps2.length(), 6)
+  assert_eq(cps2[0], 49)
+  assert_eq(cps2[1], 50)
+  assert_eq(cps2[2], 51)
+  assert_eq(cps2[3], 0x05D2)
+  assert_eq(cps2[4], 0x05D1)
+  assert_eq(cps2[5], 0x05D0)
 }
 
 ///|
@@ -852,6 +888,28 @@ test "fvar axes and variation-to-synthetic style" {
 }
 
 ///|
+test "GDEF classes drive GSUB lookup flags" {
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) =>
+      match (font.gdef, font.gsub) {
+        (Some(gdef), Some(gsub)) => {
+          let base = font.glyph_id(0x0915)
+          let mark = font.glyph_id(0x093F)
+          assert_eq(gdef.glyph_class(base), 1)
+          assert_eq(gdef.glyph_class(mark), 3)
+          assert_true(gsub_glyph_ignored(gsub, mark, 0x0008, -1))
+          assert_true(!gsub_glyph_ignored(gsub, base, 0x0008, -1))
+        }
+        _ => assert_true(false)
+      }
+    None => ()
+  }
+}
+
+///|
 test "devanagari pre-base matra and conjunct features" {
   let bytes = @tycho.read_file_bytes(
     "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
@@ -874,7 +932,77 @@ test "devanagari pre-base matra and conjunct features" {
       }
       assert_true(!has_virama)
       assert_true(ste.length() < 4)
+      // Reph and the following consonant share the reph cluster.
+      let karm = shape_run(font, "कर्म")
+      assert_eq(karm.length(), 3)
+      assert_eq(karm[1].source_start, 1)
+      assert_eq(karm[2].source_start, 1)
     }
     None => ()
+  }
+}
+
+///|
+test "avar normalization and HVAR advance" {
+  let path = "/home/laplaceliu/Source/laplaceliu/tycho-mbt/refs/skia/modules/canvaskit/tests/assets/RobotoSlab-VariableFont_wght.ttf"
+  let bytes = @tycho.read_file_bytes(path)
+  if bytes.length() > 0 {
+    match FontFace::from_ttf_bytes(bytes) {
+      Some(font) => {
+        let axes = font.variation_axes()
+        assert_eq(axes.length(), 1)
+        assert_eq(axes[0].tag, "wght")
+        font.set_variation("wght", (100.0 : Float))
+        assert_true(@tmath.abs_f(font.normalized_coord("wght") + (1.0 : Float)) < (0.001 : Float))
+        font.set_variation("wght", (900.0 : Float))
+        assert_true(@tmath.abs_f(font.normalized_coord("wght") - (1.0 : Float)) < (0.001 : Float))
+        let h_light = font.glyph_advance(font.glyph_id(72), (48.0 : Float))
+        font.set_variation("wght", (100.0 : Float))
+        let h_thin = font.glyph_advance(font.glyph_id(72), (48.0 : Float))
+        assert_true(h_light > h_thin)
+        assert_true(@tmath.abs_f(h_thin - (35.296875 : Float)) < (0.02 : Float))
+        assert_true(@tmath.abs_f(h_light - (37.796875 : Float)) < (0.02 : Float))
+      }
+      None => ()
+    }
+  }
+}
+
+///|
+test "MSDF encoding is RGBA and alpha-opaque" {
+  let mask = Bytes::makei(8 * 8, fn(_i) { (255 : Byte) })
+  let (w, h, rgba) = build_msdf(8, 8, mask)
+  assert_true(w > 8 && h > 8)
+  assert_eq(rgba.length(), w * h * 4)
+  let mid = ((h / 2) * w + w / 2) * 4
+  assert_eq(rgba[mid + 3].to_int(), 255)
+  assert_true(rgba[mid].to_int() > rgba[0].to_int())
+}
+
+///|
+test "gvar changes glyph outline" {
+  let path = "/home/laplaceliu/Source/laplaceliu/tycho-mbt/refs/skia/modules/canvaskit/tests/assets/RobotoSlab-VariableFont_wght.ttf"
+  let bytes = @tycho.read_file_bytes(path)
+  if bytes.length() > 0 {
+    match FontFace::from_ttf_bytes(bytes) {
+      Some(font) => {
+        let gid = font.glyph_id(72)
+        font.set_variation("wght", (100.0 : Float))
+        let (tx, ty, tw, th, thin) = font.rasterize_bitmap(gid, 72, (64.0 : Float), false, false)
+        font.set_variation("wght", (900.0 : Float))
+        let (bx, by, bw, bh, bold) = font.rasterize_bitmap(gid, 72, (64.0 : Float), false, false)
+        let mut thin_px = 0
+        let mut bold_px = 0
+        for p in thin {
+          if p.to_int() >= 128 { thin_px = thin_px + 1 }
+        }
+        for p in bold {
+          if p.to_int() >= 128 { bold_px = bold_px + 1 }
+        }
+        assert_true(bold_px > thin_px + 20)
+        assert_true(bw > tw)
+      }
+      None => ()
+    }
   }
 }

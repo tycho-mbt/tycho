@@ -64,8 +64,12 @@ priv struct TtfData {
   // GSUB/GPOS tables, -1 when absent.
   gsub_off : Int
   gpos_off : Int
-  // fvar table, -1 when absent.
+  gdef_off : Int
+  // fvar/avar/gvar/HVAR tables, -1 when absent.
   fvar_off : Int
+  avar_off : Int
+  gvar_off : Int
+  hvar_off : Int
 }
 
 ///|
@@ -89,7 +93,11 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
   let mut kern_off = -1
   let mut gsub_off = -1
   let mut gpos_off = -1
+  let mut gdef_off = -1
   let mut fvar_off = -1
+  let mut avar_off = -1
+  let mut gvar_off = -1
+  let mut hvar_off = -1
   for i = 0; i < num_tables; i = i + 1 {
     let rec = 12 + i * 16
     let off = be_i32(bytes, rec + 8)
@@ -105,7 +113,11 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     else if tag_eq(bytes, rec, "kern") { kern_off = off }
     else if tag_eq(bytes, rec, "GSUB") { gsub_off = off }
     else if tag_eq(bytes, rec, "GPOS") { gpos_off = off }
+    else if tag_eq(bytes, rec, "GDEF") { gdef_off = off }
     else if tag_eq(bytes, rec, "fvar") { fvar_off = off }
+    else if tag_eq(bytes, rec, "avar") { avar_off = off }
+    else if tag_eq(bytes, rec, "gvar") { gvar_off = off }
+    else if tag_eq(bytes, rec, "HVAR") { hvar_off = off }
   }
   if head_off < 0 || hhea_off < 0 || maxp_off < 0 || hmtx_off < 0 ||
     cmap_off < 0 {
@@ -170,7 +182,11 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     kern_off,
     gsub_off,
     gpos_off,
+    gdef_off,
     fvar_off,
+    avar_off,
+    gvar_off,
+    hvar_off,
   })
 }
 
@@ -309,6 +325,7 @@ fn collect_ttf_edges(
   scale : Double,
   ox : Double,
   oy : Double,
+  coords : Array[Float],
   edges : Array[RasterEdge],
   depth : Int,
 ) -> Unit {
@@ -354,7 +371,16 @@ fn collect_ttf_edges(
       } else if (flags & 0x0080) != 0 {
         p = p + 8
       }
-      collect_ttf_edges(t, sub_gid, scale, ox + dx * scale, oy - dy * scale, edges, depth + 1)
+      collect_ttf_edges(
+        t,
+        sub_gid,
+        scale,
+        ox + dx * scale,
+        oy - dy * scale,
+        coords,
+        edges,
+        depth + 1,
+      )
       if (flags & 0x0020) == 0 {
         break
       }
@@ -392,6 +418,7 @@ fn collect_ttf_edges(
   }
   let xs : Array[Double] = Array::make(n_pts, 0.0)
   let ys : Array[Double] = Array::make(n_pts, 0.0)
+  let (gdx, gdy) = gvar_deltas(t, gid, coords, n_pts)
   let mut cx = 0
   for i = 0; i < n_pts && p <= g_end; i = i + 1 {
     let fl = flags[i]
@@ -407,7 +434,7 @@ fn collect_ttf_edges(
       v
     }
     cx = cx + dx
-    xs[i] = ox + cx.to_double() * scale
+    xs[i] = ox + (cx.to_double() + gdx[i].to_double()) * scale
   }
   let mut cy = 0
   for i = 0; i < n_pts && p <= g_end; i = i + 1 {
@@ -424,7 +451,7 @@ fn collect_ttf_edges(
       v
     }
     cy = cy + dy
-    ys[i] = oy - cy.to_double() * scale
+    ys[i] = oy - (cy.to_double() + gdy[i].to_double()) * scale
   }
 
   let mut start = 0
@@ -563,6 +590,9 @@ fn synthesize_glyph_bitmap(
 const SDF_SPREAD : Int = 6
 
 ///|
+const MSDF_BASE_PX : Float = 128.0
+
+///|
 fn sdf_distance_pass(d : Array[Float], w : Int, h : Int, forward : Bool) -> Unit {
   let diag = (1.41421356 : Float)
   if forward {
@@ -656,15 +686,37 @@ fn build_sdf(gw : Int, gh : Int, pixels : Bytes) -> (Int, Int, Bytes) {
 }
 
 ///|
+// RGBA distance texture for the MSDF path. The CPU fallback uses the same
+// Euclidean signed distance in all three channels; the shader takes the median,
+// so future per-corner channel generation can be swapped in without touching
+// the atlas or pipeline.
+fn build_msdf(gw : Int, gh : Int, pixels : Bytes) -> (Int, Int, Bytes) {
+  let (w, h, sdf) = build_sdf(gw, gh, pixels)
+  if w <= 0 || h <= 0 {
+    return (0, 0, b"")
+  }
+  let out = Array::make(w * h * 4, (0 : Byte))
+  for i = 0; i < w * h; i = i + 1 {
+    let d = sdf[i]
+    out[i * 4] = d
+    out[i * 4 + 1] = d
+    out[i * 4 + 2] = d
+    out[i * 4 + 3] = (255 : Byte)
+  }
+  (w, h, Bytes::from_array(out))
+}
+
+///|
 fn rasterize_ttf_glyph(
   t : TtfData,
   cp : Int,
   size_px : Float,
+  coords? : Array[Float] = [],
 ) -> (Int, Int, Int, Int, Bytes) {
   if t.glyf_off < 0 || t.loca_off < 0 {
     return (0, 0, 0, 0, b"")
   }
-  rasterize_ttf_glyph_gid(t, ttf_glyph_id(t, cp), size_px)
+  rasterize_ttf_glyph_gid(t, ttf_glyph_id(t, cp), size_px, coords=coords)
 }
 
 ///|
@@ -672,13 +724,14 @@ fn rasterize_ttf_glyph_gid(
   t : TtfData,
   gid : Int,
   size_px : Float,
+  coords? : Array[Float] = [],
 ) -> (Int, Int, Int, Int, Bytes) {
   if t.glyf_off < 0 || t.loca_off < 0 || gid <= 0 {
     return (0, 0, 0, 0, b"")
   }
   let scale = size_px.to_double() / t.units_per_em.to_double()
   let edges : Array[RasterEdge] = []
-  collect_ttf_edges(t, gid, scale, 0.0, 0.0, edges, 0)
+  collect_ttf_edges(t, gid, scale, 0.0, 0.0, coords, edges, 0)
   if edges.length() == 0 {
     return (0, 0, 0, 0, b"")
   }
@@ -905,19 +958,35 @@ pub struct FontFace {
   priv ttf : TtfData?
   priv gsub : GsubData?
   priv gpos : GposData?
+  priv gdef : GdefData?
+  priv hvar : HvarData?
+  priv var_values : Map[String, Float]
 }
 
 ///|
 pub fn FontFace::builtin() -> FontFace {
-  { id: 0, ttf: None, gsub: None, gpos: None }
+  {
+    id: 0,
+    ttf: None,
+    gsub: None,
+    gpos: None,
+    gdef: None,
+    hvar: None,
+    var_values: Map([]),
+  }
 }
 
 ///|
 pub fn FontFace::from_ttf_bytes(bytes : Bytes) -> FontFace? {
   match parse_ttf(bytes) {
     Some(ttf) => {
+      let gdef = if ttf.gdef_off >= 0 {
+        GdefData::parse(bytes, ttf.gdef_off)
+      } else {
+        None
+      }
       let gsub = if ttf.gsub_off >= 0 {
-        GsubData::parse(bytes, ttf.gsub_off)
+        GsubData::parse(bytes, ttf.gsub_off, gdef)
       } else {
         None
       }
@@ -926,7 +995,20 @@ pub fn FontFace::from_ttf_bytes(bytes : Bytes) -> FontFace? {
       } else {
         None
       }
-      Some({ id: alloc_font_id(), ttf: Some(ttf), gsub, gpos })
+      let hvar = if ttf.hvar_off >= 0 {
+        HvarData::parse(bytes, ttf.hvar_off)
+      } else {
+        None
+      }
+      Some({
+        id: alloc_font_id(),
+        ttf: Some(ttf),
+        gsub,
+        gpos,
+        gdef,
+        hvar,
+        var_values: Map([]),
+      })
     }
     None => None
   }
@@ -942,7 +1024,11 @@ pub fn FontFace::advance_width(self : FontFace, cp : Int, size_px : Float) -> Fl
   match self.ttf {
     Some(t) => {
       let gid = ttf_glyph_id(t, cp)
-      let adv = ttf_advance_units(t, gid)
+      let mut adv = Float::from_int(ttf_advance_units(t, gid))
+      match self.hvar {
+        Some(h) => adv = adv + h.advance_delta(gid, self.normalized_coords())
+        None => ()
+      }
       Float::from_double(adv.to_double() * size_px.to_double() / t.units_per_em.to_double())
     }
     None => size_px * (0.62 : Float)
@@ -1008,6 +1094,285 @@ pub fn FontFace::variation_axes(self : FontFace) -> Array[FontVariationAxis] {
 }
 
 ///|
+// AVAR segment map: piecewise-linear remap of a normalized axis coordinate.
+fn avar_map(bytes : Bytes, base : Int, axis_index : Int, n : Float) -> Float {
+  if base + 8 > bytes.length() {
+    return n
+  }
+  let axis_count = be_u16(bytes, base + 6)
+  if axis_index < 0 || axis_index >= axis_count {
+    return n
+  }
+  let mut pos = base + 8
+  for a = 0; a < axis_count; a = a + 1 {
+    if pos + 2 > bytes.length() {
+      return n
+    }
+    let count = be_u16(bytes, pos)
+    pos = pos + 2
+    if a == axis_index {
+      if count <= 0 {
+        return n
+      }
+      let mut prev_from : Float = -1.0
+      let mut prev_to : Float = -1.0
+      for i = 0; i < count; i = i + 1 {
+        if pos + 4 > bytes.length() {
+          return n
+        }
+        let f = Float::from_double(be_i16(bytes, pos).to_double() / 16384.0)
+        let t = Float::from_double(be_i16(bytes, pos + 2).to_double() / 16384.0)
+        pos = pos + 4
+        if n == f {
+          return t
+        }
+        if n < f {
+          if i == 0 {
+            return t
+          }
+          let span = f - prev_from
+          if span <= 0.0 {
+            return t
+          }
+          return prev_to + (t - prev_to) * (n - prev_from) / span
+        }
+        prev_from = f
+        prev_to = t
+      }
+      return prev_to
+    }
+    pos = pos + count * 4
+  }
+  n
+}
+
+///|
+// HVAR advance-width variation: ItemVariationStore + DeltaSetIndexMap.
+priv struct HvarData {
+  bytes : Bytes
+  ivs : Int
+  advance_map : Int
+}
+
+///|
+fn HvarData::parse(bytes : Bytes, base : Int) -> HvarData? {
+  if base + 12 > bytes.length() {
+    return None
+  }
+  let ivs = base + be_u32(bytes, base + 4).reinterpret_as_int()
+  let adv = base + be_u32(bytes, base + 8).reinterpret_as_int()
+  if ivs <= 0 || adv <= 0 {
+    return None
+  }
+  Some({ bytes, ivs, advance_map: adv })
+}
+
+///|
+fn hvar_read_entry(b : Bytes, off : Int, size : Int) -> Int {
+  let mut v = 0
+  for i = 0; i < size; i = i + 1 {
+    v = v * 256 + b[off + i].to_int()
+  }
+  v
+}
+
+///|
+fn HvarData::delta_set_index(self : HvarData, gid : Int) -> (Int, Int)? {
+  let b = self.bytes
+  let m = self.advance_map
+  if m + 4 > b.length() {
+    return None
+  }
+  let fmt = b[m].to_int()
+  let entry_fmt = b[m + 1].to_int()
+  let (count, data) = if fmt == 0 {
+    (be_u16(b, m + 2), m + 4)
+  } else {
+    (be_u32(b, m + 2).reinterpret_as_int(), m + 6)
+  }
+  if gid < 0 || gid >= count {
+    return None
+  }
+  let size = ((entry_fmt >> 4) & 3) + 1
+  let bits = (entry_fmt & 0x0F) + 1
+  let off = data + gid * size
+  if off + size > b.length() {
+    return None
+  }
+  let v = hvar_read_entry(b, off, size)
+  Some((v >> bits, v & ((1 << bits) - 1)))
+}
+
+///|
+fn hvar_region_scalar(
+  b : Bytes,
+  region_list : Int,
+  region_index : Int,
+  coords : Array[Float],
+) -> Float {
+  if region_list + 4 > b.length() {
+    return 0.0
+  }
+  let axis_count = be_u16(b, region_list)
+  let region_count = be_u16(b, region_list + 2)
+  if region_index < 0 || region_index >= region_count {
+    return 0.0
+  }
+  let base = region_list + 4 + region_index * axis_count * 6
+  let mut scalar : Float = 1.0
+  for a = 0; a < axis_count; a = a + 1 {
+    let r = base + a * 6
+    if r + 6 > b.length() {
+      return 0.0
+    }
+    let start = Float::from_double(be_i16(b, r).to_double() / 16384.0)
+    let peak = Float::from_double(be_i16(b, r + 2).to_double() / 16384.0)
+    let end = Float::from_double(be_i16(b, r + 4).to_double() / 16384.0)
+    let v = if a < coords.length() { coords[a] } else { (0.0 : Float) }
+    if peak == 0.0 {
+      continue
+    }
+    if v == peak {
+      continue
+    }
+    if v <= start || v >= end {
+      return 0.0
+    }
+    if v < peak {
+      scalar = scalar * (v - start) / (peak - start)
+    } else {
+      scalar = scalar * (end - v) / (end - peak)
+    }
+  }
+  scalar
+}
+
+///|
+fn HvarData::advance_delta(self : HvarData, gid : Int, coords : Array[Float]) -> Float {
+  let b = self.bytes
+  let (outer, inner) = match self.delta_set_index(gid) {
+    Some(v) => v
+    None => return (0.0 : Float)
+  }
+  let ivs = self.ivs
+  if ivs + 8 > b.length() {
+    return (0.0 : Float)
+  }
+  let data_count = be_u16(b, ivs + 6)
+  if outer < 0 || outer >= data_count {
+    return (0.0 : Float)
+  }
+  let region_list = ivs + be_u32(b, ivs + 2).reinterpret_as_int()
+  let data_off = ivs + be_u32(b, ivs + 8 + outer * 4).reinterpret_as_int()
+  if data_off + 6 > b.length() {
+    return (0.0 : Float)
+  }
+  let item_count = be_u16(b, data_off)
+  if inner < 0 || inner >= item_count {
+    return (0.0 : Float)
+  }
+  let short_count = be_u16(b, data_off + 2)
+  let region_count = be_u16(b, data_off + 4)
+  let row_size = short_count * 2 + (region_count - short_count)
+  let row = data_off + 6 + region_count * 2 + inner * row_size
+  if row + row_size > b.length() {
+    return (0.0 : Float)
+  }
+  let mut sum : Float = 0.0
+  for r = 0; r < region_count; r = r + 1 {
+    let ridx = be_u16(b, data_off + 6 + r * 2)
+    let scalar = hvar_region_scalar(b, region_list, ridx, coords)
+    if scalar == 0.0 {
+      continue
+    }
+    let delta = if r < short_count {
+      Float::from_int(be_i16(b, row + r * 2))
+    } else {
+      Float::from_int(be_i8(b, row + short_count * 2 + (r - short_count)))
+    }
+    sum = sum + scalar * delta
+  }
+  sum
+}
+
+///|
+// Set one axis value (design units, e.g. wght=700).
+pub fn FontFace::set_variation(self : FontFace, tag : String, value : Float) -> Unit {
+  self.var_values[tag] = value
+}
+
+///|
+pub fn FontFace::clear_variations(self : FontFace) -> Unit {
+  self.var_values.clear()
+}
+
+///|
+pub fn FontFace::variation_value(self : FontFace, tag : String) -> Float {
+  match self.var_values.get(tag) {
+    Some(v) => v
+    None => (0.0 : Float)
+  }
+}
+
+///|
+// Normalized-axis coordinates in fvar order, after avar remapping.
+pub fn FontFace::normalized_coords(self : FontFace) -> Array[Float] {
+  let out : Array[Float] = []
+  let axes = self.variation_axes()
+  let avar = match self.ttf {
+    Some(t) => if t.avar_off >= 0 { t.avar_off } else { -1 }
+    None => -1
+  }
+  for i = 0; i < axes.length(); i = i + 1 {
+    let a = axes[i]
+    let v = match self.var_values.get(a.tag) {
+      Some(x) => x
+      None => a.default_value
+    }
+    let mut n : Float = if v <= a.min_value {
+      -1.0
+    } else if v >= a.max_value {
+      1.0
+    } else if v == a.default_value {
+      0.0
+    } else if v < a.default_value {
+      (v - a.default_value) / (a.default_value - a.min_value)
+    } else {
+      (v - a.default_value) / (a.max_value - a.default_value)
+    }
+    if avar >= 0 {
+      let t = self.ttf
+      match t {
+        Some(t) => n = avar_map(t.bytes, avar, i, n)
+        None => ()
+      }
+    }
+    out.push(n)
+  }
+  out
+}
+
+///|
+pub fn FontFace::normalized_coord(self : FontFace, tag : String) -> Float {
+  let axes = self.variation_axes()
+  let coords = self.normalized_coords()
+  for i = 0; i < axes.length(); i = i + 1 {
+    if axes[i].tag == tag {
+      return coords[i]
+    }
+  }
+  (0.0 : Float)
+}
+
+///|
+pub fn FontFace::has_gvar(self : FontFace) -> Bool {
+  match self.ttf {
+    Some(t) => t.gvar_off >= 0
+    None => false
+  }
+}
+
+///|
 pub fn FontFace::rasterize_bitmap(
   self : FontFace,
   gid : Int,
@@ -1018,9 +1383,9 @@ pub fn FontFace::rasterize_bitmap(
 ) -> (Int, Int, Int, Int, Bytes) {
   let (ox, oy, gw, gh, pixels) = match self.ttf {
     Some(t) => if gid > 0 {
-      rasterize_ttf_glyph_gid(t, gid, size_px)
+      rasterize_ttf_glyph_gid(t, gid, size_px, coords=self.normalized_coords())
     } else {
-      rasterize_ttf_glyph(t, cp, size_px)
+      rasterize_ttf_glyph(t, cp, size_px, coords=self.normalized_coords())
     }
     None => rasterize_builtin_glyph(cp, size_px)
   }
@@ -1364,6 +1729,8 @@ pub(all) struct GlyphEntry {
   is_sdf : Bool
   // Base pixel size the SDF was generated at (0 for bitmap entries).
   sdf_base : Float
+  // MSDF entries live in the dedicated RGBA atlas and use kind=9.
+  is_msdf : Bool
 }
 
 ///|
@@ -1401,11 +1768,15 @@ priv struct GlyphBitmap {
 ///|
 pub struct GlyphCache {
   atlas : DynamicAtlas
+  msdf_atlas : DynamicAtlas
   priv entries : Map[String, GlyphEntry]
   priv bitmaps : Map[String, GlyphBitmap]
   priv mut atlas_reset_count : Int
   priv mut atlas_overflow_count : Int
   priv mut sdf_entries : Int
+  priv mut msdf_entries : Int
+  priv mut msdf_enabled : Bool
+  priv mut msdf_min_size : Float
   priv mut frame : Int
   // Bumped whenever the atlas is reset; external caches (coverage bitmaps)
   // must invalidate their UVs when this changes.
@@ -1420,11 +1791,15 @@ pub fn GlyphCache::new(
 ) -> GlyphCache raise @tycho.RhiError {
   {
     atlas: DynamicAtlas::new(dev, width, height, @tycho.TextureFormat::R8),
+    msdf_atlas: DynamicAtlas::new(dev, 2048, 2048, @tycho.TextureFormat::RGBA8),
     entries: {},
     bitmaps: {},
     atlas_reset_count: 0,
     atlas_overflow_count: 0,
     sdf_entries: 0,
+    msdf_entries: 0,
+    msdf_enabled: true,
+    msdf_min_size: (48.0 : Float),
     frame: 0,
     generation: 0,
   }
@@ -1450,6 +1825,10 @@ fn GlyphCache::compact(self : GlyphCache) -> Unit raise @tycho.RhiError {
   self.atlas.reset()
   let survivors : Array[(String, GlyphEntry, GlyphBitmap)] = []
   for k, e in self.entries {
+    if e.is_msdf {
+      // MSDF entries use a separate RGBA atlas and are re-rasterized on demand.
+      continue
+    }
     match self.bitmaps.get(k) {
       Some(b) => {
         if b.last_frame + 1 >= self.frame {
@@ -1459,6 +1838,8 @@ fn GlyphCache::compact(self : GlyphCache) -> Unit raise @tycho.RhiError {
       None => ()
     }
   }
+  self.msdf_atlas.reset()
+  self.msdf_entries = 0
   self.entries.clear()
   self.bitmaps.clear()
   for pair in survivors {
@@ -1503,6 +1884,21 @@ pub fn GlyphCache::sdf_count(self : GlyphCache) -> Int {
 }
 
 ///|
+pub fn GlyphCache::msdf_count(self : GlyphCache) -> Int {
+  self.msdf_entries
+}
+
+///|
+pub fn GlyphCache::set_msdf_enabled(self : GlyphCache, enabled : Bool) -> Unit {
+  self.msdf_enabled = enabled
+}
+
+///|
+pub fn GlyphCache::set_msdf_min_size(self : GlyphCache, size : Float) -> Unit {
+  self.msdf_min_size = size
+}
+
+///|
 pub fn GlyphCache::get_or_rasterize(
   self : GlyphCache,
   font : FontFace,
@@ -1537,6 +1933,84 @@ pub fn GlyphCache::get_or_rasterize_styled(
 }
 
 ///|
+fn GlyphCache::glyph_atlas_limit(self : GlyphCache, msdf : Bool) -> (Int, Int) {
+  if msdf {
+    (self.msdf_atlas.width, self.msdf_atlas.height)
+  } else {
+    (self.atlas.width, self.atlas.height)
+  }
+}
+
+///|
+// Drop MSDF entries after resetting the dedicated atlas so their UVs do not
+// point into freed space.
+fn GlyphCache::clear_msdf_entries(self : GlyphCache) -> Unit {
+  let dead : Array[String] = []
+  for k, e in self.entries {
+    if e.is_msdf {
+      dead.push(k)
+    }
+  }
+  for k in dead {
+    let _ = self.entries.remove(k)
+    let _ = self.bitmaps.remove(k)
+  }
+  self.msdf_entries = 0
+}
+
+///|
+fn GlyphCache::alloc_glyph(
+  self : GlyphCache,
+  msdf : Bool,
+  gw : Int,
+  gh : Int,
+  pixels : Bytes,
+  pad : Int,
+) -> (Int, Int, Int, Int)? raise @tycho.RhiError {
+  if msdf {
+    let first = self.msdf_atlas.alloc_and_upload_padded(
+      gw,
+      gh,
+      pixels,
+      padding=pad,
+    )
+    match first {
+      Some(v) => Some(v)
+      None => {
+        self.msdf_atlas.reset()
+        self.clear_msdf_entries()
+        self.msdf_atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
+      }
+    }
+  } else {
+    let first = self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
+    match first {
+      Some(v) => Some(v)
+      None => {
+        self.compact()
+        self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
+      }
+    }
+  }
+}
+
+///|
+fn GlyphCache::glyph_uv(
+  self : GlyphCache,
+  msdf : Bool,
+  ax : Int,
+  ay : Int,
+  pw : Int,
+  ph : Int,
+) -> (Float, Float, Float, Float) {
+  if msdf {
+    self.msdf_atlas.uv_rect(ax, ay, pw, ph)
+  } else {
+    self.atlas.uv_rect(ax, ay, pw, ph)
+  }
+}
+
+///|
 fn GlyphCache::get_or_rasterize_impl(
   self : GlyphCache,
   font : FontFace,
@@ -1561,11 +2035,13 @@ fn GlyphCache::get_or_rasterize_impl(
   } else {
     ""
   }
-  let use_sdf = gid > 0 && px_size >= (48.0 : Float)
+  let use_sdf = gid > 0 &&
+    self.msdf_enabled &&
+    px_size >= self.msdf_min_size
   // SDF entries are generated once at a fixed base size and scaled on read,
   // so zoomed/animated text reuses the distance field.
   let key = if use_sdf {
-    "\{font.id}:g\{gid}:sdf\{style_key}"
+    "\{font.id}:g\{gid}:msdf\{style_key}"
   } else if gid > 0 {
     "\{font.id}:g\{gid}:\{q4}\{style_key}"
   } else {
@@ -1589,7 +2065,7 @@ fn GlyphCache::get_or_rasterize_impl(
     }
     None => ()
   }
-  let raster_size = if use_sdf { (64.0 : Float) } else { px_size }
+  let raster_size = if use_sdf { MSDF_BASE_PX } else { px_size }
   let adv = if gid > 0 {
     font.glyph_advance(gid, raster_size)
   } else {
@@ -1597,9 +2073,19 @@ fn GlyphCache::get_or_rasterize_impl(
   }
   let (ox0, oy0, gw0, gh0, pixels0) = match font.ttf {
     Some(t) => if gid > 0 {
-      rasterize_ttf_glyph_gid(t, gid, raster_size)
+      rasterize_ttf_glyph_gid(
+        t,
+        gid,
+        raster_size,
+        coords=font.normalized_coords(),
+      )
     } else {
-      rasterize_ttf_glyph(t, cp, raster_size)
+      rasterize_ttf_glyph(
+        t,
+        cp,
+        raster_size,
+        coords=font.normalized_coords(),
+      )
     }
     None => rasterize_builtin_glyph(cp, raster_size)
   }
@@ -1613,8 +2099,8 @@ fn GlyphCache::get_or_rasterize_impl(
     italic,
   )
   let (ox, oy, gw, gh, pixels) = if use_sdf {
-    let (sw, sh, sdf) = build_sdf(gw1, gh1, pixels1)
-    (ox1 - SDF_SPREAD, oy1 - SDF_SPREAD, sw, sh, sdf)
+    let (sw, sh, msdf) = build_msdf(gw1, gh1, pixels1)
+    (ox1 - SDF_SPREAD, oy1 - SDF_SPREAD, sw, sh, msdf)
   } else {
     (ox1, oy1, gw1, gh1, pixels1)
   }
@@ -1630,22 +2116,15 @@ fn GlyphCache::get_or_rasterize_impl(
   let mut quad_w = gw
   let mut quad_h = gh
   if gw > 0 && gh > 0 {
-    if gw + pad * 2 > self.atlas.width || gh + pad * 2 > self.atlas.height {
+    let (aw, ah) = self.glyph_atlas_limit(use_sdf)
+    if gw + pad * 2 > aw || gh + pad * 2 > ah {
       self.atlas_overflow_count = self.atlas_overflow_count + 1
       cacheable = false
     } else {
-      let first = self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
-      let placed = match first {
-        Some(_) => first
-        None => {
-          // Atlas full: compact (keep hot glyphs, drop cold ones) and retry.
-          self.compact()
-          self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
-        }
-      }
+      let placed = self.alloc_glyph(use_sdf, gw, gh, pixels, pad)
       match placed {
         Some((ax, ay, pw, ph)) => {
-          let (a, b, c, d) = self.atlas.uv_rect(ax, ay, pw, ph)
+          let (a, b, c, d) = self.glyph_uv(use_sdf, ax, ay, pw, ph)
           ux0 = a
           uy0 = b
           ux1 = c
@@ -1671,12 +2150,14 @@ fn GlyphCache::get_or_rasterize_impl(
     height: quad_h,
     advance: adv,
     is_sdf: use_sdf,
-    sdf_base: if use_sdf { (64.0 : Float) } else { (0.0 : Float) },
+    sdf_base: if use_sdf { MSDF_BASE_PX } else { (0.0 : Float) },
+    is_msdf: use_sdf,
   }
   if cacheable {
     self.entries[key] = entry
     if use_sdf {
       self.sdf_entries = self.sdf_entries + 1
+      self.msdf_entries = self.msdf_entries + 1
     }
     if gw > 0 && gh > 0 {
       self.bitmaps[key] = {
@@ -1688,7 +2169,7 @@ fn GlyphCache::get_or_rasterize_impl(
     }
   }
   if use_sdf {
-    let scale = px_size / (64.0 : Float)
+    let scale = px_size / MSDF_BASE_PX
     return scale_glyph_entry(
       entry,
       scale,
@@ -1726,4 +2207,5 @@ pub fn GlyphCache::alloc_coverage(
 ///|
 pub fn GlyphCache::destroy(self : GlyphCache) -> Unit {
   self.atlas.destroy()
+  self.msdf_atlas.destroy()
 }

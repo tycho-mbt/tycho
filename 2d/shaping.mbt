@@ -34,6 +34,17 @@ fn is_deva_consonant(cp : Int) -> Bool {
 }
 
 ///|
+fn is_deva_matra(cp : Int) -> Bool {
+  cp == 0x094D ||
+  (cp >= 0x093E && cp <= 0x094C) ||
+  cp == 0x094E ||
+  cp == 0x094F ||
+  (cp >= 0x0955 && cp <= 0x0957) ||
+  cp == 0x0962 ||
+  cp == 0x0963
+}
+
+///|
 fn shaping_is_transparent(cp : Int) -> Bool {
   (cp >= 0x064B && cp <= 0x065F) ||
   cp == 0x0670 ||
@@ -248,21 +259,33 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
           order = next_order
         }
       }
+      let cluster_of = Array::make(j - start, 0)
+      let mut cluster_base = -1
+      for k = start; k < j; k = k + 1 {
+        if is_deva_consonant(cps[k]) {
+          cluster_base = k
+        }
+        cluster_of[k - start] = if cluster_base >= 0 { cluster_base } else { k }
+      }
       let run_cps : Array[Int] = []
       let run_src : Array[Int] = []
+      let run_cluster : Array[Int] = []
       let gids : Array[Int] = []
       for k in order {
-        run_cps.push(cps[k])
+        let cpk = cps[k]
+        run_cps.push(cpk)
         run_src.push(k)
-        gids.push(font.glyph_id(cps[k]))
+        run_cluster.push(cluster_of[k - start])
+        gids.push(font.glyph_id(cpk))
       }
       let shaped = font.india_shape(
         gids,
         [
-          "rphf", "half", "cjct", "akhn", "pres", "abvs", "blws", "psts",
-          "haln",
+          "nukt", "akhn", "rphf", "blwf", "half", "vatu", "cjct", "pres",
+          "abvs", "blws", "psts", "haln",
         ],
       )
+      let mut run_out : Array[ShapedChar] = []
       let mut idx = 0
       for pair in shaped {
         let (gid, comps) = pair
@@ -276,15 +299,89 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
         if ce <= idx {
           ce = idx + 1
         }
-        out.push({
+        run_out.push({
           cp: run_cps[idx],
-          source_start: run_src[idx],
-          source_end: run_src[ce - 1] + 1,
+          source_start: run_cluster[idx],
+          source_end: run_cluster[idx] + 1,
           glyph_id: gid,
           is_newline: false,
           is_space: false,
         })
         idx = ce
+      }
+      // Matras belong to the base consonant/ligature cluster: pre-base i
+      // attaches to the following base, other matras to the preceding one.
+      let fixed : Array[ShapedChar] = []
+      for k = 0; k < run_out.length(); k = k + 1 {
+        let sc = run_out[k]
+        if is_deva_matra(sc.cp) {
+          let src = if sc.cp == 0x093F && k + 1 < run_out.length() {
+            run_out[k + 1].source_start
+          } else if k > 0 {
+            run_out[k - 1].source_start
+          } else {
+            sc.source_start
+          }
+          fixed.push({ ..sc, source_start: src, source_end: src + 1 })
+        } else {
+          fixed.push(sc)
+        }
+      }
+      run_out = fixed
+      // Reph: Ra+virama forms a reph glyph that is placed after the base
+      // consonant, not at its logical position.
+      let mut reph_src = -1
+      for k = start; k + 1 < j; k = k + 1 {
+        if cps[k] == 0x0930 && cps[k + 1] == 0x094D {
+          reph_src = k
+          break
+        }
+      }
+      if reph_src >= 0 {
+        let mut ri = -1
+        for k = 0; k < run_out.length(); k = k + 1 {
+          if run_out[k].cp == 0x0930 &&
+            run_out[k].glyph_id != font.glyph_id(0x0930) {
+            ri = k
+            break
+          }
+        }
+        if ri >= 0 {
+          // Reph cluster: its own position unless it follows a conjunct, in
+          // which case it belongs to that conjunct's syllable start.
+          let mut reph_cluster = reph_src
+          let mut q = reph_src - 2
+          while q - 1 >= start && cps[q - 1] == 0x094D {
+            q = q - 2
+          }
+          if q >= start && is_deva_consonant(cps[q]) {
+            reph_cluster = run_cluster[q]
+          }
+          // Glyphs after the reph belong to the reph syllable.
+          let adjusted : Array[ShapedChar] = []
+          for sc in run_out {
+            if sc.source_start >= reph_src {
+              adjusted.push({
+                ..sc,
+                source_start: reph_cluster,
+                source_end: reph_cluster + 1,
+              })
+            } else {
+              adjusted.push(sc)
+            }
+          }
+          run_out = adjusted
+          let r0 = run_out.remove(ri)
+          let r = {
+            ..r0,
+            source_start: reph_cluster,
+            source_end: reph_cluster + 1,
+          }
+          run_out.push(r)
+        }
+      }
+      for sc in run_out {
+        out.push(sc)
       }
       i = j
       continue
