@@ -9,6 +9,10 @@ the draw, `RenderTarget -> CopySource` for the readback copy, and back to `Prese
 presenting. A wrong state fails with `E_ILLEGAL_METHOD_CALL` instead of producing a silently
 corrupt frame.
 
+## Screenshot
+
+![75-dx12-present screenshot](./screenshot.png)
+
 ## Run
 
 ```powershell

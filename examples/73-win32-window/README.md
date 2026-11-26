@@ -6,6 +6,10 @@ On Windows it opens a `WS_OVERLAPPEDWINDOW` window, exercises title updates, HiD
 
 Non-Windows hosts report `SKIP` (the Linux gate in `tools/run-all.sh` stays green); the code still builds on every platform. The run also reports `SKIP` instead of a fake pass when no Win32 surface can be created or when the desktop refuses the fullscreen resize — as happens on a session-0 CI runner — so a real swapchain regression still fails everywhere else.
 
+## Screenshot
+
+![73-win32-window screenshot](./screenshot.png)
+
 ## Run
 
 ```powershell

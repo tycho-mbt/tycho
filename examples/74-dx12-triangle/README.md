@@ -9,6 +9,10 @@ proves vertex fetch, rasterization, barycentric interpolation, the RTV binding a
 path all work. The center of a cleared corner is checked against the clear color, and one sample
 near each vertex must be dominated by that vertex's channel.
 
+## Screenshot
+
+![74-dx12-triangle screenshot](./screenshot.png)
+
 ## Run
 
 ```powershell

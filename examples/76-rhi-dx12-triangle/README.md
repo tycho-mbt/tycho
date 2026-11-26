@@ -17,6 +17,10 @@ cmd.draw(3, 1)
 sc.end_frame(cmd)
 ```
 
+## Screenshot
+
+![76-rhi-dx12-triangle screenshot](./screenshot.png)
+
 ## Run
 
 ```powershell
