@@ -19,8 +19,7 @@ pub struct GpuMesh {
   bounds : @tmath.Aabb3
   groups : Array[@tgeo.MeshGroup]
   // CPU copy kept for picking; dropped when an acceleration structure lands.
-  cpu_positions : FixedArray[@tmath.Vec3]
-  cpu_indices : FixedArray[UInt]
+  cpu : @tgeo.MeshData
 }
 
 ///|
@@ -80,8 +79,7 @@ pub fn GpuMesh::upload(dev : @tycho.Device, mesh : @tgeo.MeshData) -> GpuMesh ra
     vertex_count: n,
     bounds: mesh.bounds(),
     groups: mesh.groups,
-    cpu_positions: mesh.positions,
-    cpu_indices: mesh.indices,
+    cpu: mesh,
   }
 }
 
@@ -106,6 +104,12 @@ pub fn GpuMesh::index_count(self : GpuMesh) -> Int {
 ///|
 pub fn GpuMesh::vertex_count(self : GpuMesh) -> Int {
   self.vertex_count
+}
+
+///|
+/// CPU-side mesh data retained for picking.
+pub fn GpuMesh::mesh(self : GpuMesh) -> @tgeo.MeshData {
+  self.cpu
 }
 
 ///|

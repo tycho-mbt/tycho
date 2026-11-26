@@ -5,6 +5,7 @@ import {
   "laplaceliu/tycho",
   "laplaceliu/tycho_geometry",
   "laplaceliu/tycho_math",
+  "laplaceliu/tycho_window",
   "moonbitlang/core/debug",
 }
 
@@ -16,6 +17,8 @@ pub const MESH_VERTEX_FLOATS : Int32 = 8
 pub fn default_environment_cubemap(@tycho.Device) -> @tycho.Texture raise
 
 pub fn procedural_environment_cubemap(@tycho.Device, @tycho_math.Vec3, size? : Int32) -> @tycho.Texture raise
+
+pub fn ray_mesh_hit(@tycho_math.Ray, @tycho_geometry.MeshData, @tycho_math.Affine3) -> MeshHit?
 
 pub fn srgb(Float, Float, Float, a? : Float) -> @tycho_math.Vec4
 
@@ -54,11 +57,21 @@ pub(all) struct DirectionalLight {
   shadow : ShadowDesc?
 }
 
+pub struct FlyCamera {
+  // private fields
+}
+pub fn FlyCamera::apply(Self, @tycho_window.Event) -> Bool
+pub fn FlyCamera::new(position? : @tycho_math.Vec3, yaw? : Float, pitch? : Float) -> Self
+pub fn FlyCamera::pitch(Self) -> Float
+pub fn FlyCamera::position(Self) -> @tycho_math.Vec3
+pub fn FlyCamera::rotation(Self) -> @tycho_math.Quat
+pub fn FlyCamera::transform(Self) -> @tycho_math.Transform
+pub fn FlyCamera::yaw(Self) -> Float
+
 pub struct GpuMesh {
   bounds : @tycho_math.Aabb3
   groups : Array[@tycho_geometry.MeshGroup]
-  cpu_positions : FixedArray[@tycho_math.Vec3]
-  cpu_indices : FixedArray[UInt32]
+  cpu : @tycho_geometry.MeshData
   // private fields
 }
 pub fn GpuMesh::bind(Self, @tycho.CommandBuffer) -> Unit
@@ -66,6 +79,7 @@ pub fn GpuMesh::bounds(Self) -> @tycho_math.Aabb3
 pub fn GpuMesh::destroy(Self) -> Unit
 pub fn GpuMesh::draw(Self, @tycho.CommandBuffer) -> Unit
 pub fn GpuMesh::index_count(Self) -> Int32
+pub fn GpuMesh::mesh(Self) -> @tycho_geometry.MeshData
 pub fn GpuMesh::upload(@tycho.Device, @tycho_geometry.MeshData) -> Self raise
 pub fn GpuMesh::vertex_count(Self) -> Int32
 
@@ -124,6 +138,13 @@ pub(all) struct MeshHandle {
 pub fn MeshHandle::from_id(Int32) -> Self
 pub fn MeshHandle::id(Self) -> Int32
 
+pub(all) struct MeshHit {
+  triangle : Int32
+  distance : Float
+  position : @tycho_math.Vec3
+  normal : @tycho_math.Vec3
+}
+
 pub(all) struct MeshInstance {
   mesh : MeshHandle
   material : MaterialHandle
@@ -145,6 +166,20 @@ pub(all) enum NodePayload {
   Camera(Camera)
 }
 
+pub struct OrbitCamera {
+  // private fields
+}
+pub fn OrbitCamera::apply(Self, @tycho_window.Event) -> Bool
+pub fn OrbitCamera::distance(Self) -> Float
+pub fn OrbitCamera::new(target? : @tycho_math.Vec3, distance? : Float, yaw? : Float, pitch? : Float) -> Self
+pub fn OrbitCamera::pitch(Self) -> Float
+pub fn OrbitCamera::position(Self) -> @tycho_math.Vec3
+pub fn OrbitCamera::set_distance(Self, Float) -> Unit
+pub fn OrbitCamera::set_target(Self, @tycho_math.Vec3) -> Unit
+pub fn OrbitCamera::target(Self) -> @tycho_math.Vec3
+pub fn OrbitCamera::transform(Self) -> @tycho_math.Transform
+pub fn OrbitCamera::yaw(Self) -> Float
+
 pub(all) struct OrthoParams {
   left : Float
   right : Float
@@ -159,6 +194,14 @@ pub(all) struct PerspectiveParams {
   aspect : Float
   near : Float
   far : Float?
+}
+
+pub(all) struct PickHit {
+  node : NodeId
+  distance : Float
+  position : @tycho_math.Vec3
+  normal : @tycho_math.Vec3
+  triangle : Int32
 }
 
 pub(all) struct PointLight {
@@ -193,6 +236,7 @@ pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
 pub fn Renderer3D::destroy(Self) -> Unit
 pub fn Renderer3D::mesh_bounds(Self, MeshHandle) -> @tycho_math.Aabb3?
 pub fn Renderer3D::new(@tycho.Device, desc? : RendererDesc) -> Self raise
+pub fn Renderer3D::pick(Self, Scene, NodeId, Float, Float, layer_mask? : UInt32) -> PickHit?
 pub fn Renderer3D::render_offscreen(Self, Scene, NodeId, @tycho.Texture) -> Unit raise
 pub fn Renderer3D::render_swapchain(Self, @tycho.Swapchain, Scene, NodeId) -> Unit raise
 pub fn Renderer3D::set_environment(Self, @tycho.Texture, @tycho_math.Vec3, intensity? : Float) -> Unit
