@@ -109,11 +109,24 @@ fn style_face(style : TextStyle, cp : Int) -> FontFace {
 pub(all) struct TextSpan {
   text : String
   style : TextStyle
+  image : Image2D?
+  image_w : Float
+  image_h : Float
 }
 
 ///|
 pub fn TextSpan::new(text : String, style? : TextStyle = TextStyle::new()) -> TextSpan {
-  { text, style }
+  { text, style, image: None, image_w: (0.0 : Float), image_h: (0.0 : Float) }
+}
+
+///|
+pub fn TextSpan::inline_image(
+  image : Image2D,
+  width : Float,
+  height : Float,
+  style? : TextStyle = TextStyle::new(),
+) -> TextSpan {
+  { text: "", style, image: Some(image), image_w: width, image_h: height }
 }
 
 ///|
@@ -136,9 +149,26 @@ pub fn ParagraphStyle::new(
 
 ///|
 #derive(Eq, Debug)
+pub(all) enum TextAffinity {
+  Upstream
+  Downstream
+}
+
+///|
+#derive(Eq, Debug)
 pub(all) struct TextPosition {
   offset : Int
   line : Int
+  affinity : TextAffinity
+}
+
+///|
+pub fn TextPosition::new(
+  offset : Int,
+  line : Int,
+  affinity? : TextAffinity = TextAffinity::Downstream,
+) -> TextPosition {
+  { offset, line, affinity }
 }
 
 ///|
@@ -165,6 +195,9 @@ pub(all) struct PlacedGlyph {
   char_index : Int
   bold : Bool
   italic : Bool
+  image : Image2D?
+  image_w : Float
+  image_h : Float
 }
 
 ///|
@@ -175,6 +208,9 @@ priv struct LayoutChar {
   font : FontFace
   bold : Bool
   italic : Bool
+  image : Image2D?
+  image_w : Float
+  image_h : Float
   mut advance : Float
   char_index : Int
   source_start : Int
@@ -258,7 +294,13 @@ pub fn ParagraphBuilder::add_text(
   text : String,
   style? : TextStyle = TextStyle::new(),
 ) -> ParagraphBuilder {
-  self.spans.push({ text, style })
+  self.spans.push({
+    text,
+    style,
+    image: None,
+    image_w: (0.0 : Float),
+    image_h: (0.0 : Float),
+  })
   self
 }
 
@@ -268,6 +310,18 @@ pub fn ParagraphBuilder::add_span(
   span : TextSpan,
 ) -> ParagraphBuilder {
   self.spans.push(span)
+  self
+}
+
+///|
+pub fn ParagraphBuilder::add_inline_image(
+  self : ParagraphBuilder,
+  image : Image2D,
+  width : Float,
+  height : Float,
+  style? : TextStyle = TextStyle::new(),
+) -> ParagraphBuilder {
+  self.spans.push(TextSpan::inline_image(image, width, height, style~))
   self
 }
 
@@ -321,6 +375,32 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
     }
     let bold = resolve_bold(sp.style)
     let italic = resolve_italic(sp.style)
+    match sp.image {
+      Some(img) => {
+        let idx = self.char_x.length()
+        chars.push({
+          cp: -1,
+          glyph_id: 0,
+          style: sp.style,
+          font: sp.style.font,
+          bold,
+          italic,
+          image: Some(img),
+          image_w: sp.image_w,
+          image_h: sp.image_h,
+          advance: sp.image_w,
+          char_index: idx,
+          source_start: idx,
+          source_end: idx + 1,
+          is_newline: false,
+          is_space: false,
+        })
+        self.char_x.push((0.0 : Float))
+        self.char_line.push(0)
+        continue
+      }
+      None => ()
+    }
     for sc in shape_run(run_font, sp.text) {
       let cp = sc.cp
       let is_nl = sc.is_newline
@@ -336,6 +416,9 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
         // feedback; this keeps the char advance precomputable.
         face.advance_width(32, sp.style.font_size) * (4.0 : Float) +
         sp.style.letter_spacing
+      } else if cp == 0x00AD {
+        // Soft hyphen is zero-width unless it becomes a break opportunity.
+        (0.0 : Float)
       } else if sc.glyph_id > 0 {
         face.glyph_advance(sc.glyph_id, sp.style.font_size) +
         sp.style.letter_spacing
@@ -349,6 +432,9 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
         font: face,
         bold,
         italic,
+        image: None,
+        image_w: (0.0 : Float),
+        image_h: (0.0 : Float),
         advance: adv,
         char_index: sc.source_start,
         source_start: sc.source_start,
@@ -393,6 +479,7 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
   let mut line_start = 0
   let mut cur_w = (0.0 : Float)
   let mut last_break = -1
+  let mut break_after = false
   let n = chars.length()
   let mut i = 0
   while i < n {
@@ -402,33 +489,48 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       line_start = i + 1
       cur_w = (0.0 : Float)
       last_break = -1
+      break_after = false
       i = i + 1
       continue
     }
     let prev_cp = if i > 0 { chars[i - 1].cp } else { -1 }
     if c.is_space {
       last_break = i
+      break_after = true
+    } else if c.cp == 45 {
+      // Break after a visible hyphen.
+      last_break = i
+      break_after = true
+    } else if c.cp == 0x00AD {
+      // Break before a soft hyphen; it stays invisible.
+      last_break = i
+      break_after = false
     } else if is_cjk(c.cp) {
       if !is_no_start(c.cp) && !is_no_end(prev_cp) {
         last_break = i
+        break_after = false
       }
     }
     if cur_w + c.advance > mw && i > line_start {
       if last_break > line_start {
         let brk = last_break
-        raw_lines.push((line_start, if chars[brk].is_space { brk } else { brk + 1 }))
-        line_start = if chars[brk].is_space { brk + 1 } else { brk + 1 }
-        cur_w = (0.0 : Float)
-        last_break = -1
-        i = line_start
-        continue
-      } else {
-        raw_lines.push((line_start, i))
-        line_start = i
-        cur_w = (0.0 : Float)
-        last_break = -1
-        continue
+        let end = if break_after { brk + 1 } else { brk }
+        if end > line_start {
+          raw_lines.push((line_start, end))
+          line_start = end
+          cur_w = (0.0 : Float)
+          last_break = -1
+          break_after = false
+          i = line_start
+          continue
+        }
       }
+      raw_lines.push((line_start, i))
+      line_start = i
+      cur_w = (0.0 : Float)
+      last_break = -1
+      break_after = false
+      continue
     }
     cur_w = cur_w + c.advance
     i = i + 1
@@ -471,10 +573,23 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
     } else {
       for k = rs; k < re; k = k + 1 {
         let ch = chars[k]
-        let (asc, _desc, lh) = ch.font.metrics(ch.style.font_size)
-        if asc > max_asc { max_asc = asc }
-        let sh = lh * self.pstyle.line_height_scale
-        if sh > max_h { max_h = sh }
+        match ch.image {
+          Some(_) => {
+            if ch.image_h > max_asc {
+              max_asc = ch.image_h
+            }
+            let sh = ch.image_h * (1.1 : Float)
+            if sh > max_h {
+              max_h = sh
+            }
+          }
+          None => {
+            let (asc, _desc, lh) = ch.font.metrics(ch.style.font_size)
+            if asc > max_asc { max_asc = asc }
+            let sh = lh * self.pstyle.line_height_scale
+            if sh > max_h { max_h = sh }
+          }
+        }
         line_w = line_w + ch.advance
       }
       if ell != "" {
@@ -561,20 +676,43 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       let add_gap = is_justify &&
         oi2 < order.length() - 1 &&
         (if space_gaps > 0 { ch.is_space } else { true })
-      if !ch.is_space && !ch.is_newline {
-        self.glyphs.push({
-          codepoint: ch.cp,
-          glyph_id: ch.glyph_id,
-          font: ch.font,
-          font_size: ch.style.font_size,
-          x: cx,
-          baseline_y: baseline,
-          advance: ch.advance,
-          color: ch.style.color,
-          char_index: ch.char_index,
-          bold: ch.bold,
-          italic: ch.italic,
-        })
+      match ch.image {
+        Some(img) =>
+          self.glyphs.push({
+            codepoint: -1,
+            glyph_id: 0,
+            font: ch.font,
+            font_size: ch.style.font_size,
+            x: cx,
+            baseline_y: baseline,
+            advance: ch.advance,
+            color: ch.style.color,
+            char_index: ch.char_index,
+            bold: ch.bold,
+            italic: ch.italic,
+            image: Some(img),
+            image_w: ch.image_w,
+            image_h: ch.image_h,
+          })
+        None =>
+          if !ch.is_space && !ch.is_newline && ch.cp != 0x00AD {
+            self.glyphs.push({
+              codepoint: ch.cp,
+              glyph_id: ch.glyph_id,
+              font: ch.font,
+              font_size: ch.style.font_size,
+              x: cx,
+              baseline_y: baseline,
+              advance: ch.advance,
+              color: ch.style.color,
+              char_index: ch.char_index,
+              bold: ch.bold,
+              italic: ch.italic,
+              image: None,
+              image_w: (0.0 : Float),
+              image_h: (0.0 : Float),
+            })
+          }
       }
       if ch.style.underline {
         self.underlines.push((
@@ -607,6 +745,9 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
           char_index: last_src,
           bold: ebold,
           italic: eitalic,
+          image: None,
+          image_w: (0.0 : Float),
+          image_h: (0.0 : Float),
         })
         cx = cx + eadv
       }
@@ -671,7 +812,7 @@ pub fn Paragraph::get_position_for_offset(
   pt : Point,
 ) -> TextPosition {
   if self.lines.length() == 0 {
-    return { offset: 0, line: 0 }
+    return { offset: 0, line: 0, affinity: TextAffinity::Downstream }
   }
   let mut target_line = self.lines.length() - 1
   for li = 0; li < self.lines.length(); li = li + 1 {
@@ -696,7 +837,7 @@ pub fn Paragraph::get_position_for_offset(
       best_off = idx
     }
   }
-  { offset: best_off, line: target_line }
+  { offset: best_off, line: target_line, affinity: TextAffinity::Downstream }
 }
 
 ///|
@@ -718,7 +859,13 @@ pub fn Paragraph::get_caret_rect(self : Paragraph, pos : TextPosition) -> Rect {
   }
   let lm = self.lines[li]
   let cx = if pos.offset >= lm.end_index {
-    lm.width
+    if pos.affinity == TextAffinity::Upstream &&
+      lm.end_index > lm.start_index &&
+      lm.end_index - 1 < self.char_x.length() {
+      self.char_x[lm.end_index - 1]
+    } else {
+      lm.width
+    }
   } else if pos.offset >= 0 && pos.offset < self.char_x.length() {
     self.char_x[pos.offset]
   } else {

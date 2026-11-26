@@ -1008,6 +1008,26 @@ pub fn FontFace::variation_axes(self : FontFace) -> Array[FontVariationAxis] {
 }
 
 ///|
+pub fn FontFace::rasterize_bitmap(
+  self : FontFace,
+  gid : Int,
+  cp : Int,
+  size_px : Float,
+  bold : Bool,
+  italic : Bool,
+) -> (Int, Int, Int, Int, Bytes) {
+  let (ox, oy, gw, gh, pixels) = match self.ttf {
+    Some(t) => if gid > 0 {
+      rasterize_ttf_glyph_gid(t, gid, size_px)
+    } else {
+      rasterize_ttf_glyph(t, cp, size_px)
+    }
+    None => rasterize_builtin_glyph(cp, size_px)
+  }
+  synthesize_glyph_bitmap(ox, oy, gw, gh, pixels, bold, italic)
+}
+
+///|
 pub fn FontFace::has_glyph(self : FontFace, cp : Int) -> Bool {
   match self.ttf {
     Some(t) => ttf_glyph_id(t, cp) != 0

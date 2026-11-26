@@ -729,6 +729,71 @@ fn test_u32(a : Array[Byte], off : Int, v : Int) -> Unit {
 }
 
 ///|
+test "caret affinity distinguishes line-end positions" {
+  let p = ParagraphBuilder::new()
+    .add_text("AB", style=TextStyle::new(font_size=(16.0 : Float)))
+    .build()
+  p.layout((1000.0 : Float))
+  let down = p.get_caret_rect(TextPosition::new(2, 0))
+  let up = p.get_caret_rect(
+    TextPosition::new(2, 0, affinity=TextAffinity::Upstream),
+  )
+  assert_true(up.x < down.x)
+}
+
+///|
+test "inline image participates in paragraph layout" {
+  let px : Array[Byte] = [
+    255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
+  ]
+  let img = Image2D::from_bytes(7, 2, 2, Bytes::from_array(px))
+  let p = ParagraphBuilder::new()
+    .add_text("A", style=TextStyle::new(font_size=(16.0 : Float)))
+    .add_inline_image(img, (20.0 : Float), (10.0 : Float))
+    .add_text("B", style=TextStyle::new(font_size=(16.0 : Float)))
+    .build()
+  p.layout((1000.0 : Float))
+  let gs = p.placed_glyphs()
+  assert_eq(gs.length(), 3)
+  let mut found = false
+  for g in gs {
+    match g.image {
+      Some(_) => {
+        found = true
+        assert_true(g.image_w == (20.0 : Float))
+        assert_true(g.image_h == (10.0 : Float))
+      }
+      None => ()
+    }
+  }
+  assert_true(found)
+  assert_true(p.line_metrics()[0].height >= (10.0 : Float))
+}
+
+///|
+test "hyphen and soft hyphen break opportunities" {
+  let p = ParagraphBuilder::new()
+    .add_text(
+      "co\u{00AD}operate",
+      style=TextStyle::new(font_size=(16.0 : Float)),
+    )
+    .build()
+  p.layout((40.0 : Float))
+  assert_true(p.line_metrics().length() > 1)
+  for g in p.placed_glyphs() {
+    assert_true(g.codepoint != 0x00AD)
+  }
+  let ph = ParagraphBuilder::new()
+    .add_text(
+      "well-known",
+      style=TextStyle::new(font_size=(16.0 : Float)),
+    )
+    .build()
+  ph.layout((40.0 : Float))
+  assert_true(ph.line_metrics().length() > 1)
+}
+
+///|
 test "fvar axes and variation-to-synthetic style" {
   let a = Array::make(36, (0 : Byte))
   test_u16(a, 0, 1)

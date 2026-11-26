@@ -41,7 +41,7 @@ fn main {
           ),
         )
         let w = 900
-        let h = 520
+        let h = 640
         let bg = @g2d.Color::from_rgba8(18, 22, 34)
         let fallback_faces : Array[@g2d.FontFace] = [cjk_f, emoji_f]
         match deva {
@@ -126,10 +126,49 @@ fn main {
           }
           None => ()
         }
+        let inline_px : Array[Byte] = [
+          255, 130, 40, 255, 40, 180, 255, 255, 255, 220, 80, 255, 80, 220,
+          120, 255,
+        ]
+        let inline_img = @g2d.Image2D::from_bytes(
+          99,
+          2,
+          2,
+          Bytes::from_array(inline_px),
+        )
+        let p7 = @g2d.ParagraphBuilder::new()
+          .add_text(
+            "Inline ",
+            style=mk_style((22.0 : Float), @g2d.Color::from_rgba8(210, 220, 235)),
+          )
+          .add_inline_image(inline_img, (22.0 : Float), (22.0 : Float))
+          .add_text(
+            " image",
+            style=mk_style((22.0 : Float), @g2d.Color::from_rgba8(210, 220, 235)),
+          )
+          .build()
+        p7.layout((820.0 : Float))
+        let p8 = @g2d.ParagraphBuilder::new()
+          .add_text(
+            "Text on a curved path",
+            style=mk_style((18.0 : Float), @g2d.Color::from_rgba8(150, 220, 255)),
+          )
+          .build()
+        p8.layout((820.0 : Float))
+        let inline_ok = {
+          let mut found = false
+          for g in p7.placed_glyphs() {
+            match g.image {
+              Some(_) => found = true
+              None => ()
+            }
+          }
+          found
+        }
 
         let c = @g2d.Canvas::new()
         c.clear(bg)
-        let p4_y = (438.0 : Float)
+        let p4_y = (480.0 : Float)
         let sel = @g2d.Color::rgba((0.25 : Float), (0.48 : Float), (0.95 : Float), (0.35 : Float))
         for r in p4.get_boxes_for_range(4, 20) {
           c.draw_rect(
@@ -142,7 +181,7 @@ fn main {
             @g2d.Paint::fill(sel),
           )
         }
-        let caret = p4.get_caret_rect({ offset: 20, line: 0 })
+        let caret = p4.get_caret_rect(@g2d.TextPosition::new(20, 0))
         c.draw_rect(
           @g2d.Rect::new(
             (32.0 : Float) + caret.x,
@@ -158,10 +197,27 @@ fn main {
         c.draw_paragraph(p5, @g2d.Point::new((32.0 : Float), (332.0 : Float)))
         match p6 {
           Some(para) =>
-            c.draw_paragraph(para, @g2d.Point::new((32.0 : Float), (378.0 : Float)))
+            c.draw_paragraph(para, @g2d.Point::new((32.0 : Float), (372.0 : Float)))
           None => ()
         }
+        c.draw_paragraph(p7, @g2d.Point::new((32.0 : Float), (430.0 : Float)))
         c.draw_paragraph(p4, @g2d.Point::new((32.0 : Float), p4_y))
+        let tp = @g2d.PathBuilder::new()
+          .move_to((40.0 : Float), (600.0 : Float))
+          .cubic_to(
+            (260.0 : Float),
+            (560.0 : Float),
+            (620.0 : Float),
+            (650.0 : Float),
+            (840.0 : Float),
+            (600.0 : Float),
+          )
+          .build()
+        c.draw_text_on_path(
+          p8,
+          tp,
+          @g2d.Paint::fill(@g2d.Color::from_rgba8(150, 220, 255)),
+        )
 
         let dl = c.finish()
         let renderer = @g2d.Renderer2D::new(dev)
@@ -200,6 +256,7 @@ fn main {
           p5.placed_glyphs()[0].bold &&
           p5.placed_glyphs()[0].italic
         let mut yellow = 0
+        let mut path_px = 0
         let mut i = 0
         while i + 3 < px.length() {
           let r = px[i].to_int()
@@ -208,13 +265,18 @@ fn main {
           if r > 180 && g > 120 && b < 140 {
             yellow = yellow + 1
           }
+          let y = (i / 4) / w
+          if y > 540 && r < 190 && g > 180 && b > 200 {
+            path_px = path_px + 1
+          }
           i = i + 4
         }
+        let path_ok = path_px > 20
         let st = renderer.stats()
         let sdf_ok = st.sdf_glyphs > 0
         let errs = dev.validation_errors()
         println(
-          "{\"ligature\":\{lig_ok},\"arabic_forms\":\{arabic_forms},\"rtl_first\":\{rtl_first},\"selection_boxes\":\{p4.get_boxes_for_range(4, 20).length()},\"bold_italic\":\{bold_italic},\"sdf_glyphs\":\{st.sdf_glyphs},\"devanagari\":\{deva_ok},\"yellow_pixels\":\{yellow}}",
+          "{\"ligature\":\{lig_ok},\"arabic_forms\":\{arabic_forms},\"rtl_first\":\{rtl_first},\"selection_boxes\":\{p4.get_boxes_for_range(4, 20).length()},\"bold_italic\":\{bold_italic},\"sdf_glyphs\":\{st.sdf_glyphs},\"devanagari\":\{deva_ok},\"inline_image\":\{inline_ok},\"text_on_path\":\{path_ok},\"yellow_pixels\":\{yellow}}",
         )
         let ok = lig_ok &&
           arabic_forms >= 3 &&
@@ -223,15 +285,17 @@ fn main {
           bold_italic &&
           sdf_ok &&
           deva_ok &&
+          inline_ok &&
+          path_ok &&
           yellow > 50 &&
           errs == 0
         if ok {
           println(
-            "[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + Devanagari + synthetic bold/italic + SDF, \{arabic_forms} Arabic forms, \{st.sdf_glyphs} SDF glyphs, 0 validation errors",
+            "[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + Devanagari + inline image + text-on-path + synthetic bold/italic + SDF, \{arabic_forms} Arabic forms, \{st.sdf_glyphs} SDF glyphs, 0 validation errors",
           )
         } else {
           println(
-            "[60-tycho-2d-i18n-text] FAIL — lig=\{lig_ok} arabic=\{arabic_forms} rtl_first=\{rtl_first} boxes=\{boxes_ok} bold_italic=\{bold_italic} sdf=\{st.sdf_glyphs} deva=\{deva_ok} yellow=\{yellow} errs=\{errs}",
+            "[60-tycho-2d-i18n-text] FAIL — lig=\{lig_ok} arabic=\{arabic_forms} rtl_first=\{rtl_first} boxes=\{boxes_ok} bold_italic=\{bold_italic} sdf=\{st.sdf_glyphs} deva=\{deva_ok} inline=\{inline_ok} path=\{path_ok} yellow=\{yellow} errs=\{errs}",
           )
         }
 

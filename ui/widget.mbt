@@ -71,9 +71,12 @@ pub struct TextController {
   cursor : Signal[Int]
   sel_anchor : Signal[Int]
   focused : Signal[Bool]
+  // IME preedit text, rendered after the committed text until committed.
+  preedit : Signal[String]
   multiline : Bool
   max_lines : Int
   mut blink_phase : Double
+  priv mut tap_count : Int
   priv undo_stack : Array[(String, Int)]
   priv redo_stack : Array[(String, Int)]
   priv mut last_tap_time : Double
@@ -92,9 +95,11 @@ pub fn TextController::new(
     cursor: Signal::new(len),
     sel_anchor: Signal::new(len),
     focused: Signal::new(false),
+    preedit: Signal::new(""),
     multiline,
     max_lines,
     blink_phase: 0.0,
+    tap_count: 0,
     undo_stack: [],
     redo_stack: [],
     last_tap_time: -10.0,
@@ -148,10 +153,36 @@ pub fn TextController::delete_selection(self : TextController) -> Bool {
 }
 
 ///|
+pub fn TextController::display_text(self : TextController) -> String {
+  self.text.peek() + self.preedit.peek()
+}
+
+///|
+pub fn TextController::set_preedit(self : TextController, txt : String) -> Unit {
+  self.preedit.set(txt)
+  self.blink_phase = 0.0
+}
+
+///|
+pub fn TextController::clear_preedit(self : TextController) -> Unit {
+  self.preedit.set("")
+}
+
+///|
+pub fn TextController::commit_preedit(self : TextController) -> Unit {
+  let txt = self.preedit.peek()
+  self.preedit.set("")
+  if txt != "" {
+    self.insert_text(txt)
+  }
+}
+
+///|
 pub fn TextController::insert_text(self : TextController, txt : String) -> Unit {
   if txt == "" {
     return
   }
+  self.preedit.set("")
   self.push_undo()
   let (s0, s1) = self.selection_range()
   let s = self.text.peek()

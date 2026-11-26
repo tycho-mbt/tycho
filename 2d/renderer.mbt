@@ -3232,6 +3232,53 @@ fn Renderer2D::flush_path_batch(
 }
 
 ///|
+// Rotate an A8 glyph bitmap around its center for text-on-path.
+fn rotate_coverage(
+  w : Int,
+  h : Int,
+  pixels : Bytes,
+  angle : Float,
+) -> (Int, Int, Bytes) {
+  if w <= 0 || h <= 0 {
+    return (0, 0, b"")
+  }
+  let c = @tmath.cos(angle)
+  let s = @tmath.sin(angle)
+  if @tmath.abs_f(s) < (0.001 : Float) && c > (0.0 : Float) {
+    return (w, h, pixels)
+  }
+  let fw = Float::from_int(w)
+  let fh = Float::from_int(h)
+  let nw = @tmath.max_f(
+    (1.0 : Float),
+    (@tmath.abs_f(fw * c) + @tmath.abs_f(fh * s)).ceil(),
+  ).to_int()
+  let nh = @tmath.max_f(
+    (1.0 : Float),
+    (@tmath.abs_f(fw * s) + @tmath.abs_f(fh * c)).ceil(),
+  ).to_int()
+  let out = Array::make(nw * nh, (0 : Byte))
+  let cx = fw * (0.5 : Float)
+  let cy = fh * (0.5 : Float)
+  let ox = Float::from_int(nw) * (0.5 : Float)
+  let oy = Float::from_int(nh) * (0.5 : Float)
+  for y = 0; y < nh; y = y + 1 {
+    for x = 0; x < nw; x = x + 1 {
+      let dx = Float::from_int(x) + (0.5 : Float) - ox
+      let dy = Float::from_int(y) + (0.5 : Float) - oy
+      let sx = dx * c + dy * s + cx
+      let sy = -dx * s + dy * c + cy
+      let ix = sx.floor().to_int()
+      let iy = sy.floor().to_int()
+      if ix >= 0 && ix < w && iy >= 0 && iy < h {
+        out[y * nw + x] = pixels[iy * w + ix]
+      }
+    }
+  }
+  (nw, nh, Bytes::from_array(out))
+}
+
+///|
 fn Renderer2D::replay_ops(
   self : Renderer2D,
   cmd : @tycho.CommandBuffer,
@@ -3988,6 +4035,10 @@ fn Renderer2D::replay_ops(
         self.set_blend(cmd, BlendMode2D::SrcOver)
         para.layout((1.0e9 : Float))
         for g in para.placed_glyphs() {
+          match g.image {
+            Some(_) => continue
+            None => ()
+          }
           match self.color_glyph_for(g.font, g.codepoint, g.font_size) {
             Some(cg) => {
               let scale = g.font_size / Float::from_int(cg.ppem)
@@ -4073,6 +4124,45 @@ fn Renderer2D::replay_ops(
             }
           }
         }
+        for g in para.placed_glyphs() {
+          match g.image {
+            Some(img) =>
+              if g.image_w > (0.0 : Float) && g.image_h > (0.0 : Float) {
+                let (u0, v0, u1, v1) = self.ensure_image_uv(img)
+                let iy = pos.y + g.baseline_y - g.image_h
+                self.emit_prim(
+                  cmd,
+                  pos.x + g.x,
+                  iy,
+                  g.image_w,
+                  g.image_h,
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  Color::white(),
+                  Color::transparent(),
+                  u0,
+                  v0,
+                  u1,
+                  v1,
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (2.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                )
+              }
+            None => ()
+          }
+        }
         for ul in para.underline_rects() {
           let (ux, uy, uw, uh, ucol) = ul
           self.emit_prim(
@@ -4094,6 +4184,75 @@ fn Renderer2D::replay_ops(
             (0.0 : Float),
             (0.0 : Float),
             (0.0 : Float),
+            (0.0 : Float),
+            (0.0 : Float),
+            (0.0 : Float),
+            (0.0 : Float),
+            (0.0 : Float),
+            (0.0 : Float),
+            (0.0 : Float),
+            (0.0 : Float),
+            (0.0 : Float),
+          )
+        }
+      }
+      DrawOp::DrawTextOnPath(para, path, paint, offset) => {
+        self.set_blend(cmd, BlendMode2D::SrcOver)
+        para.layout((1.0e9 : Float))
+        let pm = path.measure()
+        for g in para.placed_glyphs() {
+          match g.image {
+            Some(_) => continue
+            None => ()
+          }
+          let (ox, oy, w, h, pixels) = g.font.rasterize_bitmap(
+            g.glyph_id,
+            g.codepoint,
+            g.font_size,
+            g.bold,
+            g.italic,
+          )
+          if w <= 0 || h <= 0 {
+            continue
+          }
+          let (p, dir) = match pm.pos_at(offset + g.x) {
+            Some(v) => v
+            None => continue
+          }
+          let angle = @tmath.atan2(dir.y, dir.x)
+          let (rw, rh, rpx) = rotate_coverage(w, h, pixels, angle)
+          let uv = match self.glyph_cache.alloc_coverage(rw, rh, rpx) {
+            Some(v) => v
+            None => continue
+          }
+          let (u0, v0, u1, v1) = uv
+          let c = @tmath.cos(angle)
+          let s = @tmath.sin(angle)
+          let lx = Float::from_int(ox) + Float::from_int(w) * (0.5 : Float)
+          let ly = Float::from_int(oy) + Float::from_int(h) * (0.5 : Float)
+          let rx = lx * c - ly * s
+          let ry = lx * s + ly * c
+          let qx = p.x + rx - Float::from_int(rw) * (0.5 : Float)
+          let qy = p.y + ry - Float::from_int(rh) * (0.5 : Float)
+          self.emit_prim(
+            cmd,
+            qx,
+            qy,
+            Float::from_int(rw),
+            Float::from_int(rh),
+            (0.0 : Float),
+            (0.0 : Float),
+            (0.0 : Float),
+            (0.0 : Float),
+            paint.color,
+            Color::transparent(),
+            u0,
+            v0,
+            u1,
+            v1,
+            (0.0 : Float),
+            (0.0 : Float),
+            (6.0 : Float),
             (0.0 : Float),
             (0.0 : Float),
             (0.0 : Float),

@@ -68,6 +68,7 @@ pub fn Canvas::draw_points(Self, Array[Point], Paint) -> Unit
 pub fn Canvas::draw_rect(Self, Rect, Paint) -> Unit
 pub fn Canvas::draw_rrect(Self, RRect, Paint) -> Unit
 pub fn Canvas::draw_rrect_shadow(Self, RRect, Float, Float, Float, Float, Color) -> Unit
+pub fn Canvas::draw_text_on_path(Self, Paragraph, Path, Paint, offset? : Float) -> Unit
 pub fn Canvas::draw_vertices(Self, Array[Vertex2D], Array[Int32], paint? : Paint, image? : Image2D?) -> Unit
 pub fn Canvas::finish(Self) -> DisplayList
 pub fn Canvas::new() -> Self
@@ -163,6 +164,7 @@ pub(all) enum DrawOp {
   DrawImage(Image2D, Rect, Rect, Paint)
   DrawVertices(Array[Vertex2D], Array[Int32], Paint, Image2D?)
   DrawParagraph(Paragraph, Point)
+  DrawTextOnPath(Paragraph, Path, Paint, Float)
   DrawDisplayList(DisplayList)
 }
 
@@ -210,6 +212,7 @@ pub fn FontFace::kern(Self, Int32, Int32, Float) -> Float
 pub fn FontFace::kern_gid(Self, Int32, Int32, Float) -> Float
 pub fn FontFace::ligate_glyphs(Self, Array[Int32]) -> Array[(Int32, Int32)]
 pub fn FontFace::metrics(Self, Float) -> (Float, Float, Float)
+pub fn FontFace::rasterize_bitmap(Self, Int32, Int32, Float, Bool, Bool) -> (Int32, Int32, Int32, Int32, Bytes)
 pub fn FontFace::rlig_ligate(Self, Array[Int32]) -> Array[(Int32, Int32)]
 pub fn FontFace::set_png_decoder((Bytes) -> DecodedImage?) -> Unit
 pub fn FontFace::variation_axes(Self) -> Array[FontVariationAxis]
@@ -362,6 +365,7 @@ pub fn Paragraph::width(Self) -> Float
 pub struct ParagraphBuilder {
   // private fields
 }
+pub fn ParagraphBuilder::add_inline_image(Self, Image2D, Float, Float, style? : TextStyle) -> Self
 pub fn ParagraphBuilder::add_span(Self, TextSpan) -> Self
 pub fn ParagraphBuilder::add_text(Self, String, style? : TextStyle) -> Self
 pub fn ParagraphBuilder::build(Self) -> Paragraph
@@ -449,6 +453,9 @@ pub(all) struct PlacedGlyph {
   char_index : Int32
   bold : Bool
   italic : Bool
+  image : Image2D?
+  image_w : Float
+  image_h : Float
 }
 
 #derive(Eq, @debug.Debug)
@@ -588,6 +595,12 @@ pub(all) enum StrokeJoin {
 }
 
 #derive(Eq, @debug.Debug)
+pub(all) enum TextAffinity {
+  Upstream
+  Downstream
+}
+
+#derive(Eq, @debug.Debug)
 pub(all) enum TextAlign {
   Left
   Center
@@ -599,12 +612,18 @@ pub(all) enum TextAlign {
 pub(all) struct TextPosition {
   offset : Int32
   line : Int32
+  affinity : TextAffinity
 }
+pub fn TextPosition::new(Int32, Int32, affinity? : TextAffinity) -> Self
 
 pub(all) struct TextSpan {
   text : String
   style : TextStyle
+  image : Image2D?
+  image_w : Float
+  image_h : Float
 }
+pub fn TextSpan::inline_image(Image2D, Float, Float, style? : TextStyle) -> Self
 pub fn TextSpan::new(String, style? : TextStyle) -> Self
 
 pub(all) struct TextStyle {

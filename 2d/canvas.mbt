@@ -549,6 +549,19 @@ pub fn Canvas::draw_paragraph(
 }
 
 ///|
+///|
+pub fn Canvas::draw_text_on_path(
+  self : Canvas,
+  paragraph : Paragraph,
+  path : Path,
+  paint : Paint,
+  offset? : Float = (0.0 : Float),
+) -> Unit {
+  self.expand_bounds(path.bounds().inflate(paragraph.height() + paragraph.width()))
+  self.ops.push(DrawOp::DrawTextOnPath(paragraph, path, paint, offset))
+}
+
+///|
 pub fn Canvas::draw_display_list(self : Canvas, dl : DisplayList) -> Unit {
   if dl.ops.length() == 0 {
     return
