@@ -16,6 +16,8 @@ pub fn cone(radius? : Float, height? : Float, radial_segments? : Int32, height_s
 
 pub fn cylinder(radius_top? : Float, radius_bottom? : Float, height? : Float, radial_segments? : Int32, height_segments? : Int32, open_ended? : Bool, theta_start? : Float, theta_length? : Float) -> MeshData
 
+pub fn parse_gltf(String) -> GltfScene raise
+
 pub fn parse_obj(Bytes) -> Array[(String, MeshData)]
 
 pub fn parse_obj_text(String) -> Array[(String, MeshData)]
@@ -31,6 +33,37 @@ pub fn torus(radius? : Float, tube? : Float, radial_segments? : Int32, tubular_s
 // Errors
 
 // Types and methods
+pub(all) enum GltfAlphaMode {
+  Opaque
+  Mask(Float)
+  Blend
+}
+
+pub(all) struct GltfMaterial {
+  name : String
+  base_color : @tycho_math.Vec4
+  metallic : Float
+  roughness : Float
+  alpha_mode : GltfAlphaMode
+  double_sided : Bool
+}
+
+pub(all) struct GltfNode {
+  name : String
+  mesh : Int32
+  translation : @tycho_math.Vec3
+  rotation : @tycho_math.Quat
+  scale : @tycho_math.Vec3
+  children : Array[Int32]
+}
+
+pub(all) struct GltfScene {
+  meshes : Array[MeshData]
+  materials : Array[GltfMaterial]
+  nodes : Array[GltfNode]
+  roots : Array[Int32]
+}
+
 pub(all) struct MeshData {
   positions : FixedArray[@tycho_math.Vec3]
   mut normals : FixedArray[@tycho_math.Vec3]

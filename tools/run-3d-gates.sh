@@ -18,6 +18,7 @@ EXAMPLES=(
   66-tycho-3d-debug-lines
   67-tycho-3d-env-quality
   68-tycho-3d-msaa
+  69-tycho-3d-gltf
 )
 
 echo "== unit tests =="

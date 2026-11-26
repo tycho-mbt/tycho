@@ -16,6 +16,8 @@ pub const MESH_VERTEX_FLOATS : Int32 = 12
 
 pub fn default_environment_cubemap(@tycho.Device) -> @tycho.Texture raise
 
+pub fn load_gltf(Renderer3D, Scene, @tycho_geometry.GltfScene, parent? : NodeId?) -> Array[NodeId] raise
+
 pub fn procedural_environment_cubemap(@tycho.Device, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> @tycho.Texture raise
 
 pub fn ray_mesh_hit(@tycho_math.Ray, @tycho_geometry.MeshData, @tycho_math.Affine3) -> MeshHit?
