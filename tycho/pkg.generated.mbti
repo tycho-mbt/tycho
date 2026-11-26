@@ -221,6 +221,7 @@ pub fn Buffer::download(Self) -> Bytes raise RhiError
 pub fn Buffer::size(Self) -> Int32
 pub fn Buffer::upload_bytes(Self, Bytes, offset? : Int32, count? : Int32) -> Unit raise RhiError
 pub fn Buffer::upload_floats(Self, FixedArray[Float], offset? : Int32, count? : Int32) -> Unit raise RhiError
+pub fn Buffer::upload_mat4(Self, @tycho_math.Mat4, offset? : Int32) -> Unit raise RhiError
 pub fn Buffer::upload_uint16(Self, FixedArray[UInt16], offset? : Int32, count? : Int32) -> Unit raise RhiError
 pub fn Buffer::upload_uint32(Self, FixedArray[UInt32], offset? : Int32, count? : Int32) -> Unit raise RhiError
 

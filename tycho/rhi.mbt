@@ -503,6 +503,20 @@ pub fn Buffer::upload_floats(
 }
 
 ///|
+/// Upload a column-major `Mat4` (16 floats) at `offset` bytes.
+///
+/// Provisional (ADR-002 §3.2): a completeness twin of `upload_floats`, covered by
+/// the equivalence test in `examples/43-rhi-hardening`; the shape may still change
+/// in a 0.x minor until it sees external use.
+pub fn Buffer::upload_mat4(
+  self : Buffer,
+  m : @tmath.Mat4,
+  offset? : Int = 0,
+) -> Unit raise RhiError {
+  self.upload_floats(m.to_cols_array(), offset~)
+}
+
+///|
 pub fn Buffer::upload_uint32(
   self : Buffer,
   data : FixedArray[UInt32],
@@ -1059,7 +1073,7 @@ pub fn CommandBuffer::push_constants_mat4(
   m : @tmath.Mat4,
   offset? : Int = 0,
 ) -> Unit {
-  vk_cmd_push_constants_floats(self.inner, pipeline.inner, m.to_cols_array(), offset)
+  self.push_constants_floats(pipeline, m.to_cols_array(), offset~)
 }
 
 ///|
