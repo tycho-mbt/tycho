@@ -34,6 +34,16 @@ fn is_deva_consonant(cp : Int) -> Bool {
 }
 
 ///|
+fn is_deva_matra(cp : Int) -> Bool {
+  (cp >= 0x093E && cp <= 0x094C) ||
+  cp == 0x094E ||
+  cp == 0x094F ||
+  (cp >= 0x0955 && cp <= 0x0957) ||
+  cp == 0x0962 ||
+  cp == 0x0963
+}
+
+///|
 fn shaping_is_transparent(cp : Int) -> Bool {
   (cp >= 0x064B && cp <= 0x065F) ||
   cp == 0x0670 ||
@@ -274,7 +284,7 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
           "abvs", "blws", "psts", "haln",
         ],
       )
-      let run_out : Array[ShapedChar] = []
+      let mut run_out : Array[ShapedChar] = []
       let mut idx = 0
       for pair in shaped {
         let (gid, comps) = pair
@@ -298,6 +308,25 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
         })
         idx = ce
       }
+      // Matras belong to the base consonant/ligature cluster: pre-base i
+      // attaches to the following base, other matras to the preceding one.
+      let fixed : Array[ShapedChar] = []
+      for k = 0; k < run_out.length(); k = k + 1 {
+        let sc = run_out[k]
+        if is_deva_matra(sc.cp) {
+          let src = if sc.cp == 0x093F && k + 1 < run_out.length() {
+            run_out[k + 1].source_start
+          } else if k > 0 {
+            run_out[k - 1].source_start
+          } else {
+            sc.source_start
+          }
+          fixed.push({ ..sc, source_start: src, source_end: src + 1 })
+        } else {
+          fixed.push(sc)
+        }
+      }
+      run_out = fixed
       // Reph: Ra+virama forms a reph glyph that is placed after the base
       // consonant, not at its logical position.
       let mut reph_src = -1
@@ -317,19 +346,16 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
           }
         }
         if ri >= 0 {
-          let r = run_out.remove(ri)
-          let mut base_i = -1
-          for k = 0; k < run_out.length(); k = k + 1 {
-            if is_deva_consonant(run_out[k].cp) {
-              base_i = k
-              break
-            }
-          }
-          if base_i >= 0 {
-            run_out.insert(base_i + 1, r)
+          let r0 = run_out.remove(ri)
+          // Reph is positioned at the end of the syllable and shares the
+          // final base consonant's cluster.
+          let last_src = if run_out.length() > 0 {
+            run_out[run_out.length() - 1].source_start
           } else {
-            run_out.insert(0, r)
+            r0.source_start
           }
+          let r = { ..r0, source_start: last_src, source_end: last_src + 1 }
+          run_out.push(r)
         }
       }
       for sc in run_out {
