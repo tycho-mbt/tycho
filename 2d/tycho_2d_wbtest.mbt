@@ -589,3 +589,71 @@ test "legacy kern and RTL visual order" {
     None => ()
   }
 }
+
+///|
+test "synthetic bold and italic glyph bitmaps" {
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) =>
+      match font.ttf {
+        Some(t) => {
+          let gid = font.glyph_id(65)
+          let (ox, oy, gw, gh, px) = rasterize_ttf_glyph_gid(t, gid, (64.0 : Float))
+          let (bx, by, bw, bh, bpx) = synthesize_glyph_bitmap(
+            ox,
+            oy,
+            gw,
+            gh,
+            px,
+            true,
+            false,
+          )
+          let (_ix, _iy, iw, ih, _ipx) = synthesize_glyph_bitmap(
+            ox,
+            oy,
+            gw,
+            gh,
+            px,
+            false,
+            true,
+          )
+          assert_true(bw > gw && bh > gh)
+          assert_true(bx == ox - 1 && by == oy - 1)
+          assert_true(iw > gw && ih == gh)
+          let mut normal_px = 0
+          for b in px {
+            if b.to_int() > 0 {
+              normal_px = normal_px + 1
+            }
+          }
+          let mut bold_px = 0
+          for b in bpx {
+            if b.to_int() > 0 {
+              bold_px = bold_px + 1
+            }
+          }
+          assert_true(bold_px > normal_px)
+          // Style flags propagate to PlacedGlyph.
+          let p = ParagraphBuilder::new()
+            .add_text(
+              "A",
+              style=TextStyle::new(
+                font=font,
+                font_size=(64.0 : Float),
+                bold=true,
+                italic=true,
+              ),
+            )
+            .build()
+          p.layout((1000.0 : Float))
+          let gs = p.placed_glyphs()
+          assert_eq(gs.length(), 1)
+          assert_true(gs[0].bold && gs[0].italic)
+        }
+        None => ()
+      }
+    None => ()
+  }
+}

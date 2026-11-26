@@ -488,6 +488,73 @@ fn collect_ttf_edges(
 }
 
 ///|
+// Synthetic bold (3x3 A8 dilation) and italic (vertical shear with the top
+// rows shifted right). Returns adjusted top-left offset and bitmap size.
+fn synthesize_glyph_bitmap(
+  ox : Int,
+  oy : Int,
+  gw : Int,
+  gh : Int,
+  pixels : Bytes,
+  bold : Bool,
+  italic : Bool,
+) -> (Int, Int, Int, Int, Bytes) {
+  if gw <= 0 || gh <= 0 {
+    return (ox, oy, gw, gh, pixels)
+  }
+  let mut px = pixels
+  let mut w = gw
+  let mut h = gh
+  let mut x = ox
+  let mut y = oy
+  if bold {
+    let nw = w + 2
+    let nh = h + 2
+    let out = Array::make(nw * nh, (0 : Byte))
+    for row = 0; row < h; row = row + 1 {
+      for col = 0; col < w; col = col + 1 {
+        let v = px[row * w + col].to_int()
+        if v > 0 {
+          for dy = -1; dy <= 1; dy = dy + 1 {
+            for dx = -1; dx <= 1; dx = dx + 1 {
+              let nx = col + 1 + dx
+              let ny = row + 1 + dy
+              if nx >= 0 && nx < nw && ny >= 0 && ny < nh {
+                let idx = ny * nw + nx
+                if v > out[idx].to_int() {
+                  out[idx] = v.to_byte()
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    px = Bytes::from_array(out)
+    w = nw
+    h = nh
+    x = x - 1
+    y = y - 1
+  }
+  if italic {
+    let shift_max = (Float::from_int(h - 1) * (0.22 : Float)).ceil().to_int()
+    if shift_max > 0 {
+      let nw = w + shift_max
+      let out = Array::make(nw * h, (0 : Byte))
+      for row = 0; row < h; row = row + 1 {
+        let shift = (Float::from_int(h - 1 - row) * (0.22 : Float)).ceil().to_int()
+        for col = 0; col < w; col = col + 1 {
+          out[row * nw + col + shift] = px[row * w + col]
+        }
+      }
+      px = Bytes::from_array(out)
+      w = nw
+    }
+  }
+  (x, y, w, h, px)
+}
+
+///|
 fn rasterize_ttf_glyph(
   t : TtfData,
   cp : Int,
@@ -1234,7 +1301,7 @@ pub fn GlyphCache::get_or_rasterize(
   cp : Int,
   size_px : Float,
 ) -> GlyphEntry raise @tycho.RhiError {
-  self.get_or_rasterize_impl(font, cp, -1, size_px)
+  self.get_or_rasterize_impl(font, cp, -1, size_px, false, false)
 }
 
 ///|
@@ -1245,7 +1312,20 @@ pub fn GlyphCache::get_or_rasterize_gid(
   cp : Int,
   size_px : Float,
 ) -> GlyphEntry raise @tycho.RhiError {
-  self.get_or_rasterize_impl(font, cp, gid, size_px)
+  self.get_or_rasterize_impl(font, cp, gid, size_px, false, false)
+}
+
+///|
+pub fn GlyphCache::get_or_rasterize_styled(
+  self : GlyphCache,
+  font : FontFace,
+  gid : Int,
+  cp : Int,
+  size_px : Float,
+  bold : Bool,
+  italic : Bool,
+) -> GlyphEntry raise @tycho.RhiError {
+  self.get_or_rasterize_impl(font, cp, gid, size_px, bold, italic)
 }
 
 ///|
@@ -1255,6 +1335,8 @@ fn GlyphCache::get_or_rasterize_impl(
   cp : Int,
   gid : Int,
   size_px : Float,
+  bold : Bool,
+  italic : Bool,
 ) -> GlyphEntry raise @tycho.RhiError {
   // Quantize the requested size to 1/4 px. This keeps animated/zoomed text from
   // re-rasterizing on every integer step while staying small enough to be
@@ -1262,10 +1344,19 @@ fn GlyphCache::get_or_rasterize_impl(
   let clamped = @tmath.max_f((6.0 : Float), size_px)
   let q4 = (clamped * (4.0 : Float) + (0.5 : Float)).to_int()
   let px_size = Float::from_int(q4) * (0.25 : Float)
-  let key = if gid > 0 {
-    "\{font.id}:g\{gid}:\{q4}"
+  let style_key = if bold && italic {
+    ":bi"
+  } else if bold {
+    ":b"
+  } else if italic {
+    ":i"
   } else {
-    "\{font.id}:\{cp}:\{q4}"
+    ""
+  }
+  let key = if gid > 0 {
+    "\{font.id}:g\{gid}:\{q4}\{style_key}"
+  } else {
+    "\{font.id}:\{cp}:\{q4}\{style_key}"
   }
   match self.entries.get(key) {
     Some(e) => {
@@ -1282,7 +1373,7 @@ fn GlyphCache::get_or_rasterize_impl(
   } else {
     font.advance_width(cp, px_size)
   }
-  let (ox, oy, gw, gh, pixels) = match font.ttf {
+  let (ox0, oy0, gw0, gh0, pixels0) = match font.ttf {
     Some(t) => if gid > 0 {
       rasterize_ttf_glyph_gid(t, gid, px_size)
     } else {
@@ -1290,6 +1381,15 @@ fn GlyphCache::get_or_rasterize_impl(
     }
     None => rasterize_builtin_glyph(cp, px_size)
   }
+  let (ox, oy, gw, gh, pixels) = synthesize_glyph_bitmap(
+    ox0,
+    oy0,
+    gw0,
+    gh0,
+    pixels0,
+    bold,
+    italic,
+  )
   // Padding around each glyph so a quad shifted by a fraction of a pixel
   // samples transparent padding at its edges (subpixel positioning) instead of
   // clamping to the glyph's edge pixels.

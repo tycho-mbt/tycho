@@ -4022,20 +4022,14 @@ fn Renderer2D::replay_ops(
               )
             }
             None => {
-              let ge = if g.glyph_id > 0 {
-                self.glyph_cache.get_or_rasterize_gid(
-                  g.font,
-                  g.glyph_id,
-                  g.codepoint,
-                  g.font_size,
-                )
-              } else {
-                self.glyph_cache.get_or_rasterize(
-                  g.font,
-                  g.codepoint,
-                  g.font_size,
-                )
-              }
+              let ge = self.glyph_cache.get_or_rasterize_styled(
+                g.font,
+                g.glyph_id,
+                g.codepoint,
+                g.font_size,
+                g.bold,
+                g.italic,
+              )
               if ge.width > 0 && ge.height > 0 {
                 let gx = pos.x + g.x + Float::from_int(ge.offset_x)
                 let gy = pos.y + g.baseline_y + Float::from_int(ge.offset_y)

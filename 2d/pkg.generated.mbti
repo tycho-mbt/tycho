@@ -233,6 +233,7 @@ pub fn GlyphCache::entry_count(Self) -> Int32
 pub fn GlyphCache::generation(Self) -> Int32
 pub fn GlyphCache::get_or_rasterize(Self, FontFace, Int32, Float) -> GlyphEntry raise @tycho.RhiError
 pub fn GlyphCache::get_or_rasterize_gid(Self, FontFace, Int32, Int32, Float) -> GlyphEntry raise @tycho.RhiError
+pub fn GlyphCache::get_or_rasterize_styled(Self, FontFace, Int32, Int32, Float, Bool, Bool) -> GlyphEntry raise @tycho.RhiError
 pub fn GlyphCache::new(@tycho.Device, width? : Int32, height? : Int32) -> Self raise @tycho.RhiError
 
 pub(all) struct GlyphEntry {
@@ -434,6 +435,8 @@ pub(all) struct PlacedGlyph {
   advance : Float
   color : Color
   char_index : Int32
+  bold : Bool
+  italic : Bool
 }
 
 #derive(Eq, @debug.Debug)
@@ -597,9 +600,11 @@ pub(all) struct TextStyle {
   color : Color
   letter_spacing : Float
   underline : Bool
+  bold : Bool
+  italic : Bool
   fallback : FontFallbackChain?
 }
-pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool, fallback? : FontFallbackChain?) -> Self
+pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool, bold? : Bool, italic? : Bool, fallback? : FontFallbackChain?) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum TileMode {

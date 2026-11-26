@@ -78,10 +78,24 @@ fn main {
             style=mk_style((24.0 : Float), @g2d.Color::from_rgba8(210, 218, 230)),
           )
           .build()
+        let p5 = @g2d.ParagraphBuilder::new()
+          .add_text(
+            "Synthetic bold + italic fi",
+            style=@g2d.TextStyle::new(
+              font=latin_f,
+              font_size=(32.0 : Float),
+              color=@g2d.Color::from_rgba8(200, 215, 240),
+              bold=true,
+              italic=true,
+              fallback=Some(chain),
+            ),
+          )
+          .build()
         p1.layout((820.0 : Float))
         p2.layout((820.0 : Float))
         p3.layout((820.0 : Float))
         p4.layout((820.0 : Float))
+        p5.layout((820.0 : Float))
 
         let c = @g2d.Canvas::new()
         c.clear(bg)
@@ -111,6 +125,7 @@ fn main {
         c.draw_paragraph(p1, @g2d.Point::new((32.0 : Float), (30.0 : Float)))
         c.draw_paragraph(p2, @g2d.Point::new((32.0 : Float), (140.0 : Float)))
         c.draw_paragraph(p3, @g2d.Point::new((32.0 : Float), (250.0 : Float)))
+        c.draw_paragraph(p5, @g2d.Point::new((32.0 : Float), (335.0 : Float)))
         c.draw_paragraph(p4, @g2d.Point::new((32.0 : Float), p4_y))
 
         let dl = c.finish()
@@ -146,6 +161,9 @@ fn main {
         }
         let rtl_ok = p2.placed_glyphs().length() > 0 && rtl_first == 0x05DD
         let boxes_ok = p4.get_boxes_for_range(4, 20).length() > 0
+        let bold_italic = p5.placed_glyphs().length() > 0 &&
+          p5.placed_glyphs()[0].bold &&
+          p5.placed_glyphs()[0].italic
         let mut yellow = 0
         let mut i = 0
         while i + 3 < px.length() {
@@ -159,21 +177,22 @@ fn main {
         }
         let errs = dev.validation_errors()
         println(
-          "{\"ligature\":\{lig_ok},\"arabic_forms\":\{arabic_forms},\"rtl_first\":\{rtl_first},\"selection_boxes\":\{p4.get_boxes_for_range(4, 20).length()},\"yellow_pixels\":\{yellow}}",
+          "{\"ligature\":\{lig_ok},\"arabic_forms\":\{arabic_forms},\"rtl_first\":\{rtl_first},\"selection_boxes\":\{p4.get_boxes_for_range(4, 20).length()},\"bold_italic\":\{bold_italic},\"yellow_pixels\":\{yellow}}",
         )
         let ok = lig_ok &&
           arabic_forms >= 3 &&
           rtl_ok &&
           boxes_ok &&
+          bold_italic &&
           yellow > 50 &&
           errs == 0
         if ok {
           println(
-            "[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining, \{arabic_forms} Arabic forms, 0 validation errors",
+            "[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + synthetic bold/italic, \{arabic_forms} Arabic forms, 0 validation errors",
           )
         } else {
           println(
-            "[60-tycho-2d-i18n-text] FAIL — lig=\{lig_ok} arabic=\{arabic_forms} rtl_first=\{rtl_first} boxes=\{boxes_ok} yellow=\{yellow} errs=\{errs}",
+            "[60-tycho-2d-i18n-text] FAIL — lig=\{lig_ok} arabic=\{arabic_forms} rtl_first=\{rtl_first} boxes=\{boxes_ok} bold_italic=\{bold_italic} yellow=\{yellow} errs=\{errs}",
           )
         }
 

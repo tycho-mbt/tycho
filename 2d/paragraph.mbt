@@ -16,6 +16,8 @@ pub(all) struct TextStyle {
   color : Color
   letter_spacing : Float
   underline : Bool
+  bold : Bool
+  italic : Bool
   fallback : FontFallbackChain?
 }
 
@@ -26,9 +28,11 @@ pub fn TextStyle::new(
   color? : Color = Color::white(),
   letter_spacing? : Float = (0.0 : Float),
   underline? : Bool = false,
+  bold? : Bool = false,
+  italic? : Bool = false,
   fallback? : FontFallbackChain? = None,
 ) -> TextStyle {
-  { font, font_size, color, letter_spacing, underline, fallback }
+  { font, font_size, color, letter_spacing, underline, bold, italic, fallback }
 }
 
 ///|
@@ -97,6 +101,8 @@ pub(all) struct PlacedGlyph {
   advance : Float
   color : Color
   char_index : Int
+  bold : Bool
+  italic : Bool
 }
 
 ///|
@@ -484,6 +490,8 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
           advance: ch.advance,
           color: ch.style.color,
           char_index: ch.char_index,
+          bold: ch.style.bold,
+          italic: ch.style.italic,
         })
       }
       if ch.style.underline {
@@ -513,6 +521,8 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
           advance: eadv,
           color: est.color,
           char_index: last_src,
+          bold: est.bold,
+          italic: est.italic,
         })
         cx = cx + eadv
       }
