@@ -30,6 +30,9 @@ pub(all) struct MeshData {
   mut tangents : FixedArray[@tmath.Vec4]?
   // Optional linear-space vertex colors.
   mut colors : FixedArray[@tmath.Vec4]?
+  // Optional GPU skinning: four joint indices and weights per vertex.
+  mut skin_joints : FixedArray[@tmath.Vec4]?
+  mut skin_weights : FixedArray[@tmath.Vec4]?
   mut groups : Array[MeshGroup]
 }
 
@@ -47,6 +50,8 @@ pub fn MeshData::new(
     indices,
     tangents: None,
     colors: None,
+    skin_joints: None,
+    skin_weights: None,
     groups: [],
   }
 }
@@ -94,6 +99,29 @@ pub fn MeshData::bounds(self : MeshData) -> @tmath.Aabb3 {
 
 ///|
 /// Replace the groups array (builder support; avoids a second constructor).
+///|
+/// Attach four joint influences per vertex (indices into a skeleton palette).
+pub fn MeshData::set_skin(
+  self : MeshData,
+  joints : FixedArray[@tmath.Vec4],
+  weights : FixedArray[@tmath.Vec4],
+) -> Unit raise {
+  if joints.length() != self.vertex_count() || weights.length() != self.vertex_count() {
+    fail("MeshData::set_skin: joints/weights must match the vertex count")
+  }
+  self.skin_joints = Some(joints)
+  self.skin_weights = Some(weights)
+}
+
+///|
+pub fn MeshData::has_skin(self : MeshData) -> Bool {
+  match (self.skin_joints, self.skin_weights) {
+    (Some(_), Some(_)) => true
+    _ => false
+  }
+}
+
+///|
 pub fn MeshData::with_groups(self : MeshData, groups : Array[MeshGroup]) -> MeshData {
   self.groups = groups
   self

@@ -105,6 +105,8 @@ pub(all) struct MeshData {
   indices : FixedArray[UInt32]
   mut tangents : FixedArray[@tycho_math.Vec4]?
   mut colors : FixedArray[@tycho_math.Vec4]?
+  mut skin_joints : FixedArray[@tycho_math.Vec4]?
+  mut skin_weights : FixedArray[@tycho_math.Vec4]?
   mut groups : Array[MeshGroup]
 }
 pub fn MeshData::bounds(Self) -> @tycho_math.Aabb3
@@ -112,10 +114,12 @@ pub fn MeshData::compute_tangents(Self) -> Unit
 pub fn MeshData::compute_vertex_normals(Self) -> Unit
 pub fn MeshData::flipped(Self) -> Self
 pub fn MeshData::has_colors(Self) -> Bool
+pub fn MeshData::has_skin(Self) -> Bool
 pub fn MeshData::has_tangents(Self) -> Bool
 pub fn MeshData::index_count(Self) -> Int32
 pub fn MeshData::merge(Array[Self]) -> Self
 pub fn MeshData::new(FixedArray[@tycho_math.Vec3], FixedArray[@tycho_math.Vec3], FixedArray[@tycho_math.Vec2], FixedArray[UInt32]) -> Self
+pub fn MeshData::set_skin(Self, FixedArray[@tycho_math.Vec4], FixedArray[@tycho_math.Vec4]) -> Unit raise
 pub fn MeshData::to_non_indexed(Self) -> Self
 pub fn MeshData::transformed(Self, @tycho_math.Affine3) -> Self
 pub fn MeshData::triangle_count(Self) -> Int32
