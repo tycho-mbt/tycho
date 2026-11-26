@@ -98,6 +98,22 @@ extern "c" fn cmd_bind_vertex_ffi(cmds : UInt64, slot : Int, gpu_address : UInt6
 
 extern "c" fn cmd_bind_index_ffi(cmds : UInt64, gpu_address : UInt64, size : Int, index32 : Int) -> Int32 = "tycho_dx12_cmd_bind_index"
 
+extern "c" fn cmd_execute_indirect_ffi(cmds : UInt64, tex : UInt64, kind : Int, arg_buffer : UInt64, arg_offset : Int, max_count : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_execute_indirect"
+
+extern "c" fn timestamp_pool_create_ffi(dev : UInt64, count : Int) -> UInt64 = "tycho_dx12_timestamp_pool_create"
+
+extern "c" fn timestamp_pool_write_ffi(cmds : UInt64, pool : UInt64, index : Int) -> Int32 = "tycho_dx12_cmd_write_timestamp"
+
+extern "c" fn timestamp_pool_resolve_ffi(cmds : UInt64, pool : UInt64) -> Int32 = "tycho_dx12_cmd_resolve_timestamps"
+
+extern "c" fn timestamp_pool_read_ffi(pool : UInt64, index : Int) -> Int64 = "tycho_dx12_timestamp_read"
+
+extern "c" fn timestamp_pool_frequency_ffi(pool : UInt64) -> Int64 = "tycho_dx12_timestamp_frequency"
+
+extern "c" fn timestamp_pool_count_ffi(pool : UInt64) -> Int32 = "tycho_dx12_timestamp_pool_count"
+
+extern "c" fn timestamp_pool_destroy_ffi(pool : UInt64) = "tycho_dx12_timestamp_pool_destroy"
+
 #borrow(pixels)
 extern "c" fn texture_create_uploaded_ffi(dev : UInt64, width : Int, height : Int, pixels : Bytes, pixel_bytes : Int) -> UInt64 = "tycho_dx12_texture_create_uploaded"
 
@@ -703,6 +719,107 @@ pub fn CommandList::dispatch(self : CommandList, x : Int, y : Int, z? : Int = 1)
 /// A compute pipeline: one DXIL blob, its own root signature.
 pub struct ComputePipeline {
   handle : UInt64
+}
+
+// ---------------------------------------------------------------------------
+// Indirect arguments and timestamp queries
+// ---------------------------------------------------------------------------
+
+///|
+/// The three argument layouts D3D12 executes. Their byte layouts match Vulkan's
+/// `VkDrawIndirectCommand` (16 B), `VkDrawIndexedIndirectCommand` (20 B) and
+/// `VkDispatchIndirectCommand` (12 B), so one argument buffer serves both backends.
+pub(all) enum IndirectKind {
+  Draw
+  DrawIndexed
+  Dispatch
+}
+
+///|
+/// Runs `count` indirect arguments starting at `buffer + offset`. `tex` is the
+/// render target for the draw kinds and is omitted for `Dispatch`.
+pub fn CommandList::execute_indirect(
+  self : CommandList,
+  kind : IndirectKind,
+  buffer : Buffer,
+  tex? : Texture? = None,
+  count? : Int = 1,
+  offset? : Int = 0,
+  flip_y? : Bool = false,
+) -> Bool {
+  let tex_handle = match tex {
+    Some(tex) => tex.handle
+    None => (0 : UInt64)
+  }
+  let code = match kind {
+    IndirectKind::Draw => 0
+    IndirectKind::DrawIndexed => 1
+    IndirectKind::Dispatch => 2
+  }
+  cmd_execute_indirect_ffi(
+    self.handle,
+    tex_handle,
+    code,
+    buffer.handle(),
+    offset,
+    count,
+    if flip_y { 1 } else { 0 },
+  ) != 0
+}
+
+///|
+/// A TIMESTAMP query heap plus its readback staging buffer.
+pub struct TimestampPool {
+  handle : UInt64
+}
+
+///|
+pub fn TimestampPool::create(device : Device, count : Int) -> TimestampPool? {
+  let handle = timestamp_pool_create_ffi(device.handle, count)
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn TimestampPool::handle(self : TimestampPool) -> UInt64 {
+  self.handle
+}
+
+///|
+pub fn TimestampPool::count(self : TimestampPool) -> Int {
+  timestamp_pool_count_ffi(self.handle).to_int()
+}
+
+///|
+/// GPU ticks per second (0 when the queue would not report one).
+pub fn TimestampPool::frequency(self : TimestampPool) -> Int64 {
+  timestamp_pool_frequency_ffi(self.handle)
+}
+
+///|
+pub fn TimestampPool::write(self : TimestampPool, cmd : CommandList, index : Int) -> Bool {
+  timestamp_pool_write_ffi(cmd.handle, self.handle, index) != 0
+}
+
+///|
+/// Copies every query into the staging buffer; must be recorded after the writes.
+pub fn TimestampPool::resolve(self : TimestampPool, cmd : CommandList) -> Bool {
+  timestamp_pool_resolve_ffi(cmd.handle, self.handle) != 0
+}
+
+///|
+/// Raw tick value, valid once the command list that resolved it has completed.
+/// Returns -1 for an out-of-range index.
+pub fn TimestampPool::read(self : TimestampPool, index : Int) -> Int64 {
+  timestamp_pool_read_ffi(self.handle, index)
+}
+
+///|
+pub fn TimestampPool::destroy(self : TimestampPool) -> Unit {
+  timestamp_pool_destroy_ffi(self.handle)
 }
 
 // ---------------------------------------------------------------------------

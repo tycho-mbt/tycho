@@ -181,3 +181,4 @@ if dev.capabilities().supports_ray_query {
 | `79-dx12-texture` | Headless DX12 sampling: RGBA8 upload → shader-visible SRV heap + sampler heap → SRV/sampler descriptor tables; `SamplerDesc` (filter/address) honoured, descriptor slots recycled |
 | `80-dx12-compute` | Headless DX12 compute: storage texture (UAV table) + compute PSO + `Dispatch`, gradient written by the shader and read back |
 | `81-dx12-geometry` | Headless DX12 vertex/index buffers: D3D12 input layout from `vertex_formats`, `IASetVertexBuffers`/`IASetIndexBuffer`, indexed draw |
+| `82-dx12-indirect` | Headless DX12 indirect draws (`ExecuteIndirect` + command signatures) and timestamp queries; unsupported calls fail `end_commands` instead of no-oping |

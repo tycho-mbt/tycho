@@ -80,6 +80,12 @@ priv struct Dx12CommandState {
   commands : @dx12.CommandList
   mut target : @dx12.Texture?
   mut bound : Dx12PipelineState?
+  /// First unsupported operation recorded while building this list. It surfaces
+  /// from `end_commands`, which is the raising boundary — a silent no-op would
+  /// otherwise let a caller believe the work reached the GPU.
+  mut error : String?
+  /// Timestamp pools written into this list; resolved before submission.
+  ts_pools : Array[@dx12.TimestampPool]
   clear : ClearColor
   owned_target : Bool
 }
@@ -229,9 +235,10 @@ fn dx12_buffer_create(
     BufferKind::Uniform => ()
     BufferKind::Vertex => ()
     BufferKind::Index => ()
+    BufferKind::Indirect => ()
     _ =>
       raise RhiError::BackendUnsupported(
-        "the DX12 backend uploads uniform, vertex and index buffers so far",
+        "the DX12 backend uploads uniform, vertex, index and indirect buffers so far",
       )
   }
   // Prefer a region of the shared placed heap (RegionPool decides the offset);
@@ -280,6 +287,8 @@ fn dx12_begin_frame_commands(state : Dx12SwapchainState) -> Dx12CommandState rai
     commands: state.commands,
     target: Some(target),
     bound: None,
+    error: None,
+    ts_pools: [],
     clear: state.clear,
     owned_target: true,
   }
@@ -339,6 +348,10 @@ fn dx12_capabilities(state : Dx12DeviceState) -> DeviceCapabilities {
 
 ///|
 fn dx12_end_frame(state : Dx12SwapchainState, cmd : Dx12CommandState) -> Unit raise RhiError {
+  match cmd.error {
+    Some(message) => raise RhiError::BackendUnsupported(message)
+    None => ()
+  }
   let mut ok = true
   match cmd.target {
     Some(target) => {
@@ -473,6 +486,8 @@ fn dx12_commands_create(state : Dx12DeviceState) -> Dx12CommandState raise RhiEr
     commands: cmd,
     target: None,
     bound: None,
+    error: None,
+    ts_pools: [],
     clear: ClearColor::black(),
     owned_target: false,
   }
@@ -480,6 +495,18 @@ fn dx12_commands_create(state : Dx12DeviceState) -> Dx12CommandState raise RhiEr
 
 ///|
 fn dx12_commands_finish(cmd : Dx12CommandState) -> Unit raise RhiError {
+  match cmd.error {
+    Some(message) => {
+      cmd.commands.destroy()
+      raise RhiError::BackendUnsupported(message)
+    }
+    None => ()
+  }
+  // Timestamps are resolved right before submission, which is the only point
+  // where every write is recorded and the copy still reaches the GPU.
+  for pool in cmd.ts_pools {
+    let _ = pool.resolve(cmd.commands)
+  }
   let ok = cmd.commands.execute_wait(cmd.device)
   cmd.commands.destroy()
   if !ok {
@@ -846,5 +873,75 @@ fn dx12_draw_indexed(
       )
     }
     None => ()
+  }
+}
+
+///|
+/// Records the first unsupported command so `end_commands` can fail loudly.
+fn dx12_unsupported(cmd : Dx12CommandState, what : String) -> Unit {
+  if cmd.error is None {
+    cmd.error = Some("\{what} is not implemented on the DX12 backend")
+  }
+}
+
+///|
+/// Indirect draws run through a command signature whose stride is fixed by the
+/// argument kind, so a caller-supplied stride other than the native one cannot be
+/// honoured.
+fn dx12_indirect(
+  cmd : Dx12CommandState,
+  buffer : Dx12BufferState,
+  kind : @dx12.IndirectKind,
+  draw_count : Int,
+  offset : Int,
+  stride : Int,
+) -> Unit {
+  let native = match kind {
+    @dx12.IndirectKind::Draw => 16
+    @dx12.IndirectKind::DrawIndexed => 20
+    @dx12.IndirectKind::Dispatch => 12
+  }
+  if stride != native {
+    dx12_unsupported(
+      cmd,
+      "an indirect argument stride of \{stride} bytes (D3D12 fixes it at \{native})",
+    )
+    return
+  }
+  if offset + native * draw_count > buffer.size {
+    dx12_unsupported(cmd, "an indirect argument buffer shorter than the draw count")
+    return
+  }
+  let is_dispatch = match kind {
+    @dx12.IndirectKind::Dispatch => true
+    _ => false
+  }
+  if is_dispatch {
+    let _ = cmd.commands.execute_indirect(kind, buffer.buffer, count=draw_count, offset~)
+    return
+  }
+  match cmd.target {
+    Some(target) => {
+      let _ = cmd.commands.execute_indirect(
+        kind,
+        buffer.buffer,
+        tex=Some(target),
+        count=draw_count,
+        offset~,
+        flip_y=true,
+      )
+    }
+    None => dx12_unsupported(cmd, "an indirect draw without a bound render target")
+  }
+}
+
+///|
+fn dx12_timestamp_pool_create(
+  state : Dx12DeviceState,
+  count : Int,
+) -> @dx12.TimestampPool raise RhiError {
+  match @dx12.TimestampPool::create(state.device, count) {
+    Some(pool) => pool
+    None => raise RhiError::AllocationFailed("DX12 timestamp query heap")
   }
 }

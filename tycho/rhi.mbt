@@ -151,8 +151,17 @@ pub struct Fence {
 }
 
 ///|
+priv enum TimestampPoolBackend {
+  VkTimestampPool(VkTimestampPoolState)
+  Dx12TimestampPool(@dx12.TimestampPool)
+}
+
+///|
+/// GPU timestamps. On DX12 the queries are resolved by `end_commands`, which is
+/// the only point where every write is recorded and the copy still reaches the
+/// GPU, so reading is valid as soon as the submission returns.
 pub struct TimestampPool {
-  priv inner : VkTimestampPoolState
+  priv backend : TimestampPoolBackend
 }
 
 ///|
@@ -191,10 +200,6 @@ fn Buffer::dx12(self : Buffer) -> Dx12BufferState? {
 // accessors below cannot fail.
 
 fn Fence::vk(self : Fence) -> VkFenceState {
-  self.inner
-}
-
-fn TimestampPool::vk(self : TimestampPool) -> VkTimestampPoolState {
   self.inner
 }
 
@@ -483,6 +488,16 @@ pub fn Swapchain::begin_frame_commands(
 }
 
 ///|
+/// Records an unsupported command on DX12 (it surfaces from `end_commands`)
+/// and does nothing on Vulkan, mirroring `on_vk`.
+fn CommandBuffer::dx12_unsupported(self : CommandBuffer, what : String) -> Unit {
+  match self.backend {
+    Dx12Commands(cmd) => dx12_unsupported(cmd, what)
+    VkCommands(_) => ()
+  }
+}
+
+///|
 /// Runs `apply` with the Vulkan command state; a no-op on the DX12 backend,
 /// which does not implement these recording calls yet.
 fn CommandBuffer::on_vk(
@@ -547,7 +562,7 @@ pub fn CommandBuffer::blit_to_swapchain(
         Dx12Swapchain(_) => ()
       }
     // Texture upload/blit is a Vulkan-backend feature today.
-    Dx12Commands(_) => ()
+    Dx12Commands(_) => self.dx12_unsupported("a blit to the swapchain")
   }
 }
 
@@ -1412,14 +1427,33 @@ pub fn Device::create_timestamp_pool(
   self : Device,
   count : Int,
 ) -> TimestampPool raise RhiError {
-  { inner: vk_timestamp_pool_create(self.vk(), count) }
+  match self.backend {
+    Dx12Device(state) => { backend: Dx12TimestampPool(dx12_timestamp_pool_create(state, count)) }
+    VkDevice(_) => { backend: VkTimestampPool(vk_timestamp_pool_create(self.vk(), count)) }
+  }
 }
 
 ///|
 pub fn TimestampPool::resolve_ns(
   self : TimestampPool,
 ) -> FixedArray[Double] raise RhiError {
-  vk_timestamp_pool_resolve_ns(self.vk())
+  match self.backend {
+    VkTimestampPool(state) => vk_timestamp_pool_resolve_ns(state)
+    Dx12TimestampPool(pool) => {
+      let n = pool.count()
+      let out = FixedArray::make(n, 0.0)
+      let freq = pool.frequency()
+      // Ticks -> nanoseconds; a queue that refuses to report a frequency leaves
+      // the values at zero rather than inventing a scale.
+      if freq > (0 : Int64) {
+        let scale = 1000000000.0 / freq.to_double()
+        for i = 0; i < n; i = i + 1 {
+          out[i] = pool.read(i).to_double() * scale
+        }
+      }
+      out
+    }
+  }
 }
 
 ///|
@@ -1428,10 +1462,11 @@ pub fn TimestampPool::elapsed_ms(
   start_idx : Int,
   end_idx : Int,
 ) -> Double raise RhiError {
-  if start_idx < 0 ||
-    end_idx < 0 ||
-    start_idx >= self.vk().count ||
-    end_idx >= self.vk().count {
+  let count = match self.backend {
+    VkTimestampPool(state) => state.count
+    Dx12TimestampPool(pool) => pool.count()
+  }
+  if start_idx < 0 || end_idx < 0 || start_idx >= count || end_idx >= count {
     raise InvalidArgument("Timestamp query index out of range")
   }
   let ns = self.resolve_ns()
@@ -1441,7 +1476,10 @@ pub fn TimestampPool::elapsed_ms(
 
 ///|
 pub fn TimestampPool::destroy(self : TimestampPool) -> Unit {
-  vk_timestamp_pool_destroy(self.vk())
+  match self.backend {
+    VkTimestampPool(state) => vk_timestamp_pool_destroy(state)
+    Dx12TimestampPool(pool) => pool.destroy()
+  }
 }
 
 ///|
@@ -1742,7 +1780,7 @@ pub fn CommandBuffer::blit_texture(
   match (src.backend, dst.backend) {
     (VkTexture(a), VkTexture(b)) =>
       self.on_vk(fn(state) { vk_cmd_blit_texture(state, a, b, filter) })
-    _ => ()
+    _ => self.dx12_unsupported("a texture blit")
   }
 }
 
@@ -1751,7 +1789,13 @@ pub fn CommandBuffer::reset_timestamps(
   self : CommandBuffer,
   pool : TimestampPool,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_reset_timestamps(state, pool.inner) })
+  match (self.backend, pool.backend) {
+    (VkCommands(state), VkTimestampPool(pool)) => vk_cmd_reset_timestamps(state, pool)
+    // D3D12 has no reset: a query is overwritten by the next EndQuery and the
+    // resolve copies the heap wholesale, so there is nothing to clear.
+    (Dx12Commands(_), Dx12TimestampPool(_)) => ()
+    _ => ()
+  }
 }
 
 ///|
@@ -1761,7 +1805,25 @@ pub fn CommandBuffer::write_timestamp(
   index : Int,
   at_start? : Bool = false,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_write_timestamp(state, pool.inner, index, at_start) })
+  match (self.backend, pool.backend) {
+    (VkCommands(state), VkTimestampPool(pool)) =>
+      vk_cmd_write_timestamp(state, pool, index, at_start)
+    (Dx12Commands(cmd), Dx12TimestampPool(pool)) => {
+      // `at_start` has no D3D12 equivalent: the query is recorded exactly where
+      // the call sits in the command stream, which is what the parameter means.
+      let _ = pool.write(cmd.commands, index)
+      let mut seen = false
+      for existing in cmd.ts_pools {
+        if existing.handle() == pool.handle() {
+          seen = true
+        }
+      }
+      if !seen {
+        cmd.ts_pools.push(pool)
+      }
+    }
+    _ => ()
+  }
 }
 
 ///|
@@ -1813,8 +1875,8 @@ pub fn CommandBuffer::push_constants_floats(
 ) -> Unit {
   match pipeline.backend {
     VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_push_constants_floats(state, pipe, data, offset) })
-    Dx12Pipeline(_) => ()
-    Dx12Compute(_) => ()
+    Dx12Pipeline(_) => self.dx12_unsupported("push constants")
+    Dx12Compute(_) => self.dx12_unsupported("push constants")
   }
 }
 
@@ -1838,8 +1900,8 @@ pub fn CommandBuffer::push_constants_bytes(
 ) -> Unit {
   match pipeline.backend {
     VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_push_constants_bytes(state, pipe, data, offset) })
-    Dx12Pipeline(_) => ()
-    Dx12Compute(_) => ()
+    Dx12Pipeline(_) => self.dx12_unsupported("push constants")
+    Dx12Compute(_) => self.dx12_unsupported("push constants")
   }
 }
 
@@ -1852,6 +1914,9 @@ pub fn CommandBuffer::set_viewport(
   h : Float,
 ) -> Unit {
   self.on_vk(fn(state) { vk_cmd_set_viewport(state, x, y, w, h) })
+  // D3D12 has dynamic viewports too, but the backend fixes them at draw time
+  // from the render target, so a caller-set viewport would be ignored.
+  self.dx12_unsupported("a caller-set viewport")
 }
 
 ///|
@@ -1863,6 +1928,7 @@ pub fn CommandBuffer::set_scissor(
   h : Int,
 ) -> Unit {
   self.on_vk(fn(state) { vk_cmd_set_scissor(state, x, y, w, h) })
+  self.dx12_unsupported("a caller-set scissor rect")
 }
 
 ///|
@@ -1871,6 +1937,7 @@ pub fn CommandBuffer::set_stencil_reference(
   reference : Int,
 ) -> Unit {
   self.on_vk(fn(state) { vk_cmd_set_stencil_reference(state, reference) })
+  self.dx12_unsupported("stencil state")
 }
 
 ///|
@@ -1988,9 +2055,17 @@ pub fn CommandBuffer::draw_indirect(
   offset? : Int = 0,
   stride? : Int = 16,
 ) -> Unit {
-  self.on_vk_buffer(buffer, fn(state, b) {
-    vk_cmd_draw_indirect(state, b, draw_count, offset, stride)
-  })
+  match self.backend {
+    VkCommands(_) => self.on_vk_buffer(buffer, fn(state, b) {
+      vk_cmd_draw_indirect(state, b, draw_count, offset, stride)
+    })
+    Dx12Commands(cmd) =>
+      match buffer.backend {
+        Dx12Buffer(state) =>
+          dx12_indirect(cmd, state, @dx12.IndirectKind::Draw, draw_count, offset, stride)
+        VkBuffer(_) => ()
+      }
+  }
 }
 
 ///|
@@ -2001,9 +2076,23 @@ pub fn CommandBuffer::draw_indexed_indirect(
   offset? : Int = 0,
   stride? : Int = 20,
 ) -> Unit {
-  self.on_vk_buffer(buffer, fn(state, b) {
-    vk_cmd_draw_indexed_indirect(state, b, draw_count, offset, stride)
-  })
+  match self.backend {
+    VkCommands(_) => self.on_vk_buffer(buffer, fn(state, b) {
+      vk_cmd_draw_indexed_indirect(state, b, draw_count, offset, stride)
+    })
+    Dx12Commands(cmd) =>
+      match buffer.backend {
+        Dx12Buffer(state) => dx12_indirect(
+          cmd,
+          state,
+          @dx12.IndirectKind::DrawIndexed,
+          draw_count,
+          offset,
+          stride,
+        )
+        VkBuffer(_) => ()
+      }
+  }
 }
 
 ///|
@@ -2019,6 +2108,9 @@ pub fn CommandBuffer::draw_indirect_count(
   self.on_vk_buffers(buffer, count_buffer, fn(state, a, b) {
     vk_cmd_draw_indirect_count(state, a, b, max_draw_count, offset, count_offset, stride)
   })
+  // A GPU-side count buffer needs SetPredication-style handling that the DX12
+  // command signature path does not expose yet.
+  self.dx12_unsupported("an indirect draw with a GPU-side count")
 }
 
 ///|
@@ -2034,6 +2126,7 @@ pub fn CommandBuffer::draw_indexed_indirect_count(
   self.on_vk_buffers(buffer, count_buffer, fn(state, a, b) {
     vk_cmd_draw_indexed_indirect_count(state, a, b, max_draw_count, offset, count_offset, stride)
   })
+  self.dx12_unsupported("an indirect draw with a GPU-side count")
 }
 
 ///|
@@ -2042,7 +2135,16 @@ pub fn CommandBuffer::dispatch_indirect(
   buffer : Buffer,
   offset? : Int = 0,
 ) -> Unit {
-  self.on_vk_buffer(buffer, fn(state, b) { vk_cmd_dispatch_indirect(state, b, offset) })
+  match self.backend {
+    VkCommands(_) =>
+      self.on_vk_buffer(buffer, fn(state, b) { vk_cmd_dispatch_indirect(state, b, offset) })
+    Dx12Commands(cmd) =>
+      match buffer.backend {
+        Dx12Buffer(state) =>
+          dx12_indirect(cmd, state, @dx12.IndirectKind::Dispatch, 1, offset, 12)
+        VkBuffer(_) => ()
+      }
+  }
 }
 
 ///|
@@ -2053,6 +2155,7 @@ pub fn CommandBuffer::draw_mesh_tasks(
   z : Int,
 ) -> Unit {
   self.on_vk(fn(state) { vk_cmd_draw_mesh_tasks(state, x, y, z) })
+  self.dx12_unsupported("mesh shaders")
 }
 
 ///|
@@ -2066,6 +2169,7 @@ pub fn CommandBuffer::draw_mesh_tasks_indirect(
   self.on_vk_buffer(buffer, fn(state, b) {
     vk_cmd_draw_mesh_tasks_indirect(state, b, draw_count, offset, stride)
   })
+  self.dx12_unsupported("mesh shaders")
 }
 
 ///|
@@ -2077,8 +2181,8 @@ pub fn CommandBuffer::bind_bindless_heap(
 ) -> Unit {
   match pipeline.backend {
     VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_bind_bindless_heap(state, pipe, heap.inner, set_index) })
-    Dx12Pipeline(_) => ()
-    Dx12Compute(_) => ()
+    Dx12Pipeline(_) => self.dx12_unsupported("bindless descriptor heaps")
+    Dx12Compute(_) => self.dx12_unsupported("bindless descriptor heaps")
   }
 }
 
@@ -2090,6 +2194,7 @@ pub fn CommandBuffer::copy_buffer(
   size : Int,
 ) -> Unit {
   self.on_vk_buffers(src, dst, fn(state, a, b) { vk_cmd_copy_buffer(state, a, b, size) })
+  self.dx12_unsupported("a buffer-to-buffer copy")
 }
 
 ///|

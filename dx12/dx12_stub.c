@@ -68,6 +68,10 @@ static const GUID kIID_ID3D12GraphicsCommandList = {0x5b160d0f, 0xac1b, 0x4185,
                                                     {0x8b, 0xa8, 0xb3, 0xae, 0x42, 0xa5, 0xa4, 0x55}};
 static const GUID kIID_ID3D12DescriptorHeap = {0x8efb471d, 0x616c, 0x4f49,
                                                {0x90, 0xf7, 0x12, 0x7b, 0xb7, 0x63, 0xfa, 0x51}};
+static const GUID kIID_ID3D12CommandSignature = {
+    0xc36a797c, 0xec80, 0x4f0a, {0x89, 0x85, 0xa7, 0xb2, 0x47, 0x50, 0x82, 0xd1}};
+static const GUID kIID_ID3D12QueryHeap = {
+    0x0d9658ae, 0xed45, 0x469e, {0xa6, 0x1d, 0x97, 0x0e, 0xc5, 0x83, 0xca, 0xb4}};
 static const GUID kIID_ID3D12Heap = {0x6b3b2502, 0x6e51, 0x45b3,
                                     {0x90, 0xee, 0x98, 0x84, 0x26, 0x5e, 0x8d, 0xf3}};
 static const GUID kIID_IDXGISwapChain3 = {0x94d99bdb, 0xf1f8, 0x4ab0,
@@ -147,6 +151,10 @@ typedef struct TychoDxDevice {
   UINT sampler_used;
   UINT sampler_free[TYCHO_DX12_SAMPLER_HEAP_SIZE];
   UINT sampler_free_count;
+  // One command signature per argument layout, created on first use.
+  // 0 = draw, 1 = draw-indexed, 2 = dispatch.
+  ID3D12CommandSignature *indirect_sig[3];
+  UINT64 timestamp_freq;
   int is_warp;
   int shader_model;
   int mesh_tier;
@@ -200,6 +208,16 @@ typedef struct TychoDxBufferHeap {
   int size;
 } TychoDxBufferHeap;
 
+// A TIMESTAMP query heap plus its READBACK-side staging buffer, so resolving
+// is a single ResolveQueryData and reading is a plain memcpy afterwards.
+typedef struct TychoDxTimestampPool {
+  ID3D12QueryHeap *heap;
+  ID3D12Resource *readback;
+  UINT64 *mapped;
+  UINT count;
+  UINT64 frequency;
+} TychoDxTimestampPool;
+
 typedef struct TychoDxSwapchain {
   IDXGISwapChain3 *swapchain;
   ID3D12DescriptorHeap *rtv_heap;
@@ -233,6 +251,9 @@ static TychoDxBuffer *as_buffer(uint64_t p) { return (TychoDxBuffer *)(uintptr_t
 static TychoDxSampler *as_sampler(uint64_t p) { return (TychoDxSampler *)(uintptr_t)p; }
 static TychoDxBufferHeap *as_buffer_heap(uint64_t p) {
   return (TychoDxBufferHeap *)(uintptr_t)p;
+}
+static TychoDxTimestampPool *as_timestamp_pool(uint64_t p) {
+  return (TychoDxTimestampPool *)(uintptr_t)p;
 }
 
 static void set_hr(HRESULT hr) {
@@ -394,6 +415,12 @@ fail:
   if (dev->fence_event) CloseHandle(dev->fence_event);
   if (dev->fence) dev->fence->lpVtbl->Release(dev->fence);
   if (dev->queue) dev->queue->lpVtbl->Release(dev->queue);
+  {
+    int sig;
+    for (sig = 0; sig < 3; sig++) {
+      if (dev->indirect_sig[sig]) dev->indirect_sig[sig]->lpVtbl->Release(dev->indirect_sig[sig]);
+    }
+  }
   if (dev->sampler_heap) dev->sampler_heap->lpVtbl->Release(dev->sampler_heap);
   if (dev->srv_heap) dev->srv_heap->lpVtbl->Release(dev->srv_heap);
   if (dev->factory) dev->factory->lpVtbl->Release(dev->factory);
@@ -1649,6 +1676,164 @@ MOONBIT_FFI_EXPORT void tycho_dx12_sampler_destroy(uint64_t p) {
 }
 
 // ---------------------------------------------------------------------------
+// Indirect draws / dispatches and timestamp queries
+// ---------------------------------------------------------------------------
+
+// Argument layouts match Vulkan's byte-for-byte (the RHI buffers are shared):
+// draw = 16 B, draw-indexed = 20 B, dispatch = 12 B.
+static const UINT kIndirectStrides[3] = {16, 20, 12};
+
+static ID3D12CommandSignature *ensure_indirect_signature(TychoDxDevice *dev, int32_t kind) {
+  D3D12_INDIRECT_ARGUMENT_DESC arg;
+  D3D12_COMMAND_SIGNATURE_DESC desc;
+  HRESULT hr;
+  if (!dev || kind < 0 || kind > 2) return NULL;
+  if (dev->indirect_sig[kind]) return dev->indirect_sig[kind];
+  memset(&arg, 0, sizeof arg);
+  arg.Type = kind == 0   ? D3D12_INDIRECT_ARGUMENT_TYPE_DRAW
+             : kind == 1 ? D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED
+                         : D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+  memset(&desc, 0, sizeof desc);
+  desc.ByteStride = kIndirectStrides[kind];
+  desc.NumArgumentDescs = 1;
+  desc.pArgumentDescs = &arg;
+  hr = dev->device->lpVtbl->CreateCommandSignature(dev->device, &desc, NULL,
+                                                   &kIID_ID3D12CommandSignature,
+                                                   (void **)&dev->indirect_sig[kind]);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    dev->indirect_sig[kind] = NULL;
+    return NULL;
+  }
+  return dev->indirect_sig[kind];
+}
+
+// `tex` is ignored for dispatch (kind 2); graphics kinds need the render target.
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_execute_indirect(uint64_t cmd_p, uint64_t tex_p,
+                                                           int32_t kind, uint64_t arg_buffer_p,
+                                                           int32_t arg_offset, int32_t max_count,
+                                                           int32_t flip_y) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  TychoDxBuffer *args = as_buffer(arg_buffer_p);
+  ID3D12CommandSignature *sig;
+  if (!cmds || !cmds->dev || !args || !args->resource || max_count <= 0) return 0;
+  sig = ensure_indirect_signature(cmds->dev, kind);
+  if (!sig) return 0;
+  if (kind != 2 && !dx12_prepare_draw(cmds, as_texture(tex_p), flip_y)) return 0;
+  cmds->list->lpVtbl->ExecuteIndirect(cmds->list, sig, (UINT)max_count, args->resource,
+                                      (UINT64)arg_offset, NULL, 0);
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_timestamp_pool_create(uint64_t dev_p, int32_t count) {
+  TychoDxDevice *dev = as_device(dev_p);
+  TychoDxTimestampPool *pool;
+  D3D12_QUERY_HEAP_DESC heap_desc;
+  D3D12_HEAP_PROPERTIES heap_props;
+  D3D12_RESOURCE_DESC res_desc;
+  void *mapped = NULL;
+  HRESULT hr;
+  if (!dev || count <= 0) return 0;
+  pool = (TychoDxTimestampPool *)calloc(1, sizeof(TychoDxTimestampPool));
+  if (!pool) return 0;
+  pool->count = (UINT)count;
+
+  memset(&heap_desc, 0, sizeof heap_desc);
+  heap_desc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+  heap_desc.Count = (UINT)count;
+  hr = dev->device->lpVtbl->CreateQueryHeap(dev->device, &heap_desc, &kIID_ID3D12QueryHeap,
+                                            (void **)&pool->heap);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    free(pool);
+    return 0;
+  }
+
+  memset(&heap_props, 0, sizeof heap_props);
+  heap_props.Type = D3D12_HEAP_TYPE_READBACK;
+  heap_props.CreationNodeMask = 1;
+  heap_props.VisibleNodeMask = 1;
+  memset(&res_desc, 0, sizeof res_desc);
+  res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  res_desc.Width = (UINT64)count * sizeof(UINT64);
+  res_desc.Height = 1;
+  res_desc.DepthOrArraySize = 1;
+  res_desc.MipLevels = 1;
+  res_desc.Format = DXGI_FORMAT_UNKNOWN;
+  res_desc.SampleDesc.Count = 1;
+  res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+  hr = dev->device->lpVtbl->CreateCommittedResource(
+      dev->device, &heap_props, D3D12_HEAP_FLAG_NONE, &res_desc, D3D12_RESOURCE_STATE_COPY_DEST,
+      NULL, &kIID_ID3D12Resource, (void **)&pool->readback);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    pool->heap->lpVtbl->Release(pool->heap);
+    free(pool);
+    return 0;
+  }
+  if (FAILED(pool->readback->lpVtbl->Map(pool->readback, 0, NULL, &mapped)) || !mapped) {
+    pool->readback->lpVtbl->Release(pool->readback);
+    pool->heap->lpVtbl->Release(pool->heap);
+    free(pool);
+    return 0;
+  }
+  pool->mapped = (UINT64 *)mapped;
+  if (!dev->timestamp_freq) {
+    UINT64 freq = 0;
+    if (SUCCEEDED(dev->queue->lpVtbl->GetTimestampFrequency(dev->queue, &freq))) {
+      dev->timestamp_freq = freq;
+    }
+  }
+  pool->frequency = dev->timestamp_freq;
+  return (uint64_t)(uintptr_t)pool;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_write_timestamp(uint64_t cmd_p, uint64_t pool_p,
+                                                          int32_t index) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  TychoDxTimestampPool *pool = as_timestamp_pool(pool_p);
+  if (!cmds || !pool || index < 0 || (UINT)index >= pool->count) return 0;
+  cmds->list->lpVtbl->EndQuery(cmds->list, pool->heap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)index);
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_resolve_timestamps(uint64_t cmd_p, uint64_t pool_p) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  TychoDxTimestampPool *pool = as_timestamp_pool(pool_p);
+  if (!cmds || !pool) return 0;
+  cmds->list->lpVtbl->ResolveQueryData(cmds->list, pool->heap, D3D12_QUERY_TYPE_TIMESTAMP, 0,
+                                       pool->count, pool->readback, 0);
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT int64_t tycho_dx12_timestamp_read(uint64_t pool_p, int32_t index) {
+  TychoDxTimestampPool *pool = as_timestamp_pool(pool_p);
+  if (!pool || !pool->mapped || index < 0 || (UINT)index >= pool->count) return -1;
+  return (int64_t)pool->mapped[index];
+}
+
+MOONBIT_FFI_EXPORT int64_t tycho_dx12_timestamp_frequency(uint64_t pool_p) {
+  TychoDxTimestampPool *pool = as_timestamp_pool(pool_p);
+  return pool ? (int64_t)pool->frequency : 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_timestamp_pool_count(uint64_t pool_p) {
+  TychoDxTimestampPool *pool = as_timestamp_pool(pool_p);
+  return pool ? (int32_t)pool->count : 0;
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_timestamp_pool_destroy(uint64_t pool_p) {
+  TychoDxTimestampPool *pool = as_timestamp_pool(pool_p);
+  if (!pool) return;
+  if (pool->readback) {
+    pool->readback->lpVtbl->Unmap(pool->readback, 0, NULL);
+    pool->readback->lpVtbl->Release(pool->readback);
+  }
+  if (pool->heap) pool->heap->lpVtbl->Release(pool->heap);
+  free(pool);
+}
+
+// ---------------------------------------------------------------------------
 // Placed buffers (offsets come from the shared RegionPool on the MoonBit side)
 // ---------------------------------------------------------------------------
 
@@ -2584,6 +2769,58 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_buffer_place(uint64_t heap, int32_t offse
   (void)size;
   return 0;
 }
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_execute_indirect(uint64_t cmd, uint64_t tex,
+                                                           int32_t kind, uint64_t arg_buffer,
+                                                           int32_t arg_offset, int32_t max_count,
+                                                           int32_t flip_y) {
+  (void)cmd;
+  (void)tex;
+  (void)kind;
+  (void)arg_buffer;
+  (void)arg_offset;
+  (void)max_count;
+  (void)flip_y;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_timestamp_pool_create(uint64_t dev, int32_t count) {
+  (void)dev;
+  (void)count;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_write_timestamp(uint64_t cmd, uint64_t pool,
+                                                          int32_t index) {
+  (void)cmd;
+  (void)pool;
+  (void)index;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_resolve_timestamps(uint64_t cmd, uint64_t pool) {
+  (void)cmd;
+  (void)pool;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int64_t tycho_dx12_timestamp_read(uint64_t pool, int32_t index) {
+  (void)pool;
+  (void)index;
+  return -1;
+}
+
+MOONBIT_FFI_EXPORT int64_t tycho_dx12_timestamp_frequency(uint64_t pool) {
+  (void)pool;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_timestamp_pool_count(uint64_t pool) {
+  (void)pool;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_timestamp_pool_destroy(uint64_t pool) { (void)pool; }
 
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_readback_create(uint64_t dev, int32_t width,
                                                        int32_t height) {
