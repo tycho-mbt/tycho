@@ -410,6 +410,33 @@ fn main {
       pxb[bi + 2].to_int() < 50
     rt_bgra.destroy()
 
+    // S3: rect-clip changes plus save/restore must not split the prim batch,
+    // and the per-instance clip must still cut geometry at the clip edge.
+    let w3 = 64
+    let h3 = 64
+    let rt_clip = dev.create_render_target(w3, h3, @tycho.TextureFormat::RGBA8)
+    let cc = @g2d.Canvas::new()
+    cc.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    for i = 0; i < 8; i = i + 1 {
+      let _ = cc.save()
+      cc.clip_rect(
+        @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      )
+      cc.draw_rect(
+        @g2d.Rect::new((0.0 : Float), (0.0 : Float), (64.0 : Float), (64.0 : Float)),
+        @g2d.Paint::fill(@g2d.Color::from_rgba8(255, 255, 255)),
+      )
+      cc.restore()
+    }
+    renderer.render_offscreen(cc.finish(), rt_clip)
+    let clip_batches = renderer.prim_draw_count()
+    let cpx = rt_clip.readback()
+    let ci = (32 * w3 + 16) * 4
+    let co = (32 * w3 + 48) * 4
+    let s3_clip_ok = cpx[ci].to_int() > 200 && cpx[co].to_int() < 50
+    let s3_ok = clip_batches <= 2 && s3_clip_ok
+    rt_clip.destroy()
+
     if show_win {
       let cc = @g2d.Color::from_rgba8(14, 18, 30)
       let sc = dev.create_swapchain_desc(
@@ -443,11 +470,11 @@ fn main {
     let used = dev.allocator_used_bytes()
     dev.destroy()
 
-    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && errs == 0 && used == (0 : UInt64) {
-      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus blend + mipmapped image + BGRA8 prim pipeline + batched AA paths + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified, 0 validation errors")
+    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && errs == 0 && used == (0 : UInt64) {
+      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus blend + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified, 0 validation errors")
     } else {
       println(
-        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} errs=\{errs} used=\{used}",
+        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} errs=\{errs} used=\{used}",
       )
     }
   } catch {

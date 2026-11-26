@@ -1,8 +1,8 @@
 // GPU Renderer2D over laplaceliu/tycho RHI (AOT pipelines, Tier-1 SDF/Atlas batching,
 // Tier-2 Stencil-then-Cover + Stroker, Tier-3 SaveLayer / BackdropFilter Gaussian Blur).
 
-const PRIM_FLOATS : Int = 44
-const PRIM_BYTES : Int = 176
+const PRIM_FLOATS : Int = 48
+const PRIM_BYTES : Int = 192
 const STOP_FLOATS : Int = 8
 const STOP_BYTES : Int = 32
 const PATH_VERT_FLOATS : Int = 2
@@ -127,6 +127,7 @@ pub struct Renderer2D {
   // Per-frame active batch cursors
   priv mut prim_cursor : Int
   priv mut prim_batch_start : Int
+  priv mut prim_draw_count : Int
   priv mut stop_cursor : Int
   priv mut path_cursor : Int
   // Active traversal state
@@ -602,6 +603,7 @@ pub fn Renderer2D::new(
     active_rt_slot: 0,
     prim_cursor: 0,
     prim_batch_start: 0,
+    prim_draw_count: 0,
     stop_cursor: 0,
     path_cursor: 0,
     cur_transform: Matrix3::identity(),
@@ -1039,6 +1041,12 @@ fn Renderer2D::emit_prim(
   p[41] = tr_y
   p[42] = bry
   p[43] = bly
+  // Per-instance rectangular clip in target space. This lets consecutive prims
+  // with different rect clips share one draw call instead of flushing.
+  p[44] = self.cur_scissor.x
+  p[45] = self.cur_scissor.y
+  p[46] = self.cur_scissor.width
+  p[47] = self.cur_scissor.height
   let off = self.active_prim_slot_base + self.prim_cursor * PRIM_BYTES
   self.active_prim_ssbo.upload_floats(self.prim_scratch, offset=off, count=PRIM_FLOATS)
   self.prim_cursor = self.prim_cursor + 1
@@ -1208,12 +1216,10 @@ fn Renderer2D::flush_prims(
     (0.0 : Float),
     (0.0 : Float),
   ])
-  cmd.set_scissor(
-    self.cur_scissor.x.to_int(),
-    self.cur_scissor.y.to_int(),
-    self.cur_scissor.width.to_int(),
-    self.cur_scissor.height.to_int(),
-  )
+  // Clipping is applied per instance in the fragment shader, so the hardware
+  // scissor stays at the full target and batches survive rect-clip changes.
+  cmd.set_scissor(0, 0, self.active_w, self.active_h)
+  self.prim_draw_count = self.prim_draw_count + 1
   cmd.draw_instanced(6, count, 0, self.prim_batch_start)
   self.prim_batch_start = self.prim_cursor
 }
@@ -1226,6 +1232,11 @@ pub fn Renderer2D::dedicated_image_count(self : Renderer2D) -> Int {
 ///|
 pub fn Renderer2D::path_batch_count(self : Renderer2D) -> Int {
   self.path_batch_count
+}
+
+///|
+pub fn Renderer2D::prim_draw_count(self : Renderer2D) -> Int {
+  self.prim_draw_count
 }
 
 ///|
@@ -2434,8 +2445,8 @@ fn Renderer2D::replay_ops(
       DrawOp::Restore =>
         match self.state_stack.pop() {
           Some(st) => {
-            self.flush_prims(cmd)
             if st.is_layer {
+              self.flush_prims(cmd)
               let ltex = self.active_tex.unwrap()
               cmd.end_render_pass()
               let tex_w = Float::from_int(ltex.width())
@@ -2556,6 +2567,13 @@ fn Renderer2D::replay_ops(
               }
             } else {
               let had_stencil = self.has_stencil_clip
+              let clip_changed = self.cur_clip_rrect != st.clip_rrect
+              // Rect clips are per-instance and transforms are baked into the
+              // prim, so a plain save/restore does not need to split the batch.
+              // Only an analytic ClipRRect change or leaving a stencil clip does.
+              if clip_changed || (had_stencil && !st.has_stencil_clip) {
+                self.flush_prims(cmd)
+              }
               self.cur_transform = st.transform
               self.cur_scissor = st.scissor
               self.cur_clip_rrect = st.clip_rrect
@@ -2583,11 +2601,12 @@ fn Renderer2D::replay_ops(
         }
       DrawOp::Concat(m) => self.cur_transform = self.cur_transform.concat(m)
       DrawOp::ClipRect(r, op) => {
-        self.flush_prims(cmd)
         let mapped = self.cur_transform.map_rect(r)
         match op {
+          // Rect clips are emitted per instance, so no batch flush is needed.
           ClipOp::Intersect => self.cur_scissor = self.cur_scissor.intersect(mapped)
           ClipOp::Difference => {
+            self.flush_prims(cmd)
             let fw = Float::from_int(self.active_w)
             let fh = Float::from_int(self.active_h)
             if !self.has_stencil_clip {
@@ -3058,6 +3077,7 @@ fn Renderer2D::reset_frame_state(
   }
   self.prim_cursor = 0
   self.prim_batch_start = 0
+  self.prim_draw_count = 0
   self.active_prim_ssbo = self.prim_ssbo
   self.active_prim_slot_base = self.slot_prim_base()
   self.active_prim_chunk = 0

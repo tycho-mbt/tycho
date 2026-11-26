@@ -19,6 +19,7 @@ struct Prim2D {
   vec4 grad_pts;     // linear: (x0,y0,x1,y1); radial: (cx,cy,r,0)
   vec4 grad_info;    // x=stop_offset, y=stop_count
   vec4 radii_y;      // per-corner vertical radii (tl, tr, br, bl)
+  vec4 clip;         // per-instance rect clip (x, y, w, h) in target space
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer PrimBuf {
@@ -39,6 +40,7 @@ layout(location = 10) flat out vec4 v_grad_pts;
 layout(location = 11) flat out vec4 v_grad_meta; // x=grad_type, y=tile_mode, z=stop_off, w=stop_cnt
 layout(location = 12) flat out vec4 v_grad_extra; // x=inv_d/tex_id, y=inv_ty, z=0, w=0
 layout(location = 13) flat out vec4 v_radii_y;   // per-corner vertical radii
+layout(location = 14) flat out vec4 v_clip;      // per-instance rect clip
 
 const vec2 CORNERS[6] = vec2[6](
   vec2(-1.0, -1.0),
@@ -99,4 +101,5 @@ void main() {
   v_grad_meta = vec4(q.xform0.w, q.xform1.w, q.grad_info.x, q.grad_info.y);
   v_grad_extra = vec4(q.grad_info.z, q.grad_info.w, 0.0, 0.0);
   v_radii_y = q.radii_y;
+  v_clip = q.clip;
 }

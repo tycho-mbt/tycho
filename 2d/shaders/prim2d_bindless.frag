@@ -35,6 +35,7 @@ layout(location = 10) flat in vec4 v_grad_pts;
 layout(location = 11) flat in vec4 v_grad_meta;
 layout(location = 12) flat in vec4 v_grad_extra;
 layout(location = 13) flat in vec4 v_radii_y;
+layout(location = 14) flat in vec4 v_clip;
 
 layout(location = 0) out vec4 out_color;
 
@@ -71,6 +72,18 @@ float sdRoundBoxElliptic(vec2 p, vec2 b, vec4 rx, vec4 ry) {
   float f = length(q / rr);
   float g = length(q / (rr * rr));
   return (f - 1.0) * f / max(g, 1e-6);
+}
+
+// Per-instance rectangular clip with a 1px analytic edge.
+float rectClipCov(vec2 p, vec4 c) {
+  if (c.z <= 0.0 || c.w <= 0.0) {
+    return 1.0;
+  }
+  vec2 lo = c.xy;
+  vec2 hi = c.xy + c.zw;
+  vec2 a = smoothstep(lo - 0.5, lo + 0.5, p);
+  vec2 b = vec2(1.0) - smoothstep(hi - 0.5, hi + 0.5, p);
+  return a.x * a.y * b.x * b.y;
 }
 
 float sdSegment(vec2 p, vec2 a, vec2 b) {
@@ -156,12 +169,12 @@ vec4 evalGradient(vec2 pt) {
 }
 
 void main() {
-  float clip_cov = 1.0;
+  float clip_cov = rectClipCov(v_screen_pos, v_clip);
   if (pc.clip_rect.z > 0.0 && pc.clip_rect.w > 0.0) {
     vec2 chalf = pc.clip_rect.zw * 0.5;
     vec2 ccenter = pc.clip_rect.xy + chalf;
     float dc = sdRoundedBox(v_screen_pos - ccenter, chalf, pc.clip_radii);
-    clip_cov = clamp(0.5 - dc, 0.0, 1.0);
+    clip_cov = clip_cov * clamp(0.5 - dc, 0.0, 1.0);
     if (clip_cov <= 0.001) {
       out_color = vec4(0.0);
       return;
