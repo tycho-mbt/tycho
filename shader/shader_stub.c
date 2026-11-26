@@ -23,6 +23,12 @@
 #endif
 #include "moonbit.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_PNG
+#define STBI_ONLY_JPEG
+#define STBI_NO_STDIO
+#include "stb_image.h"
+
 #ifdef _WIN32
 #define TYCHO_READ_OK(p) (_access((p), 0) == 0)
 #define TYCHO_EXEC_OK(p) (_access((p), 0) == 0)
@@ -925,4 +931,25 @@ MOONBIT_FFI_EXPORT float *tycho_shader_load_hdr(
   *out_w = w;
   *out_h = h;
   return out;
+}
+
+// Decode PNG/JPEG bytes to straight-alpha RGBA8. Returns an empty array and
+// zero dimensions on failure.
+MOONBIT_FFI_EXPORT uint8_t *tycho_shader_decode_image(
+    const uint8_t *data, int32_t len, int32_t *out_w, int32_t *out_h) {
+  int w = 0, h = 0, channels = 0;
+  stbi_uc *px = stbi_load_from_memory(data, len, &w, &h, &channels, 4);
+  if (!px || w <= 0 || h <= 0) {
+    if (px) stbi_image_free(px);
+    *out_w = 0;
+    *out_h = 0;
+    return (uint8_t *)moonbit_make_bytes(0, 0);
+  }
+  size_t n = (size_t)w * (size_t)h * 4;
+  uint8_t *arr = (uint8_t *)moonbit_make_bytes((int32_t)n, 0);
+  memcpy(arr, px, n);
+  stbi_image_free(px);
+  *out_w = w;
+  *out_h = h;
+  return arr;
 }

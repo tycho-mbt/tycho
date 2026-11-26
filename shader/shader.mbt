@@ -49,6 +49,37 @@ pub fn load_image(path : String) -> (FixedArray[Byte], Int32, Int32) {
   (px, w[0], h[0])
 }
 
+#borrow(data, out_w, out_h)
+extern "c" fn decode_image_ffi(
+  data : Bytes,
+  len : Int32,
+  out_w : FixedArray[Int32],
+  out_h : FixedArray[Int32],
+) -> FixedArray[Byte] = "tycho_shader_decode_image"
+
+///|
+// Decode PNG/JPEG bytes to straight-alpha RGBA8. Returns None for unsupported
+// or corrupt data.
+pub fn decode_image(data : Bytes) -> (Bytes, Int, Int)? {
+  let w = FixedArray::make(1, (0 : Int32))
+  let h = FixedArray::make(1, (0 : Int32))
+  let px = decode_image_ffi(data, data.length(), w, h)
+  if w[0] <= 0 || h[0] <= 0 || px.length() == 0 {
+    return None
+  }
+  Some((Bytes::from_array(px[:]), w[0].to_int(), h[0].to_int()))
+}
+
+///|
+// Read and decode a PNG/JPEG file to straight-alpha RGBA8.
+pub fn load_image_rgba(path : String) -> (Bytes, Int, Int)? {
+  let bytes = read_file_bytes(path)
+  if bytes.length() == 0 {
+    return None
+  }
+  decode_image(bytes)
+}
+
 #borrow(source)
 extern "c" fn compile_shader_ffi(
   source : Bytes,

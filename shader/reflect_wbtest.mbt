@@ -198,3 +198,33 @@ test "load_hdr_image decodes Radiance RGBE floats accurately" {
   assert_true(hdr[13] > (0.95 : Float) && hdr[13] < (1.05 : Float))
   assert_true(hdr[14] > (0.95 : Float) && hdr[14] < (1.05 : Float))
 }
+
+///|
+test "decode_image roundtrips png" {
+  let w = 3
+  let h = 2
+  let rgba : FixedArray[Byte] = FixedArray::make(w * h * 4, (0 : Byte))
+  rgba[0] = (255 : Byte)
+  rgba[1] = (128 : Byte)
+  rgba[2] = (64 : Byte)
+  rgba[3] = (200 : Byte)
+  rgba[4] = (10 : Byte)
+  rgba[5] = (20 : Byte)
+  rgba[6] = (30 : Byte)
+  rgba[7] = (255 : Byte)
+  let path = "/tmp/tycho_decode_test.png"
+  assert_true(save_png(path, w, h, rgba))
+  let bytes = read_file_bytes(path)
+  assert_true(bytes.length() > 0)
+  match decode_image(bytes) {
+    Some((px, dw, dh)) => {
+      assert_eq(dw, w)
+      assert_eq(dh, h)
+      assert_eq(px[0].to_int(), 255)
+      assert_eq(px[1].to_int(), 128)
+      assert_eq(px[2].to_int(), 64)
+      assert_eq(px[4].to_int(), 10)
+    }
+    None => assert_true(false)
+  }
+}
