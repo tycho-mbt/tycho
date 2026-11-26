@@ -27,15 +27,10 @@ fn cube_dir(face : Int, u : Float, v : Float) -> @tmath.Vec3 {
 }
 
 ///|
-fn clamp255(val : Float) -> Byte {
-  let c : Float = if val < 0.0 {
-    0.0
-  } else if val > 1.0 {
-    1.0
-  } else {
-    val
-  }
-  (c * (255.0 : Float)).to_int().to_byte()
+fn push_f16(arr : Array[Byte], v : Float) -> Unit {
+  let bits = f16_bits(v).to_uint()
+  arr.push((bits & (0xFF : UInt)).to_byte())
+  arr.push(((bits >> 8) & (0xFF : UInt)).to_byte())
 }
 
 ///|
@@ -90,13 +85,14 @@ fn make_faces_linear(
 }
 
 ///|
+/// Pack a linear RGB face into RGBA16F (alpha = 1), preserving HDR values.
 fn encode_face(buf : FixedArray[Float], size : Int) -> Bytes {
-  let arr = FixedArray::make(size * size * 4, (0 : Byte))
+  let arr : Array[Byte] = []
   for i = 0; i < size * size; i = i + 1 {
-    arr[i * 4] = clamp255(buf[i * 3])
-    arr[i * 4 + 1] = clamp255(buf[i * 3 + 1])
-    arr[i * 4 + 2] = clamp255(buf[i * 3 + 2])
-    arr[i * 4 + 3] = (255 : Byte)
+    push_f16(arr, buf[i * 3])
+    push_f16(arr, buf[i * 3 + 1])
+    push_f16(arr, buf[i * 3 + 2])
+    push_f16(arr, 1.0)
   }
   Bytes::from_array(arr)
 }
@@ -123,14 +119,19 @@ fn env_mip_count(size : Int) -> Int {
 
 ///|
 /// Cut the six faces out of a `6*s` wide render-target readback.
-fn extract_faces(px : FixedArray[Byte], strip_w : Int, s : Int) -> Array[Bytes] {
+fn extract_faces(
+  px : FixedArray[Byte],
+  strip_w : Int,
+  s : Int,
+  bpp : Int,
+) -> Array[Bytes] {
   let faces : Array[Bytes] = []
   for f = 0; f < 6; f = f + 1 {
-    let arr = FixedArray::make(s * s * 4, (0 : Byte))
+    let arr = FixedArray::make(s * s * bpp, (0 : Byte))
     for y = 0; y < s; y = y + 1 {
-      let src_row = y * strip_w * 4 + f * s * 4
-      let dst_row = y * s * 4
-      for i = 0; i < s * 4; i = i + 1 {
+      let src_row = y * strip_w * bpp + f * s * bpp
+      let dst_row = y * s * bpp
+      for i = 0; i < s * bpp; i = i + 1 {
         arr[dst_row + i] = px[src_row + i]
       }
     }
@@ -140,20 +141,81 @@ fn extract_faces(px : FixedArray[Byte], strip_w : Int, s : Int) -> Array[Bytes] 
 }
 
 ///|
-/// Create a procedural sky cubemap with a GPU-prefiltered mip chain.
-/// `size` is the base face resolution (256 by default); `samples` is the GGX
-/// integration sample count per texel per mip (128 by default).
-pub fn procedural_environment_cubemap(
+/// Bilinear sample of an equirectangular linear image along `dir`.
+fn equirect_sample(
+  img : HdrImage,
+  dir : @tmath.Vec3,
+) -> (Float, Float, Float) {
+  let (u, v) = equirect_uv(dir)
+  let w = img.width
+  let h = img.height
+  let fx = u * env_f_of_int(w) - 0.5
+  let fy = v * env_f_of_int(h) - 0.5
+  let mut x0 = fx.to_int()
+  if x0 < 0 {
+    x0 = 0
+  }
+  if x0 >= w {
+    x0 = w - 1
+  }
+  let mut y0 = fy.to_int()
+  if y0 < 0 {
+    y0 = 0
+  }
+  if y0 >= h {
+    y0 = h - 1
+  }
+  let x1 = (x0 + 1) % w
+  let y1 = if y0 + 1 < h { y0 + 1 } else { y0 }
+  let tx : Float = fx - env_f_of_int(x0)
+  let ty : Float = fy - env_f_of_int(y0)
+  let (r00, g00, b00) = img.pixel(x0, y0)
+  let (r10, g10, b10) = img.pixel(x1, y0)
+  let (r01, g01, b01) = img.pixel(x0, y1)
+  let (r11, g11, b11) = img.pixel(x1, y1)
+  let lerp2 = fn(a : Float, b : Float, c : Float, d : Float) -> Float {
+    let top = a + (b - a) * tx
+    let bot = c + (d - c) * tx
+    top + (bot - top) * ty
+  }
+  (lerp2(r00, r10, r01, r11), lerp2(g00, g10, g01, g11), lerp2(b00, b10, b01, b11))
+}
+
+///|
+fn equirect_faces_linear(img : HdrImage, size : Int) -> Array[FixedArray[Float]] {
+  let faces : Array[FixedArray[Float]] = []
+  for f = 0; f < 6; f = f + 1 {
+    let buf = FixedArray::make(size * size * 3, (0.0 : Float))
+    for y = 0; y < size; y = y + 1 {
+      let v = (env_f_of_int(y) + 0.5) / env_f_of_int(size) * 2.0 - 1.0
+      for x = 0; x < size; x = x + 1 {
+        let u = (env_f_of_int(x) + 0.5) / env_f_of_int(size) * 2.0 - 1.0
+        let d = cube_dir(f, u, v)
+        let (r, g, b) = equirect_sample(img, d)
+        let o = (y * size + x) * 3
+        buf[o] = r
+        buf[o + 1] = g
+        buf[o + 2] = b
+      }
+    }
+    faces.push(buf)
+  }
+  faces
+}
+
+///|
+/// GGX-prefilter linear faces into an RGBA16F cubemap mip chain. Mip 0 is the
+/// sharp source; each later mip integrates more roughness samples on the GPU.
+fn prefilter_cubemap(
   dev : @tycho.Device,
-  sun_dir : @tmath.Vec3,
-  size? : Int = 256,
-  samples? : Int = 128,
+  base_faces : Array[FixedArray[Float]],
+  s : Int,
+  samples : Int,
 ) -> @tycho.Texture raise {
-  let s = if size < 16 { 16 } else { size }
   let sample_count = if samples < 8 { 8 } else { samples }
-  let base = make_faces_linear(sun_dir, s)
-  let base_bytes = encode_faces(base, s)
-  let src = dev.create_cubemap(s, @tycho.TextureFormat::RGBA8, base_bytes)
+  let fmt = @tycho.TextureFormat::RGBA16F
+  let base_bytes = encode_faces(base_faces, s)
+  let src = dev.create_cubemap(s, fmt, base_bytes)
   let src_sampler = dev.create_sampler_desc(
     @tycho.SamplerDesc::new(
       mag=@tycho.Filter::Linear,
@@ -166,14 +228,14 @@ pub fn procedural_environment_cubemap(
     @tycho.PipelineDesc::from_spirv(
       spv_prefilter_vert,
       spv_prefilter_frag,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
+      color_format=Some(fmt),
     ),
   )
   let mips = env_mip_count(s)
   let levels : Array[Array[Bytes]] = [base_bytes]
   for m = 1; m < mips; m = m + 1 {
     let ms = if s >> m < 1 { 1 } else { s >> m }
-    let rt = dev.create_render_target(6 * ms, ms, @tycho.TextureFormat::RGBA8)
+    let rt = dev.create_render_target(6 * ms, ms, fmt)
     let cmd = dev.begin_commands()
     cmd.begin_render_pass(
       [
@@ -205,13 +267,41 @@ pub fn procedural_environment_cubemap(
     cmd.end_render_pass()
     dev.end_commands(cmd)
     let px = rt.readback()
-    levels.push(extract_faces(px, 6 * ms, ms))
+    levels.push(extract_faces(px, 6 * ms, ms, 8))
     rt.destroy()
   }
   pipe.destroy()
   src_sampler.destroy()
   src.destroy()
-  dev.create_cubemap_mipmapped(s, @tycho.TextureFormat::RGBA8, levels)
+  dev.create_cubemap_mipmapped(s, fmt, levels)
+}
+
+///|
+/// Create a procedural sky cubemap with a GPU-prefiltered mip chain.
+/// `size` is the base face resolution (256 by default); `samples` is the GGX
+/// integration sample count per texel per mip (128 by default).
+pub fn procedural_environment_cubemap(
+  dev : @tycho.Device,
+  sun_dir : @tmath.Vec3,
+  size? : Int = 256,
+  samples? : Int = 128,
+) -> @tycho.Texture raise {
+  let s = if size < 16 { 16 } else { size }
+  prefilter_cubemap(dev, make_faces_linear(sun_dir, s), s, samples)
+}
+
+///|
+/// Build a GGX-prefiltered RGBA16F environment cubemap from a linear HDR
+/// equirectangular image (see `decode_hdr`). Values above 1.0 survive, so the
+/// sun keeps its energy through the mip chain.
+pub fn equirect_environment_cubemap(
+  dev : @tycho.Device,
+  image : HdrImage,
+  size? : Int = 256,
+  samples? : Int = 128,
+) -> @tycho.Texture raise {
+  let s = if size < 16 { 16 } else { size }
+  prefilter_cubemap(dev, equirect_faces_linear(image, s), s, samples)
 }
 
 ///|

@@ -16,6 +16,11 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   map (two cascades: an inner half-radius fit at twice the density plus the
   full caster union), GGX-prefiltered (PMREM) environment IBL, HDR `RGBA16F`, separable
   bloom, and ACES tonemapping into `RGBA8Srgb`.
+- HDR environments: `decode_hdr` parses Radiance RGBE (RLE and flat
+  scanlines, -Y/+Y and +X/-X), `encode_hdr` writes it, and
+  `equirect_environment_cubemap` projects a linear equirect image into the
+  GGX-prefiltered **RGBA16F** mip chain, so sun values above 1.0 survive
+  (`f16_bits` packs half floats).
 - `procedural_environment_cubemap(size=256, samples=128)`: linear sky baked
   into a full GGX mip chain by a GPU prefilter pass (one draw per face per
   mip, read back and uploaded via `create_cubemap_mipmapped`); 512^2 with 256

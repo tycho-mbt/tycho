@@ -241,3 +241,83 @@ test "stats json" {
     "json",
   )
 }
+
+///|
+test "float16 packing" {
+  need(f16_bits(0.0) == (0x0000 : UInt16), "zero")
+  need(f16_bits(0.5) == (0x3800 : UInt16), "half")
+  need(f16_bits(1.0) == (0x3C00 : UInt16), "one")
+  need(f16_bits(2.0) == (0x4000 : UInt16), "two")
+  need(f16_bits(-2.0) == (0xC000 : UInt16), "negative")
+  need(f16_bits(65504.0) == (0x7BFF : UInt16), "max finite")
+  need(f16_bits(1.0e6) == (0x7C00 : UInt16), "overflow to inf")
+}
+
+///|
+fn hdr_close(a : Float, b : Float) -> Bool {
+  let d : Float = if a > b {
+    a - b
+  } else {
+    b - a
+  }
+  let scale : Float = if a > 0.0 {
+    a
+  } else {
+    -a
+  }
+  d <= 0.01 * (scale + 1.0)
+}
+
+///|
+fn check_hdr_roundtrip(a : HdrImage, b : HdrImage) -> Unit raise {
+  need(a.width == b.width && a.height == b.height, "hdr size")
+  for y = 0; y < a.height; y = y + 1 {
+    for x = 0; x < a.width; x = x + 1 {
+      let (ar, ag, ab) = a.pixel(x, y)
+      let (br, bg, bb) = b.pixel(x, y)
+      need(hdr_close(ar, br), "hdr red")
+      need(hdr_close(ag, bg), "hdr green")
+      need(hdr_close(ab, bb), "hdr blue")
+    }
+  }
+}
+
+///|
+test "radiance hdr roundtrip" {
+  let img = HdrImage::new(16, 4)
+  for y = 0; y < 4; y = y + 1 {
+    for x = 0; x < 16; x = x + 1 {
+      let fx = Float::from_int(x)
+      let fy = Float::from_int(y)
+      let b : Float = if (x + y) % 3 == 0 { 40.0 } else { 0.5 }
+      img.set_pixel(x, y, 0.25 + fx, 2.0 + fy, b)
+    }
+  }
+  match decode_hdr(encode_hdr(img)) {
+    Some(dec) => check_hdr_roundtrip(img, dec)
+    None => fail("RLE decode failed")
+  }
+  match decode_hdr(encode_hdr(img, rle=false)) {
+    Some(dec) => check_hdr_roundtrip(img, dec)
+    None => fail("flat decode failed")
+  }
+  let tiny = HdrImage::new(4, 2)
+  tiny.set_pixel(1, 0, 8.0, 0.5, 0.25)
+  match decode_hdr(encode_hdr(tiny)) {
+    Some(dec) => check_hdr_roundtrip(tiny, dec)
+    None => fail("narrow decode failed")
+  }
+}
+
+///|
+test "equirect uv" {
+  let (u0, v0) = equirect_uv(@tmath.Vec3::new(0.0, 0.0, 1.0))
+  need(close(u0, 0.5), "u +Z")
+  need(close(v0, 0.5), "v horizon")
+  let (u1, _) = equirect_uv(@tmath.Vec3::new(1.0, 0.0, 0.0))
+  need(close(u1, 0.75), "u +X")
+  let (_, v1) = equirect_uv(@tmath.Vec3::new(0.0, 1.0, 0.0))
+  need(close(v1, 0.0), "v zenith")
+  let (_, v2) = equirect_uv(@tmath.Vec3::new(0.0, -1.0, 0.0))
+  need(close(v2, 1.0), "v nadir")
+}
