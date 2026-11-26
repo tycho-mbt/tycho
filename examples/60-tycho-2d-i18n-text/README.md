@@ -37,6 +37,6 @@ moon build --target native 60-tycho-2d-i18n-text
 Sample output:
 
 ```json
-{"ligature":true,"arabic_forms":7,"rtl_first":1501,"selection_boxes":1,"bold_italic":true,"sdf_glyphs":6,"devanagari":true,"inline_image":true,"text_on_path":true,"yellow_pixels":3000}
+{"ligature":true,"arabic_forms":7,"rtl_first":1501,"selection_boxes":1,"bold_italic":true,"sdf_glyphs":6,"msdf_glyphs":6,"devanagari":true,"inline_image":true,"text_on_path":true,"yellow_pixels":3000}
 [60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + Devanagari + inline image + text-on-path + synthetic bold/italic + SDF, 7 Arabic forms, 6 SDF glyphs, 0 validation errors
 ```
