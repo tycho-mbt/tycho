@@ -94,6 +94,7 @@ pub struct Renderer2D {
   priv max_path_verts : Int
   priv prim_ssbo : @tycho.Buffer
   priv overflow_prim_ssbos : Array[@tycho.Buffer]
+  priv overflow_last_used : Array[Int]
   priv mut active_prim_ssbo : @tycho.Buffer
   priv mut active_prim_slot_base : Int
   priv mut active_prim_chunk : Int
@@ -574,6 +575,7 @@ pub fn Renderer2D::new(
     max_path_verts: max_path_verts_per_frame,
     prim_ssbo,
     overflow_prim_ssbos: [],
+    overflow_last_used: [],
     active_prim_ssbo: prim_ssbo,
     active_prim_slot_base: 0,
     active_prim_chunk: 0,
@@ -968,6 +970,10 @@ fn Renderer2D::emit_prim(
       self.overflow_prim_ssbos.push(nb)
       nb
     }
+    while self.overflow_last_used.length() <= ov_idx {
+      self.overflow_last_used.push(self.frame_idx)
+    }
+    self.overflow_last_used[ov_idx] = self.frame_idx
     self.active_prim_ssbo = buf
     self.active_prim_slot_base = self.slot_prim_base()
     self.prim_cursor = 0
@@ -2801,26 +2807,35 @@ fn Renderer2D::replay_ops(
 }
 
 ///|
-fn Renderer2D::render_into_scene(
+fn Renderer2D::reset_frame_state(
   self : Renderer2D,
-  cmd : @tycho.CommandBuffer,
-  dl : DisplayList,
   width : Int,
   height : Int,
-  clear_color : Color,
-  slot? : Int = 0,
-  rt_slot? : Int = 0,
-) -> @tycho.Texture raise @tycho.RhiError {
+  slot : Int,
+  rt_slot : Int,
+) -> Unit {
   self.active_slot = slot
   self.active_rt_slot = rt_slot
   self.rt_pool.release_slot(rt_slot)
-  let (scene_tex, scene_ds_opt) = self.rt_pool.acquire(
-    width,
-    height,
-    with_depth_stencil=true,
-    slot=rt_slot,
-  )
-  let scene_ds = scene_ds_opt.unwrap()
+  // Reclaim overflow prim buffers that have been idle for several frames (the
+  // extra slack covers the 2-frames-in-flight submissions).
+  while self.overflow_prim_ssbos.length() > 0 {
+    let last = self.overflow_prim_ssbos.length() - 1
+    let used = if last < self.overflow_last_used.length() {
+      self.overflow_last_used[last]
+    } else {
+      0
+    }
+    if used < self.frame_idx - 3 {
+      match self.overflow_prim_ssbos.pop() {
+        Some(b) => b.destroy()
+        None => ()
+      }
+      let _ = self.overflow_last_used.pop()
+    } else {
+      break
+    }
+  }
   self.prim_cursor = 0
   self.prim_batch_start = 0
   self.active_prim_ssbo = self.prim_ssbo
@@ -2839,7 +2854,27 @@ fn Renderer2D::render_into_scene(
   self.has_stencil_clip = false
   self.cur_blend = BlendMode2D::SrcOver
   self.state_stack.clear()
+}
 
+///|
+fn Renderer2D::render_into_scene(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+  dl : DisplayList,
+  width : Int,
+  height : Int,
+  clear_color : Color,
+  slot? : Int = 0,
+  rt_slot? : Int = 0,
+) -> @tycho.Texture raise @tycho.RhiError {
+  self.reset_frame_state(width, height, slot, rt_slot)
+  let (scene_tex, scene_ds_opt) = self.rt_pool.acquire(
+    width,
+    height,
+    with_depth_stencil=true,
+    slot=rt_slot,
+  )
+  let scene_ds = scene_ds_opt.unwrap()
   self.begin_target_pass(
     cmd,
     scene_tex,
@@ -2868,49 +2903,23 @@ pub fn Renderer2D::render_offscreen(
   let w = target.width()
   let h = target.height()
   let cmd = self.dev.begin_commands()
-  let scene_tex = self.render_into_scene(cmd, dl, w, h, clear_color, slot=0, rt_slot=2)
-  let u1 = Float::from_int(w) / Float::from_int(scene_tex.width())
-  let v1 = Float::from_int(h) / Float::from_int(scene_tex.height())
-  cmd.begin_render_pass([
-    @tycho.RenderTargetDesc::new(
-      target,
-      load_op=@tycho.LoadOp::Clear,
-      store_op=@tycho.StoreOp::Store,
-      clear_color=clear_color.to_clear_color(),
-    ),
-  ])
-  cmd.set_viewport((0.0 : Float), (0.0 : Float), Float::from_int(w), Float::from_int(h))
-  cmd.set_scissor(0, 0, w, h)
-  cmd.bind_pipeline(self.present_pipe)
-  cmd.bind_texture(self.present_pipe, 0, scene_tex, self.sampler)
-  cmd.bind_storage(self.present_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
-  cmd.push_constants_floats(self.present_pipe, [
-    (0.0 : Float),
-    (0.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    u1,
-    v1,
-    (0.0 : Float),
-    (0.0 : Float),
-    Float::from_int(w),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (-1.0 : Float),
-    (-1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-  ])
-  cmd.draw(6, 1)
+  // Render straight into the caller's target: the previous implementation
+  // rendered into a pooled scene texture and then blitted it, costing one full
+  // extra color target plus a full-screen sample+write per offscreen render.
+  self.reset_frame_state(w, h, 0, 2)
+  let ds = self.rt_pool.acquire_depth(w, h, slot=2)
+  self.begin_target_pass(
+    cmd,
+    target,
+    ds,
+    w,
+    h,
+    @tycho.LoadOp::Clear,
+    clear_color,
+    @tycho.LoadOp::Clear,
+  )
+  self.replay_ops(cmd, dl.ops)
+  self.flush_prims(cmd)
   cmd.end_render_pass()
   self.dev.end_commands(cmd)
   self.rt_pool.release_slot(2)
