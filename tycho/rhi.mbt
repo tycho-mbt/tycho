@@ -643,6 +643,8 @@ pub fn Swapchain::create_pipeline(
             false,
             true,
             0,
+            [],
+            [],
           ),
         ),
       }
@@ -673,6 +675,7 @@ pub fn Swapchain::create_pipeline_desc(
           "push constants are not implemented on the DX12 backend yet",
         )
       }
+      let (inputs, strides) = dx12_vertex_input(desc)
       return {
         backend: Dx12Pipeline(
           dx12_pipeline_create(
@@ -686,6 +689,8 @@ pub fn Swapchain::create_pipeline_desc(
             }),
             desc.depth_write,
             desc.texture_slots,
+            inputs,
+            strides,
           ),
         ),
       }
@@ -945,7 +950,17 @@ pub fn Buffer::upload_uint32(
   count? : Int = -1,
 ) -> Unit raise RhiError {
   let n = resolve_upload_count(count, data.length())
-  vk_buffer_upload_uint32(self.vk(), data, offset, n)
+  match self.dx12() {
+    // Little-endian byte order matches both backends' expectations for indices.
+    Some(state) => {
+      let bytes = Bytes::makei(n * 4, fn(i) {
+        let value = data[i / 4].reinterpret_as_int()
+        ((value >> ((i % 4) * 8)) & 0xFF).to_byte()
+      })
+      dx12_buffer_write(state, bytes, offset, n * 4)
+    }
+    None => vk_buffer_upload_uint32(self.vk(), data, offset, n)
+  }
 }
 
 ///|
@@ -1756,7 +1771,17 @@ pub fn CommandBuffer::bind_vertex(
   buffer : Buffer,
   offset? : Int = 0,
 ) -> Unit {
-  self.on_vk_buffer(buffer, fn(state, b) { vk_cmd_bind_vertex(state, slot, b, offset) })
+  match self.backend {
+    VkCommands(_) =>
+      self.on_vk_buffer(buffer, fn(state, b) { vk_cmd_bind_vertex(state, slot, b, offset) })
+    Dx12Commands(cmd) =>
+      match buffer.backend {
+        Dx12Buffer(state) => {
+          let _ = dx12_bind_vertex(cmd, slot, state, offset)
+        }
+        VkBuffer(_) => ()
+      }
+  }
 }
 
 ///|
@@ -1766,7 +1791,17 @@ pub fn CommandBuffer::bind_index(
   index_type : IndexType,
   offset? : Int = 0,
 ) -> Unit {
-  self.on_vk_buffer(buffer, fn(state, b) { vk_cmd_bind_index(state, b, index_type, offset) })
+  match self.backend {
+    VkCommands(_) =>
+      self.on_vk_buffer(buffer, fn(state, b) { vk_cmd_bind_index(state, b, index_type, offset) })
+    Dx12Commands(cmd) =>
+      match buffer.backend {
+        Dx12Buffer(state) => {
+          let _ = dx12_bind_index(cmd, state, index_type, offset)
+        }
+        VkBuffer(_) => ()
+      }
+  }
 }
 
 ///|
@@ -1915,9 +1950,19 @@ pub fn CommandBuffer::draw_indexed_full(
   vertex_offset : Int,
   first_instance : Int,
 ) -> Unit {
-  self.on_vk(fn(state) {
-    vk_cmd_draw_indexed_full(state, index_count, instances, first_index, vertex_offset, first_instance)
-  })
+  match self.backend {
+    VkCommands(state) =>
+      vk_cmd_draw_indexed_full(
+        state,
+        index_count,
+        instances,
+        first_index,
+        vertex_offset,
+        first_instance,
+      )
+    Dx12Commands(cmd) =>
+      dx12_draw_indexed(cmd, index_count, instances, first_index, vertex_offset)
+  }
 }
 
 ///|

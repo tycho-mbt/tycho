@@ -89,8 +89,14 @@ extern "c" fn cmd_copy_to_readback_ffi(cmds : UInt64, tex : UInt64, rb : UInt64)
 
 extern "c" fn commands_execute_wait_ffi(dev : UInt64, cmds : UInt64) -> Int32 = "tycho_dx12_commands_execute_wait"
 
-#borrow(vs, ps)
-extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int, depth_enable : Int, depth_write : Int, srv_tables : Int) -> UInt64 = "tycho_dx12_pipeline_create"
+#borrow(vs, ps, inputs)
+extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int, depth_enable : Int, depth_write : Int, srv_tables : Int, input_count : Int, inputs : FixedArray[Int]) -> UInt64 = "tycho_dx12_pipeline_create"
+
+extern "c" fn cmd_draw_indexed_ffi(cmds : UInt64, tex : UInt64, index_count : Int, instances : Int, first_index : Int, vertex_offset : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_draw_indexed"
+
+extern "c" fn cmd_bind_vertex_ffi(cmds : UInt64, slot : Int, gpu_address : UInt64, size : Int, stride : Int) -> Int32 = "tycho_dx12_cmd_bind_vertex"
+
+extern "c" fn cmd_bind_index_ffi(cmds : UInt64, gpu_address : UInt64, size : Int, index32 : Int) -> Int32 = "tycho_dx12_cmd_bind_index"
 
 #borrow(pixels)
 extern "c" fn texture_create_uploaded_ffi(dev : UInt64, width : Int, height : Int, pixels : Bytes, pixel_bytes : Int) -> UInt64 = "tycho_dx12_texture_create_uploaded"
@@ -267,6 +273,7 @@ pub fn Pipeline::create(
   depth? : Bool = false,
   depth_write? : Bool = true,
   srv_tables? : Int = 0,
+  inputs? : FixedArray[Int] = [],
 ) -> Pipeline? {
   let handle = pipeline_create_ffi(
     device.handle,
@@ -279,6 +286,8 @@ pub fn Pipeline::create(
     if depth { 1 } else { 0 },
     if depth_write { 1 } else { 0 },
     srv_tables,
+    inputs.length() / 5,
+    inputs,
   )
   if handle == (0 : UInt64) {
     None
@@ -694,6 +703,65 @@ pub fn CommandList::dispatch(self : CommandList, x : Int, y : Int, z? : Int = 1)
 /// A compute pipeline: one DXIL blob, its own root signature.
 pub struct ComputePipeline {
   handle : UInt64
+}
+
+// ---------------------------------------------------------------------------
+// Vertex and index buffers
+// ---------------------------------------------------------------------------
+
+///|
+/// Binds a vertex buffer to input slot `slot`. `stride` must match the pipeline's
+/// vertex layout, because D3D12 takes it per binding (Vulkan takes it from the
+/// pipeline as well, just at creation time).
+pub fn CommandList::bind_vertex(
+  self : CommandList,
+  slot : Int,
+  buffer : Buffer,
+  size : Int,
+  stride : Int,
+  offset? : Int = 0,
+) -> Bool {
+  cmd_bind_vertex_ffi(self.handle, slot, buffer.gpu_address() + offset.to_uint64(), size, stride) !=
+    0
+}
+
+///|
+/// Binds an index buffer; `index32` selects `R32_UINT` over `R16_UINT`.
+pub fn CommandList::bind_index(
+  self : CommandList,
+  buffer : Buffer,
+  size : Int,
+  index32 : Bool,
+  offset? : Int = 0,
+) -> Bool {
+  cmd_bind_index_ffi(
+    self.handle,
+    buffer.gpu_address() + offset.to_uint64(),
+    size,
+    if index32 { 1 } else { 0 },
+  ) != 0
+}
+
+///|
+/// Indexed draw. `flip_y` must match the pipeline (see `Pipeline::create`).
+pub fn CommandList::draw_indexed(
+  self : CommandList,
+  tex : Texture,
+  index_count : Int,
+  instances? : Int = 1,
+  first_index? : Int = 0,
+  vertex_offset? : Int = 0,
+  flip_y? : Bool = false,
+) -> Bool {
+  cmd_draw_indexed_ffi(
+    self.handle,
+    tex.handle,
+    index_count,
+    instances,
+    first_index,
+    vertex_offset,
+    if flip_y { 1 } else { 0 },
+  ) != 0
 }
 
 // ---------------------------------------------------------------------------

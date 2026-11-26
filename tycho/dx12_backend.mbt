@@ -33,10 +33,12 @@ priv struct Dx12DeviceState {
 
 ///|
 /// A compiled DX12 pipeline plus the uniform slot count its root signature was
-/// built with (slot i = root CBV i = `register(b<i>, space0)`).
+/// built with (slot i = root CBV i = `register(b<i>, space0)`), and the vertex
+/// stride per input slot (D3D12 wants it on every bind, not only at creation).
 priv struct Dx12PipelineState {
   pipe : @dx12.Pipeline
   uniform_slots : Int
+  strides : FixedArray[Int]
 }
 
 ///|
@@ -77,6 +79,7 @@ priv struct Dx12CommandState {
   device : @dx12.Device
   commands : @dx12.CommandList
   mut target : @dx12.Texture?
+  mut bound : Dx12PipelineState?
   clear : ClearColor
   owned_target : Bool
 }
@@ -181,6 +184,8 @@ fn dx12_pipeline_create(
   depth : Bool,
   depth_write : Bool,
   srv_tables : Int,
+  inputs : FixedArray[Int],
+  strides : FixedArray[Int],
 ) -> Dx12PipelineState raise RhiError {
   // Root CBVs cost nothing to declare, so uniform slots are supported directly;
   // `flip_y` pins the Vulkan clip-space/winding convention (docs/original-design
@@ -197,8 +202,9 @@ fn dx12_pipeline_create(
     depth=depth,
     depth_write=depth_write,
     srv_tables=srv_tables,
+    inputs=inputs,
   ) {
-    Some(p) => { pipe: p, uniform_slots, }
+    Some(p) => { pipe: p, uniform_slots, strides }
     None => raise RhiError::PipelineFailed("DX12 CreateGraphicsPipelineState failed")
   }
 }
@@ -221,9 +227,11 @@ fn dx12_buffer_create(
   }
   match kind {
     BufferKind::Uniform => ()
+    BufferKind::Vertex => ()
+    BufferKind::Index => ()
     _ =>
       raise RhiError::BackendUnsupported(
-        "the DX12 backend only uploads uniform buffers so far",
+        "the DX12 backend uploads uniform, vertex and index buffers so far",
       )
   }
   // Prefer a region of the shared placed heap (RegionPool decides the offset);
@@ -271,6 +279,7 @@ fn dx12_begin_frame_commands(state : Dx12SwapchainState) -> Dx12CommandState rai
     device: state.device,
     commands: state.commands,
     target: Some(target),
+    bound: None,
     clear: state.clear,
     owned_target: true,
   }
@@ -360,6 +369,7 @@ fn dx12_end_frame(state : Dx12SwapchainState, cmd : Dx12CommandState) -> Unit ra
 ///|
 fn dx12_bind_pipeline(cmd : Dx12CommandState, pipe : Dx12PipelineState) -> Unit {
   let _ = cmd.commands.set_pipeline(pipe.pipe)
+  cmd.bound = Some(pipe)
 }
 
 ///|
@@ -462,6 +472,7 @@ fn dx12_commands_create(state : Dx12DeviceState) -> Dx12CommandState raise RhiEr
     device: state.device,
     commands: cmd,
     target: None,
+    bound: None,
     clear: ClearColor::black(),
     owned_target: false,
   }
@@ -560,6 +571,7 @@ fn dx12_pipeline_create_from_desc(
     None => false
   }
   let depth = desc.depth_test && has_depth
+  let (inputs, strides) = dx12_vertex_input(desc)
   dx12_pipeline_create(
     state.device,
     desc.vert,
@@ -568,6 +580,8 @@ fn dx12_pipeline_create_from_desc(
     depth,
     desc.depth_write,
     desc.texture_slots,
+    inputs,
+    strides,
   )
 }
 
@@ -702,5 +716,135 @@ fn dx12_buffer_place(
             }
           }
       }
+  }
+}
+
+///|
+/// Translates `PipelineDesc`'s vertex description into the packed D3D12 element
+/// list (five int32 per element: location, format, slot, offset, per-instance) and
+/// the per-slot strides. It mirrors the Vulkan path in `vk_backend.mbt`: either
+/// explicit `vertex_layouts`, or the implicit single binding packed out of
+/// `vertex_formats`.
+fn dx12_vertex_input(desc : PipelineDesc) -> (FixedArray[Int], FixedArray[Int]) {
+  let layouts = desc.vertex_layouts
+  let formats = desc.vertex_formats
+  let use_layouts = layouts.length() > 0
+  let mut total = 0
+  if use_layouts {
+    for layout in layouts {
+      total = total + layout.attributes.length()
+    }
+  } else {
+    total = formats.length()
+  }
+  let packed = FixedArray::make(total * 5, 0)
+  let slots = if use_layouts {
+    layouts.length()
+  } else if formats.length() > 0 {
+    1
+  } else {
+    0
+  }
+  let strides = FixedArray::make(slots, 0)
+  let mut i = 0
+  if use_layouts {
+    for bi = 0; bi < layouts.length(); bi = bi + 1 {
+      let layout = layouts[bi]
+      strides[bi] = layout.stride
+      for attr in layout.attributes {
+        packed[i * 5] = attr.location
+        packed[i * 5 + 1] = match attr.format {
+          VertexFormat::Float2 => 0
+          VertexFormat::Float3 => 1
+          VertexFormat::Float4 => 2
+        }
+        packed[i * 5 + 2] = bi
+        packed[i * 5 + 3] = attr.offset
+        packed[i * 5 + 4] = match layout.step_mode {
+          VertexStepMode::Vertex => 0
+          VertexStepMode::Instance => 1
+        }
+        i = i + 1
+      }
+    }
+  } else if formats.length() > 0 {
+    let mut offset = 0
+    for fi = 0; fi < formats.length(); fi = fi + 1 {
+      let format = formats[fi]
+      packed[i * 5] = fi
+      packed[i * 5 + 1] = match format {
+        VertexFormat::Float2 => 0
+        VertexFormat::Float3 => 1
+        VertexFormat::Float4 => 2
+      }
+      packed[i * 5 + 2] = 0
+      packed[i * 5 + 3] = offset
+      packed[i * 5 + 4] = 0
+      offset = offset + vertex_format_bytes(format)
+      i = i + 1
+    }
+    strides[0] = offset
+  }
+  (packed, strides)
+}
+
+///|
+fn dx12_bind_vertex(
+  cmd : Dx12CommandState,
+  slot : Int,
+  buffer : Dx12BufferState,
+  offset : Int,
+) -> Bool {
+  match cmd.bound {
+    Some(pipe) =>
+      if slot < 0 || slot >= pipe.strides.length() || pipe.strides[slot] <= 0 {
+        false
+      } else {
+        cmd.commands.bind_vertex(
+          slot,
+          buffer.buffer,
+          buffer.size - offset,
+          pipe.strides[slot],
+          offset~,
+        )
+      }
+    None => false
+  }
+}
+
+///|
+fn dx12_bind_index(
+  cmd : Dx12CommandState,
+  buffer : Dx12BufferState,
+  index_type : IndexType,
+  offset : Int,
+) -> Bool {
+  let index32 = match index_type {
+    IndexType::Uint16 => false
+    IndexType::Uint32 => true
+  }
+  cmd.commands.bind_index(buffer.buffer, buffer.size - offset, index32, offset~)
+}
+
+///|
+fn dx12_draw_indexed(
+  cmd : Dx12CommandState,
+  index_count : Int,
+  instances : Int,
+  first_index : Int,
+  vertex_offset : Int,
+) -> Unit {
+  match cmd.target {
+    Some(target) => {
+      let _ = cmd.commands.draw_indexed(
+        target,
+        index_count,
+        instances=instances,
+        first_index=first_index,
+        vertex_offset=vertex_offset,
+        flip_y=true,
+      )
+    }
+    None => ()
   }
 }

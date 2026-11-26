@@ -6471,7 +6471,7 @@ pub extern "c" fn dx_dxgi_factory_get_window_association(obj : UInt64, p_window_
 pub extern "c" fn dx_dxgi_factory_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory_CreateSwapChain"
 
 ///|
-pub extern "c" fn dx_dxgi_factory_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory_CreateSoftwareAdapter"
+pub extern "c" fn dx_dxgi_factory_create_software_adapter(obj : UInt64, a0 : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory_CreateSoftwareAdapter"
 
 ///|
 pub extern "c" fn dx_dxgi_device_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice_SetPrivateData"
@@ -6525,7 +6525,7 @@ pub extern "c" fn dx_dxgi_factory1_get_window_association(obj : UInt64, p_window
 pub extern "c" fn dx_dxgi_factory1_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_CreateSwapChain"
 
 ///|
-pub extern "c" fn dx_dxgi_factory1_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_CreateSoftwareAdapter"
+pub extern "c" fn dx_dxgi_factory1_create_software_adapter(obj : UInt64, a0 : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_CreateSoftwareAdapter"
 
 ///|
 pub extern "c" fn dx_dxgi_factory1_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_EnumAdapters1"
@@ -6843,7 +6843,7 @@ pub extern "c" fn dx_dxgi_factory2_get_window_association(obj : UInt64, p_window
 pub extern "c" fn dx_dxgi_factory2_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_CreateSwapChain"
 
 ///|
-pub extern "c" fn dx_dxgi_factory2_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_CreateSoftwareAdapter"
+pub extern "c" fn dx_dxgi_factory2_create_software_adapter(obj : UInt64, a0 : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_CreateSoftwareAdapter"
 
 ///|
 pub extern "c" fn dx_dxgi_factory2_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_EnumAdapters1"
@@ -7203,7 +7203,7 @@ pub extern "c" fn dx_dxgi_factory3_get_window_association(obj : UInt64, p_window
 pub extern "c" fn dx_dxgi_factory3_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_CreateSwapChain"
 
 ///|
-pub extern "c" fn dx_dxgi_factory3_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_CreateSoftwareAdapter"
+pub extern "c" fn dx_dxgi_factory3_create_software_adapter(obj : UInt64, a0 : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_CreateSoftwareAdapter"
 
 ///|
 pub extern "c" fn dx_dxgi_factory3_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_EnumAdapters1"
@@ -7560,7 +7560,7 @@ pub extern "c" fn dx_dxgi_factory4_get_window_association(obj : UInt64, p_window
 pub extern "c" fn dx_dxgi_factory4_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_CreateSwapChain"
 
 ///|
-pub extern "c" fn dx_dxgi_factory4_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_CreateSoftwareAdapter"
+pub extern "c" fn dx_dxgi_factory4_create_software_adapter(obj : UInt64, a0 : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_CreateSoftwareAdapter"
 
 ///|
 pub extern "c" fn dx_dxgi_factory4_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_EnumAdapters1"
@@ -7917,7 +7917,7 @@ pub extern "c" fn dx_dxgi_factory5_get_window_association(obj : UInt64, p_window
 pub extern "c" fn dx_dxgi_factory5_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_CreateSwapChain"
 
 ///|
-pub extern "c" fn dx_dxgi_factory5_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_CreateSoftwareAdapter"
+pub extern "c" fn dx_dxgi_factory5_create_software_adapter(obj : UInt64, a0 : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_CreateSoftwareAdapter"
 
 ///|
 pub extern "c" fn dx_dxgi_factory5_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_EnumAdapters1"
@@ -8121,7 +8121,7 @@ pub extern "c" fn dx_dxgi_factory6_get_window_association(obj : UInt64, p_window
 pub extern "c" fn dx_dxgi_factory6_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_CreateSwapChain"
 
 ///|
-pub extern "c" fn dx_dxgi_factory6_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_CreateSoftwareAdapter"
+pub extern "c" fn dx_dxgi_factory6_create_software_adapter(obj : UInt64, a0 : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_CreateSoftwareAdapter"
 
 ///|
 pub extern "c" fn dx_dxgi_factory6_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_EnumAdapters1"
@@ -8202,7 +8202,7 @@ pub extern "c" fn dx_dxgi_factory7_get_window_association(obj : UInt64, p_window
 pub extern "c" fn dx_dxgi_factory7_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_CreateSwapChain"
 
 ///|
-pub extern "c" fn dx_dxgi_factory7_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_CreateSoftwareAdapter"
+pub extern "c" fn dx_dxgi_factory7_create_software_adapter(obj : UInt64, a0 : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_CreateSoftwareAdapter"
 
 ///|
 pub extern "c" fn dx_dxgi_factory7_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_EnumAdapters1"

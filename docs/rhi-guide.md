@@ -180,3 +180,4 @@ if dev.capabilities().supports_ray_query {
 | `78-dx12-depth` | Headless DX12: offscreen RGBA8 target + `Depth32F` depth test, readback, depth-order independence asserted |
 | `79-dx12-texture` | Headless DX12 sampling: RGBA8 upload → shader-visible SRV heap + sampler heap → SRV/sampler descriptor tables; `SamplerDesc` (filter/address) honoured, descriptor slots recycled |
 | `80-dx12-compute` | Headless DX12 compute: storage texture (UAV table) + compute PSO + `Dispatch`, gradient written by the shader and read back |
+| `81-dx12-geometry` | Headless DX12 vertex/index buffers: D3D12 input layout from `vertex_formats`, `IASetVertexBuffers`/`IASetIndexBuffer`, indexed draw |

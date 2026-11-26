@@ -16,9 +16,9 @@ validated before the code generator takes over in M1b.
 | Surface | Notes |
 |---|---|
 | `Device` | FL 12_0 device + direct queue + fence; hardware adapter first, WARP on request; optional debug layer (`ID3D12InfoQueue` message counting); `wait_idle`, `raw()` for raw COM interop |
-| `CommandList` | direct allocator + command list, `begin` / `transition` / clear / draw / copy / `execute_wait` |
+| `CommandList` | direct allocator + command list, `begin` / `transition` / clear / `draw` / `draw_indexed` / `bind_vertex` / `bind_index` / `copy_to_readback` / `execute_wait` |
 | `ResourceState` | typed states (`RenderTarget`, `CopySource`, `CopyDest`, `Present`, …); the shim tracks the native state per texture and only emits a barrier when it actually changes, and drawing/copying from the wrong state fails with `E_ILLEGAL_METHOD_CALL` |
-| `Pipeline` | empty root signature + graphics PSO from DXIL blobs |
+| `Pipeline` | graphics PSO from DXIL blobs: root signature (root CBVs + SRV/sampler or UAV tables), depth state, and an input layout built from packed element records (`TEXCOORD(location * 10)`, the index Slang emits) |
 | `Texture` | RGBA8 UNORM render target with its own RTV heap (`state()` reports the tracked state) |
 | `Swapchain` | DXGI flip-model (`DXGI_SWAP_EFFECT_FLIP_DISCARD`, 3 buffers) on an `HWND`; `target(index)` wraps a back buffer, `present()` distinguishes presented / occluded / failed, `resize()` recreates the RTV heap |
 | `Readback` | READBACK-heap buffer, rows repacked to tightly packed RGBA8 on the MoonBit side |

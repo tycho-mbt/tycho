@@ -5542,6 +5542,8 @@ pub struct CommandList {
   handle : UInt64
 }
 pub fn CommandList::begin(Self) -> Bool
+pub fn CommandList::bind_index(Self, Buffer, Int32, Bool, offset? : Int32) -> Bool
+pub fn CommandList::bind_vertex(Self, Int32, Buffer, Int32, Int32, offset? : Int32) -> Bool
 pub fn CommandList::clear(Self, Texture, Float, Float, Float, Float) -> Bool
 pub fn CommandList::clear_depth(Self, Texture, depth? : Float) -> Bool
 pub fn CommandList::copy_to_readback(Self, Texture, Readback) -> Bool
@@ -5549,6 +5551,7 @@ pub fn CommandList::create(Device) -> Self?
 pub fn CommandList::destroy(Self) -> Unit
 pub fn CommandList::dispatch(Self, Int32, Int32, z? : Int32) -> Bool
 pub fn CommandList::draw(Self, Texture, Int32, instances? : Int32, flip_y? : Bool) -> Bool
+pub fn CommandList::draw_indexed(Self, Texture, Int32, instances? : Int32, first_index? : Int32, vertex_offset? : Int32, flip_y? : Bool) -> Bool
 pub fn CommandList::execute_wait(Self, Device) -> Bool
 pub fn CommandList::handle(Self) -> UInt64
 pub fn CommandList::set_cbv(Self, Int32, Buffer, offset? : Int32) -> Bool
@@ -5583,7 +5586,7 @@ pub fn Device::wait_idle(Self) -> Bool
 pub struct Pipeline {
   handle : UInt64
 }
-pub fn Pipeline::create(Device, FixedArray[UInt32], Int32, FixedArray[UInt32], Int32, cbv_count? : Int32, flip_y? : Bool, depth? : Bool, depth_write? : Bool, srv_tables? : Int32) -> Self?
+pub fn Pipeline::create(Device, FixedArray[UInt32], Int32, FixedArray[UInt32], Int32, cbv_count? : Int32, flip_y? : Bool, depth? : Bool, depth_write? : Bool, srv_tables? : Int32, inputs? : FixedArray[Int32]) -> Self?
 pub fn Pipeline::destroy(Self) -> Unit
 pub fn Pipeline::handle(Self) -> UInt64
 

@@ -74,7 +74,42 @@ SCALAR64 = {
     "UINT_PTR",
     "INT_PTR",
 }
-KEYWORDS = {"self", "fn", "let", "match", "type", "test", "if", "else", "return", "while", "for"}
+# MoonBit reserved words: a parameter with one of these names falls back to
+# `a<index>` (e.g. DXGI's `module` argument).
+KEYWORDS = {
+    "self",
+    "fn",
+    "let",
+    "match",
+    "type",
+    "test",
+    "if",
+    "else",
+    "return",
+    "while",
+    "for",
+    "module",
+    "struct",
+    "enum",
+    "trait",
+    "impl",
+    "pub",
+    "priv",
+    "mut",
+    "const",
+    "import",
+    "extern",
+    "guard",
+    "async",
+    "break",
+    "continue",
+    "in",
+    "is",
+    "try",
+    "catch",
+    "throw",
+    "raise",
+}
 
 
 def parse_manifest() -> tuple[list[dict], dict[str, str]]:

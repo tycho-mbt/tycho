@@ -625,10 +625,9 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_pipeline(uint64_t cmd_p, uint64_t 
   return 1;
 }
 
-MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd_p, uint64_t tex_p, int32_t vertices,
-                                              int32_t instances, int32_t flip_y) {
-  TychoDxCommands *cmds = as_commands(cmd_p);
-  TychoDxTexture *tex = as_texture(tex_p);
+// State every draw needs: render target (plus depth), viewport, scissor and
+// topology. Indexed and procedural draws share it so they cannot drift apart.
+static int dx12_prepare_draw(TychoDxCommands *cmds, TychoDxTexture *tex, int32_t flip_y) {
   D3D12_VIEWPORT vp;
   D3D12_RECT scissor;
   if (!cmds || !tex) return 0;
@@ -654,9 +653,58 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd_p, uint64_t tex_p, i
   scissor.bottom = tex->height;
   cmds->list->lpVtbl->RSSetScissorRects(cmds->list, 1, &scissor);
   cmds->list->lpVtbl->IASetPrimitiveTopology(cmds->list,
-                                             D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+                                            D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd_p, uint64_t tex_p, int32_t vertices,
+                                              int32_t instances, int32_t flip_y) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  if (!dx12_prepare_draw(cmds, as_texture(tex_p), flip_y)) return 0;
   cmds->list->lpVtbl->DrawInstanced(cmds->list, (UINT)vertices,
                                     instances > 0 ? (UINT)instances : 1U, 0, 0);
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw_indexed(uint64_t cmd_p, uint64_t tex_p,
+                                                       int32_t index_count, int32_t instances,
+                                                       int32_t first_index,
+                                                       int32_t vertex_offset, int32_t flip_y) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  if (!dx12_prepare_draw(cmds, as_texture(tex_p), flip_y)) return 0;
+  cmds->list->lpVtbl->DrawIndexedInstanced(cmds->list, (UINT)index_count,
+                                           instances > 0 ? (UINT)instances : 1U,
+                                           (UINT)first_index, vertex_offset, 0);
+  return 1;
+}
+
+// Vertex/index buffers are plain GPU addresses; the stride is a pipeline
+// property (D3D12 needs it per binding, Vulkan takes it from the pipeline too).
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_bind_vertex(uint64_t cmd_p, int32_t slot,
+                                                      uint64_t gpu_address, int32_t size,
+                                                      int32_t stride) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  D3D12_VERTEX_BUFFER_VIEW view;
+  if (!cmds || slot < 0 || size <= 0 || stride <= 0) return 0;
+  memset(&view, 0, sizeof view);
+  view.BufferLocation = (D3D12_GPU_VIRTUAL_ADDRESS)gpu_address;
+  view.SizeInBytes = (UINT)size;
+  view.StrideInBytes = (UINT)stride;
+  cmds->list->lpVtbl->IASetVertexBuffers(cmds->list, (UINT)slot, 1, &view);
+  return 1;
+}
+
+// `index32` selects R32_UINT over R16_UINT.
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_bind_index(uint64_t cmd_p, uint64_t gpu_address,
+                                                     int32_t size, int32_t index32) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  D3D12_INDEX_BUFFER_VIEW view;
+  if (!cmds || size <= 0) return 0;
+  memset(&view, 0, sizeof view);
+  view.BufferLocation = (D3D12_GPU_VIRTUAL_ADDRESS)gpu_address;
+  view.SizeInBytes = (UINT)size;
+  view.Format = index32 ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
+  cmds->list->lpVtbl->IASetIndexBuffer(cmds->list, &view);
   return 1;
 }
 
@@ -750,7 +798,9 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
                                                        int32_t ps_len, int32_t cbv_count,
                                                        int32_t flip_y, int32_t depth_enable,
                                                        int32_t depth_write,
-                                                       int32_t srv_tables) {
+                                                       int32_t srv_tables,
+                                                       int32_t input_count,
+                                                       const int32_t *inputs) {
   TychoDxDevice *dev = as_device(dev_p);
   TychoDxPipeline *pipe;
   ID3DBlob *rs_blob = NULL;
@@ -759,11 +809,15 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
   D3D12_ROOT_PARAMETER root_params[TYCHO_DX12_MAX_ROOT_CBVS + 2];
   D3D12_DESCRIPTOR_RANGE srv_range;
   D3D12_DESCRIPTOR_RANGE sampler_range;
+  D3D12_INPUT_ELEMENT_DESC *input_elements = NULL;
+  int input_index;
   D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc;
   HRESULT hr;
   int i;
   if (!dev || !vs || !ps || vs_len <= 0 || ps_len <= 0) return 0;
   if (cbv_count < 0 || cbv_count > TYCHO_DX12_MAX_ROOT_CBVS) return 0;
+  if (srv_tables < 0 || srv_tables > 8) return 0;
+  if (input_count < 0 || (input_count > 0 && !inputs)) return 0;
 
   pipe = (TychoDxPipeline *)calloc(1, sizeof(TychoDxPipeline));
   if (!pipe) return 0;
@@ -837,6 +891,36 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
   }
 
   memset(&pso_desc, 0, sizeof pso_desc);
+  if (input_count > 0) {
+    // Five int32 per element: location, format, slot, offset, per-instance flag.
+    static const DXGI_FORMAT kFormats[3] = {DXGI_FORMAT_R32G32_FLOAT,
+                                            DXGI_FORMAT_R32G32B32_FLOAT,
+                                            DXGI_FORMAT_R32G32B32A32_FLOAT};
+    input_elements = (D3D12_INPUT_ELEMENT_DESC *)calloc((size_t)input_count,
+                                                        sizeof(D3D12_INPUT_ELEMENT_DESC));
+    if (!input_elements) {
+      free(pipe);
+      return 0;
+    }
+    for (input_index = 0; input_index < input_count; input_index++) {
+      const int32_t *e = inputs + input_index * 5;
+      D3D12_INPUT_ELEMENT_DESC *dst = &input_elements[input_index];
+      // Slang's DXIL backend encodes a source `TEXCOORD<n>` as semantic index
+      // `n * 10` (verified: TEXCOORD0 -> 0, TEXCOORD1 -> 10, TEXCOORD5 -> 50),
+      // so a SPIR-V location n maps to TEXCOORD(n * 10) here.
+      dst->SemanticName = "TEXCOORD";
+      dst->SemanticIndex = (UINT)(e[0] * 10);
+      dst->Format = kFormats[e[1] < 0 || e[1] > 2 ? 0 : e[1]];
+      dst->InputSlot = (UINT)e[2];
+      dst->AlignedByteOffset = (UINT)e[3];
+      dst->InputSlotClass =
+          e[4] ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA
+               : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+      dst->InstanceDataStepRate = e[4] ? 1U : 0U;
+    }
+    pso_desc.InputLayout.pInputElementDescs = input_elements;
+    pso_desc.InputLayout.NumElements = (UINT)input_count;
+  }
   pso_desc.pRootSignature = pipe->root_signature;
   pso_desc.VS.pShaderBytecode = vs;
   pso_desc.VS.BytecodeLength = (SIZE_T)vs_len;
@@ -889,6 +973,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
                                                         &kIID_ID3D12PipelineState,
                                                         (void **)&pipe->pso);
   set_hr(hr);
+  free(input_elements);
   if (FAILED(hr)) {
     fprintf(stderr, "[tycho-dx12] CreateGraphicsPipelineState failed: 0x%08lX\n",
             (unsigned long)hr);
@@ -2257,6 +2342,41 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd, uint64_t tex, int32
   return 0;
 }
 
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw_indexed(uint64_t cmd, uint64_t tex,
+                                                       int32_t index_count, int32_t instances,
+                                                       int32_t first_index,
+                                                       int32_t vertex_offset,
+                                                       int32_t flip_y) {
+  (void)cmd;
+  (void)tex;
+  (void)index_count;
+  (void)instances;
+  (void)first_index;
+  (void)vertex_offset;
+  (void)flip_y;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_bind_vertex(uint64_t cmd, int32_t slot,
+                                                      uint64_t gpu_address, int32_t size,
+                                                      int32_t stride) {
+  (void)cmd;
+  (void)slot;
+  (void)gpu_address;
+  (void)size;
+  (void)stride;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_bind_index(uint64_t cmd, uint64_t gpu_address,
+                                                     int32_t size, int32_t index32) {
+  (void)cmd;
+  (void)gpu_address;
+  (void)size;
+  (void)index32;
+  return 0;
+}
+
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_cbv(uint64_t cmd, int32_t index,
                                                   uint64_t gpu_address) {
   (void)cmd;
@@ -2320,7 +2440,9 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev, const uint8
                                                        int32_t ps_len, int32_t cbv_count,
                                                        int32_t flip_y, int32_t depth_enable,
                                                        int32_t depth_write,
-                                                       int32_t srv_tables) {
+                                                       int32_t srv_tables,
+                                                       int32_t input_count,
+                                                       const int32_t *inputs) {
   (void)dev;
   (void)vs;
   (void)vs_len;
@@ -2331,6 +2453,8 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev, const uint8
   (void)depth_enable;
   (void)depth_write;
   (void)srv_tables;
+  (void)input_count;
+  (void)inputs;
   return 0;
 }
 
