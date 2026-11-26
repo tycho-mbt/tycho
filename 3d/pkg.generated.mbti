@@ -258,6 +258,7 @@ pub(all) struct RendererDesc {
   max_textures : Int32
   msaa : Bool
   shadow_cascades : Int32
+  gpu_culling : Bool
   bloom : Bool
   shadows : Bool
   shadow_map_size : Int32

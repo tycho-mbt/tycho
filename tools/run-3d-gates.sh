@@ -19,6 +19,7 @@ EXAMPLES=(
   67-tycho-3d-env-quality
   68-tycho-3d-msaa
   69-tycho-3d-gltf
+  70-tycho-3d-gpu-driven
 )
 
 echo "== unit tests =="

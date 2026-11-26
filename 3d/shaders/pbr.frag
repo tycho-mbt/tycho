@@ -30,7 +30,7 @@ layout(binding = 5) uniform sampler2DShadow uShadow1;
 layout(binding = 6) uniform samplerCube uEnv;
 layout(set = 1, binding = 0) uniform sampler2D uTextures[];
 
-layout(push_constant) uniform PC { uint firstObject; uint materialIndex; } pc;
+layout(push_constant) uniform PC { vec4 params; } pc;
 
 layout(location = 0) in vec3 vWorldPos;
 layout(location = 1) in vec3 vNormal;
@@ -93,7 +93,7 @@ vec3 direct_brdf(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float metal
 }
 
 void main() {
-    MaterialGpu m = materials[pc.materialIndex];
+    MaterialGpu m = materials[int(pc.params.y + 0.5)];
     int flags = int(m.params.w + 0.5);
     bool hasAlbedo = (flags & 2) != 0;
     bool hasNormal = (flags & 4) != 0;
