@@ -29,6 +29,10 @@ EXAMPLES=(
   78-tycho-3d-gltf-animation
   79-tycho-3d-skinning
   86-tycho-3d-lod
+  87-tycho-3d-clearcoat
+  88-tycho-3d-morph
+  89-tycho-3d-point-shadow
+  90-tycho-3d-ray-shadow
 )
 
 echo "== unit tests =="
