@@ -45,6 +45,8 @@ pub(all) struct SpotLight {
   range : Float
   inner_angle : Float
   outer_angle : Float
+  // Spot shadows render into the shared atlas (one tile per light).
+  shadow : ShadowDesc?
 }
 
 ///|
@@ -95,8 +97,9 @@ pub fn Light::spot(
   range? : Float = 10.0,
   inner_angle? : Float = 0.35,
   outer_angle? : Float = 0.55,
+  shadow? : ShadowDesc? = None,
 ) -> Light {
-  Light::Spot({ color, intensity, range, inner_angle, outer_angle })
+  Light::Spot({ color, intensity, range, inner_angle, outer_angle, shadow })
 }
 
 ///|
@@ -117,6 +120,11 @@ pub fn Light::hemisphere(
 pub fn Light::cast_shadow(self : Light) -> Bool {
   match self {
     Directional(l) =>
+      match l.shadow {
+        Some(_) => true
+        None => false
+      }
+    Spot(l) =>
       match l.shadow {
         Some(_) => true
         None => false

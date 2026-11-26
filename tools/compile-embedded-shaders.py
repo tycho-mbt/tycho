@@ -28,11 +28,17 @@ def find_glslang() -> str:
     raise FileNotFoundError("glslangValidator not found in PATH or VULKAN_SDK")
 
 
-def compile_shader(glslang: str, src: pathlib.Path) -> list[int]:
+# Extra SPIR-V variants: (defines, identifier) keyed by source file name.
+VARIANTS = {
+    "pbr.frag": [((), None), (("-DTYCHO_NO_BINDLESS",), "spv_pbr_frag_nobindless")],
+}
+
+
+def compile_shader(glslang: str, src: pathlib.Path, defines=()) -> list[int]:
     with tempfile.TemporaryDirectory() as tmp:
         spv_path = pathlib.Path(tmp) / "out.spv"
         subprocess.run(
-            [glslang, "-V", "--target-env", "vulkan1.0", str(src), "-o", str(spv_path)],
+            [glslang, "-V", "--target-env", "vulkan1.0", *defines, str(src), "-o", str(spv_path)],
             check=True,
         )
         data = spv_path.read_bytes()
@@ -58,16 +64,17 @@ def generate_file(src_dir: pathlib.Path, out_file: pathlib.Path) -> None:
         "",
     ]
     for src in sources:
-        words = compile_shader(glslang, src)
-        ident = sanitize_ident(src.name)
-        lines.append("///|")
-        lines.append(f"let {ident} : FixedArray[UInt32] = [")
-        for i in range(0, len(words), 8):
-            chunk = words[i : i + 8]
-            formatted = ", ".join(f"(0x{w:08X} : UInt32)" for w in chunk)
-            lines.append(f"  {formatted},")
-        lines.append("]")
-        lines.append("")
+        for defines, override in VARIANTS.get(src.name, [((), None)]):
+            words = compile_shader(glslang, src, defines)
+            ident = override or sanitize_ident(src.name)
+            lines.append("///|")
+            lines.append(f"let {ident} : FixedArray[UInt32] = [")
+            for i in range(0, len(words), 8):
+                chunk = words[i : i + 8]
+                formatted = ", ".join(f"(0x{w:08X} : UInt32)" for w in chunk)
+                lines.append(f"  {formatted},")
+            lines.append("]")
+            lines.append("")
     out_file.write_text("\n".join(lines), encoding="utf-8")
     print(f"Generated {out_file} ({len(sources)} shaders)")
 

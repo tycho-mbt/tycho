@@ -22,10 +22,17 @@ struct ObjectGpu {
 };
 layout(std430, binding = 1) readonly buffer ObjectBuf { ObjectGpu objects[]; };
 
-layout(push_constant) uniform PC { uint firstObject; uint cascade; } pc;
+// Two floats carry the first-object index and the atlas tile; the matrix is
+// 16-byte aligned by the two extra floats, matching the CPU push layout.
+layout(push_constant) uniform PC {
+    float firstObject;
+    float tile;
+    float pad0;
+    float pad1;
+    mat4 lvp;
+} pc;
 
 void main() {
-    ObjectGpu o = objects[pc.firstObject + uint(gl_InstanceIndex)];
-    mat4 lvp = pc.cascade == 0 ? frame.lightVP0 : frame.lightVP1;
-    gl_Position = lvp * o.model * vec4(inPos, 1.0);
+    ObjectGpu o = objects[int(pc.firstObject + 0.5) + gl_InstanceIndex];
+    gl_Position = pc.lvp * o.model * vec4(inPos, 1.0);
 }

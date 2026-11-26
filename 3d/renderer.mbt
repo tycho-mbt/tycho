@@ -11,6 +11,9 @@ pub(all) struct RendererDesc {
   msaa : Bool
   shadow_cascades : Int
   gpu_culling : Bool
+  // Bindless material sampling; automatically disabled when the device lacks
+  // descriptor indexing, and forceable off to test the fallback.
+  bindless : Bool
   bloom : Bool
   shadows : Bool
   shadow_map_size : Int
@@ -29,22 +32,35 @@ pub fn RendererDesc::default() -> RendererDesc {
     shadow_map_size: 1024,
     shadow_cascades: 2,
     gpu_culling: false,
+    bindless: true,
   }
+}
+
+///|
+pub fn RendererDesc::with_bindless(self : RendererDesc, on : Bool) -> RendererDesc {
+  { ..self, bindless: on }
+}
+
+///|
+pub fn RendererDesc::with_shadows(self : RendererDesc, on : Bool) -> RendererDesc {
+  { ..self, shadows: on }
 }
 
 const OBJECT_FLOATS : Int = 36
 
 const OBJECT_BYTES : Int = 144
 
-const LIGHT_FLOATS : Int = 16
+const LIGHT_FLOATS : Int = 36
 
-const LIGHT_BYTES : Int = 64
+const LIGHT_BYTES : Int = 144
 
 const MATERIAL_FLOATS : Int = 16
 
 const MATERIAL_BYTES : Int = 64
 
 const FRAME_FLOATS : Int = 60
+
+const BRDF_LUT_SIZE : Int = 64
 
 const FRAME_BYTES : Int = 240
 
@@ -109,12 +125,14 @@ pub struct Renderer3D {
   priv frame_ubo : @tycho.Buffer
   priv sky_ubo : @tycho.Buffer
   priv material_ssbo : @tycho.Buffer
-  priv shadow_maps : Array[@tycho.Texture]
+  priv shadow_atlas : @tycho.Texture
   priv shadow_sampler : @tycho.Sampler
   priv env_sampler : @tycho.Sampler
   priv linear_sampler : @tycho.Sampler
   priv material_sampler : @tycho.Sampler
-  priv bindless : @tycho.BindlessHeap
+  priv brdf_lut : @tycho.Texture
+  priv bindless : @tycho.BindlessHeap?
+  priv bindless_ok : Bool
   priv white_tex : @tycho.Texture
   priv flat_normal_tex : @tycho.Texture
   priv white_index : Int
@@ -260,6 +278,56 @@ fn cull_pc_floats(
 }
 
 ///|
+fn Renderer3D::bind_material_heap(
+  self : Renderer3D,
+  cmd : @tycho.CommandBuffer,
+  pipe : @tycho.Pipeline,
+) -> Unit {
+  match self.bindless {
+    Some(h) => cmd.bind_bindless_heap(pipe, h)
+    None => ()
+  }
+}
+
+///|
+fn Renderer3D::texture_of(self : Renderer3D, h : TextureHandle) -> @tycho.Texture {
+  let i = h.id()
+  if i >= 0 && i < self.textures.length() {
+    self.textures[i].tex
+  } else {
+    self.white_tex
+  }
+}
+
+///|
+/// Non-bindless material sampling: bind albedo (slot 4) and normal (slot 5) per
+/// batch, falling back to the 1x1 white / flat-normal textures.
+fn Renderer3D::bind_material_textures(
+  self : Renderer3D,
+  cmd : @tycho.CommandBuffer,
+  pipe : @tycho.Pipeline,
+  material : Int,
+) -> Unit {
+  if self.bindless_ok {
+    return
+  }
+  if material < 0 || material >= self.materials.length() {
+    return
+  }
+  let m = self.materials[material]
+  let albedo = match m.albedo_tex {
+    Some(h) => self.texture_of(h)
+    None => self.white_tex
+  }
+  let normal = match m.normal_tex {
+    Some(h) => self.texture_of(h)
+    None => self.flat_normal_tex
+  }
+  cmd.bind_texture(pipe, 4, albedo, self.material_sampler)
+  cmd.bind_texture(pipe, 5, normal, self.material_sampler)
+}
+
+///|
 fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
   let w = self.material_writer
   w.push_vec4(m.base_color)
@@ -303,6 +371,49 @@ fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
 }
 
 ///|
+/// Bake the split-sum GGX/visibility integral into a 64x64 RG16F texture:
+/// (A, B) per (NdotV, roughness) texel.
+fn create_brdf_lut(dev : @tycho.Device) -> @tycho.Texture raise {
+  let size = BRDF_LUT_SIZE
+  let pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_fullscreen_vert,
+      spv_brdf_lut_frag,
+      color_format=Some(@tycho.TextureFormat::RG16F),
+    ),
+  )
+  let rt = dev.create_render_target(size, size, @tycho.TextureFormat::RG16F)
+  let cmd = dev.begin_commands()
+  cmd.begin_render_pass(
+    [
+      @tycho.RenderTargetDesc::new(
+        rt,
+        load_op=@tycho.LoadOp::Clear,
+        store_op=@tycho.StoreOp::Store,
+        clear_color=@tycho.ClearColor::black(),
+      ),
+    ],
+  )
+  cmd.set_viewport(0.0, 0.0, f_of_int(size), f_of_int(size))
+  cmd.set_scissor(0, 0, size, size)
+  cmd.bind_pipeline(pipe)
+  cmd.push_constants_floats(pipe, [(128.0 : Float), 0.0, 0.0, 0.0])
+  cmd.draw(3, 1)
+  cmd.end_render_pass()
+  dev.end_commands(cmd)
+  let px = rt.readback()
+  let tex = dev.create_texture_format(
+    size,
+    size,
+    @tycho.TextureFormat::RG16F,
+    Bytes::from_fixedarray(px),
+  )
+  pipe.destroy()
+  rt.destroy()
+  tex
+}
+
+///|
 pub fn Renderer3D::new(
   dev : @tycho.Device,
   desc? : RendererDesc = RendererDesc::default(),
@@ -320,11 +431,23 @@ pub fn Renderer3D::new(
       address=@tycho.AddressMode::Repeat,
     ),
   )
-  let bindless = dev.create_bindless_heap(max_textures=desc.max_textures)
+  let bindless_ok = desc.bindless && dev.capabilities().supports_bindless
+  let bindless : @tycho.BindlessHeap? = if bindless_ok {
+    Some(dev.create_bindless_heap(max_textures=desc.max_textures))
+  } else {
+    None
+  }
   let white_tex = solid_texture(dev, 255, 255, 255, 255, true)
   let flat_normal_tex = solid_texture(dev, 128, 128, 255, 255, false)
-  let white_index = bindless.register_texture(white_tex, material_sampler)
-  let flat_normal_index = bindless.register_texture(flat_normal_tex, material_sampler)
+  let mut white_index = 0
+  let mut flat_normal_index = 0
+  match bindless {
+    Some(h) => {
+      white_index = h.register_texture(white_tex, material_sampler)
+      flat_normal_index = h.register_texture(flat_normal_tex, material_sampler)
+    }
+    None => ()
+  }
   let mesh_layouts : Array[@tycho.VertexBufferLayout] = [
     @tycho.VertexBufferLayout::new(
       48,
@@ -351,10 +474,15 @@ pub fn Renderer3D::new(
       vertex_layouts=mesh_layouts,
     ),
   )
+  let pbr_frag = if bindless_ok {
+    spv_pbr_frag
+  } else {
+    spv_pbr_frag_nobindless
+  }
   let pbr_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_pbr_vert,
-      spv_pbr_frag,
+      pbr_frag,
       depth_test=true,
       depth_write=true,
       depth_compare=@tycho.CompareOp::GreaterEqual,
@@ -363,14 +491,14 @@ pub fn Renderer3D::new(
       front_face=@tycho.FrontFace::CounterClockwise,
       color_format=Some(@tycho.TextureFormat::RGBA16F),
       vertex_layouts=mesh_layouts,
-      bindless_heap=Some(bindless),
+      bindless_heap=bindless,
       samples=samples,
     ),
   )
   let pbr_blend_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_pbr_vert,
-      spv_pbr_frag,
+      pbr_frag,
       depth_test=true,
       depth_write=false,
       depth_compare=@tycho.CompareOp::GreaterEqual,
@@ -381,7 +509,7 @@ pub fn Renderer3D::new(
       blend_mode=Some(@tycho.BlendMode::Alpha),
       color_format=Some(@tycho.TextureFormat::RGBA16F),
       vertex_layouts=mesh_layouts,
-      bindless_heap=Some(bindless),
+      bindless_heap=bindless,
       samples=samples,
     ),
   )
@@ -426,7 +554,7 @@ pub fn Renderer3D::new(
   let mut pbr_cull_pipe : @tycho.Pipeline? = None
   let cull_vis : Array[@tycho.Buffer] = []
   let cull_cmds : Array[@tycho.Buffer] = []
-  if desc.gpu_culling {
+  if desc.gpu_culling && bindless_ok {
     cull_pipe = Some(dev.create_compute_pipeline_auto(spv_cull_comp))
     pbr_cull_pipe = Some(
       dev.create_graphics_pipeline(
@@ -441,7 +569,7 @@ pub fn Renderer3D::new(
           front_face=@tycho.FrontFace::CounterClockwise,
           color_format=Some(@tycho.TextureFormat::RGBA16F),
           vertex_layouts=mesh_layouts,
-          bindless_heap=Some(bindless),
+          bindless_heap=bindless,
           samples=samples,
         ),
       ),
@@ -512,18 +640,14 @@ pub fn Renderer3D::new(
       address=@tycho.AddressMode::ClampToEdge,
     ),
   )
+  let brdf_lut = create_brdf_lut(dev)
   let env_cube = default_environment_cubemap(dev)
-  let shadow_maps : Array[@tycho.Texture] = []
-  let cascades = if desc.shadow_cascades < 1 { 1 } else { desc.shadow_cascades }
-  for i = 0; i < cascades; i = i + 1 {
-    shadow_maps.push(
-      dev.create_depth_texture_format(
-        desc.shadow_map_size,
-        desc.shadow_map_size,
-        @tycho.TextureFormat::Depth24Stencil8,
-      ),
-    )
-  }
+  // 2x2 shadow atlas: up to four shadow-casting lights, one tile each.
+  let shadow_atlas = dev.create_depth_texture_format(
+    desc.shadow_map_size * 2,
+    desc.shadow_map_size * 2,
+    @tycho.TextureFormat::Depth24Stencil8,
+  )
   {
     dev,
     desc,
@@ -547,12 +671,14 @@ pub fn Renderer3D::new(
       @tycho.BufferKind::Storage,
       location=@tycho.MemoryLocation::CpuToGpu,
     ),
-    shadow_maps,
+    shadow_atlas,
     shadow_sampler,
     env_sampler,
     linear_sampler,
     material_sampler,
+    brdf_lut,
     bindless,
+    bindless_ok,
     white_tex,
     flat_normal_tex,
     white_index,
@@ -570,7 +696,7 @@ pub fn Renderer3D::new(
     bloom_blur_pipe,
     tonemap_srgb_pipe,
     tonemap_linear_pipe,
-    gpu_culling: desc.gpu_culling,
+    gpu_culling: desc.gpu_culling && bindless_ok,
     cull_pipe,
     pbr_cull_pipe,
     cull_vis,
@@ -651,7 +777,10 @@ pub fn Renderer3D::create_texture(
     if srgb { @tycho.TextureFormat::RGBA8Srgb } else { @tycho.TextureFormat::RGBA8 },
     Bytes::from_array(arr),
   )
-  let index = self.bindless.register_texture(tex, self.material_sampler)
+  let index = match self.bindless {
+    Some(h) => h.register_texture(tex, self.material_sampler)
+    None => 0
+  }
   self.textures.push({ tex, index })
   TextureHandle::from_id(self.textures.length() - 1)
 }
@@ -809,21 +938,198 @@ fn Renderer3D::pack_object(
 }
 
 ///|
-fn Renderer3D::pack_lights(self : Renderer3D, scene : Scene) -> (Int, @tmath.Vec3?) {
-  let light_nodes : Array[(Light, @tmath.Affine3)] = []
-  scene.traverse(
-    fn(id) {
-      match scene.payload(id) {
-        Some(NodePayload::Light(l)) => light_nodes.push(
-          (l, scene.world_transform(id)),
-        )
-        _ => ()
-      }
-    },
-  )
+priv struct ShadowTile {
+  light_index : Int
+  tile : Int
+  vp : @tmath.Mat4
+}
+
+///|
+fn directional_shadow_vp(
+  center : @tmath.Vec3,
+  radius : Float,
+  to_light : @tmath.Vec3,
+  sd : ShadowDesc,
+) -> @tmath.Mat4 {
+  let up = if to_light.y.abs() > 0.99 {
+    @tmath.Vec3::unit_z()
+  } else {
+    @tmath.Vec3::unit_y()
+  }
+  let half = match sd.half_extents {
+    Some(h) => h
+    None => radius * 1.15 + 0.1
+  }
+  let eye = center + to_light.scale(radius * 2.0 + 1.0)
+  @tmath.orthographic_rh(-half, half, -half, half, 0.05, radius * 4.0 + 2.0) *
+  @tmath.look_at_rh(eye, center, up)
+}
+
+///|
+fn spot_shadow_vp(
+  eye : @tmath.Vec3,
+  to_light : @tmath.Vec3,
+  outer_angle : Float,
+  range : Float,
+) -> @tmath.Mat4 {
+  let up = if to_light.y.abs() > 0.99 {
+    @tmath.Vec3::unit_z()
+  } else {
+    @tmath.Vec3::unit_y()
+  }
+  let mut fov = outer_angle * 2.0
+  if fov < 0.2 {
+    fov = 0.2
+  }
+  if fov > 2.6 {
+    fov = 2.6
+  }
+  let far = if range > 0.5 { range } else { 50.0 }
+  @tmath.perspective_rh(fov, 1.0, 0.05, far) *
+  @tmath.look_at_rh(eye, eye + to_light, up)
+}
+
+///|
+/// Push constants for `shadow.vert`: two floats (object index, tile) plus the
+/// 16-byte-aligned light matrix, matching the shader's std430 block.
+fn shadow_pc_floats(
+  first : Int,
+  tile : Int,
+  vp : @tmath.Mat4,
+) -> FixedArray[Float] {
+  FixedArray::from_array([
+    f_of_int(first),
+    f_of_int(tile),
+    0.0,
+    0.0,
+    vp.x_axis.x,
+    vp.x_axis.y,
+    vp.x_axis.z,
+    vp.x_axis.w,
+    vp.y_axis.x,
+    vp.y_axis.y,
+    vp.y_axis.z,
+    vp.y_axis.w,
+    vp.z_axis.x,
+    vp.z_axis.y,
+    vp.z_axis.z,
+    vp.z_axis.w,
+    vp.w_axis.x,
+    vp.w_axis.y,
+    vp.w_axis.z,
+    vp.w_axis.w,
+  ])
+}
+
+///|
+fn Renderer3D::collect_lights(
+  self : Renderer3D,
+  scene : Scene,
+) -> (Array[(Light, @tmath.Affine3)], @tmath.Vec3?) {
+  let nodes : Array[(Light, @tmath.Affine3)] = []
+  scene.traverse(fn(id) {
+    match scene.payload(id) {
+      Some(NodePayload::Light(l)) => nodes.push((l, scene.world_transform(id)))
+      _ => ()
+    }
+  })
+  let mut shadow_dir : @tmath.Vec3? = None
+  for entry in nodes {
+    let (l, wmat) = entry
+    match l {
+      Directional(d) =>
+        match d.shadow {
+          Some(_) =>
+            match shadow_dir {
+              Some(_) => ()
+              None => shadow_dir = Some(-wmat.matrix3.z_axis.normalize())
+            }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  (nodes, shadow_dir)
+}
+
+///|
+/// Choose up to four shadow-casting lights and fit each one's tile matrix.
+fn Renderer3D::plan_shadows(
+  self : Renderer3D,
+  nodes : Array[(Light, @tmath.Affine3)],
+  casters : @tmath.Aabb3?,
+) -> Array[ShadowTile] {
+  let tiles : Array[ShadowTile] = []
+  if !self.desc.shadows {
+    return tiles
+  }
+  let bounds = match casters {
+    Some(b) => b
+    None => return tiles
+  }
+  let center = bounds.center()
+  let radius = bounds.half_extents().length() + 0.05
+  for i = 0; i < nodes.length(); i = i + 1 {
+    if tiles.length() >= 4 {
+      break
+    }
+    let (l, wmat) = nodes[i]
+    let to_light = -wmat.matrix3.z_axis.normalize()
+    match l {
+      Directional(d) =>
+        match d.shadow {
+          Some(sd) =>
+            tiles.push({
+              light_index: i,
+              tile: tiles.length(),
+              vp: directional_shadow_vp(center, radius, to_light, sd),
+            })
+          None => ()
+        }
+      Spot(s) =>
+        match s.shadow {
+          Some(_) =>
+            tiles.push({
+              light_index: i,
+              tile: tiles.length(),
+              vp: spot_shadow_vp(wmat.translation, to_light, s.outer_angle, s.range),
+            })
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  tiles
+}
+
+///|
+fn Renderer3D::push_light_shadow(
+  self : Renderer3D,
+  index : Int,
+  tiles : Array[ShadowTile],
+) -> Unit {
+  let mut vp = @tmath.Mat4::identity()
+  let mut info = @tmath.Vec4::new(0.0, 0.0, 0.0, 0.0)
+  for t in tiles {
+    if t.light_index == index {
+      vp = t.vp
+      let ox : Float = if t.tile % 2 == 0 { 0.0 } else { 0.5 }
+      let oy : Float = if t.tile / 2 == 0 { 0.0 } else { 0.5 }
+      info = @tmath.Vec4::new(ox, oy, 0.5, 1.0)
+    }
+  }
+  self.light_writer.push_mat4(vp)
+  self.light_writer.push_vec4(info)
+}
+
+///|
+fn Renderer3D::pack_lights(
+  self : Renderer3D,
+  light_nodes : Array[(Light, @tmath.Affine3)],
+  shadow_tiles : Array[ShadowTile],
+) -> Int {
   self.light_writer.reset()
   let mut count = 0
-  let mut shadow_dir : @tmath.Vec3? = None
   for i = 0; i < light_nodes.length(); i = i + 1 {
     if count >= self.desc.max_lights {
       break
@@ -848,14 +1154,6 @@ fn Renderer3D::pack_lights(self : Renderer3D, scene : Scene) -> (Int, @tmath.Vec
         self.light_writer.push_float(0.0)
         self.light_writer.push_float(0.0)
         self.light_writer.push_float(0.0)
-        match d.shadow {
-          Some(_) =>
-            match shadow_dir {
-              Some(_) => ()
-              None => shadow_dir = Some(to_light)
-            }
-          None => ()
-        }
       }
       Point(p) => {
         let pos = wmat.translation
@@ -918,9 +1216,10 @@ fn Renderer3D::pack_lights(self : Renderer3D, scene : Scene) -> (Int, @tmath.Vec
         self.light_writer.push_float(0.0)
       }
     }
+    self.push_light_shadow(i, shadow_tiles)
     count = count + 1
   }
-  (count, shadow_dir)
+  count
 }
 
 ///|
@@ -976,7 +1275,7 @@ fn Renderer3D::render_frame(
   }
   let eye = cam_world.translation
   let targets = self.ensure_targets(w, h)
-  let (light_count, shadow_dir) = self.pack_lights(scene)
+  let (light_nodes, shadow_dir) = self.collect_lights(scene)
   let frustum = @tmath.Frustum::from_view_proj(vp)
   let gpu_cull_enabled = match self.cull_pipe {
     Some(_) => self.gpu_culling
@@ -1148,60 +1447,12 @@ fn Renderer3D::render_frame(
       }
     }
   }
-  let mut light_vp0 = @tmath.Mat4::identity()
-  let mut light_vp1 = @tmath.Mat4::identity()
-  let mut cascade_split : Float = 1.0e9
-  let mut shadows_enabled = false
-  match shadow_dir {
-    Some(to_light) =>
-      match caster_union {
-        Some(bounds) =>
-          if self.desc.shadows {
-            let center = bounds.center()
-            let radius = bounds.half_extents().length() + 0.05
-            let up = if to_light.y.abs() > 0.99 {
-              @tmath.Vec3::unit_z()
-            } else {
-              @tmath.Vec3::unit_y()
-            }
-            // Cascade 0 covers the inner half radius at twice the density;
-            // cascade 1 covers the whole caster union.
-            let r0 = if self.shadow_maps.length() > 1 {
-              radius * 0.5
-            } else {
-              radius
-            }
-            let half0 = r0 * 1.15 + 0.1
-            let eye0 = center + to_light.scale(r0 * 2.0 + 1.0)
-            light_vp0 = @tmath.orthographic_rh(
-              -half0,
-              half0,
-              -half0,
-              half0,
-              0.05,
-              r0 * 4.0 + 2.0,
-            ) * @tmath.look_at_rh(eye0, center, up)
-            if self.shadow_maps.length() > 1 {
-              let half1 = radius * 1.15 + 0.1
-              let eye1 = center + to_light.scale(radius * 2.0 + 1.0)
-              light_vp1 = @tmath.orthographic_rh(
-                -half1,
-                half1,
-                -half1,
-                half1,
-                0.05,
-                radius * 4.0 + 2.0,
-              ) * @tmath.look_at_rh(eye1, center, up)
-              cascade_split = (center - eye).length() + r0
-            } else {
-              light_vp1 = light_vp0
-            }
-            shadows_enabled = true
-          }
-        None => ()
-      }
-    None => ()
-  }
+  let shadow_tiles = self.plan_shadows(light_nodes, caster_union)
+  let shadows_enabled = shadow_tiles.length() > 0
+  let light_count = self.pack_lights(light_nodes, shadow_tiles)
+  let light_vp0 = @tmath.Mat4::identity()
+  let light_vp1 = @tmath.Mat4::identity()
+  let cascade_split : Float = 1.0e9
   self.frame_writer.reset()
   self.frame_writer.push_mat4(vp)
   self.frame_writer.push_mat4(light_vp0)
@@ -1212,7 +1463,7 @@ fn Renderer3D::render_frame(
   self.frame_writer.push_float(if shadows_enabled { 1.0 } else { 0.0 })
   self.frame_writer.push_float(self.env_intensity)
   self.frame_writer.push_float(cascade_split)
-  self.frame_writer.push_float(f_of_int(self.shadow_maps.length()))
+  self.frame_writer.push_float(f_of_int(shadow_tiles.length()))
   self.frame_writer.push_float(0.0)
   self.frame_writer.push_float(0.0)
   self.frame_ubo.upload_floats(
@@ -1328,49 +1579,57 @@ fn Renderer3D::render_frame(
     }
   }
 
-  // Always run one pass per cascade: it clears the map and transitions it to
-  // SHADER_READ_ONLY even with no casters, since the PBR pipeline always
-  // binds both shadow maps.
-  for c = 0; c < self.shadow_maps.length(); c = c + 1 {
-    cmd.begin_render_pass(
-      [],
-      depth=Some(
-        @tycho.DepthTargetDesc::new(
-          self.shadow_maps[c],
-          load_op=@tycho.LoadOp::Clear,
-          store_op=@tycho.StoreOp::Store,
-          clear_depth=1.0,
-        ),
+  // Single atlas pass: clear once, then each shadow light renders its casters
+  // into its own tile through viewport/scissor.
+  cmd.begin_render_pass(
+    [],
+    depth=Some(
+      @tycho.DepthTargetDesc::new(
+        self.shadow_atlas,
+        load_op=@tycho.LoadOp::Clear,
+        store_op=@tycho.StoreOp::Store,
+        clear_depth=1.0,
       ),
+    ),
+  )
+  cmd.bind_pipeline(self.shadow_pipe)
+  cmd.bind_uniform(
+    self.shadow_pipe,
+    0,
+    self.frame_ubo,
+    offset=slot * FRAME_SLOT_BYTES,
+    size=FRAME_BYTES,
+  )
+  cmd.bind_storage(
+    self.shadow_pipe,
+    0,
+    self.object_ring.buffer(),
+    offset=object_offset,
+    size=bind_objects_bytes(object_count),
+  )
+  let tile_size = self.desc.shadow_map_size
+  for st in shadow_tiles {
+    let tx = (st.tile % 2) * tile_size
+    let ty = (st.tile / 2) * tile_size
+    cmd.set_viewport(
+      f_of_int(tx),
+      f_of_int(ty),
+      f_of_int(tile_size),
+      f_of_int(tile_size),
     )
-    cmd.set_viewport(0.0, 0.0, f_of_int(self.desc.shadow_map_size), f_of_int(self.desc.shadow_map_size))
-    cmd.set_scissor(0, 0, self.desc.shadow_map_size, self.desc.shadow_map_size)
-    cmd.bind_pipeline(self.shadow_pipe)
-    cmd.bind_uniform(
-      self.shadow_pipe,
-      0,
-      self.frame_ubo,
-      offset=slot * FRAME_SLOT_BYTES,
-      size=FRAME_BYTES,
-    )
-    cmd.bind_storage(
-      self.shadow_pipe,
-      0,
-      self.object_ring.buffer(),
-      offset=object_offset,
-      size=bind_objects_bytes(object_count),
-    )
-    if shadows_enabled {
-      for b in shadow_batches {
-        cmd.push_constants_bytes(self.shadow_pipe, pc2_bytes(b.first, c))
-        let mesh = self.meshes[b.mesh]
-        mesh.bind(cmd)
-        cmd.draw_indexed(mesh.index_count(), instances=b.count)
-        self.stats.shadow_passes = self.stats.shadow_passes + 1
-      }
+    cmd.set_scissor(tx, ty, tile_size, tile_size)
+    for b in shadow_batches {
+      cmd.push_constants_floats(
+        self.shadow_pipe,
+        shadow_pc_floats(b.first, st.tile, st.vp),
+      )
+      let mesh = self.meshes[b.mesh]
+      mesh.bind(cmd)
+      cmd.draw_indexed(mesh.index_count(), instances=b.count)
+      self.stats.shadow_passes = self.stats.shadow_passes + 1
     }
-    cmd.end_render_pass()
   }
+  cmd.end_render_pass()
 
   // Main HDR pass.
   let resolved = match targets.hdr_resolve {
@@ -1414,7 +1673,7 @@ fn Renderer3D::render_frame(
   cmd.draw(3, 1)
   if main_count > 0 {
     cmd.bind_pipeline(self.pbr_pipe)
-    cmd.bind_bindless_heap(self.pbr_pipe, self.bindless)
+    self.bind_material_heap(cmd, self.pbr_pipe)
     cmd.bind_uniform(
       self.pbr_pipe,
       0,
@@ -1443,20 +1702,17 @@ fn Renderer3D::render_frame(
       offset=light_offset,
       size=bind_lights_bytes(light_count),
     )
-    cmd.bind_texture(self.pbr_pipe, 0, self.shadow_maps[0], self.shadow_sampler)
-    cmd.bind_texture(
-      self.pbr_pipe,
-      1,
-      self.shadow_maps[self.shadow_maps.length() - 1],
-      self.shadow_sampler,
-    )
+    cmd.bind_texture(self.pbr_pipe, 0, self.shadow_atlas, self.shadow_sampler)
+    cmd.bind_texture(self.pbr_pipe, 1, self.shadow_atlas, self.shadow_sampler)
     cmd.bind_texture(self.pbr_pipe, 2, self.env_cube, self.env_sampler)
+    cmd.bind_texture(self.pbr_pipe, 3, self.brdf_lut, self.linear_sampler)
     for b in solid_batches {
       if b.cull_cmd < 0 {
         cmd.push_constants_floats(
           self.pbr_pipe,
           [f_of_int(b.first), f_of_int(b.material), 0.0, 0.0],
         )
+        self.bind_material_textures(cmd, self.pbr_pipe, b.material)
         let mesh = self.meshes[b.mesh]
         mesh.bind(cmd)
         cmd.draw_indexed(mesh.index_count(), instances=b.count)
@@ -1471,7 +1727,7 @@ fn Renderer3D::render_frame(
       match self.pbr_cull_pipe {
         Some(pipe) => {
           cmd.bind_pipeline(pipe)
-          cmd.bind_bindless_heap(pipe, self.bindless)
+          self.bind_material_heap(cmd, pipe)
           cmd.bind_uniform(
             pipe,
             0,
@@ -1507,14 +1763,10 @@ fn Renderer3D::render_frame(
             offset=0,
             size=self.desc.max_objects * 4,
           )
-          cmd.bind_texture(pipe, 0, self.shadow_maps[0], self.shadow_sampler)
-          cmd.bind_texture(
-            pipe,
-            1,
-            self.shadow_maps[self.shadow_maps.length() - 1],
-            self.shadow_sampler,
-          )
+          cmd.bind_texture(pipe, 0, self.shadow_atlas, self.shadow_sampler)
+          cmd.bind_texture(pipe, 1, self.shadow_atlas, self.shadow_sampler)
           cmd.bind_texture(pipe, 2, self.env_cube, self.env_sampler)
+          cmd.bind_texture(pipe, 3, self.brdf_lut, self.linear_sampler)
           for b in solid_batches {
             if b.cull_cmd >= 0 {
               cmd.push_constants_floats(
@@ -1542,7 +1794,7 @@ fn Renderer3D::render_frame(
     }
     if transparent.length() > 0 {
       cmd.bind_pipeline(self.pbr_blend_pipe)
-      cmd.bind_bindless_heap(self.pbr_blend_pipe, self.bindless)
+      self.bind_material_heap(cmd, self.pbr_blend_pipe)
       cmd.bind_uniform(
         self.pbr_blend_pipe,
         0,
@@ -1571,19 +1823,16 @@ fn Renderer3D::render_frame(
         offset=light_offset,
         size=bind_lights_bytes(light_count),
       )
-      cmd.bind_texture(self.pbr_blend_pipe, 0, self.shadow_maps[0], self.shadow_sampler)
-      cmd.bind_texture(
-        self.pbr_blend_pipe,
-        1,
-        self.shadow_maps[self.shadow_maps.length() - 1],
-        self.shadow_sampler,
-      )
+      cmd.bind_texture(self.pbr_blend_pipe, 0, self.shadow_atlas, self.shadow_sampler)
+      cmd.bind_texture(self.pbr_blend_pipe, 1, self.shadow_atlas, self.shadow_sampler)
       cmd.bind_texture(self.pbr_blend_pipe, 2, self.env_cube, self.env_sampler)
+      cmd.bind_texture(self.pbr_blend_pipe, 3, self.brdf_lut, self.linear_sampler)
       for b in transparent_batches {
         cmd.push_constants_floats(
           self.pbr_blend_pipe,
           [f_of_int(b.first), f_of_int(b.material), 0.0, 0.0],
         )
+        self.bind_material_textures(cmd, self.pbr_blend_pipe, b.material)
         let mesh = self.meshes[b.mesh]
         mesh.bind(cmd)
         cmd.draw_indexed(mesh.index_count(), instances=b.count)
@@ -1809,6 +2058,12 @@ pub fn Renderer3D::clear_debug_lines(self : Renderer3D) -> Unit {
 }
 
 ///|
+/// The baked split-sum BRDF LUT (RG16F), exposed for diagnostics and tests.
+pub fn Renderer3D::brdf_lut(self : Renderer3D) -> @tycho.Texture {
+  self.brdf_lut
+}
+
+///|
 pub fn Renderer3D::stats(self : Renderer3D) -> RenderStats3D {
   self.stats
 }
@@ -1829,16 +2084,18 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   if self.owns_env {
     self.env_cube.destroy()
   }
+  self.brdf_lut.destroy()
   for t in self.textures {
     t.tex.destroy()
   }
-  self.bindless.destroy()
+  match self.bindless {
+    Some(h) => h.destroy()
+    None => ()
+  }
   self.white_tex.destroy()
   self.flat_normal_tex.destroy()
   self.material_sampler.destroy()
-  for m in self.shadow_maps {
-    m.destroy()
-  }
+  self.shadow_atlas.destroy()
   self.material_ssbo.destroy()
   self.sky_ubo.destroy()
   self.frame_ubo.destroy()

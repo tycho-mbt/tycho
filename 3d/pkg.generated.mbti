@@ -30,6 +30,8 @@ pub fn equirect_uv(@tycho_math.Vec3) -> (Float, Float)
 
 pub fn f16_bits(Float) -> UInt16
 
+pub fn f16_to_float(UInt16) -> Float
+
 pub fn load_gltf(Renderer3D, Scene, @tycho_geometry.GltfScene, parent? : NodeId?) -> Array[NodeId] raise
 
 pub fn procedural_environment_cubemap(@tycho.Device, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> @tycho.Texture raise
@@ -126,7 +128,7 @@ pub fn Light::cast_shadow(Self) -> Bool
 pub fn Light::directional(@tycho_math.Vec3, Float, shadow? : ShadowDesc?) -> Self
 pub fn Light::hemisphere(@tycho_math.Vec3, @tycho_math.Vec3, Float) -> Self
 pub fn Light::point(@tycho_math.Vec3, Float, range? : Float, decay? : Float) -> Self
-pub fn Light::spot(@tycho_math.Vec3, Float, range? : Float, inner_angle? : Float, outer_angle? : Float) -> Self
+pub fn Light::spot(@tycho_math.Vec3, Float, range? : Float, inner_angle? : Float, outer_angle? : Float, shadow? : ShadowDesc?) -> Self
 
 pub(all) struct MaterialDesc {
   shading : Shading
@@ -260,6 +262,7 @@ pub struct Renderer3D {
 }
 pub fn Renderer3D::add_debug_aabb(Self, @tycho_math.Aabb3, @tycho_math.Vec3) -> Unit
 pub fn Renderer3D::add_debug_line(Self, @tycho_math.Vec3, @tycho_math.Vec3, @tycho_math.Vec3) -> Unit
+pub fn Renderer3D::brdf_lut(Self) -> @tycho.Texture
 pub fn Renderer3D::clear_debug_lines(Self) -> Unit
 pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
 pub fn Renderer3D::create_mesh_node(Self, Scene, MeshHandle, MaterialHandle, transform? : @tycho_math.Transform, name? : String) -> NodeId
@@ -286,11 +289,14 @@ pub(all) struct RendererDesc {
   msaa : Bool
   shadow_cascades : Int32
   gpu_culling : Bool
+  bindless : Bool
   bloom : Bool
   shadows : Bool
   shadow_map_size : Int32
 }
 pub fn RendererDesc::default() -> Self
+pub fn RendererDesc::with_bindless(Self, Bool) -> Self
+pub fn RendererDesc::with_shadows(Self, Bool) -> Self
 
 pub struct Scene {
   // private fields
@@ -338,6 +344,7 @@ pub(all) struct SpotLight {
   range : Float
   inner_angle : Float
   outer_angle : Float
+  shadow : ShadowDesc?
 }
 
 #derive(Eq, @debug.Debug)

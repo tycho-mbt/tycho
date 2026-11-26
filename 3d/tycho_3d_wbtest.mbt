@@ -321,3 +321,13 @@ test "equirect uv" {
   let (_, v2) = equirect_uv(@tmath.Vec3::new(0.0, -1.0, 0.0))
   need(close(v2, 1.0), "v nadir")
 }
+
+///|
+test "float16 decode" {
+  let values : Array[Float] = [0.0, 0.25, 0.5, 1.0, 2.0, 16.0, 1000.0]
+  for v in values {
+    let back = f16_to_float(f16_bits(v))
+    need(close(back, v, eps=0.002 * (v + 1.0)), "f16 roundtrip")
+  }
+  need(f16_to_float(f16_bits(-3.0)) < 0.0, "f16 sign")
+}

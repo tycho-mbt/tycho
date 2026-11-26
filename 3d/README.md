@@ -11,6 +11,16 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
 - `Camera`: perspective (infinite reversed-Z by default) / orthographic
   reversed-Z projections, view/view-projection matrices, screen rays, and an
   analytic sky ray matrix.
+- Split-sum IBL: a 64x64 RG16F LUT is baked once by `brdf_lut.frag`
+  (GGX + Smith visibility), so environment specular is
+  `prefiltered * (F0 * A + B)` instead of an analytic Fresnel guess.
+- Shadow atlas: one 2x2 depth atlas holds up to four shadow-casting lights
+  (directional or spot, one tile each); `Light::spot(..., shadow=...)` opts a
+  spot in. Each light carries its tile view-projection and tile rect in the
+  light SSBO, and PCF clamps to the tile so taps never bleed across lights.
+- Non-bindless fallback: `RendererDesc::with_bindless(false)` (or a device
+  without descriptor indexing) switches to a PBR shader variant that binds
+  albedo/normal per batch; identical output, exercised by example 74.
 - `Renderer3D`: forward PBR metallic-roughness with linear-space materials,
   directional/point/spot/ambient/hemisphere lights, one directional PCF shadow
   map (two cascades: an inner half-radius fit at twice the density plus the

@@ -98,6 +98,30 @@ pub fn f16_bits(v : Float) -> UInt16 {
   (sign | (ee << 10) | m).to_uint16()
 }
 
+///|
+/// Decode IEEE binary16 bits back to a float (used by tests and LUT readback).
+pub fn f16_to_float(bits : UInt16) -> Float {
+  let b = bits.to_uint().reinterpret_as_int()
+  let negative = (b & 0x8000) != 0
+  let exp = (b >> 10) & 0x1F
+  let man = b & 0x3FF
+  let mut v : Float = 0.0
+  if exp == 0 {
+    v = Float::from_int(man) / (1024.0 : Float) * @tmath.pow(2.0, -14.0)
+  } else if exp == 31 {
+    v = 65504.0
+  } else {
+    v = (1.0 + Float::from_int(man) / (1024.0 : Float)) *
+      @tmath.pow(2.0, Float::from_int(exp - 15))
+  }
+  if negative {
+    -v
+  } else {
+    v
+  }
+}
+
+///|
 // ---------------------------------------------------------------------------
 // Radiance decoding
 // ---------------------------------------------------------------------------
