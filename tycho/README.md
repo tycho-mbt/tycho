@@ -43,3 +43,9 @@ The raw APIs stay first-class: `Buffer::upload_floats`, `push_constants_floats` 
 entirely, and the Vulkan backend (`vk_backend.mbt`) never imports `@tmath` so it remains
 replaceable. `check-math-layering.sh` enforces both directions: `tycho_math` keeps zero
 `laplaceliu/*` dependencies and never references the RHI.
+
+Every typed helper is a **thin wrapper over the raw call** (raw stays the primitive), and falls
+into one of two classes: *completeness* twins of an existing raw call (`upload_mat4`,
+`push_constants_mat4`, `RayInstanceDesc::from_affine3`), which are covered by equivalence tests
+with non-degenerate matrices, and *exploratory* APIs, which require a real call site before they
+are added because a test cannot validate an API's shape. See ADR-002 §3.

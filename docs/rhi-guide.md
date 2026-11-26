@@ -88,7 +88,7 @@ For explicit slot counts/layouts, construct `@tycho.PipelineDesc::new(...)` with
 
 - **Buffers**:
   - `dev.create_buffer_with(bytes, @tycho.BufferKind::Vertex, location=@tycho.MemoryLocation::GpuOnly)` (`Index`, `Uniform`, `Storage`, `Staging`, `Indirect`; `CpuToGpu`, `GpuToCpu`).
-  - Upload/download: `buf.upload_floats(arr, offset=0, count=-1)`, `buf.upload_uint16`, `buf.upload_uint32`, `buf.upload_bytes`, `buf.download()`, `buf.size()` (`count` uploads a leading slice when `>= 0`).
+  - Upload/download: `buf.upload_floats(arr, offset=0, count=-1)`, `buf.upload_mat4(m, offset=0)`, `buf.upload_uint16`, `buf.upload_uint32`, `buf.upload_bytes`, `buf.download()`, `buf.size()` (`count` uploads a leading slice when `>= 0`).
 - **Textures**:
   - 2D / Mipmapped / Layered: `create_texture_format`, `create_texture_mipmapped`, `create_cubemap`, `create_texture_array`.
   - Targets & Compute: `create_render_target`, `create_depth_texture`, `create_depth_texture_format` (`Depth32F` or `Depth24Stencil8`), `create_storage_texture`.
