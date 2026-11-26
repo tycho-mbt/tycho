@@ -223,7 +223,7 @@ fn main {
           index_count=3,
         ),
       ])
-      let tlas = dev.create_tlas([@tycho.RayInstanceDesc::new(blas)])
+      let tlas = dev.create_tlas([@tycho.RayInstanceDesc::from_affine3(blas, @tmath.Affine3::identity())])
       let rq_img = dev.create_storage_texture(128, 128, @tycho.TextureFormat::RGBA8)
 
       let ccmd = dev.begin_commands()

@@ -4,7 +4,7 @@
 
 ///|
 /// Model-view-projection for a spinning cube, in Vulkan clip space.
-fn make_mvp(angle : Float, aspect : Float) -> FixedArray[Float] {
+fn make_mvp(angle : Float, aspect : Float) -> @tmath.Mat4 {
   let proj = @tmath.perspective_rh(
     @tmath.deg_to_rad(60.0),
     aspect,
@@ -15,7 +15,7 @@ fn make_mvp(angle : Float, aspect : Float) -> FixedArray[Float] {
   let view = @tmath.Mat4::from_translation(@tmath.Vec3::new(0.0, 0.0, -2.2))
   let model = @tmath.Mat4::from_rotation_y(angle) *
     @tmath.Mat4::from_rotation_x(angle * 0.6)
-  (proj * view * model).to_cols_array()
+  proj * view * model
 }
 
 ///|
@@ -133,7 +133,7 @@ fn main {
         let mvp = make_mvp(angle, aspect)
         let cmd = sc.begin_frame()
         cmd.bind_pipeline(pipe)
-        cmd.push_constants_floats(pipe, mvp)
+        cmd.push_constants_mat4(pipe, mvp)
         cmd.bind_vertex(0, vbuf)
         cmd.bind_index(ibuf, @tycho.IndexType::Uint16)
         cmd.draw_indexed(36)
@@ -175,7 +175,7 @@ fn main {
         depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
       )
       cmd.bind_pipeline(pipe)
-      cmd.push_constants_floats(pipe, mvp0)
+      cmd.push_constants_mat4(pipe, mvp0)
       cmd.bind_vertex(0, vbuf)
       cmd.bind_index(ibuf, @tycho.IndexType::Uint16)
       cmd.draw_indexed(36)
@@ -191,7 +191,7 @@ fn main {
           depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
         )
         cmd_s.bind_pipeline(pipe)
-        cmd_s.push_constants_floats(pipe, mvp_s)
+        cmd_s.push_constants_mat4(pipe, mvp_s)
         cmd_s.bind_vertex(0, vbuf)
         cmd_s.bind_index(ibuf, @tycho.IndexType::Uint16)
         cmd_s.draw_indexed(36)

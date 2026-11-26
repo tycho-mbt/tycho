@@ -262,6 +262,9 @@ fn main {
 
     let scene_ubo = dev.create_buffer(176, @tycho.BufferKind::Uniform)
     let sky_ubo = dev.create_buffer(80, @tycho.BufferKind::Uniform)
+    // Reused across frames; reset() keeps the write cursor at the start.
+    let scene_writer = @tmath.GpuPackWriter::std140(44)
+    let sky_writer = @tmath.GpuPackWriter::std140(20)
 
     let light_vp = @dmath.dorthographic_rh(
         -4.5,
@@ -327,33 +330,21 @@ fn main {
           @dmath.DVec3::new(aspect / focal, -1.0 / focal, -1.0),
         ),
       )
-      let vp_f = vp.to_mat4().to_cols_array()
-      let inv_rp_f = inv_rp.to_mat4().to_cols_array()
+      // std140 SceneUBO { mat4 viewProj; mat4 lightVP; vec4 camPos;
+      //                   vec4 lightDir; vec4 lightColor; } = 44 floats
+      scene_writer.reset()
+      scene_writer.push_mat4(vp.to_mat4())
+      scene_writer.push_mat4(light_vp.to_mat4())
+      scene_writer.push_vec3_padded(cam_pos.to_vec3())
+      scene_writer.push_vec3_padded(sun_dir.to_vec3())
+      scene_writer.push_vec3_padded(@tmath.Vec3::new(4.6, 4.1, 3.5))
+      scene_ubo.upload_floats(scene_writer.buffer(), count=scene_writer.length())
 
-      let su = FixedArray::make(44, (0.0 : Float))
-      for i = 0; i < 16; i = i + 1 {
-        su[i] = vp_f[i]
-        su[16 + i] = light_vp_f[i]
-      }
-      su[32] = Float::from_double(cam_pos.x)
-      su[33] = Float::from_double(cam_pos.y)
-      su[34] = Float::from_double(cam_pos.z)
-      su[36] = Float::from_double(sun_dir.x)
-      su[37] = Float::from_double(sun_dir.y)
-      su[38] = Float::from_double(sun_dir.z)
-      su[40] = (4.6 : Float)
-      su[41] = (4.1 : Float)
-      su[42] = (3.5 : Float)
-      scene_ubo.upload_floats(su)
-
-      let ku = FixedArray::make(20, (0.0 : Float))
-      for i = 0; i < 16; i = i + 1 {
-        ku[i] = inv_rp_f[i]
-      }
-      ku[16] = Float::from_double(sun_dir.x)
-      ku[17] = Float::from_double(sun_dir.y)
-      ku[18] = Float::from_double(sun_dir.z)
-      sky_ubo.upload_floats(ku)
+      // std140 SkyUBO { mat4 invRotProj; vec4 sunDir; } = 20 floats
+      sky_writer.reset()
+      sky_writer.push_mat4(inv_rp.to_mat4())
+      sky_writer.push_vec3_padded(sun_dir.to_vec3())
+      sky_ubo.upload_floats(sky_writer.buffer(), count=sky_writer.length())
 
       if measure {
         cmd.reset_timestamps(ts)

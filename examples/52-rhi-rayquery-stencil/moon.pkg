@@ -1,4 +1,5 @@
 import {
+  "laplaceliu/tycho_math" @tmath,
   "laplaceliu/tycho" @tycho,
 }
 

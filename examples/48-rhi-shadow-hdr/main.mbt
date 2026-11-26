@@ -169,8 +169,8 @@ fn project_px(
   let v = vp.mul_vec4(p.extend_w(1.0))
   let nx = v.x / v.w
   let ny = v.y / v.w
-  let px = ((nx * 0.5 + 0.5) * Double::from_int(w)).to_int()
-  let py = ((ny * 0.5 + 0.5) * Double::from_int(h)).to_int()
+  let px = ((nx * 0.5 + 0.5) * w.to_double()).to_int()
+  let py = ((ny * 0.5 + 0.5) * h.to_double()).to_int()
   let ok = px >= 4 && px < w - 4 && py >= 4 && py < h - 4
   (px, py, ok)
 }
@@ -390,20 +390,14 @@ fn main {
       @dmath.dlook_at_rh(light_pos, @dmath.DVec3::zero(), @dmath.DVec3::unit_z())
     let ldir = light_pos.normalize()
 
-    let light_pc = light_vp.to_mat4().to_cols_array()
-    let cam_vp_f = cam_vp.to_mat4().to_cols_array()
-    let ubo_floats = FixedArray::make(36, (0.0 : Float))
-    for i = 0; i < 16; i = i + 1 {
-      ubo_floats[i] = cam_vp_f[i]
-      ubo_floats[16 + i] = light_pc[i]
-    }
-    ubo_floats[32] = Float::from_double(ldir.x)
-    ubo_floats[33] = Float::from_double(ldir.y)
-    ubo_floats[34] = Float::from_double(ldir.z)
-    ubo_floats[35] = (0.0 : Float)
+    // std140 SceneUBO { mat4 viewProj; mat4 lightVP; vec4 lightDir; } = 36 floats
+    let scene_writer = @tmath.GpuPackWriter::std140(36)
+    scene_writer.push_mat4(cam_vp.to_mat4())
+    scene_writer.push_mat4(light_vp.to_mat4())
+    scene_writer.push_vec3_padded(ldir.to_vec3())
 
     let scene_ubo = dev.create_buffer(144, @tycho.BufferKind::Uniform)
-    scene_ubo.upload_floats(ubo_floats)
+    scene_ubo.upload_floats(scene_writer.buffer(), count=scene_writer.length())
 
     let cmd = dev.begin_commands()
     // Pass 1: Depth-only shadow map into Depth24Stencil8
@@ -420,7 +414,7 @@ fn main {
     )
     cmd.bind_pipeline(shadow_pipe)
     cmd.bind_vertex(0, vbuf)
-    cmd.push_constants_floats(shadow_pipe, light_pc)
+    cmd.push_constants_mat4(shadow_pipe, light_vp.to_mat4())
     cmd.draw(vertex_count, 1)
     cmd.end_render_pass()
 
