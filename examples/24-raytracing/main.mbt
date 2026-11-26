@@ -280,16 +280,7 @@ fn main {
 
   // TLAS with one instance
   let xform = @vk.VkTransformMatrixKHR::new()
-  // row-major 3x4 identity; 1.0f little-endian is 00 00 80 3F
-  let idarr : Array[Byte] = []
-  for i = 0; i < 48; i = i + 1 {
-    idarr.push((0 : Byte))
-  }
-  for f in [0, 5, 10] {
-    idarr[f * 4 + 2] = (0x80 : Byte)
-    idarr[f * 4 + 3] = (0x3F : Byte)
-  }
-  xform.set_matrix(Bytes::from_array(idarr))
+  xform.set_matrix(@tmath.Affine3::identity().to_vk_transform_3x4_bytes())
   let insts = @vk.rt_instance_array(1)
   @vk.rt_instance_set(insts, 0, xform, (0 : UInt32), (0xFF : UInt32), (0 : UInt32), @vk.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR, blas_addr)
   let (instbuf, instmem) = mkbuf((64 : UInt64), geo_usage, host)

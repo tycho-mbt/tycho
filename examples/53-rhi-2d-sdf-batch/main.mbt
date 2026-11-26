@@ -264,17 +264,12 @@ fn UiBatcher::record(
 
 ///|
 fn clamp01(v : Double) -> Double {
-  if v < 0.0 { 0.0 } else if v > 1.0 { 1.0 } else { v }
+  v.clamp(min=0.0, max=1.0)
 }
 
 ///|
 fn smooth_cov(d : Double) -> Double {
   clamp01(0.5 - d)
-}
-
-///|
-fn abs_d(x : Double) -> Double {
-  if x < 0.0 { -x } else { x }
 }
 
 ///|
@@ -302,19 +297,19 @@ fn build_ui_atlas() -> Bytes {
       } else if tile == 1 {
         // Tile 1: crisp rounded badge + inner diamond star
         let outer = r_len - 24.0
-        let diamond = abs_d(lx) + abs_d(ly) - 13.0
-        let cross = if abs_d(lx) < 11.0 && abs_d(ly) < 11.0 {
-          if abs_d(lx) > abs_d(ly) { abs_d(lx) - 11.0 } else { abs_d(ly) - 11.0 }
+        let diamond = lx.abs() + ly.abs() - 13.0
+        let cross = if lx.abs() < 11.0 && ly.abs() < 11.0 {
+          if lx.abs() > ly.abs() { lx.abs() - 11.0 } else { ly.abs() - 11.0 }
         } else {
           1.0
         }
         let icon_d = if diamond < cross { diamond } else { cross }
-        let ring = smooth_cov(abs_d(outer) - 2.2)
+        let ring = smooth_cov(outer.abs() - 2.2)
         let star = smooth_cov(icon_d)
         ca = if ring > star { ring } else { star }
       } else if tile == 2 {
         // Tile 2: ring gauge + center dot
-        let ring_d = abs_d(r_len - 19.0) - 3.5
+        let ring_d = (r_len - 19.0).abs() - 3.5
         let dot_d = r_len - 7.5
         let a1 = smooth_cov(ring_d)
         let a2 = smooth_cov(dot_d)
@@ -322,24 +317,24 @@ fn build_ui_atlas() -> Bytes {
       } else if tile == 3 {
         // Tile 3: play triangle inside circle
         let half_h = (13.0 - lx) * 0.65
-        let tri = lx >= -8.0 && lx <= 13.0 && abs_d(ly) <= half_h
+        let tri = lx >= -8.0 && lx <= 13.0 && ly.abs() <= half_h
         if tri {
           ca = 1.0
         } else {
-          ca = smooth_cov(abs_d(r_len - 23.0) - 2.5)
+          ca = smooth_cov((r_len - 23.0).abs() - 2.5)
         }
       } else if tile == 4 {
         // Tile 4: equalizer bars
-        let bar1 = abs_d(lx + 14.0) < 4.5 && abs_d(ly - 4.0) < 14.0
-        let bar2 = abs_d(lx) < 4.5 && abs_d(ly) < 20.0
-        let bar3 = abs_d(lx - 14.0) < 4.5 && abs_d(ly + 3.0) < 12.0
+        let bar1 = (lx + 14.0).abs() < 4.5 && (ly - 4.0).abs() < 14.0
+        let bar2 = lx.abs() < 4.5 && ly.abs() < 20.0
+        let bar3 = (lx - 14.0).abs() < 4.5 && (ly + 3.0).abs() < 12.0
         if bar1 || bar2 || bar3 {
           ca = 1.0
         }
       } else if tile == 5 {
         // Tile 5: rounded grid 2x2 tiles
-        let ax = abs_d(abs_d(lx) - 11.0) - 7.0
-        let ay = abs_d(abs_d(ly) - 11.0) - 7.0
+        let ax = (lx.abs() - 11.0).abs() - 7.0
+        let ay = (ly.abs() - 11.0).abs() - 7.0
         let box_d = if ax > ay { ax } else { ay }
         ca = smooth_cov(box_d)
       } else if tile == 6 {
