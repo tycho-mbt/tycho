@@ -123,8 +123,26 @@ fn Texture::vk(self : Texture) -> VkTextureState raise RhiError {
 }
 
 ///|
+///|
+priv enum SamplerBackend {
+  VkSampler(VkSamplerState)
+  /// The DX12 sampler is declared statically by the root signature
+  /// (linear filter, clamp addressing); no object is created.
+  Dx12Static
+}
+
+///|
 pub struct Sampler {
-  priv inner : VkSamplerState
+  priv backend : SamplerBackend
+}
+
+///|
+fn Sampler::vk(self : Sampler) -> VkSamplerState raise RhiError {
+  match self.backend {
+    VkSampler(state) => state
+    Dx12Static =>
+      raise RhiError::BackendUnsupported("samplers are static on the DX12 backend")
+  }
 }
 
 ///|
@@ -171,10 +189,6 @@ fn Buffer::dx12(self : Buffer) -> Dx12BufferState? {
 
 // Vulkan-only handles: they are only ever produced by the Vulkan backend, so the
 // accessors below cannot fail.
-
-fn Sampler::vk(self : Sampler) -> VkSamplerState {
-  self.inner
-}
 
 fn Fence::vk(self : Fence) -> VkFenceState {
   self.inner
@@ -613,7 +627,15 @@ pub fn Swapchain::create_pipeline(
     Dx12Swapchain(state) =>
       return {
         backend: Dx12Pipeline(
-          dx12_pipeline_create(state.device, vert_spv, frag_spv, uniform_slots, false, true),
+          dx12_pipeline_create(
+            state.device,
+            vert_spv,
+            frag_spv,
+            uniform_slots,
+            false,
+            true,
+            0,
+          ),
         ),
       }
     VkSwapchain(_) => ()
@@ -655,6 +677,7 @@ pub fn Swapchain::create_pipeline_desc(
               None => false
             }),
             desc.depth_write,
+            desc.texture_slots,
           ),
         ),
       }
@@ -956,7 +979,22 @@ pub fn Device::create_texture_format(
   format : TextureFormat,
   pixels : Bytes,
 ) -> Texture raise RhiError {
-  { backend: VkTexture(vk_texture_create_uploaded(self.vk(), width, height, format, pixels)) }
+  match self.backend {
+    Dx12Device(state) => {
+      if format != TextureFormat::RGBA8 {
+        raise RhiError::BackendUnsupported(
+          "the DX12 upload path only takes RGBA8 so far",
+        )
+      }
+      { backend: Dx12Texture(dx12_texture_upload_create(state, width, height, pixels)) }
+    }
+    VkDevice(_) =>
+      {
+        backend: VkTexture(
+          vk_texture_create_uploaded(self.vk(), width, height, format, pixels),
+        ),
+      }
+  }
 }
 
 ///|
@@ -1245,13 +1283,19 @@ pub fn Device::create_sampler_desc(
   self : Device,
   desc : SamplerDesc,
 ) -> Sampler raise RhiError {
-  { inner: vk_sampler_create(self.vk(), desc) }
+  match self.backend {
+    Dx12Device(_) => { backend: Dx12Static }
+    VkDevice(_) => { backend: VkSampler(vk_sampler_create(self.vk(), desc)) }
+  }
 }
 
 ///|
 pub fn Sampler::destroy(self : Sampler) -> Unit {
-  let s = self.vk()
-  enqueue_delete(s.device, DeleteSampler(s.sampler))
+  match self.backend {
+    VkSampler(s) => enqueue_delete(s.device, DeleteSampler(s.sampler))
+    // The DX12 sampler lives in the root signature, so there is nothing to free.
+    Dx12Static => ()
+  }
 }
 
 ///|
@@ -1328,7 +1372,7 @@ pub fn BindlessHeap::register_texture(
   texture : Texture,
   sampler : Sampler,
 ) -> Int raise RhiError {
-  vk_bindless_heap_register(self.vk(), texture.vk(), sampler.inner)
+  vk_bindless_heap_register(self.vk(), texture.vk(), sampler.vk())
 }
 
 ///|
@@ -1490,15 +1534,23 @@ pub fn CommandBuffer::bind_texture(
   texture : Texture,
   sampler : Sampler,
 ) -> Unit {
-  match pipeline.backend {
-    VkPipeline(pipe) =>
-      match texture.backend {
-        VkTexture(tex) => self.on_vk(fn(state) {
-          state.pending_textures.push((pipe, slot, tex, sampler.inner))
+  match self.backend {
+    VkCommands(_) =>
+      match (pipeline.backend, texture.backend, sampler.backend) {
+        (VkPipeline(pipe), VkTexture(tex), VkSampler(samp)) => self.on_vk(fn(state) {
+          state.pending_textures.push((pipe, slot, tex, samp))
         })
-        Dx12Texture(_) => ()
+        _ => ()
       }
-    Dx12Pipeline(_) => ()
+    Dx12Commands(cmd) =>
+      match (pipeline.backend, texture.backend) {
+        (Dx12Pipeline(pipe), Dx12Texture(tex)) => {
+          // The SRV table sits right after the root CBVs in the signature, and
+          // the sampler is the static one declared there.
+          let _ = cmd.commands.set_texture(pipe.uniform_slots, tex.tex)
+        }
+        _ => ()
+      }
   }
 }
 

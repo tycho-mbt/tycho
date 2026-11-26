@@ -90,7 +90,12 @@ extern "c" fn cmd_copy_to_readback_ffi(cmds : UInt64, tex : UInt64, rb : UInt64)
 extern "c" fn commands_execute_wait_ffi(dev : UInt64, cmds : UInt64) -> Int32 = "tycho_dx12_commands_execute_wait"
 
 #borrow(vs, ps)
-extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int, depth_enable : Int, depth_write : Int) -> UInt64 = "tycho_dx12_pipeline_create"
+extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int, depth_enable : Int, depth_write : Int, srv_tables : Int) -> UInt64 = "tycho_dx12_pipeline_create"
+
+#borrow(pixels)
+extern "c" fn texture_create_uploaded_ffi(dev : UInt64, width : Int, height : Int, pixels : Bytes, pixel_bytes : Int) -> UInt64 = "tycho_dx12_texture_create_uploaded"
+
+extern "c" fn cmd_set_texture_ffi(cmds : UInt64, root_index : Int, tex : UInt64) -> Int32 = "tycho_dx12_cmd_set_texture"
 
 extern "c" fn depth_create_ffi(dev : UInt64, width : Int, height : Int) -> UInt64 = "tycho_dx12_depth_create"
 
@@ -238,6 +243,7 @@ pub fn Pipeline::create(
   flip_y? : Bool = false,
   depth? : Bool = false,
   depth_write? : Bool = true,
+  srv_tables? : Int = 0,
 ) -> Pipeline? {
   let handle = pipeline_create_ffi(
     device.handle,
@@ -249,6 +255,7 @@ pub fn Pipeline::create(
     if flip_y { 1 } else { 0 },
     if depth { 1 } else { 0 },
     if depth_write { 1 } else { 0 },
+    srv_tables,
   )
   if handle == (0 : UInt64) {
     None
@@ -284,6 +291,23 @@ pub fn Texture::create(device : Device, width : Int, height : Int) -> Texture? {
 }
 
 ///|
+///|
+/// Uploads tightly packed RGBA8 pixels into a DEFAULT-heap texture and gives it a
+/// shader-visible SRV, so it can be bound with `CommandList::set_texture`.
+pub fn Texture::create_uploaded(
+  device : Device,
+  width : Int,
+  height : Int,
+  pixels : Bytes,
+) -> Texture? {
+  let handle = texture_create_uploaded_ffi(device.handle, width, height, pixels, pixels.length())
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
 ///|
 /// A depth buffer (`D32_FLOAT`) with its own DSV. Bind it with
 /// `CommandList::set_depth` before clearing or drawing.
@@ -548,6 +572,18 @@ pub fn CommandList::copy_to_readback(self : CommandList, tex : Texture, rb : Rea
 /// Passing the depth texture here is what makes `draw` emit a DSV.
 pub fn CommandList::set_depth(self : CommandList, tex : Texture) -> Bool {
   cmd_set_depth_ffi(self.handle, tex.handle) != 0
+}
+
+///|
+/// Binds a texture's SRV through the descriptor table at `root_index` (the table
+/// follows the root CBVs in the signature the pipelines build). The sampler is a
+/// static one declared by the root signature, so no sampler object is needed.
+pub fn CommandList::set_texture(
+  self : CommandList,
+  root_index : Int,
+  tex : Texture,
+) -> Bool {
+  cmd_set_texture_ffi(self.handle, root_index, tex.handle) != 0
 }
 
 ///|

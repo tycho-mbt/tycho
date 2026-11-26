@@ -151,6 +151,7 @@ fn dx12_pipeline_create(
   uniform_slots : Int,
   depth : Bool,
   depth_write : Bool,
+  srv_tables : Int,
 ) -> Dx12PipelineState raise RhiError {
   // Root CBVs cost nothing to declare, so uniform slots are supported directly;
   // `flip_y` pins the Vulkan clip-space/winding convention (docs/original-design
@@ -166,6 +167,7 @@ fn dx12_pipeline_create(
     flip_y=true,
     depth=depth,
     depth_write=depth_write,
+    srv_tables=srv_tables,
   ) {
     Some(p) => { pipe: p, uniform_slots, }
     None => raise RhiError::PipelineFailed("DX12 CreateGraphicsPipelineState failed")
@@ -505,12 +507,12 @@ fn dx12_pipeline_create_from_desc(
   state : Dx12DeviceState,
   desc : PipelineDesc,
 ) -> Dx12PipelineState raise RhiError {
-  if desc.texture_slots > 0 ||
+  if desc.texture_slots > 1 ||
     desc.storage_slots > 0 ||
     desc.storage_image_slots > 0 ||
     desc.accel_slots > 0 {
     raise RhiError::BackendUnsupported(
-      "the DX12 backend implements uniform slots only (texture/storage/accel slots need a descriptor heap)",
+      "the DX12 backend implements one sampled texture slot and uniform slots so far",
     )
   }
   if desc.push_constant_size > 0 {
@@ -530,5 +532,29 @@ fn dx12_pipeline_create_from_desc(
     desc.uniform_slots,
     depth,
     desc.depth_write,
+    desc.texture_slots,
   )
+}
+
+///|
+/// Uploads tightly packed RGBA8 pixels into a DEFAULT-heap texture with a
+/// shader-visible SRV (one slot in the device heap).
+fn dx12_texture_upload_create(
+  state : Dx12DeviceState,
+  width : Int,
+  height : Int,
+  pixels : Bytes,
+) -> Dx12TextureState raise RhiError {
+  match @dx12.Texture::create_uploaded(state.device, width, height, pixels) {
+    Some(tex) =>
+      {
+        device: state.device,
+        tex: tex,
+        width: width,
+        height: height,
+        format: TextureFormat::RGBA8,
+        is_depth: false,
+      }
+    None => raise RhiError::AllocationFailed("DX12 texture upload")
+  }
 }

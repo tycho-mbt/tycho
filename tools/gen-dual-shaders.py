@@ -25,6 +25,15 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # (package dir, slang source, generated file, [(identifier, entry, stage)])
 TARGETS = [
     (
+        "examples/79-dx12-texture",
+        "shader.slang",
+        "shader_artifacts.mbt",
+        [
+            ("shader_vs", "vertexMain", "vertex"),
+            ("shader_fs", "fragmentMain", "fragment"),
+        ],
+    ),
+    (
         "examples/78-dx12-depth",
         "shader.slang",
         "shader_artifacts.mbt",
