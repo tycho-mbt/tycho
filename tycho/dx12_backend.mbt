@@ -39,6 +39,10 @@ priv struct Dx12PipelineState {
   pipe : @dx12.Pipeline
   uniform_slots : Int
   strides : FixedArray[Int]
+  /// Root parameter index of the 32-bit constants block (`b15, space0`), which
+  /// sits after the root CBVs and the SRV/sampler tables.
+  push_index : Int
+  push_bytes : Int
 }
 
 ///|
@@ -47,6 +51,8 @@ priv struct Dx12ComputeState {
   pipe : @dx12.ComputePipeline
   uniform_slots : Int
   uav_slots : Int
+  push_index : Int
+  push_bytes : Int
 }
 
 ///|
@@ -54,8 +60,12 @@ priv struct Dx12ComputeState {
 ///|
 /// A CPU-visible buffer: a committed resource or a region of the placed heap.
 priv struct Dx12BufferState {
+  device : @dx12.Device
   buffer : @dx12.Buffer
   size : Int
+  /// Set for storage (UAV) buffers, which live in the DEFAULT heap and are read
+  /// back through a staging copy instead of a persistent mapping.
+  storage : Bool
 }
 
 ///|
@@ -190,6 +200,7 @@ fn dx12_pipeline_create(
   depth : Bool,
   depth_write : Bool,
   srv_tables : Int,
+  push_bytes : Int,
   inputs : FixedArray[Int],
   strides : FixedArray[Int],
 ) -> Dx12PipelineState raise RhiError {
@@ -208,9 +219,16 @@ fn dx12_pipeline_create(
     depth=depth,
     depth_write=depth_write,
     srv_tables=srv_tables,
+    push_bytes=push_bytes,
     inputs=inputs,
   ) {
-    Some(p) => { pipe: p, uniform_slots, strides }
+    Some(p) => {
+      pipe: p,
+      uniform_slots,
+      strides,
+      push_index: uniform_slots + (if srv_tables > 0 { 2 } else { 0 }),
+      push_bytes,
+    }
     None => raise RhiError::PipelineFailed("DX12 CreateGraphicsPipelineState failed")
   }
 }
@@ -231,11 +249,16 @@ fn dx12_buffer_create(
       "the DX12 backend only allocates CpuToGpu buffers so far",
     )
   }
+  let is_storage = match kind {
+    BufferKind::Storage => true
+    _ => false
+  }
   match kind {
     BufferKind::Uniform => ()
     BufferKind::Vertex => ()
     BufferKind::Index => ()
     BufferKind::Indirect => ()
+    BufferKind::Storage => ()
     _ =>
       raise RhiError::BackendUnsupported(
         "the DX12 backend uploads uniform, vertex, index and indirect buffers so far",
@@ -243,11 +266,17 @@ fn dx12_buffer_create(
   }
   // Prefer a region of the shared placed heap (RegionPool decides the offset);
   // fall back to a committed resource when the pool is full.
+  if is_storage {
+    return match @dx12.Buffer::create_storage(state.device, size) {
+      Some(b) => { device: state.device, buffer: b, size, storage: true }
+      None => raise RhiError::AllocationFailed("DX12 storage buffer")
+    }
+  }
   match dx12_buffer_place(state, size) {
     Some(placed) => placed
     None =>
       match @dx12.Buffer::create(state.device, size) {
-        Some(b) => { buffer: b, size }
+        Some(b) => { device: state.device, buffer: b, size, storage: false }
         None => raise RhiError::AllocationFailed("DX12 upload buffer")
       }
   }
@@ -588,11 +617,6 @@ fn dx12_pipeline_create_from_desc(
       "the DX12 backend implements one sampled texture slot and uniform slots so far",
     )
   }
-  if desc.push_constant_size > 0 {
-    raise RhiError::BackendUnsupported(
-      "push constants are not implemented on the DX12 backend yet",
-    )
-  }
   let has_depth = match desc.depth_format {
     Some(_) => true
     None => false
@@ -607,6 +631,7 @@ fn dx12_pipeline_create_from_desc(
     depth,
     desc.depth_write,
     desc.texture_slots,
+    desc.push_constant_size,
     inputs,
     strides,
   )
@@ -641,6 +666,7 @@ fn dx12_compute_pipeline_create(
   cs : FixedArray[UInt32],
   uniform_slots : Int,
   uav_slots : Int,
+  push_bytes : Int,
 ) -> Dx12ComputeState raise RhiError {
   match @dx12.ComputePipeline::create(
     state.device,
@@ -648,8 +674,15 @@ fn dx12_compute_pipeline_create(
     cs.length() * 4,
     cbv_count=uniform_slots,
     uav_tables=uav_slots,
+    push_bytes=push_bytes,
   ) {
-    Some(pipe) => { pipe, uniform_slots, uav_slots }
+    Some(pipe) => {
+      pipe,
+      uniform_slots,
+      uav_slots,
+      push_index: uniform_slots + (if uav_slots > 0 { 1 } else { 0 }),
+      push_bytes,
+    }
     None => raise RhiError::PipelineFailed("DX12 CreateComputePipelineState failed")
   }
 }
@@ -735,7 +768,7 @@ fn dx12_buffer_place(
         None => None
         Some(offset) =>
           match @dx12.Buffer::place(pool.heap, offset.to_int(), size) {
-            Some(buffer) => Some({ buffer, size })
+            Some(buffer) => Some({ device: state.device, buffer, size, storage: false })
             None => {
               // Hand the region back so a later request can retry it.
               pool.pool.free(offset, size.to_uint64())
@@ -943,5 +976,78 @@ fn dx12_timestamp_pool_create(
   match @dx12.TimestampPool::create(state.device, count) {
     Some(pool) => pool
     None => raise RhiError::AllocationFailed("DX12 timestamp query heap")
+  }
+}
+
+///|
+fn dx12_bind_storage_buffer(
+  cmd : Dx12CommandState,
+  pipe : Dx12ComputeState,
+  slot : Int,
+  buffer : Dx12BufferState,
+) -> Bool {
+  if !buffer.storage || slot != 0 {
+    return false
+  }
+  cmd.commands.set_buffer_uav(pipe.uniform_slots, buffer.buffer)
+}
+
+///|
+/// Indirect execution bounded by a GPU-side count buffer (one UINT32).
+fn dx12_indirect_counted(
+  cmd : Dx12CommandState,
+  args : Dx12BufferState,
+  counts : Dx12BufferState,
+  kind : @dx12.IndirectKind,
+  max_count : Int,
+  offset : Int,
+  count_offset : Int,
+  stride : Int,
+) -> Unit {
+  let native = match kind {
+    @dx12.IndirectKind::Draw => 16
+    @dx12.IndirectKind::DrawIndexed => 20
+    @dx12.IndirectKind::Dispatch => 12
+  }
+  if stride != native {
+    dx12_unsupported(
+      cmd,
+      "an indirect argument stride of \{stride} bytes (D3D12 fixes it at \{native})",
+    )
+    return
+  }
+  if offset + native * max_count > args.size || count_offset + 4 > counts.size {
+    dx12_unsupported(cmd, "an indirect argument buffer shorter than the draw count")
+    return
+  }
+  let is_dispatch = match kind {
+    @dx12.IndirectKind::Dispatch => true
+    _ => false
+  }
+  if is_dispatch {
+    let _ = cmd.commands.execute_indirect_counted(
+      kind,
+      args.buffer,
+      counts.buffer,
+      max_count=max_count,
+      offset~,
+      count_offset~,
+    )
+    return
+  }
+  match cmd.target {
+    Some(target) => {
+      let _ = cmd.commands.execute_indirect_counted(
+        kind,
+        args.buffer,
+        counts.buffer,
+        max_count=max_count,
+        tex=Some(target),
+        offset~,
+        count_offset~,
+        flip_y=true,
+      )
+    }
+    None => dx12_unsupported(cmd, "an indirect draw without a bound render target")
   }
 }

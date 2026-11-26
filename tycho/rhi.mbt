@@ -658,6 +658,7 @@ pub fn Swapchain::create_pipeline(
             false,
             true,
             0,
+            0,
             [],
             [],
           ),
@@ -685,11 +686,6 @@ pub fn Swapchain::create_pipeline_desc(
           "the DX12 backend implements uniform slots only (texture/storage/accel slots need a descriptor heap)",
         )
       }
-      if desc.push_constant_size > 0 {
-        raise RhiError::BackendUnsupported(
-          "push constants are not implemented on the DX12 backend yet",
-        )
-      }
       let (inputs, strides) = dx12_vertex_input(desc)
       return {
         backend: Dx12Pipeline(
@@ -704,6 +700,7 @@ pub fn Swapchain::create_pipeline_desc(
             }),
             desc.depth_write,
             desc.texture_slots,
+            desc.push_constant_size,
             inputs,
             strides,
           ),
@@ -758,19 +755,25 @@ pub fn Device::create_compute_pipeline(
 ) -> Pipeline raise RhiError {
   match self.backend {
     Dx12Device(state) => {
-      if storage_slots > 0 || accel_slots > 0 {
+      if accel_slots > 0 {
         raise RhiError::BackendUnsupported(
-          "the DX12 compute path implements storage-image (UAV) slots and uniform slots",
+          "the DX12 compute path implements storage-buffer/image (UAV) slots and uniform slots",
         )
       }
-      if push_constant_size > 0 {
+      if storage_slots > 0 && storage_image_slots > 0 {
         raise RhiError::BackendUnsupported(
-          "push constants are not implemented on the DX12 backend yet",
+          "the DX12 compute path binds either storage buffers or storage images in its single UAV table",
         )
       }
       return {
         backend: Dx12Compute(
-          dx12_compute_pipeline_create(state, spv, uniform_slots, storage_image_slots),
+          dx12_compute_pipeline_create(
+            state,
+            spv,
+            uniform_slots,
+            storage_image_slots + storage_slots,
+            push_constant_size,
+          ),
         ),
       }
     }
@@ -1014,8 +1017,11 @@ pub fn Buffer::upload_uint16(
 pub fn Buffer::download(self : Buffer) -> Bytes raise RhiError {
   match self.backend {
     VkBuffer(state) => vk_buffer_download(state)
-    Dx12Buffer(_) =>
-      raise RhiError::BackendUnsupported("readback buffers are not implemented on DX12")
+    Dx12Buffer(state) =>
+      match state.buffer.download(state.device, state.size) {
+        Some(bytes) => Bytes::makei(bytes.length(), fn(i) { bytes[i] })
+        None => raise RhiError::CommandFailed("DX12 buffer readback failed")
+      }
   }
 }
 
@@ -1700,6 +1706,15 @@ pub fn CommandBuffer::bind_storage(
     (VkPipeline(pipe), VkBuffer(b)) => self.on_vk(fn(state) {
       state.pending_storage.push((pipe, slot, b, offset, size))
     })
+    (Dx12Compute(pipe), Dx12Buffer(state_buf)) =>
+      match self.backend {
+        Dx12Commands(cmd) => {
+          if !dx12_bind_storage_buffer(cmd, pipe, slot, state_buf) {
+            dx12_unsupported(cmd, "this storage buffer binding")
+          }
+        }
+        VkCommands(_) => ()
+      }
     _ => ()
   }
 }
@@ -1875,8 +1890,27 @@ pub fn CommandBuffer::push_constants_floats(
 ) -> Unit {
   match pipeline.backend {
     VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_push_constants_floats(state, pipe, data, offset) })
-    Dx12Pipeline(_) => self.dx12_unsupported("push constants")
-    Dx12Compute(_) => self.dx12_unsupported("push constants")
+    // Root constants take the float words verbatim (same bit pattern, 4 bytes each).
+    Dx12Pipeline(state_pipe) =>
+      match self.backend {
+        Dx12Commands(cmd) => {
+          if data.length() * 4 != state_pipe.push_bytes ||
+            !cmd.commands.set_root_constants(state_pipe.push_index, data) {
+            dx12_unsupported(cmd, "these push constants")
+          }
+        }
+        VkCommands(_) => ()
+      }
+    Dx12Compute(state_pipe) =>
+      match self.backend {
+        Dx12Commands(cmd) => {
+          if data.length() * 4 != state_pipe.push_bytes ||
+            !cmd.commands.set_compute_root_constants(state_pipe.push_index, data) {
+            dx12_unsupported(cmd, "these push constants")
+          }
+        }
+        VkCommands(_) => ()
+      }
   }
 }
 
@@ -1900,8 +1934,26 @@ pub fn CommandBuffer::push_constants_bytes(
 ) -> Unit {
   match pipeline.backend {
     VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_push_constants_bytes(state, pipe, data, offset) })
-    Dx12Pipeline(_) => self.dx12_unsupported("push constants")
-    Dx12Compute(_) => self.dx12_unsupported("push constants")
+    Dx12Pipeline(state_pipe) =>
+      match self.backend {
+        Dx12Commands(cmd) => {
+          if data.length() != state_pipe.push_bytes ||
+            !cmd.commands.set_root_constants_bytes(state_pipe.push_index, data) {
+            dx12_unsupported(cmd, "these push constants")
+          }
+        }
+        VkCommands(_) => ()
+      }
+    Dx12Compute(state_pipe) =>
+      match self.backend {
+        Dx12Commands(cmd) => {
+          if data.length() != state_pipe.push_bytes ||
+            !cmd.commands.set_compute_root_constants_bytes(state_pipe.push_index, data) {
+            dx12_unsupported(cmd, "these push constants")
+          }
+        }
+        VkCommands(_) => ()
+      }
   }
 }
 
@@ -2105,12 +2157,26 @@ pub fn CommandBuffer::draw_indirect_count(
   count_offset? : Int = 0,
   stride? : Int = 16,
 ) -> Unit {
-  self.on_vk_buffers(buffer, count_buffer, fn(state, a, b) {
-    vk_cmd_draw_indirect_count(state, a, b, max_draw_count, offset, count_offset, stride)
-  })
-  // A GPU-side count buffer needs SetPredication-style handling that the DX12
-  // command signature path does not expose yet.
-  self.dx12_unsupported("an indirect draw with a GPU-side count")
+  match self.backend {
+    VkCommands(_) => self.on_vk_buffers(buffer, count_buffer, fn(state, a, b) {
+      vk_cmd_draw_indirect_count(state, a, b, max_draw_count, offset, count_offset, stride)
+    })
+    Dx12Commands(cmd) =>
+      match (buffer.backend, count_buffer.backend) {
+        (Dx12Buffer(args), Dx12Buffer(counts)) =>
+          dx12_indirect_counted(
+            cmd,
+            args,
+            counts,
+            @dx12.IndirectKind::Draw,
+            max_draw_count,
+            offset,
+            count_offset,
+            stride,
+          )
+        _ => ()
+      }
+  }
 }
 
 ///|
@@ -2123,10 +2189,34 @@ pub fn CommandBuffer::draw_indexed_indirect_count(
   count_offset? : Int = 0,
   stride? : Int = 20,
 ) -> Unit {
-  self.on_vk_buffers(buffer, count_buffer, fn(state, a, b) {
-    vk_cmd_draw_indexed_indirect_count(state, a, b, max_draw_count, offset, count_offset, stride)
-  })
-  self.dx12_unsupported("an indirect draw with a GPU-side count")
+  match self.backend {
+    VkCommands(_) => self.on_vk_buffers(buffer, count_buffer, fn(state, a, b) {
+      vk_cmd_draw_indexed_indirect_count(
+        state,
+        a,
+        b,
+        max_draw_count,
+        offset,
+        count_offset,
+        stride,
+      )
+    })
+    Dx12Commands(cmd) =>
+      match (buffer.backend, count_buffer.backend) {
+        (Dx12Buffer(args), Dx12Buffer(counts)) =>
+          dx12_indirect_counted(
+            cmd,
+            args,
+            counts,
+            @dx12.IndirectKind::DrawIndexed,
+            max_draw_count,
+            offset,
+            count_offset,
+            stride,
+          )
+        _ => ()
+      }
+  }
 }
 
 ///|

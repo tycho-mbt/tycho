@@ -85,12 +85,37 @@ extern "c" fn buffer_size_ffi(buf : UInt64) -> Int32 = "tycho_dx12_buffer_size"
 
 extern "c" fn buffer_destroy_ffi(buf : UInt64) = "tycho_dx12_buffer_destroy"
 
+#borrow(data)
+extern "c" fn cmd_set_root_constants_bytes_ffi(cmds : UInt64, index : Int, data : Bytes, words : Int) -> Int32 = "tycho_dx12_cmd_set_root_constants_bytes"
+
+#borrow(data)
+extern "c" fn cmd_set_compute_root_constants_bytes_ffi(cmds : UInt64, index : Int, data : Bytes, words : Int) -> Int32 = "tycho_dx12_cmd_set_compute_root_constants_bytes"
+
+#borrow(dst)
+extern "c" fn buffer_download_ffi(dev : UInt64, buf : UInt64, dst : FixedArray[Byte], size : Int) -> Int32 = "tycho_dx12_buffer_download"
+
+#borrow(data)
+extern "c" fn cmd_set_root_constants_ffi(cmds : UInt64, index : Int, data : FixedArray[Float], count : Int) -> Int32 = "tycho_dx12_cmd_set_root_constants"
+
+#borrow(data)
+extern "c" fn cmd_set_compute_root_constants_ffi(cmds : UInt64, index : Int, data : FixedArray[Float], count : Int) -> Int32 = "tycho_dx12_cmd_set_compute_root_constants"
+
+extern "c" fn storage_buffer_create_ffi(dev : UInt64, size : Int) -> UInt64 = "tycho_dx12_storage_buffer_create"
+
+extern "c" fn cmd_set_buffer_uav_ffi(cmds : UInt64, root_index : Int, buf : UInt64) -> Int32 = "tycho_dx12_cmd_set_buffer_uav"
+
+extern "c" fn readback_buffer_create_ffi(dev : UInt64, size : Int) -> UInt64 = "tycho_dx12_readback_buffer_create"
+
+extern "c" fn cmd_copy_buffer_ffi(cmds : UInt64, src : UInt64, dst : UInt64, size : Int) -> Int32 = "tycho_dx12_cmd_copy_buffer"
+
+extern "c" fn cmd_execute_indirect_counted_ffi(cmds : UInt64, tex : UInt64, kind : Int, arg_buffer : UInt64, arg_offset : Int, max_count : Int, count_buffer : UInt64, count_offset : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_execute_indirect_counted"
+
 extern "c" fn cmd_copy_to_readback_ffi(cmds : UInt64, tex : UInt64, rb : UInt64) -> Int32 = "tycho_dx12_cmd_copy_to_readback"
 
 extern "c" fn commands_execute_wait_ffi(dev : UInt64, cmds : UInt64) -> Int32 = "tycho_dx12_commands_execute_wait"
 
 #borrow(vs, ps, inputs)
-extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int, depth_enable : Int, depth_write : Int, srv_tables : Int, input_count : Int, inputs : FixedArray[Int]) -> UInt64 = "tycho_dx12_pipeline_create"
+extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int, depth_enable : Int, depth_write : Int, srv_tables : Int, push_bytes : Int, input_count : Int, inputs : FixedArray[Int]) -> UInt64 = "tycho_dx12_pipeline_create"
 
 extern "c" fn cmd_draw_indexed_ffi(cmds : UInt64, tex : UInt64, index_count : Int, instances : Int, first_index : Int, vertex_offset : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_draw_indexed"
 
@@ -126,7 +151,7 @@ extern "c" fn sampler_destroy_ffi(sampler : UInt64) = "tycho_dx12_sampler_destro
 extern "c" fn storage_texture_create_ffi(dev : UInt64, width : Int, height : Int) -> UInt64 = "tycho_dx12_storage_texture_create"
 
 #borrow(cs)
-extern "c" fn compute_pipeline_create_ffi(dev : UInt64, cs : FixedArray[UInt32], cs_bytes : Int, cbv_count : Int, uav_tables : Int) -> UInt64 = "tycho_dx12_compute_pipeline_create"
+extern "c" fn compute_pipeline_create_ffi(dev : UInt64, cs : FixedArray[UInt32], cs_bytes : Int, cbv_count : Int, uav_tables : Int, push_bytes : Int) -> UInt64 = "tycho_dx12_compute_pipeline_create"
 
 extern "c" fn compute_pipeline_destroy_ffi(pipe : UInt64) = "tycho_dx12_pipeline_destroy"
 
@@ -289,6 +314,7 @@ pub fn Pipeline::create(
   depth? : Bool = false,
   depth_write? : Bool = true,
   srv_tables? : Int = 0,
+  push_bytes? : Int = 0,
   inputs? : FixedArray[Int] = [],
 ) -> Pipeline? {
   let handle = pipeline_create_ffi(
@@ -302,6 +328,7 @@ pub fn Pipeline::create(
     if depth { 1 } else { 0 },
     if depth_write { 1 } else { 0 },
     srv_tables,
+    push_bytes,
     inputs.length() / 5,
     inputs,
   )
@@ -674,8 +701,16 @@ pub fn ComputePipeline::create(
   cs_bytes : Int,
   cbv_count? : Int = 0,
   uav_tables? : Int = 0,
+  push_bytes? : Int = 0,
 ) -> ComputePipeline? {
-  let handle = compute_pipeline_create_ffi(device.handle, cs_dxil, cs_bytes, cbv_count, uav_tables)
+  let handle = compute_pipeline_create_ffi(
+    device.handle,
+    cs_dxil,
+    cs_bytes,
+    cbv_count,
+    uav_tables,
+    push_bytes,
+  )
   if handle == (0 : UInt64) {
     None
   } else {
@@ -719,6 +754,139 @@ pub fn CommandList::dispatch(self : CommandList, x : Int, y : Int, z? : Int = 1)
 /// A compute pipeline: one DXIL blob, its own root signature.
 pub struct ComputePipeline {
   handle : UInt64
+}
+
+///|
+/// Uploads `data` into the pipeline's root constants (`b15, space0`). The value
+/// count is the number of 32-bit words, so it must match the pipeline's
+/// `push_bytes`.
+pub fn CommandList::set_root_constants(
+  self : CommandList,
+  index : Int,
+  data : FixedArray[Float],
+) -> Bool {
+  cmd_set_root_constants_ffi(self.handle, index, data, data.length()) != 0
+}
+
+///|
+/// The compute-pipeline counterpart of `set_root_constants`.
+pub fn CommandList::set_compute_root_constants(
+  self : CommandList,
+  index : Int,
+  data : FixedArray[Float],
+) -> Bool {
+  cmd_set_compute_root_constants_ffi(self.handle, index, data, data.length()) != 0
+}
+
+///|
+/// A DEFAULT-heap buffer with an UAV (`RWStructuredBuffer`-style, 32-bit
+/// elements). Written by compute shaders and read back with `Buffer::download`.
+pub fn Buffer::create_storage(device : Device, size : Int) -> Buffer? {
+  let handle = storage_buffer_create_ffi(device.handle, size)
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+/// Binds a storage buffer as the UAV table at `root_index` of a compute pipeline.
+pub fn CommandList::set_buffer_uav(self : CommandList, root_index : Int, buffer : Buffer) -> Bool {
+  cmd_set_buffer_uav_ffi(self.handle, root_index, buffer.handle) != 0
+}
+
+///|
+/// Byte-oriented root constants: the caller supplies the exact word block the
+/// shader declares (see `set_root_constants` for the float convenience wrapper).
+pub fn CommandList::set_root_constants_bytes(
+  self : CommandList,
+  index : Int,
+  data : Bytes,
+) -> Bool {
+  cmd_set_root_constants_bytes_ffi(self.handle, index, data, data.length() / 4) != 0
+}
+
+///|
+pub fn CommandList::set_compute_root_constants_bytes(
+  self : CommandList,
+  index : Int,
+  data : Bytes,
+) -> Bool {
+  cmd_set_compute_root_constants_bytes_ffi(self.handle, index, data, data.length() / 4) != 0
+}
+
+///|
+/// Copies a storage buffer through a READBACK staging buffer and returns its
+/// contents. Valid once every list that wrote it has completed.
+pub fn Buffer::download(self : Buffer, device : Device, size : Int) -> FixedArray[Byte]? {
+  if size <= 0 || size > self.size() {
+    return None
+  }
+  let out = FixedArray::make(size, (0 : Byte))
+  if buffer_download_ffi(device.handle, self.handle, out, size) == 0 {
+    None
+  } else {
+    Some(out)
+  }
+}
+
+///|
+/// A READBACK-heap buffer: the destination of `copy_buffer`, readable on the CPU
+/// as soon as the submitting list has completed.
+pub fn Buffer::create_readback(device : Device, size : Int) -> Buffer? {
+  let handle = readback_buffer_create_ffi(device.handle, size)
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn CommandList::copy_buffer(
+  self : CommandList,
+  src : Buffer,
+  dst : Buffer,
+  size : Int,
+) -> Bool {
+  cmd_copy_buffer_ffi(self.handle, src.handle, dst.handle, size) != 0
+}
+
+///|
+/// Indirect execution bounded by a GPU-side count: only the first `count[0]`
+/// arguments run, `max_count` bounds the argument buffer.
+pub fn CommandList::execute_indirect_counted(
+  self : CommandList,
+  kind : IndirectKind,
+  buffer : Buffer,
+  count_buffer : Buffer,
+  max_count? : Int = 1,
+  tex? : Texture? = None,
+  offset? : Int = 0,
+  count_offset? : Int = 0,
+  flip_y? : Bool = false,
+) -> Bool {
+  let tex_handle = match tex {
+    Some(tex) => tex.handle
+    None => (0 : UInt64)
+  }
+  let code = match kind {
+    IndirectKind::Draw => 0
+    IndirectKind::DrawIndexed => 1
+    IndirectKind::Dispatch => 2
+  }
+  cmd_execute_indirect_counted_ffi(
+    self.handle,
+    tex_handle,
+    code,
+    buffer.handle(),
+    offset,
+    max_count,
+    count_buffer.handle(),
+    count_offset,
+    if flip_y { 1 } else { 0 },
+  ) != 0
 }
 
 // ---------------------------------------------------------------------------

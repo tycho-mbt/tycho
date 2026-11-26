@@ -182,3 +182,4 @@ if dev.capabilities().supports_ray_query {
 | `80-dx12-compute` | Headless DX12 compute: storage texture (UAV table) + compute PSO + `Dispatch`, gradient written by the shader and read back |
 | `81-dx12-geometry` | Headless DX12 vertex/index buffers: D3D12 input layout from `vertex_formats`, `IASetVertexBuffers`/`IASetIndexBuffer`, indexed draw |
 | `82-dx12-indirect` | Headless DX12 indirect draws (`ExecuteIndirect` + command signatures) and timestamp queries; unsupported calls fail `end_commands` instead of no-oping |
+| `83-dx12-advanced` | Headless DX12 push constants (root constants at `b15`), storage buffers (raw UAV + staging readback) and GPU-side draw counts |

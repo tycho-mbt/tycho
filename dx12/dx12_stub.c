@@ -198,6 +198,9 @@ typedef struct TychoDxBuffer {
   void *mapped;
   int size;
   int placed;  // 1 when the resource lives inside a TychoDxBufferHeap
+  UINT uav_slot;
+  int has_uav;
+  struct TychoDxDevice *uav_device;  // heap owner, for slot recycling
 } TychoDxBuffer;
 
 // A UPLOAD heap that placed buffers are carved out of: the free-list lives on
@@ -245,6 +248,8 @@ static TychoDxDevice *as_device(uint64_t p) { return (TychoDxDevice *)(uintptr_t
 static TychoDxPipeline *as_pipeline(uint64_t p) { return (TychoDxPipeline *)(uintptr_t)p; }
 static TychoDxTexture *as_texture(uint64_t p) { return (TychoDxTexture *)(uintptr_t)p; }
 static TychoDxReadback *as_readback(uint64_t p) { return (TychoDxReadback *)(uintptr_t)p; }
+static void dump_info_queue(TychoDxDevice *dev, const char *what);
+
 static TychoDxCommands *as_commands(uint64_t p) { return (TychoDxCommands *)(uintptr_t)p; }
 static TychoDxSwapchain *as_swapchain(uint64_t p) { return (TychoDxSwapchain *)(uintptr_t)p; }
 static TychoDxBuffer *as_buffer(uint64_t p) { return (TychoDxBuffer *)(uintptr_t)p; }
@@ -543,6 +548,8 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_commands_create(uint64_t dev_p) {
                                                    (void **)&cmds->allocator);
   set_hr(hr);
   if (FAILED(hr)) {
+    fprintf(stderr, "[tycho-dx12] CreateCommandAllocator failed: 0x%08lX\n", (unsigned long)hr);
+    dump_info_queue(dev, "CreateCommandAllocator");
     free(cmds);
     return 0;
   }
@@ -826,6 +833,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
                                                        int32_t flip_y, int32_t depth_enable,
                                                        int32_t depth_write,
                                                        int32_t srv_tables,
+                                                       int32_t push_bytes,
                                                        int32_t input_count,
                                                        const int32_t *inputs) {
   TychoDxDevice *dev = as_device(dev_p);
@@ -833,7 +841,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
   ID3DBlob *rs_blob = NULL;
   ID3DBlob *rs_err = NULL;
   D3D12_VERSIONED_ROOT_SIGNATURE_DESC rs_desc;
-  D3D12_ROOT_PARAMETER root_params[TYCHO_DX12_MAX_ROOT_CBVS + 2];
+  D3D12_ROOT_PARAMETER root_params[TYCHO_DX12_MAX_ROOT_CBVS + 3];
   D3D12_DESCRIPTOR_RANGE srv_range;
   D3D12_DESCRIPTOR_RANGE sampler_range;
   D3D12_INPUT_ELEMENT_DESC *input_elements = NULL;
@@ -844,6 +852,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
   if (!dev || !vs || !ps || vs_len <= 0 || ps_len <= 0) return 0;
   if (cbv_count < 0 || cbv_count > TYCHO_DX12_MAX_ROOT_CBVS) return 0;
   if (srv_tables < 0 || srv_tables > 8) return 0;
+  if (push_bytes < 0 || push_bytes > 256 || (push_bytes % 4) != 0) return 0;
   if (input_count < 0 || (input_count > 0 && !inputs)) return 0;
 
   pipe = (TychoDxPipeline *)calloc(1, sizeof(TychoDxPipeline));
@@ -888,7 +897,22 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
     root_params[cbv_count + 1].DescriptorTable.pDescriptorRanges = &sampler_range;
     root_params[cbv_count + 1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
   }
-  rs_desc.Desc_1_0.NumParameters = (UINT)(cbv_count + (srv_tables > 0 ? 2 : 0));
+  {
+    // Push constants have no D3D12 equivalent, so they map to root constants at
+    // `b15, space0`; a Slang shader pins them there with
+    // `[[vk::push_constant]] ConstantBuffer<T> pc : register(b15, space0);`
+    // (verified: the DXIL resource binds at cb15).
+    int push_index = cbv_count + (srv_tables > 0 ? 2 : 0);
+    if (push_bytes > 0) {
+      root_params[push_index].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+      root_params[push_index].Constants.ShaderRegister = 15;
+      root_params[push_index].Constants.RegisterSpace = 0;
+      root_params[push_index].Constants.Num32BitValues = (UINT)(push_bytes / 4);
+      root_params[push_index].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    }
+    rs_desc.Desc_1_0.NumParameters =
+        (UINT)(cbv_count + (srv_tables > 0 ? 2 : 0) + (push_bytes > 0 ? 1 : 0));
+  }
   rs_desc.Desc_1_0.pParameters = rs_desc.Desc_1_0.NumParameters > 0 ? root_params : NULL;
   hr = g_serialize_rs(&rs_desc, &rs_blob, &rs_err);
   set_hr(hr);
@@ -1675,6 +1699,282 @@ MOONBIT_FFI_EXPORT void tycho_dx12_sampler_destroy(uint64_t p) {
   free(sampler);
 }
 
+static ID3D12CommandSignature *ensure_indirect_signature(TychoDxDevice *dev, int32_t kind);
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_root_constants_bytes(uint64_t cmd_p, int32_t index,
+                                                                   const void *data,
+                                                                   int32_t words) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  if (!cmds || index < 0 || !data || words <= 0) return 0;
+  cmds->list->lpVtbl->SetGraphicsRoot32BitConstants(cmds->list, (UINT)index, (UINT)words, data, 0);
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_compute_root_constants_bytes(
+    uint64_t cmd_p, int32_t index, const void *data, int32_t words) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  if (!cmds || index < 0 || !data || words <= 0) return 0;
+  cmds->list->lpVtbl->SetComputeRoot32BitConstants(cmds->list, (UINT)index, (UINT)words, data, 0);
+  return 1;
+}
+
+// Storage buffers live in the DEFAULT heap, so reading one needs a GPU copy into
+// a READBACK staging buffer through a one-shot list (same shape as the texture
+// upload path).
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_buffer_download(uint64_t dev_p, uint64_t buf_p,
+                                                      uint8_t *dst, int32_t size) {
+  TychoDxDevice *dev = as_device(dev_p);
+  TychoDxBuffer *buf = as_buffer(buf_p);
+  ID3D12Resource *staging = NULL;
+  ID3D12CommandAllocator *allocator = NULL;
+  ID3D12GraphicsCommandList *list = NULL;
+  D3D12_HEAP_PROPERTIES heap;
+  D3D12_RESOURCE_DESC desc;
+  D3D12_RESOURCE_BARRIER barrier;
+  D3D12_RANGE range;
+  void *mapped = NULL;
+  HRESULT hr;
+  if (!dev || !buf || !buf->resource || !dst || size <= 0 || size > buf->size) return 0;
+
+  memset(&heap, 0, sizeof heap);
+  heap.Type = D3D12_HEAP_TYPE_READBACK;
+  heap.CreationNodeMask = 1;
+  heap.VisibleNodeMask = 1;
+  memset(&desc, 0, sizeof desc);
+  desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  desc.Width = (UINT64)size;
+  desc.Height = 1;
+  desc.DepthOrArraySize = 1;
+  desc.MipLevels = 1;
+  desc.Format = DXGI_FORMAT_UNKNOWN;
+  desc.SampleDesc.Count = 1;
+  desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+  hr = dev->device->lpVtbl->CreateCommittedResource(
+      dev->device, &heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_DEST, NULL,
+      &kIID_ID3D12Resource, (void **)&staging);
+  set_hr(hr);
+  if (FAILED(hr)) return 0;
+
+  hr = dev->device->lpVtbl->CreateCommandAllocator(dev->device, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                                   &kIID_ID3D12CommandAllocator,
+                                                   (void **)&allocator);
+  set_hr(hr);
+  if (SUCCEEDED(hr)) {
+    hr = dev->device->lpVtbl->CreateCommandList(dev->device, 0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                                allocator, NULL,
+                                                &kIID_ID3D12GraphicsCommandList, (void **)&list);
+    set_hr(hr);
+  }
+  if (SUCCEEDED(hr)) {
+    // Buffers live in one implicit state for UAV access, so the copy needs no
+    // barrier (the staging resource stays COPY_DEST for its lifetime).
+    list->lpVtbl->CopyBufferRegion(list, staging, 0, buf->resource, 0, (UINT64)size);
+    hr = list->lpVtbl->Close(list);
+    set_hr(hr);
+  }
+  if (SUCCEEDED(hr)) {
+    ID3D12CommandList *lists[1] = {(ID3D12CommandList *)list};
+    dev->queue->lpVtbl->ExecuteCommandLists(dev->queue, 1, lists);
+    dev->fence_value += 1;
+    hr = dev->queue->lpVtbl->Signal(dev->queue, dev->fence, dev->fence_value);
+    set_hr(hr);
+    if (SUCCEEDED(hr) && dev->fence->lpVtbl->GetCompletedValue(dev->fence) < dev->fence_value) {
+      hr = dev->fence->lpVtbl->SetEventOnCompletion(dev->fence, dev->fence_value,
+                                                   dev->fence_event);
+      if (FAILED(hr) || WaitForSingleObject(dev->fence_event, 30000) != WAIT_OBJECT_0) {
+        hr = E_FAIL;
+      }
+    }
+  }
+  if (SUCCEEDED(hr)) {
+    hr = staging->lpVtbl->Map(staging, 0, NULL, &mapped);
+    set_hr(hr);
+    if (SUCCEEDED(hr) && mapped) {
+      memcpy(dst, mapped, (size_t)size);
+      memset(&range, 0, sizeof range);
+      staging->lpVtbl->Unmap(staging, 0, &range);
+    }
+  }
+  if (list) list->lpVtbl->Release(list);
+  if (allocator) allocator->lpVtbl->Release(allocator);
+  staging->lpVtbl->Release(staging);
+  return SUCCEEDED(hr) ? 1 : 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_root_constants(uint64_t cmd_p, int32_t index,
+                                                             const uint32_t *data, int32_t count) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  if (!cmds || index < 0 || !data || count <= 0) return 0;
+  cmds->list->lpVtbl->SetGraphicsRoot32BitConstants(cmds->list, (UINT)index, (UINT)count, data, 0);
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_compute_root_constants(uint64_t cmd_p,
+                                                                     int32_t index,
+                                                                     const uint32_t *data,
+                                                                     int32_t count) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  if (!cmds || index < 0 || !data || count <= 0) return 0;
+  cmds->list->lpVtbl->SetComputeRoot32BitConstants(cmds->list, (UINT)index, (UINT)count, data, 0);
+  return 1;
+}
+
+// ---------------------------------------------------------------------------
+// Storage (UAV) buffers and plain copies
+// ---------------------------------------------------------------------------
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_storage_buffer_create(uint64_t dev_p, int32_t size) {
+  TychoDxDevice *dev = as_device(dev_p);
+  TychoDxBuffer *buf;
+  D3D12_HEAP_PROPERTIES heap;
+  D3D12_RESOURCE_DESC desc;
+  D3D12_UNORDERED_ACCESS_VIEW_DESC uav;
+  D3D12_CPU_DESCRIPTOR_HANDLE handle;
+  UINT slot;
+  HRESULT hr;
+  if (!dev || size <= 0) return 0;
+  if (!ensure_srv_heap(dev)) return 0;
+
+  buf = (TychoDxBuffer *)calloc(1, sizeof(TychoDxBuffer));
+  if (!buf) return 0;
+  buf->size = size;
+
+  memset(&heap, 0, sizeof heap);
+  heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+  heap.CreationNodeMask = 1;
+  heap.VisibleNodeMask = 1;
+  memset(&desc, 0, sizeof desc);
+  desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  desc.Width = (UINT64)size;
+  desc.Height = 1;
+  desc.DepthOrArraySize = 1;
+  desc.MipLevels = 1;
+  desc.Format = DXGI_FORMAT_UNKNOWN;
+  desc.SampleDesc.Count = 1;
+  desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+  desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+  hr = dev->device->lpVtbl->CreateCommittedResource(
+      dev->device, &heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COMMON,
+      NULL, &kIID_ID3D12Resource, (void **)&buf->resource);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    free(buf);
+    return 0;
+  }
+
+  if (dev->srv_free_count > 0) {
+    dev->srv_free_count -= 1;
+    slot = dev->srv_free[dev->srv_free_count];
+  } else if (dev->srv_used < dev->srv_capacity) {
+    slot = dev->srv_used++;
+  } else {
+    buf->resource->lpVtbl->Release(buf->resource);
+    free(buf);
+    g_last_hr = (HRESULT)0x8007000E;
+    return 0;
+  }
+  dev->srv_heap->lpVtbl->GetCPUDescriptorHandleForHeapStart(dev->srv_heap, &handle);
+  handle.ptr += (SIZE_T)slot * dev->srv_increment;
+  memset(&uav, 0, sizeof uav);
+  // Raw buffer view (`RWByteAddressBuffer`): R32_TYPELESS plus the RAW flag.
+  // UNKNOWN format with a zero stride is rejected by the debug layer.
+  uav.Format = DXGI_FORMAT_R32_TYPELESS;
+  uav.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+  uav.Buffer.NumElements = (UINT)(size / 4);
+  uav.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+  dev->device->lpVtbl->CreateUnorderedAccessView(dev->device, buf->resource, NULL, &uav, handle);
+  buf->uav_slot = slot;
+  buf->has_uav = 1;
+  buf->uav_device = dev;
+  return (uint64_t)(uintptr_t)buf;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_buffer_uav(uint64_t cmd_p, int32_t root_index,
+                                                         uint64_t buf_p) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  TychoDxBuffer *buf = as_buffer(buf_p);
+  ID3D12DescriptorHeap *heaps[1];
+  D3D12_GPU_DESCRIPTOR_HANDLE gpu;
+  if (!cmds || !cmds->dev || !buf || !buf->has_uav || root_index < 0) return 0;
+  heaps[0] = cmds->dev->srv_heap;
+  cmds->list->lpVtbl->SetDescriptorHeaps(cmds->list, 1, heaps);
+  cmds->dev->srv_heap->lpVtbl->GetGPUDescriptorHandleForHeapStart(cmds->dev->srv_heap, &gpu);
+  gpu.ptr += (SIZE_T)buf->uav_slot * cmds->dev->srv_increment;
+  cmds->list->lpVtbl->SetComputeRootDescriptorTable(cmds->list, (UINT)root_index, gpu);
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_readback_buffer_create(uint64_t dev_p, int32_t size) {
+  TychoDxDevice *dev = as_device(dev_p);
+  TychoDxBuffer *buf;
+  D3D12_HEAP_PROPERTIES heap;
+  D3D12_RESOURCE_DESC desc;
+  void *mapped = NULL;
+  HRESULT hr;
+  if (!dev || size <= 0) return 0;
+  buf = (TychoDxBuffer *)calloc(1, sizeof(TychoDxBuffer));
+  if (!buf) return 0;
+  buf->size = size;
+  memset(&heap, 0, sizeof heap);
+  heap.Type = D3D12_HEAP_TYPE_READBACK;
+  heap.CreationNodeMask = 1;
+  heap.VisibleNodeMask = 1;
+  memset(&desc, 0, sizeof desc);
+  desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  desc.Width = (UINT64)size;
+  desc.Height = 1;
+  desc.DepthOrArraySize = 1;
+  desc.MipLevels = 1;
+  desc.Format = DXGI_FORMAT_UNKNOWN;
+  desc.SampleDesc.Count = 1;
+  desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+  hr = dev->device->lpVtbl->CreateCommittedResource(
+      dev->device, &heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_DEST, NULL,
+      &kIID_ID3D12Resource, (void **)&buf->resource);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    free(buf);
+    return 0;
+  }
+  if (FAILED(buf->resource->lpVtbl->Map(buf->resource, 0, NULL, &mapped)) || !mapped) {
+    buf->resource->lpVtbl->Release(buf->resource);
+    free(buf);
+    return 0;
+  }
+  buf->mapped = mapped;
+  return (uint64_t)(uintptr_t)buf;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_copy_buffer(uint64_t cmd_p, uint64_t src_p,
+                                                      uint64_t dst_p, int32_t size) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  TychoDxBuffer *src = as_buffer(src_p);
+  TychoDxBuffer *dst = as_buffer(dst_p);
+  if (!cmds || !src || !dst || size <= 0) return 0;
+  if (size > src->size || size > dst->size) return 0;
+  cmds->list->lpVtbl->CopyBufferRegion(cmds->list, dst->resource, 0, src->resource, 0,
+                                       (UINT64)size);
+  return 1;
+}
+
+// `count_buffer` holds a single UINT32 that bounds how many arguments run.
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_execute_indirect_counted(
+    uint64_t cmd_p, uint64_t tex_p, int32_t kind, uint64_t arg_buffer_p, int32_t arg_offset,
+    int32_t max_count, uint64_t count_buffer_p, int32_t count_offset, int32_t flip_y) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  TychoDxBuffer *args = as_buffer(arg_buffer_p);
+  TychoDxBuffer *counts = as_buffer(count_buffer_p);
+  ID3D12CommandSignature *sig;
+  if (!cmds || !cmds->dev || !args || !args->resource || !counts || !counts->resource) return 0;
+  if (max_count <= 0) return 0;
+  sig = ensure_indirect_signature(cmds->dev, kind);
+  if (!sig) return 0;
+  if (kind != 2 && !dx12_prepare_draw(cmds, as_texture(tex_p), flip_y)) return 0;
+  cmds->list->lpVtbl->ExecuteIndirect(cmds->list, sig, (UINT)max_count, args->resource,
+                                      (UINT64)arg_offset, counts->resource, (UINT64)count_offset);
+  return 1;
+}
+
 // ---------------------------------------------------------------------------
 // Indirect draws / dispatches and timestamp queries
 // ---------------------------------------------------------------------------
@@ -1996,6 +2296,11 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_buffer_size(uint64_t buf_p) {
 MOONBIT_FFI_EXPORT void tycho_dx12_buffer_destroy(uint64_t buf_p) {
   TychoDxBuffer *buf = as_buffer(buf_p);
   if (!buf) return;
+  if (buf->has_uav && buf->uav_device &&
+      buf->uav_device->srv_free_count < TYCHO_DX12_SRV_HEAP_SIZE) {
+    buf->uav_device->srv_free[buf->uav_device->srv_free_count] = buf->uav_slot;
+    buf->uav_device->srv_free_count += 1;
+  }
   if (buf->resource) {
     if (buf->mapped) {
       buf->resource->lpVtbl->Unmap(buf->resource, 0, NULL);
@@ -2085,13 +2390,14 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_storage_texture_create(uint64_t dev_p, in
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_compute_pipeline_create(uint64_t dev_p,
                                                                const uint8_t *cs, int32_t cs_len,
                                                                int32_t cbv_count,
-                                                               int32_t uav_tables) {
+                                                               int32_t uav_tables,
+                                                               int32_t push_bytes) {
   TychoDxDevice *dev = as_device(dev_p);
   TychoDxPipeline *pipe;
   ID3DBlob *rs_blob = NULL;
   ID3DBlob *rs_err = NULL;
   D3D12_VERSIONED_ROOT_SIGNATURE_DESC rs_desc;
-  D3D12_ROOT_PARAMETER root_params[TYCHO_DX12_MAX_ROOT_CBVS + 1];
+  D3D12_ROOT_PARAMETER root_params[TYCHO_DX12_MAX_ROOT_CBVS + 2];
   D3D12_DESCRIPTOR_RANGE uav_range;
   D3D12_COMPUTE_PIPELINE_STATE_DESC pso_desc;
   HRESULT hr;
@@ -2099,6 +2405,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_compute_pipeline_create(uint64_t dev_p,
   if (!dev || !cs || cs_len <= 0) return 0;
   if (cbv_count < 0 || cbv_count > TYCHO_DX12_MAX_ROOT_CBVS) return 0;
   if (uav_tables < 0 || uav_tables > 8) return 0;
+  if (push_bytes < 0 || push_bytes > 256 || (push_bytes % 4) != 0) return 0;
 
   pipe = (TychoDxPipeline *)calloc(1, sizeof(TychoDxPipeline));
   if (!pipe) return 0;
@@ -2124,7 +2431,19 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_compute_pipeline_create(uint64_t dev_p,
     root_params[cbv_count].DescriptorTable.pDescriptorRanges = &uav_range;
     root_params[cbv_count].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
   }
-  rs_desc.Desc_1_0.NumParameters = (UINT)(cbv_count + (uav_tables > 0 ? 1 : 0));
+  {
+    // Same convention as the graphics path: push constants live at `b15, space0`.
+    int push_index = cbv_count + (uav_tables > 0 ? 1 : 0);
+    if (push_bytes > 0) {
+      root_params[push_index].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+      root_params[push_index].Constants.ShaderRegister = 15;
+      root_params[push_index].Constants.RegisterSpace = 0;
+      root_params[push_index].Constants.Num32BitValues = (UINT)(push_bytes / 4);
+      root_params[push_index].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    }
+  }
+  rs_desc.Desc_1_0.NumParameters =
+      (UINT)(cbv_count + (uav_tables > 0 ? 1 : 0) + (push_bytes > 0 ? 1 : 0));
   rs_desc.Desc_1_0.pParameters = rs_desc.Desc_1_0.NumParameters > 0 ? root_params : NULL;
   rs_desc.Desc_1_0.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
   hr = g_serialize_rs(&rs_desc, &rs_blob, &rs_err);
@@ -2606,6 +2925,98 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_buffer_size(uint64_t buf) {
 
 MOONBIT_FFI_EXPORT void tycho_dx12_buffer_destroy(uint64_t buf) { (void)buf; }
 
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_root_constants_bytes(uint64_t cmd, int32_t index,
+                                                                   const void *data,
+                                                                   int32_t words) {
+  (void)cmd;
+  (void)index;
+  (void)data;
+  (void)words;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_compute_root_constants_bytes(
+    uint64_t cmd, int32_t index, const void *data, int32_t words) {
+  (void)cmd;
+  (void)index;
+  (void)data;
+  (void)words;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_buffer_download(uint64_t dev, uint64_t buf, uint8_t *dst,
+                                                      int32_t size) {
+  (void)dev;
+  (void)buf;
+  (void)dst;
+  (void)size;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_root_constants(uint64_t cmd, int32_t index,
+                                                             const uint32_t *data,
+                                                             int32_t count) {
+  (void)cmd;
+  (void)index;
+  (void)data;
+  (void)count;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_compute_root_constants(uint64_t cmd, int32_t index,
+                                                                     const uint32_t *data,
+                                                                     int32_t count) {
+  (void)cmd;
+  (void)index;
+  (void)data;
+  (void)count;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_storage_buffer_create(uint64_t dev, int32_t size) {
+  (void)dev;
+  (void)size;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_buffer_uav(uint64_t cmd, int32_t root_index,
+                                                         uint64_t buf) {
+  (void)cmd;
+  (void)root_index;
+  (void)buf;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_readback_buffer_create(uint64_t dev, int32_t size) {
+  (void)dev;
+  (void)size;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_copy_buffer(uint64_t cmd, uint64_t src, uint64_t dst,
+                                                      int32_t size) {
+  (void)cmd;
+  (void)src;
+  (void)dst;
+  (void)size;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_execute_indirect_counted(
+    uint64_t cmd, uint64_t tex, int32_t kind, uint64_t arg_buffer, int32_t arg_offset,
+    int32_t max_count, uint64_t count_buffer, int32_t count_offset, int32_t flip_y) {
+  (void)cmd;
+  (void)tex;
+  (void)kind;
+  (void)arg_buffer;
+  (void)arg_offset;
+  (void)max_count;
+  (void)count_buffer;
+  (void)count_offset;
+  (void)flip_y;
+  return 0;
+}
+
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_copy_to_readback(uint64_t cmd, uint64_t tex,
                                                            uint64_t rb) {
   (void)cmd;
@@ -2626,6 +3037,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev, const uint8
                                                        int32_t flip_y, int32_t depth_enable,
                                                        int32_t depth_write,
                                                        int32_t srv_tables,
+                                                       int32_t push_bytes,
                                                        int32_t input_count,
                                                        const int32_t *inputs) {
   (void)dev;
@@ -2638,6 +3050,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev, const uint8
   (void)depth_enable;
   (void)depth_write;
   (void)srv_tables;
+  (void)push_bytes;
   (void)input_count;
   (void)inputs;
   return 0;
@@ -2722,12 +3135,14 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_storage_texture_create(uint64_t dev, int3
 
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_compute_pipeline_create(uint64_t dev, const uint8_t *cs,
                                                                int32_t cs_len, int32_t cbv_count,
-                                                               int32_t uav_tables) {
+                                                               int32_t uav_tables,
+                                                               int32_t push_bytes) {
   (void)dev;
   (void)cs;
   (void)cs_len;
   (void)cbv_count;
   (void)uav_tables;
+  (void)push_bytes;
   return 0;
 }
 

@@ -5523,7 +5523,10 @@ pub struct Buffer {
   handle : UInt64
 }
 pub fn Buffer::create(Device, Int32) -> Self?
+pub fn Buffer::create_readback(Device, Int32) -> Self?
+pub fn Buffer::create_storage(Device, Int32) -> Self?
 pub fn Buffer::destroy(Self) -> Unit
+pub fn Buffer::download(Self, Device, Int32) -> FixedArray[Byte]?
 pub fn Buffer::gpu_address(Self) -> UInt64
 pub fn Buffer::handle(Self) -> UInt64
 pub fn Buffer::place(BufferHeap, Int32, Int32) -> Self?
@@ -5546,18 +5549,26 @@ pub fn CommandList::bind_index(Self, Buffer, Int32, Bool, offset? : Int32) -> Bo
 pub fn CommandList::bind_vertex(Self, Int32, Buffer, Int32, Int32, offset? : Int32) -> Bool
 pub fn CommandList::clear(Self, Texture, Float, Float, Float, Float) -> Bool
 pub fn CommandList::clear_depth(Self, Texture, depth? : Float) -> Bool
+pub fn CommandList::copy_buffer(Self, Buffer, Buffer, Int32) -> Bool
 pub fn CommandList::copy_to_readback(Self, Texture, Readback) -> Bool
 pub fn CommandList::create(Device) -> Self?
 pub fn CommandList::destroy(Self) -> Unit
 pub fn CommandList::dispatch(Self, Int32, Int32, z? : Int32) -> Bool
 pub fn CommandList::draw(Self, Texture, Int32, instances? : Int32, flip_y? : Bool) -> Bool
 pub fn CommandList::draw_indexed(Self, Texture, Int32, instances? : Int32, first_index? : Int32, vertex_offset? : Int32, flip_y? : Bool) -> Bool
+pub fn CommandList::execute_indirect(Self, IndirectKind, Buffer, tex? : Texture?, count? : Int32, offset? : Int32, flip_y? : Bool) -> Bool
+pub fn CommandList::execute_indirect_counted(Self, IndirectKind, Buffer, Buffer, max_count? : Int32, tex? : Texture?, offset? : Int32, count_offset? : Int32, flip_y? : Bool) -> Bool
 pub fn CommandList::execute_wait(Self, Device) -> Bool
 pub fn CommandList::handle(Self) -> UInt64
+pub fn CommandList::set_buffer_uav(Self, Int32, Buffer) -> Bool
 pub fn CommandList::set_cbv(Self, Int32, Buffer, offset? : Int32) -> Bool
 pub fn CommandList::set_compute_pipeline(Self, ComputePipeline) -> Bool
+pub fn CommandList::set_compute_root_constants(Self, Int32, FixedArray[Float]) -> Bool
+pub fn CommandList::set_compute_root_constants_bytes(Self, Int32, Bytes) -> Bool
 pub fn CommandList::set_depth(Self, Texture) -> Bool
 pub fn CommandList::set_pipeline(Self, Pipeline) -> Bool
+pub fn CommandList::set_root_constants(Self, Int32, FixedArray[Float]) -> Bool
+pub fn CommandList::set_root_constants_bytes(Self, Int32, Bytes) -> Bool
 pub fn CommandList::set_texture(Self, Int32, Texture, sampler? : Sampler?) -> Bool
 pub fn CommandList::set_uav(Self, Int32, Texture) -> Bool
 pub fn CommandList::transition(Self, Texture, ResourceState) -> Bool
@@ -5583,10 +5594,16 @@ pub fn Device::shader_model(Self) -> Int32
 pub fn Device::validation_errors(Self) -> Int32
 pub fn Device::wait_idle(Self) -> Bool
 
+pub(all) enum IndirectKind {
+  Draw
+  DrawIndexed
+  Dispatch
+}
+
 pub struct Pipeline {
   handle : UInt64
 }
-pub fn Pipeline::create(Device, FixedArray[UInt32], Int32, FixedArray[UInt32], Int32, cbv_count? : Int32, flip_y? : Bool, depth? : Bool, depth_write? : Bool, srv_tables? : Int32, inputs? : FixedArray[Int32]) -> Self?
+pub fn Pipeline::create(Device, FixedArray[UInt32], Int32, FixedArray[UInt32], Int32, cbv_count? : Int32, flip_y? : Bool, depth? : Bool, depth_write? : Bool, srv_tables? : Int32, push_bytes? : Int32, inputs? : FixedArray[Int32]) -> Self?
 pub fn Pipeline::destroy(Self) -> Unit
 pub fn Pipeline::handle(Self) -> UInt64
 
@@ -5660,6 +5677,18 @@ pub fn Texture::destroy(Self) -> Unit
 pub fn Texture::handle(Self) -> UInt64
 pub fn Texture::is_depth(Self) -> Bool
 pub fn Texture::state(Self) -> ResourceState?
+
+pub struct TimestampPool {
+  handle : UInt64
+}
+pub fn TimestampPool::count(Self) -> Int32
+pub fn TimestampPool::create(Device, Int32) -> Self?
+pub fn TimestampPool::destroy(Self) -> Unit
+pub fn TimestampPool::frequency(Self) -> Int64
+pub fn TimestampPool::handle(Self) -> UInt64
+pub fn TimestampPool::read(Self, Int32) -> Int64
+pub fn TimestampPool::resolve(Self, CommandList) -> Bool
+pub fn TimestampPool::write(Self, CommandList, Int32) -> Bool
 
 // Type aliases
 
