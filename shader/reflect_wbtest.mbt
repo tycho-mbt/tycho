@@ -1,5 +1,17 @@
 // Whitebox tests for the pure-MoonBit SPIR-V reflector (compiling live GLSL via glslangValidator).
 
+#borrow(suffix)
+extern "c" fn temp_path_ffi(suffix : Bytes, len : Int32) -> Bytes = "tycho_shader_temp_path"
+
+///|
+/// Unique path in the platform temp directory ("TMPDIR", then "TEMP"/"TMP" on
+/// Windows). Tests must not hardcode "/tmp": it does not exist on Windows, so
+/// save_png would fail to open the file there.
+fn temp_path(suffix : String) -> String {
+  let s = @utf8.encode(suffix)
+  @utf8.decode_lossy(temp_path_ffi(s, s.length())[:])
+}
+
 ///|
 test "reflect vertex and mrt fragment shaders" {
   let vert_src =
@@ -215,7 +227,7 @@ test "save_png compresses and stays pixel-exact" {
       rgba[i + 3] = (255 : Byte)
     }
   }
-  let path = "/tmp/tycho_save_png_compress_test.png"
+  let path = temp_path(".png")
   assert_true(save_png(path, w, h, rgba))
   let bytes = read_file_bytes(path)
   assert_true(bytes.length() > 0)
@@ -246,7 +258,7 @@ test "save_png swaps bgra into rgba" {
     px[i * 4 + 2] = (50 : Byte) // R
     px[i * 4 + 3] = (255 : Byte)
   }
-  let path = "/tmp/tycho_save_png_bgra_test.png"
+  let path = temp_path(".png")
   assert_true(save_png(path, w, h, px, bgra=true))
   match decode_image(read_file_bytes(path)) {
     Some((out, _, _)) => {
@@ -270,7 +282,7 @@ test "decode_image roundtrips png" {
   rgba[5] = (20 : Byte)
   rgba[6] = (30 : Byte)
   rgba[7] = (255 : Byte)
-  let path = "/tmp/tycho_decode_test.png"
+  let path = temp_path(".png")
   assert_true(save_png(path, w, h, rgba))
   let bytes = read_file_bytes(path)
   assert_true(bytes.length() > 0)

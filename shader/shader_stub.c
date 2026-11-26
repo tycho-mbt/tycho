@@ -718,6 +718,24 @@ MOONBIT_FFI_EXPORT uint8_t *tycho_shader_screenshot_path(void) {
   return out;
 }
 
+// Unique path inside the platform temp directory ("TMPDIR", then "TEMP"/"TMP" on
+// Windows, then "/tmp"). White-box tests use this instead of hardcoding "/tmp",
+// which does not exist on Windows.
+MOONBIT_FFI_EXPORT uint8_t *tycho_shader_temp_path(const uint8_t *suffix, int32_t slen) {
+  char sfx[64] = {0};
+  if (slen > 0) {
+    if (slen >= (int32_t)sizeof sfx) slen = (int32_t)sizeof sfx - 1;
+    memcpy(sfx, suffix, (size_t)slen);
+    sfx[slen] = '\0';
+  }
+  char path[1024] = {0};
+  tycho_temp_path(path, sizeof path, sfx);
+  size_t len = strlen(path);
+  uint8_t *out = (uint8_t *)moonbit_make_bytes((int32_t)len, 0);
+  if (len > 0) memcpy(out, path, len);
+  return out;
+}
+
 // PNG writing goes through stb_image_write's in-memory encoder, which applies a
 // per-row filter (None/Sub/Up/Average/Paeth, picked by minimum absolute sum) and
 // a real deflate stream. The previous writer emitted stored (uncompressed)

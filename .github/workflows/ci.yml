@@ -45,7 +45,17 @@ jobs:
       - name: Install Mesa lavapipe, Vulkan loader, validation layers, and glslang
         shell: pwsh
         run: |
-          C:\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -Sy && pacman --noconfirm -S --needed mingw-w64-ucrt-x86_64-mesa mingw-w64-ucrt-x86_64-vulkan-loader mingw-w64-ucrt-x86_64-vulkan-validation-layers mingw-w64-ucrt-x86_64-glslang"
+          # MSYS2 only supports full upgrades: installing into a tree that was merely
+          # synced ("pacman -Sy") leaves runtime DLLs behind their package versions, and
+          # the ICD and the validation layer then never register with the loader - the
+          # examples reported VK_ERROR_LAYER_NOT_PRESENT (-6) and
+          # VK_ERROR_INCOMPATIBLE_DRIVER (-9). The first pass can replace the runtime
+          # itself, so upgrade twice.
+          C:\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -Syu"
+          if ($LASTEXITCODE -ne 0) { throw "MSYS2 pacman upgrade failed" }
+          C:\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -Syu"
+          if ($LASTEXITCODE -ne 0) { throw "MSYS2 pacman upgrade failed" }
+          C:\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -S --needed mingw-w64-ucrt-x86_64-mesa mingw-w64-ucrt-x86_64-vulkan-loader mingw-w64-ucrt-x86_64-vulkan-validation-layers mingw-w64-ucrt-x86_64-glslang"
           if ($LASTEXITCODE -ne 0) { throw "MSYS2 pacman install failed" }
           "C:\msys64\ucrt64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           $vkLoader = "C:\msys64\ucrt64\bin\vulkan-1.dll"
@@ -117,7 +127,7 @@ jobs:
           python --version
           moon version
           glslangValidator --version
-          python -c "import ctypes, os; ctypes.WinDLL(r'C:\msys64\ucrt64\bin\vulkan_lvp.dll'); vk = ctypes.WinDLL(os.environ['TYCHO_VULKAN_LIB']); ver = ctypes.c_uint32(); vk.vkEnumerateInstanceVersion(ctypes.byref(ver)); print(f'Vulkan loader version: {ver.value >> 22}.{(ver.value >> 12) & 0x3ff}.{ver.value & 0xfff}')"
+          python tools/check-vulkan.py
       - name: Update MoonBit registry
         shell: pwsh
         run: moon update
@@ -129,6 +139,10 @@ jobs:
         run: moon test --target native
       - name: Run examples on lavapipe
         shell: pwsh
+        env:
+          # A hosted runner has no GPU: pin the DX12 examples to WARP instead of
+          # letting their hardware-first adapter choice depend on the image.
+          TYCHO_DX12_WARP: "1"
         run: python tools/run-ci-suite.py --mode all --skip 07-slang,51-wayland-window --require-pass 35
 
   macos:
