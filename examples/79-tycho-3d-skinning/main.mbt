@@ -205,10 +205,11 @@ fn main {
         let _ = @tycho.save_png(shot, 800, 600, px1)
       }
       let errs = dev.validation_errors()
+      let stats = renderer.stats()
       println(
-        "[79-tycho-3d-skinning] \{renderer.stats().summary()} skin_diff=\{diff} lit=\{lit} validation=\{errs}",
+        "[79-tycho-3d-skinning] \{stats.summary()} skin_diff=\{diff} lit=\{lit} validation=\{errs}",
       )
-      if errs == 0 && diff > 6000 && lit > 10000 {
+      if errs == 0 && diff > 6000 && lit > 10000 && stats.shadow_passes >= 2 {
         println("[79-tycho-3d-skinning] OK — four-bone palette deforms the mesh on the GPU")
       } else {
         println(
