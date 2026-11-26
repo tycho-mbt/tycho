@@ -2,8 +2,9 @@
 //
 // Supported subset: JSON documents whose buffers are base64 data URIs,
 // triangle-list primitives with POSITION / NORMAL / TEXCOORD_0 and optional
-// 8/16/32-bit indices, node TRS or matrix transforms, and
-// pbrMetallicRoughness factors (textures are not resolved here).
+// 8/16/32-bit indices, sparse accessors, node TRS or matrix transforms, and
+// pbrMetallicRoughness factors plus base-colour / normal textures whose images
+// are embedded `data:` URIs.
 
 ///|
 pub(all) enum GltfAlphaMode {
@@ -20,6 +21,14 @@ pub(all) struct GltfMaterial {
   roughness : Float
   alpha_mode : GltfAlphaMode
   double_sided : Bool
+  // Indices into `GltfScene::textures`, or -1.
+  base_color_tex : Int
+  normal_tex : Int
+}
+
+///|
+pub(all) struct GltfTexture {
+  source : Int
 }
 
 ///|
@@ -38,6 +47,9 @@ pub(all) struct GltfScene {
   materials : Array[GltfMaterial]
   nodes : Array[GltfNode]
   roots : Array[Int]
+  textures : Array[GltfTexture]
+  // Decoded image bytes (embedded `data:` URIs; empty for external files).
+  images : Array[Bytes]
 }
 
 ///|
@@ -47,6 +59,13 @@ priv struct Accessor {
   count : Int
   stride : Int
   comp : Int
+  // Sparse override (glTF 2.0 §3.6.2.3); count 0 means dense.
+  sparse_count : Int
+  s_idx_buffer : Int
+  s_idx_offset : Int
+  s_idx_comp : Int
+  s_val_buffer : Int
+  s_val_offset : Int
 }
 
 ///|
@@ -158,18 +177,111 @@ fn f32_at(bytes : Bytes, off : Int) -> Float {
 }
 
 ///|
-fn read_floats(acc : Accessor, buffers : Array[Bytes], comps : Int) -> FixedArray[Float] {
-  let out = FixedArray::make(acc.count * comps, (0.0 : Float))
-  if acc.buffer < 0 || acc.buffer >= buffers.length() || acc.count <= 0 {
-    return out
+fn view_base(
+  views : Array[(Int, Int, Int)],
+  index : Int,
+) -> (Int, Int) {
+  if index >= 0 && index < views.length() {
+    let (b, off, _) = views[index]
+    (b, off)
+  } else {
+    (-1, 0)
   }
-  let buf = buffers[acc.buffer]
-  let stride = if acc.stride > 0 { acc.stride } else { comps * 4 }
-  for e = 0; e < acc.count; e = e + 1 {
+}
+
+///|
+fn u32_at(bytes : Bytes, off : Int, comp : Int) -> Int {
+  if comp == 5121 {
+    bytes[off].to_int()
+  } else if comp == 5123 {
+    bytes[off].to_int() | (bytes[off + 1].to_int() << 8)
+  } else {
+    bytes[off].to_int() |
+    (bytes[off + 1].to_int() << 8) |
+    (bytes[off + 2].to_int() << 16) |
+    (bytes[off + 3].to_int() << 24)
+  }
+}
+
+///|
+fn sparse_index_stride(comp : Int) -> Int {
+  if comp == 5121 {
+    1
+  } else if comp == 5123 {
+    2
+  } else {
+    4
+  }
+}
+
+///|
+fn apply_sparse_floats(
+  acc : Accessor,
+  buffers : Array[Bytes],
+  comps : Int,
+  out : FixedArray[Float],
+) -> Unit {
+  if acc.sparse_count <= 0 || acc.s_idx_buffer < 0 || acc.s_val_buffer < 0 {
+    return
+  }
+  if acc.s_idx_buffer >= buffers.length() || acc.s_val_buffer >= buffers.length() {
+    return
+  }
+  let ib = buffers[acc.s_idx_buffer]
+  let vb = buffers[acc.s_val_buffer]
+  let istride = sparse_index_stride(acc.s_idx_comp)
+  for i = 0; i < acc.sparse_count; i = i + 1 {
+    let idx = u32_at(ib, acc.s_idx_offset + i * istride, acc.s_idx_comp)
+    if idx < 0 || idx >= acc.count {
+      continue
+    }
     for c = 0; c < comps; c = c + 1 {
-      out[e * comps + c] = f32_at(buf, acc.byte_offset + e * stride + c * 4)
+      out[idx * comps + c] = f32_at(vb, acc.s_val_offset + (i * comps + c) * 4)
     }
   }
+}
+
+///|
+fn apply_sparse_indices(
+  acc : Accessor,
+  buffers : Array[Bytes],
+  out : FixedArray[UInt],
+) -> Unit {
+  if acc.sparse_count <= 0 || acc.s_idx_buffer < 0 || acc.s_val_buffer < 0 {
+    return
+  }
+  if acc.s_idx_buffer >= buffers.length() || acc.s_val_buffer >= buffers.length() {
+    return
+  }
+  let ib = buffers[acc.s_idx_buffer]
+  let vb = buffers[acc.s_val_buffer]
+  let istride = sparse_index_stride(acc.s_idx_comp)
+  let vstride = sparse_index_stride(acc.comp)
+  for i = 0; i < acc.sparse_count; i = i + 1 {
+    let idx = u32_at(ib, acc.s_idx_offset + i * istride, acc.s_idx_comp)
+    if idx < 0 || idx >= acc.count {
+      continue
+    }
+    out[idx] = u32_at(vb, acc.s_val_offset + i * vstride, acc.comp).reinterpret_as_uint()
+  }
+}
+
+///|
+fn read_floats(acc : Accessor, buffers : Array[Bytes], comps : Int) -> FixedArray[Float] {
+  let out = FixedArray::make(acc.count * comps, (0.0 : Float))
+  if acc.count <= 0 {
+    return out
+  }
+  if acc.buffer >= 0 && acc.buffer < buffers.length() {
+    let buf = buffers[acc.buffer]
+    let stride = if acc.stride > 0 { acc.stride } else { comps * 4 }
+    for e = 0; e < acc.count; e = e + 1 {
+      for c = 0; c < comps; c = c + 1 {
+        out[e * comps + c] = f32_at(buf, acc.byte_offset + e * stride + c * 4)
+      }
+    }
+  }
+  apply_sparse_floats(acc, buffers, comps, out)
   out
 }
 
@@ -202,6 +314,7 @@ fn read_indices(acc : Accessor, buffers : Array[Bytes]) -> FixedArray[UInt] {
     }
     out[e] = v.reinterpret_as_uint()
   }
+  apply_sparse_indices(acc, buffers, out)
   out
 }
 
@@ -230,18 +343,57 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
   let accessors : Array[Accessor] = []
   for a in jarr(root, "accessors") {
     let bv = jint(a, "bufferView", -1)
+    let mut buffer = -1
+    let mut byte_offset = 0
+    let mut stride = 0
     if bv >= 0 && bv < views.length() {
-      let (buffer, view_off, view_stride) = views[bv]
-      accessors.push({
-        buffer,
-        byte_offset: view_off + jint(a, "byteOffset", 0),
-        count: jint(a, "count", 0),
-        stride: view_stride,
-        comp: jint(a, "componentType", 5126),
-      })
-    } else {
-      accessors.push({ buffer: -1, byte_offset: 0, count: 0, stride: 0, comp: 5126 })
+      let (b, view_off, view_stride) = views[bv]
+      buffer = b
+      byte_offset = view_off + jint(a, "byteOffset", 0)
+      stride = view_stride
     }
+    let mut sp_count = 0
+    let mut sp_ib = -1
+    let mut sp_ioff = 0
+    let mut sp_icomp = 5125
+    let mut sp_vb = -1
+    let mut sp_voff = 0
+    match jget(a, "sparse") {
+      Some(sp) => {
+        sp_count = jint(sp, "count", 0)
+        match jget(sp, "indices") {
+          Some(si) => {
+            let (b, off) = view_base(views, jint(si, "bufferView", -1))
+            sp_ib = b
+            sp_ioff = off + jint(si, "byteOffset", 0)
+            sp_icomp = jint(si, "componentType", 5125)
+          }
+          None => ()
+        }
+        match jget(sp, "values") {
+          Some(sv) => {
+            let (b, off) = view_base(views, jint(sv, "bufferView", -1))
+            sp_vb = b
+            sp_voff = off + jint(sv, "byteOffset", 0)
+          }
+          None => ()
+        }
+      }
+      None => ()
+    }
+    accessors.push({
+      buffer,
+      byte_offset,
+      count: jint(a, "count", 0),
+      stride,
+      comp: jint(a, "componentType", 5126),
+      sparse_count: sp_count,
+      s_idx_buffer: sp_ib,
+      s_idx_offset: sp_ioff,
+      s_idx_comp: sp_icomp,
+      s_val_buffer: sp_vb,
+      s_val_offset: sp_voff,
+    })
   }
 
   let meshes : Array[MeshData] = []
@@ -320,6 +472,25 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
     meshes.push(md)
   }
 
+  let images : Array[Bytes] = []
+  for im in jarr(root, "images") {
+    let uri = jstr(im, "uri", "")
+    let bytes = match uri.split_once(",") {
+      Some((head, data)) =>
+        if head.has_prefix("data:") {
+          @base64.decode(data)
+        } else {
+          Bytes::make(0, b'\x00')
+        }
+      None => Bytes::make(0, b'\x00')
+    }
+    images.push(bytes)
+  }
+  let textures : Array[GltfTexture] = []
+  for tj in jarr(root, "textures") {
+    textures.push({ source: jint(tj, "source", -1) })
+  }
+
   let materials : Array[GltfMaterial] = []
   for mj in jarr(root, "materials") {
     let pbr = match jget(mj, "pbrMetallicRoughness") {
@@ -331,6 +502,14 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
       "BLEND" => Blend
       _ => Opaque
     }
+    let base_color_tex = match jget(pbr, "baseColorTexture") {
+      Some(t) => jint(t, "index", -1)
+      None => -1
+    }
+    let normal_tex = match jget(mj, "normalTexture") {
+      Some(t) => jint(t, "index", -1)
+      None => -1
+    }
     materials.push({
       name: jstr(mj, "name", ""),
       base_color: jvec4(pbr, "baseColorFactor", @tmath.Vec4::new(1.0, 1.0, 1.0, 1.0)),
@@ -338,6 +517,8 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
       roughness: Float::from_double(jnum(pbr, "roughnessFactor", 1.0)),
       alpha_mode,
       double_sided: jget(mj, "doubleSided") is Some(True),
+      base_color_tex,
+      normal_tex,
     })
   }
 
@@ -417,5 +598,5 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
       }
     }
   }
-  { meshes, materials, nodes, roots }
+  { meshes, materials, nodes, roots, textures, images }
 }

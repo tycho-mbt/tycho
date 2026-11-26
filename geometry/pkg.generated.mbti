@@ -46,6 +46,8 @@ pub(all) struct GltfMaterial {
   roughness : Float
   alpha_mode : GltfAlphaMode
   double_sided : Bool
+  base_color_tex : Int32
+  normal_tex : Int32
 }
 
 pub(all) struct GltfNode {
@@ -62,6 +64,12 @@ pub(all) struct GltfScene {
   materials : Array[GltfMaterial]
   nodes : Array[GltfNode]
   roots : Array[Int32]
+  textures : Array[GltfTexture]
+  images : Array[Bytes]
+}
+
+pub(all) struct GltfTexture {
+  source : Int32
 }
 
 pub(all) struct MeshData {
