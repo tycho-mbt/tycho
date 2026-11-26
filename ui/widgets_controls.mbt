@@ -220,7 +220,7 @@ pub fn progress_bar(
 ) -> Widget {
   builder(key~, tag=307, fn(ctx) {
     let th = ctx.theme()
-    let t = clamp_f(value, (0.0 : Float), (1.0 : Float))
+    let t = @tmath.clamp_f(value, (0.0 : Float), (1.0 : Float))
     let fill = match color { Some(c) => c; None => th.colors.primary }
     let rad = height * (0.5 : Float)
     container(
@@ -233,7 +233,7 @@ pub fn progress_bar(
           positioned(
             left=Some((0.0 : Float)),
             top=Some((0.0 : Float)),
-            width=Some(max_f(height, width * t)),
+            width=Some(@tmath.max_f(height, width * t)),
             height=Some(height),
             container(color=Some(fill), radius=rad),
           ),
@@ -251,20 +251,20 @@ pub fn slider(
 ) -> Widget {
   builder(key~, tag=308, fn(ctx) {
     let th = ctx.theme()
-    let v = clamp_f(value.get(ctx), (0.0 : Float), (1.0 : Float))
+    let v = @tmath.clamp_f(value.get(ctx), (0.0 : Float), (1.0 : Float))
     let h = (24.0 : Float)
     let knob_r = (9.0 : Float)
-    let usable = max_f((1.0 : Float), width - knob_r * (2.0 : Float))
+    let usable = @tmath.max_f((1.0 : Float), width - knob_r * (2.0 : Float))
     let kx = v * usable
     mouse_region(
       cursor=Some(@tycho.CursorShape::Pointer),
       gesture_detector(
         on_drag_start=Some(fn(pos) {
-          let nv = clamp_f((pos.x - knob_r) / usable, (0.0 : Float), (1.0 : Float))
+          let nv = @tmath.clamp_f((pos.x - knob_r) / usable, (0.0 : Float), (1.0 : Float))
           value.set(nv)
         }),
         on_drag_update=Some(fn(pos, _d) {
-          let nv = clamp_f((pos.x - knob_r) / usable, (0.0 : Float), (1.0 : Float))
+          let nv = @tmath.clamp_f((pos.x - knob_r) / usable, (0.0 : Float), (1.0 : Float))
           value.set(nv)
         }),
         container(
@@ -282,7 +282,7 @@ pub fn slider(
             positioned(
               left=Some((0.0 : Float)),
               top=Some((8.0 : Float)),
-              width=Some(max_f((8.0 : Float), kx + knob_r)),
+              width=Some(@tmath.max_f((8.0 : Float), kx + knob_r)),
               height=Some((8.0 : Float)),
               container(color=Some(th.colors.primary), radius=(4.0 : Float)),
             ),
@@ -371,7 +371,7 @@ pub fn performance_overlay(stats : FrameStats) -> Widget {
     let th = ctx.theme()
     let info_str = "B:\{format_ms(stats.build_ms)}ms L:\{format_ms(stats.layout_ms)}ms P:\{format_ms(stats.paint_ms)}ms GPU:\{format_ms(stats.gpu_ms)}ms | E:\{stats.element_count} R:\{stats.render_count}"
     let bar = fn(ms : Double, col : @g2d.Color) -> Widget {
-      let w = clamp_f(Float::from_double(ms) * (6.0 : Float), (2.0 : Float), (120.0 : Float))
+      let w = @tmath.clamp_f(Float::from_double(ms) * (6.0 : Float), (2.0 : Float), (120.0 : Float))
       container(width=Some(w), height=Some((4.0 : Float)), color=Some(col), radius=(2.0 : Float))
     }
     container(
@@ -501,7 +501,7 @@ pub fn icon(
   builder(key~, tag=312, fn(ctx) {
     let th = ctx.theme()
     let col = match color { Some(c) => c; None => th.colors.text_primary }
-    let sw = max_f((1.5 : Float), size * (0.1 : Float))
+    let sw = @tmath.max_f((1.5 : Float), size * (0.1 : Float))
     custom_paint(@g2d.Size::new(size, size), fn(c, sz) {
       let w = sz.width
       let h = sz.height
@@ -882,15 +882,15 @@ pub fn scrollbar(
   builder(key~, tag=320, fn(ctx) {
     let th = ctx.theme()
     let off = controller.offset.get(ctx)
-    let vp = max_f((1.0 : Float), controller.viewport_extent)
+    let vp = @tmath.max_f((1.0 : Float), controller.viewport_extent)
     let max_e = controller.max_extent
     let total = vp + max_e
     if max_e <= (0.5 : Float) {
       return child
     }
-    let ratio = clamp_f(vp / total, (0.12 : Float), (1.0 : Float))
-    let thumb_h = max_f((24.0 : Float), vp * ratio)
-    let track_avail = max_f((1.0 : Float), vp - thumb_h)
+    let ratio = @tmath.clamp_f(vp / total, (0.12 : Float), (1.0 : Float))
+    let thumb_h = @tmath.max_f((24.0 : Float), vp * ratio)
+    let track_avail = @tmath.max_f((1.0 : Float), vp - thumb_h)
     let thumb_y = (off / max_e) * track_avail
     let is_h = hovered.get(ctx)
     let thumb_col = if is_h {

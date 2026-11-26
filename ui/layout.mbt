@@ -4,21 +4,6 @@
 pub const INF : Float = (1.0e30 : Float)
 
 ///|
-fn min_f(a : Float, b : Float) -> Float {
-  if a < b { a } else { b }
-}
-
-///|
-fn max_f(a : Float, b : Float) -> Float {
-  if a > b { a } else { b }
-}
-
-///|
-fn clamp_f(v : Float, lo : Float, hi : Float) -> Float {
-  if v < lo { lo } else if v > hi { hi } else { v }
-}
-
-///|
 #derive(Eq, Debug)
 pub(all) struct BoxConstraints {
   min_width : Float
@@ -35,10 +20,10 @@ pub fn BoxConstraints::new(
   max_height? : Float = INF,
 ) -> BoxConstraints {
   {
-    min_width: max_f((0.0 : Float), min_width),
-    max_width: max_f(min_width, max_width),
-    min_height: max_f((0.0 : Float), min_height),
-    max_height: max_f(min_height, max_height),
+    min_width: @tmath.max_f((0.0 : Float), min_width),
+    max_width: @tmath.max_f(min_width, max_width),
+    min_height: @tmath.max_f((0.0 : Float), min_height),
+    max_height: @tmath.max_f(min_height, max_height),
   }
 }
 
@@ -93,19 +78,19 @@ pub fn BoxConstraints::constrain(
   size : @g2d.Size,
 ) -> @g2d.Size {
   @g2d.Size::new(
-    clamp_f(size.width, self.min_width, self.max_width),
-    clamp_f(size.height, self.min_height, self.max_height),
+    @tmath.clamp_f(size.width, self.min_width, self.max_width),
+    @tmath.clamp_f(size.height, self.min_height, self.max_height),
   )
 }
 
 ///|
 pub fn BoxConstraints::constrain_width(self : BoxConstraints, w : Float) -> Float {
-  clamp_f(w, self.min_width, self.max_width)
+  @tmath.clamp_f(w, self.min_width, self.max_width)
 }
 
 ///|
 pub fn BoxConstraints::constrain_height(self : BoxConstraints, h : Float) -> Float {
-  clamp_f(h, self.min_height, self.max_height)
+  @tmath.clamp_f(h, self.min_height, self.max_height)
 }
 
 ///|
@@ -125,15 +110,15 @@ pub fn BoxConstraints::deflate(
 ) -> BoxConstraints {
   let h = insets.horizontal()
   let v = insets.vertical()
-  let new_min_w = max_f((0.0 : Float), self.min_width - h)
+  let new_min_w = @tmath.max_f((0.0 : Float), self.min_width - h)
   let new_max_w = if self.has_bounded_width() {
-    max_f(new_min_w, self.max_width - h)
+    @tmath.max_f(new_min_w, self.max_width - h)
   } else {
     INF
   }
-  let new_min_h = max_f((0.0 : Float), self.min_height - v)
+  let new_min_h = @tmath.max_f((0.0 : Float), self.min_height - v)
   let new_max_h = if self.has_bounded_height() {
-    max_f(new_min_h, self.max_height - v)
+    @tmath.max_f(new_min_h, self.max_height - v)
   } else {
     INF
   }
@@ -151,10 +136,10 @@ pub fn BoxConstraints::enforce(
   other : BoxConstraints,
 ) -> BoxConstraints {
   {
-    min_width: clamp_f(self.min_width, other.min_width, other.max_width),
-    max_width: clamp_f(self.max_width, other.min_width, other.max_width),
-    min_height: clamp_f(self.min_height, other.min_height, other.max_height),
-    max_height: clamp_f(self.max_height, other.min_height, other.max_height),
+    min_width: @tmath.clamp_f(self.min_width, other.min_width, other.max_width),
+    max_width: @tmath.clamp_f(self.max_width, other.min_width, other.max_width),
+    min_height: @tmath.clamp_f(self.min_height, other.min_height, other.max_height),
+    max_height: @tmath.clamp_f(self.max_height, other.min_height, other.max_height),
   }
 }
 

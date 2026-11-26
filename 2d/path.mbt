@@ -182,11 +182,11 @@ pub fn PathBuilder::add_rrect(self : PathBuilder, rr : RRect) -> PathBuilder {
   }
   let hw = r.width * (0.5 : Float)
   let hh = r.height * (0.5 : Float)
-  let lim = min_f(hw, hh)
-  let tl = min_f(rr.tl, lim)
-  let tr = min_f(rr.tr, lim)
-  let br = min_f(rr.br, lim)
-  let bl = min_f(rr.bl, lim)
+  let lim = @tmath.min_f(hw, hh)
+  let tl = @tmath.min_f(rr.tl, lim)
+  let tr = @tmath.min_f(rr.tr, lim)
+  let br = @tmath.min_f(rr.br, lim)
+  let bl = @tmath.min_f(rr.bl, lim)
   let k = (0.55228475 : Float) // 4/3 * (sqrt(2) - 1)
   let x0 = r.x
   let y0 = r.y

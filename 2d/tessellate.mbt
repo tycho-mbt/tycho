@@ -225,16 +225,15 @@ fn push_round_fan(
   ccw : Bool,
 ) -> Unit {
   let steps = 8
-  let a0 = atan2_approx(start_dir.y.to_double(), start_dir.x.to_double())
-  let mut a1 = atan2_approx(end_dir.y.to_double(), end_dir.x.to_double())
-  let two_pi = 6.283185307179586
+  let a0 = @tmath.atan2(start_dir.y, start_dir.x)
+  let mut a1 = @tmath.atan2(end_dir.y, end_dir.x)
   if ccw {
     while a1 < a0 {
-      a1 = a1 + two_pi
+      a1 = a1 + @tmath.TAU
     }
   } else {
     while a1 > a0 {
-      a1 = a1 - two_pi
+      a1 = a1 - @tmath.TAU
     }
   }
   let mut prev = {
@@ -242,40 +241,13 @@ fn push_round_fan(
     y: center.y + start_dir.y * r,
   }
   for i = 1; i <= steps; i = i + 1 {
-    let t = i.to_double() / steps.to_double()
+    let t = Float::from_int(i) / Float::from_int(steps)
     let ang = a0 + (a1 - a0) * t
-    let (sn, cs) = sin_cos_d(ang)
-    let cur = {
-      x: center.x + Float::from_double(cs) * r,
-      y: center.y + Float::from_double(sn) * r,
-    }
+    let (sn, cs) = @tmath.sin_cos(ang)
+    let cur = { x: center.x + cs * r, y: center.y + sn * r }
     push_tri(out, center, prev, cur)
     prev = cur
   }
-}
-
-///|
-fn atan2_approx(y : Double, x : Double) -> Double {
-  let pi = 3.141592653589793
-  let half_pi = 1.5707963267948966
-  if x == 0.0 {
-    return if y > 0.0 { half_pi } else if y < 0.0 { -half_pi } else { 0.0 }
-  }
-  let abs_x = if x < 0.0 { -x } else { x }
-  let abs_y = if y < 0.0 { -y } else { y }
-  let a = if abs_x > abs_y { abs_y / abs_x } else { abs_x / abs_y }
-  let s = a * a
-  let mut r = ((-0.0464964749 * s + 0.15931422) * s - 0.327622764) * s * a + a
-  if abs_y > abs_x {
-    r = half_pi - r
-  }
-  if x < 0.0 {
-    r = pi - r
-  }
-  if y < 0.0 {
-    r = -r
-  }
-  r
 }
 
 ///|
@@ -291,7 +263,7 @@ pub fn tessellate_stroke(
 ) -> Array[Float] {
   let contours = flatten_path_contours(path, xform, tolerance~)
   let out : Array[Float] = []
-  let hw = max_f((0.5 : Float), stroke_width * (0.5 : Float))
+  let hw = @tmath.max_f((0.5 : Float), stroke_width * (0.5 : Float))
   for pair in contours {
     let (raw_pts, closed) = pair
     if raw_pts.length() < 2 {
@@ -332,7 +304,7 @@ pub fn tessellate_stroke(
       let n1 = normals[(j + 1) % seg_count]
       let vertex = pts[(j + 1) % pts.length()]
       let cross = n0.x * n1.y - n0.y * n1.x
-      if abs_f(cross) < (1.0e-4 : Float) {
+      if @tmath.abs_f(cross) < (1.0e-4 : Float) {
         continue
       }
       let sign = if cross > (0.0 : Float) { (-1.0 : Float) } else { (1.0 : Float) }

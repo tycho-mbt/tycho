@@ -655,8 +655,8 @@ fn rasterize_builtin_glyph(cp : Int, size_px : Float) -> (Int, Int, Int, Int, By
     return (0, 0, 0, 0, b"")
   }
   let rows = builtin_glyph_rows(cp)
-  let gw = max_f((5.0 : Float), size_px * (0.58 : Float)).to_int()
-  let gh = max_f((7.0 : Float), size_px * (0.78 : Float)).to_int()
+  let gw = @tmath.max_f((5.0 : Float), size_px * (0.58 : Float)).to_int()
+  let gh = @tmath.max_f((7.0 : Float), size_px * (0.78 : Float)).to_int()
   let pixels = Array::make(gw * gh, (0 : Byte))
   for py = 0; py < gh; py = py + 1 {
     let sy = (py * 7) / gh
@@ -777,7 +777,7 @@ pub fn GlyphCache::get_or_rasterize(
   cp : Int,
   size_px : Float,
 ) -> GlyphEntry raise @tycho.RhiError {
-  let q_size = max_f((6.0 : Float), size_px).to_int()
+  let q_size = @tmath.max_f((6.0 : Float), size_px).to_int()
   let key = "\{font.id}:\{cp}:\{q_size}"
   match self.entries.get(key) {
     Some(e) => return e

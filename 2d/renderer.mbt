@@ -834,7 +834,7 @@ fn Renderer2D::resolve_paint_shader(
       let iw = if img.width > 0 { Float::from_int(img.width) } else { (1.0 : Float) }
       let ih = if img.height > 0 { Float::from_int(img.height) } else { (1.0 : Float) }
       let det = mat.a * mat.d - mat.b * mat.c
-      let (ia, ic, itx, ib, id_, ity) = if abs_f(det) > (1.0e-6 : Float) {
+      let (ia, ic, itx, ib, id_, ity) = if @tmath.abs_f(det) > (1.0e-6 : Float) {
         (
           mat.d / det,
           -mat.c / det,
@@ -1320,8 +1320,8 @@ fn Renderer2D::draw_path_gpu(
     }
     let bx = clipped.x.floor()
     let by = clipped.y.floor()
-    let bw = max_f((1.0 : Float), (clipped.right().ceil() - bx)).to_int()
-    let bh = max_f((1.0 : Float), (clipped.bottom().ceil() - by)).to_int()
+    let bw = @tmath.max_f((1.0 : Float), (clipped.right().ceil() - bx)).to_int()
+    let bh = @tmath.max_f((1.0 : Float), (clipped.bottom().ceil() - by)).to_int()
     let otex = self.active_tex.unwrap()
     let ods = self.active_ds.unwrap()
     let ow = self.active_w
@@ -1478,8 +1478,8 @@ fn Renderer2D::run_blur_passes(
   let ah_f = Float::from_int(tex_a.height())
   let bw_norm = Float::from_int(bw) / aw_f
   let bh_norm = Float::from_int(bh) / ah_f
-  let rad_x = clamp_f(sx * (0.25 : Float), (0.5 : Float), (4.0 : Float))
-  let rad_y = clamp_f(sy * (0.25 : Float), (0.5 : Float), (4.0 : Float))
+  let rad_x = @tmath.clamp_f(sx * (0.25 : Float), (0.5 : Float), (4.0 : Float))
+  let rad_y = @tmath.clamp_f(sy * (0.25 : Float), (0.5 : Float), (4.0 : Float))
 
   // Horizontal pass into tex_a
   cmd.begin_render_pass([
@@ -2055,7 +2055,7 @@ fn Renderer2D::replay_ops(
         match op {
           ClipOp::Intersect => {
             self.cur_scissor = self.cur_scissor.intersect(mapped_r)
-            let sx = abs_f(self.cur_transform.a)
+            let sx = @tmath.abs_f(self.cur_transform.a)
             self.cur_clip_rrect = Some({
               rect: mapped_r,
               tl: rr.tl * sx,
@@ -2245,7 +2245,7 @@ fn Renderer2D::replay_ops(
           sh.v0,
           sh.u1,
           sh.v1,
-          max_f((0.5 : Float), paint.stroke_width * (0.5 : Float)),
+          @tmath.max_f((0.5 : Float), paint.stroke_width * (0.5 : Float)),
           (0.0 : Float),
           (5.0 : Float),
           (0.0 : Float),
@@ -2263,10 +2263,10 @@ fn Renderer2D::replay_ops(
       }
       DrawOp::DrawRRectShadow(rr, dx, dy, blur, spread, col) => {
         let r = rr.rect.offset(dx, dy).inflate(spread)
-        let tl = if rr.tl > (0.0 : Float) { max_f((0.0 : Float), rr.tl + spread) } else { (0.0 : Float) }
-        let tr = if rr.tr > (0.0 : Float) { max_f((0.0 : Float), rr.tr + spread) } else { (0.0 : Float) }
-        let br = if rr.br > (0.0 : Float) { max_f((0.0 : Float), rr.br + spread) } else { (0.0 : Float) }
-        let bl = if rr.bl > (0.0 : Float) { max_f((0.0 : Float), rr.bl + spread) } else { (0.0 : Float) }
+        let tl = if rr.tl > (0.0 : Float) { @tmath.max_f((0.0 : Float), rr.tl + spread) } else { (0.0 : Float) }
+        let tr = if rr.tr > (0.0 : Float) { @tmath.max_f((0.0 : Float), rr.tr + spread) } else { (0.0 : Float) }
+        let br = if rr.br > (0.0 : Float) { @tmath.max_f((0.0 : Float), rr.br + spread) } else { (0.0 : Float) }
+        let bl = if rr.bl > (0.0 : Float) { @tmath.max_f((0.0 : Float), rr.bl + spread) } else { (0.0 : Float) }
         self.emit_prim(
           cmd,
           r.x,
@@ -2284,7 +2284,7 @@ fn Renderer2D::replay_ops(
           (0.0 : Float),
           (0.0 : Float),
           (0.0 : Float),
-          max_f((1.0 : Float), blur),
+          @tmath.max_f((1.0 : Float), blur),
           (1.0 : Float),
           (0.0 : Float),
           (0.0 : Float),

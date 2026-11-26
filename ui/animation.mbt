@@ -12,7 +12,7 @@ pub(all) enum Curve {
 
 ///|
 pub fn Curve::eval(self : Curve, t : Float) -> Float {
-  let u = clamp_f(t, (0.0 : Float), (1.0 : Float))
+  let u = @tmath.clamp_f(t, (0.0 : Float), (1.0 : Float))
   match self {
     Linear => u
     EaseIn => u * u * u
@@ -59,7 +59,7 @@ pub fn Curve::eval(self : Curve, t : Float) -> Float {
 
 ///|
 pub fn lerp_float(a : Float, b : Float, t : Float) -> Float {
-  a + (b - a) * clamp_f(t, (0.0 : Float), (1.0 : Float))
+  @tmath.lerp_f(a, b, @tmath.saturate(t))
 }
 
 ///|

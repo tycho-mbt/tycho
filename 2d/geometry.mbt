@@ -1,54 +1,6 @@
 // 2D geometry primitives, affine transforms, and colors for laplaceliu/tycho_2d.
 
 ///|
-fn min_f(a : Float, b : Float) -> Float {
-  if a < b { a } else { b }
-}
-
-///|
-fn max_f(a : Float, b : Float) -> Float {
-  if a > b { a } else { b }
-}
-
-///|
-fn clamp_f(v : Float, lo : Float, hi : Float) -> Float {
-  if v < lo { lo } else if v > hi { hi } else { v }
-}
-
-///|
-fn abs_f(v : Float) -> Float {
-  if v < (0.0 : Float) { -v } else { v }
-}
-
-///|
-fn sin_cos_d(theta : Double) -> (Double, Double) {
-  let pi = 3.141592653589793
-  let two_pi = 6.283185307179586
-  let mut x = theta % two_pi
-  if x > pi {
-    x = x - two_pi
-  } else if x < -pi {
-    x = x + two_pi
-  }
-  let half_pi = 1.5707963267948966
-  let mut cos_sign = 1.0
-  let mut sx = x
-  if sx > half_pi {
-    sx = pi - sx
-    cos_sign = -1.0
-  } else if sx < -half_pi {
-    sx = -pi - sx
-    cos_sign = -1.0
-  }
-  let x2 = sx * sx
-  let s = sx *
-    (1.0 - x2 / 6.0 * (1.0 - x2 / 20.0 * (1.0 - x2 / 42.0 * (1.0 - x2 / 72.0))))
-  let c = cos_sign *
-    (1.0 - x2 / 2.0 * (1.0 - x2 / 12.0 * (1.0 - x2 / 30.0 * (1.0 - x2 / 56.0))))
-  (s, c)
-}
-
-///|
 #derive(Eq, Debug)
 pub(all) struct Point {
   x : Float
@@ -131,8 +83,8 @@ pub fn Rect::from_ltrb(l : Float, t : Float, r : Float, b : Float) -> Rect {
   {
     x: l,
     y: t,
-    width: max_f((0.0 : Float), r - l),
-    height: max_f((0.0 : Float), b - t),
+    width: @tmath.max_f((0.0 : Float), r - l),
+    height: @tmath.max_f((0.0 : Float), b - t),
   }
 }
 
@@ -176,10 +128,10 @@ pub fn Rect::contains(self : Rect, pt : Point) -> Bool {
 
 ///|
 pub fn Rect::intersect(self : Rect, other : Rect) -> Rect {
-  let l = max_f(self.x, other.x)
-  let t = max_f(self.y, other.y)
-  let r = min_f(self.right(), other.right())
-  let b = min_f(self.bottom(), other.bottom())
+  let l = @tmath.max_f(self.x, other.x)
+  let t = @tmath.max_f(self.y, other.y)
+  let r = @tmath.min_f(self.right(), other.right())
+  let b = @tmath.min_f(self.bottom(), other.bottom())
   if r <= l || b <= t {
     { x: l, y: t, width: (0.0 : Float), height: (0.0 : Float) }
   } else {
@@ -195,10 +147,10 @@ pub fn Rect::union(self : Rect, other : Rect) -> Rect {
   if other.is_empty() {
     return self
   }
-  let l = min_f(self.x, other.x)
-  let t = min_f(self.y, other.y)
-  let r = max_f(self.right(), other.right())
-  let b = max_f(self.bottom(), other.bottom())
+  let l = @tmath.min_f(self.x, other.x)
+  let t = @tmath.min_f(self.y, other.y)
+  let r = @tmath.max_f(self.right(), other.right())
+  let b = @tmath.max_f(self.bottom(), other.bottom())
   { x: l, y: t, width: r - l, height: b - t }
 }
 
@@ -234,7 +186,7 @@ pub fn RRect::from_rect(rect : Rect) -> RRect {
 
 ///|
 pub fn RRect::uniform(rect : Rect, radius : Float) -> RRect {
-  let r = max_f((0.0 : Float), radius)
+  let r = @tmath.max_f((0.0 : Float), radius)
   { rect, tl: r, tr: r, br: r, bl: r }
 }
 
@@ -248,10 +200,10 @@ pub fn RRect::per_corner(
 ) -> RRect {
   {
     rect,
-    tl: max_f((0.0 : Float), tl),
-    tr: max_f((0.0 : Float), tr),
-    br: max_f((0.0 : Float), br),
-    bl: max_f((0.0 : Float), bl),
+    tl: @tmath.max_f((0.0 : Float), tl),
+    tr: @tmath.max_f((0.0 : Float), tr),
+    br: @tmath.max_f((0.0 : Float), br),
+    bl: @tmath.max_f((0.0 : Float), bl),
   }
 }
 
@@ -318,9 +270,7 @@ pub fn Matrix3::scale(sx : Float, sy : Float) -> Matrix3 {
 
 ///|
 pub fn Matrix3::rotate(radians : Float) -> Matrix3 {
-  let (s_d, c_d) = sin_cos_d(radians.to_double())
-  let s = Float::from_double(s_d)
-  let c = Float::from_double(c_d)
+  let (s, c) = @tmath.sin_cos(radians)
   {
     a: c,
     c: -s,
@@ -346,7 +296,7 @@ pub fn Matrix3::concat(self : Matrix3, other : Matrix3) -> Matrix3 {
 ///|
 pub fn Matrix3::invert(self : Matrix3) -> Matrix3? {
   let det = self.a * self.d - self.c * self.b
-  if abs_f(det) < (1.0e-7 : Float) {
+  if @tmath.abs_f(det) < (1.0e-7 : Float) {
     return None
   }
   let inv = (1.0 : Float) / det
@@ -374,27 +324,50 @@ pub fn Matrix3::map_rect(self : Matrix3, rect : Rect) -> Rect {
   let p1 = self.map_point({ x: rect.right(), y: rect.y })
   let p2 = self.map_point({ x: rect.right(), y: rect.bottom() })
   let p3 = self.map_point({ x: rect.x, y: rect.bottom() })
-  let l = min_f(min_f(p0.x, p1.x), min_f(p2.x, p3.x))
-  let t = min_f(min_f(p0.y, p1.y), min_f(p2.y, p3.y))
-  let r = max_f(max_f(p0.x, p1.x), max_f(p2.x, p3.x))
-  let b = max_f(max_f(p0.y, p1.y), max_f(p2.y, p3.y))
+  let l = @tmath.min_f(@tmath.min_f(p0.x, p1.x), @tmath.min_f(p2.x, p3.x))
+  let t = @tmath.min_f(@tmath.min_f(p0.y, p1.y), @tmath.min_f(p2.y, p3.y))
+  let r = @tmath.max_f(@tmath.max_f(p0.x, p1.x), @tmath.max_f(p2.x, p3.x))
+  let b = @tmath.max_f(@tmath.max_f(p0.y, p1.y), @tmath.max_f(p2.y, p3.y))
   { x: l, y: t, width: r - l, height: b - t }
 }
 
 ///|
 pub fn Matrix3::is_axis_aligned(self : Matrix3) -> Bool {
-  abs_f(self.b) < (1.0e-5 : Float) &&
-  abs_f(self.c) < (1.0e-5 : Float) &&
+  @tmath.abs_f(self.b) < (1.0e-5 : Float) &&
+  @tmath.abs_f(self.c) < (1.0e-5 : Float) &&
   self.a >= (0.0 : Float) &&
   self.d >= (0.0 : Float)
 }
 
 ///|
 pub fn Matrix3::is_pure_translation(self : Matrix3) -> Bool {
-  abs_f(self.a - (1.0 : Float)) < (1.0e-5 : Float) &&
-  abs_f(self.d - (1.0 : Float)) < (1.0e-5 : Float) &&
-  abs_f(self.b) < (1.0e-5 : Float) &&
-  abs_f(self.c) < (1.0e-5 : Float)
+  @tmath.abs_f(self.a - (1.0 : Float)) < (1.0e-5 : Float) &&
+  @tmath.abs_f(self.d - (1.0 : Float)) < (1.0e-5 : Float) &&
+  @tmath.abs_f(self.b) < (1.0e-5 : Float) &&
+  @tmath.abs_f(self.c) < (1.0e-5 : Float)
+}
+
+///|
+/// Convert to the unified 2D affine type from `laplaceliu/tycho_math`, e.g. to
+/// promote a UI transform into a 3D scene with `Affine2::to_mat4()`.
+pub fn Matrix3::to_affine2(self : Matrix3) -> @tmath.Affine2 {
+  {
+    x_axis: @tmath.Vec2::new(self.a, self.b),
+    y_axis: @tmath.Vec2::new(self.c, self.d),
+    translation: @tmath.Vec2::new(self.tx, self.ty),
+  }
+}
+
+///|
+pub fn Matrix3::from_affine2(affine : @tmath.Affine2) -> Matrix3 {
+  {
+    a: affine.x_axis.x,
+    c: affine.y_axis.x,
+    tx: affine.translation.x,
+    b: affine.x_axis.y,
+    d: affine.y_axis.y,
+    ty: affine.translation.y,
+  }
 }
 
 ///|
@@ -409,10 +382,10 @@ pub(all) struct Color {
 ///|
 pub fn Color::rgba(r : Float, g : Float, b : Float, a : Float) -> Color {
   {
-    r: clamp_f(r, (0.0 : Float), (1.0 : Float)),
-    g: clamp_f(g, (0.0 : Float), (1.0 : Float)),
-    b: clamp_f(b, (0.0 : Float), (1.0 : Float)),
-    a: clamp_f(a, (0.0 : Float), (1.0 : Float)),
+    r: @tmath.clamp_f(r, (0.0 : Float), (1.0 : Float)),
+    g: @tmath.clamp_f(g, (0.0 : Float), (1.0 : Float)),
+    b: @tmath.clamp_f(b, (0.0 : Float), (1.0 : Float)),
+    a: @tmath.clamp_f(a, (0.0 : Float), (1.0 : Float)),
   }
 }
 
@@ -463,7 +436,7 @@ pub fn Color::with_alpha(self : Color, a : Float) -> Color {
 
 ///|
 pub fn Color::lerp(self : Color, other : Color, t : Float) -> Color {
-  let k = clamp_f(t, (0.0 : Float), (1.0 : Float))
+  let k = @tmath.clamp_f(t, (0.0 : Float), (1.0 : Float))
   {
     r: self.r + (other.r - self.r) * k,
     g: self.g + (other.g - self.g) * k,

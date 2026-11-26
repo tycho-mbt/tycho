@@ -3,6 +3,7 @@ package "laplaceliu/tycho_2d"
 
 import {
   "laplaceliu/tycho",
+  "laplaceliu/tycho_math",
   "moonbitlang/core/debug",
 }
 
@@ -200,6 +201,7 @@ pub(all) struct Matrix3 {
   ty : Float
 }
 pub fn Matrix3::concat(Self, Self) -> Self
+pub fn Matrix3::from_affine2(@tycho_math.Affine2) -> Self
 pub fn Matrix3::identity() -> Self
 pub fn Matrix3::invert(Self) -> Self?
 pub fn Matrix3::is_axis_aligned(Self) -> Bool
@@ -208,6 +210,7 @@ pub fn Matrix3::map_point(Self, Point) -> Point
 pub fn Matrix3::map_rect(Self, Rect) -> Rect
 pub fn Matrix3::rotate(Float) -> Self
 pub fn Matrix3::scale(Float, Float) -> Self
+pub fn Matrix3::to_affine2(Self) -> @tycho_math.Affine2
 pub fn Matrix3::translate(Float, Float) -> Self
 
 pub(all) struct Paint {

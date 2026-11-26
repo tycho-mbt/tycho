@@ -67,7 +67,7 @@ pub(all) struct GradientStop {
 
 ///|
 pub fn GradientStop::new(offset : Float, color : Color) -> GradientStop {
-  { offset: clamp_f(offset, (0.0 : Float), (1.0 : Float)), color }
+  { offset: @tmath.clamp_f(offset, (0.0 : Float), (1.0 : Float)), color }
 }
 
 ///|

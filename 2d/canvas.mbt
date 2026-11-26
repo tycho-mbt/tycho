@@ -175,10 +175,10 @@ pub fn Canvas::draw_line(
 ) -> Unit {
   let pad = paint.stroke_width * (0.5 : Float)
   let r = Rect::from_ltrb(
-    min_f(p0.x, p1.x) - pad,
-    min_f(p0.y, p1.y) - pad,
-    max_f(p0.x, p1.x) + pad,
-    max_f(p0.y, p1.y) + pad,
+    @tmath.min_f(p0.x, p1.x) - pad,
+    @tmath.min_f(p0.y, p1.y) - pad,
+    @tmath.max_f(p0.x, p1.x) + pad,
+    @tmath.max_f(p0.y, p1.y) + pad,
   )
   self.expand_bounds(r)
   self.ops.push(DrawOp::DrawLine(p0, p1, paint))

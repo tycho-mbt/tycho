@@ -170,7 +170,7 @@ pub fn ParagraphBuilder::build(self : ParagraphBuilder) -> Paragraph {
 ///|
 pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
   let mw = if max_width <= (0.0 : Float) { (1.0e9 : Float) } else { max_width }
-  if self.laid_out && abs_f(self.layout_max_width - mw) < (0.01 : Float) {
+  if self.laid_out && @tmath.abs_f(self.layout_max_width - mw) < (0.01 : Float) {
     return
   }
   self.laid_out = true
@@ -308,9 +308,9 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
     let x_start = match self.pstyle.align {
       TextAlign::Left => (0.0 : Float)
       TextAlign::Center =>
-        if mw < (1.0e8 : Float) { max_f((0.0 : Float), (mw - line_w) * (0.5 : Float)) } else { (0.0 : Float) }
+        if mw < (1.0e8 : Float) { @tmath.max_f((0.0 : Float), (mw - line_w) * (0.5 : Float)) } else { (0.0 : Float) }
       TextAlign::Right =>
-        if mw < (1.0e8 : Float) { max_f((0.0 : Float), mw - line_w) } else { (0.0 : Float) }
+        if mw < (1.0e8 : Float) { @tmath.max_f((0.0 : Float), mw - line_w) } else { (0.0 : Float) }
     }
     let baseline = cur_y + max_asc
     let mut cx = x_start
@@ -335,7 +335,7 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
           cx,
           baseline + (2.0 : Float),
           ch.advance,
-          max_f((1.0 : Float), ch.style.font_size * (0.07 : Float)),
+          @tmath.max_f((1.0 : Float), ch.style.font_size * (0.07 : Float)),
           ch.style.color,
         ))
       }
@@ -431,7 +431,7 @@ pub fn Paragraph::get_position_for_offset(
     } else {
       lm.width
     }
-    let d = abs_f(pt.x - gx)
+    let d = @tmath.abs_f(pt.x - gx)
     if d < best_dist {
       best_dist = d
       best_off = idx

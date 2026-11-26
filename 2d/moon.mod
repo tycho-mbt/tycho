@@ -16,4 +16,5 @@ keywords = [ "2d", "graphics", "sdf", "ui", "skia", "tycho" ]
 
 import {
   "laplaceliu/tycho@0.8.1",
+  "laplaceliu/tycho_math@0.9.0",
 }

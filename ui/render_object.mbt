@@ -79,7 +79,7 @@ fn compute_main_offsets(
   if count <= 0 {
     return ((0.0 : Float), gap)
   }
-  let f = max_f((0.0 : Float), free_space)
+  let f = @tmath.max_f((0.0 : Float), free_space)
   match align {
     MainAxisAlignment::Start => ((0.0 : Float), gap)
     MainAxisAlignment::End => (f, gap)
@@ -130,10 +130,10 @@ pub fn RenderNode::layout(self : RenderNode, constraints : BoxConstraints) -> @g
         )
       } else {
         let child_c = BoxConstraints::new(
-          min_width=match wo { Some(w) => clamp_f(w, constraints.min_width, constraints.max_width); None => constraints.min_width },
-          max_width=match wo { Some(w) => clamp_f(w, constraints.min_width, constraints.max_width); None => constraints.max_width },
-          min_height=match ho { Some(h) => clamp_f(h, constraints.min_height, constraints.max_height); None => constraints.min_height },
-          max_height=match ho { Some(h) => clamp_f(h, constraints.min_height, constraints.max_height); None => constraints.max_height },
+          min_width=match wo { Some(w) => @tmath.clamp_f(w, constraints.min_width, constraints.max_width); None => constraints.min_width },
+          max_width=match wo { Some(w) => @tmath.clamp_f(w, constraints.min_width, constraints.max_width); None => constraints.max_width },
+          min_height=match ho { Some(h) => @tmath.clamp_f(h, constraints.min_height, constraints.max_height); None => constraints.min_height },
+          max_height=match ho { Some(h) => @tmath.clamp_f(h, constraints.min_height, constraints.max_height); None => constraints.max_height },
         )
         let csz = self.children[0].layout(child_c)
         self.children[0].offset = @g2d.Point::zero()
@@ -235,7 +235,7 @@ pub fn RenderNode::layout(self : RenderNode, constraints : BoxConstraints) -> @g
       // Pass 2: distribute remaining space among flex children
       let has_bound_main = max_main < INF * (0.5 : Float)
       let avail_for_flex = if has_bound_main {
-        max_f((0.0 : Float), max_main - fixed_main)
+        @tmath.max_f((0.0 : Float), max_main - fixed_main)
       } else {
         (0.0 : Float)
       }
@@ -276,7 +276,7 @@ pub fn RenderNode::layout(self : RenderNode, constraints : BoxConstraints) -> @g
       }
 
       let final_main = if main_size == MainAxisSize::Max && has_bound_main {
-        max_f(used_main, max_main)
+        @tmath.max_f(used_main, max_main)
       } else {
         used_main
       }
@@ -333,19 +333,19 @@ pub fn RenderNode::layout(self : RenderNode, constraints : BoxConstraints) -> @g
       }
       let self_sz = constraints.constrain(
         @g2d.Size::new(
-          if constraints.has_bounded_width() { max_f(max_w, constraints.max_width) } else { max_w },
-          if constraints.has_bounded_height() { max_f(max_h, constraints.max_height) } else { max_h },
+          if constraints.has_bounded_width() { @tmath.max_f(max_w, constraints.max_width) } else { max_w },
+          if constraints.has_bounded_height() { @tmath.max_f(max_h, constraints.max_height) } else { max_h },
         ),
       )
       for ch in self.children {
         match ch.kind {
           RenderKind::Positioned(lo, to, ro, bo, wo, ho) => {
             let pw = match (lo, ro, wo) {
-              (Some(l), Some(r), None) => Some(max_f((0.0 : Float), self_sz.width - l - r))
+              (Some(l), Some(r), None) => Some(@tmath.max_f((0.0 : Float), self_sz.width - l - r))
               _ => wo
             }
             let ph = match (to, bo, ho) {
-              (Some(t), Some(b), None) => Some(max_f((0.0 : Float), self_sz.height - t - b))
+              (Some(t), Some(b), None) => Some(@tmath.max_f((0.0 : Float), self_sz.height - t - b))
               _ => ho
             }
             if pw is Some(_) || ph is Some(_) {
@@ -430,8 +430,8 @@ pub fn RenderNode::layout(self : RenderNode, constraints : BoxConstraints) -> @g
       }
       let total_h = Float::from_int(count) * item_extent
       ctrl.viewport_extent = vh
-      ctrl.max_extent = max_f((0.0 : Float), total_h - vh)
-      let scroll_y = clamp_f(ctrl.offset.peek(), (0.0 : Float), ctrl.max_extent)
+      ctrl.max_extent = @tmath.max_f((0.0 : Float), total_h - vh)
+      let scroll_y = @tmath.clamp_f(ctrl.offset.peek(), (0.0 : Float), ctrl.max_extent)
       for i = 0; i < self.children.length(); i = i + 1 {
         let ch = self.children[i]
         let item_idx = if i < self.list_indices.length() {
@@ -486,7 +486,7 @@ pub fn RenderNode::layout(self : RenderNode, constraints : BoxConstraints) -> @g
         cw = csz.width
         ch = csz.height
       }
-      let sz = constraints.constrain(@g2d.Size::new(min_f(vw, cw), min_f(vh, ch)))
+      let sz = constraints.constrain(@g2d.Size::new(@tmath.min_f(vw, cw), @tmath.min_f(vh, ch)))
       let vp_ext = match axis {
         Axis::Vertical => sz.height
         Axis::Horizontal => sz.width
@@ -496,8 +496,8 @@ pub fn RenderNode::layout(self : RenderNode, constraints : BoxConstraints) -> @g
         Axis::Horizontal => cw
       }
       ctrl.viewport_extent = vp_ext
-      ctrl.max_extent = max_f((0.0 : Float), content_ext - vp_ext)
-      let off = clamp_f(ctrl.offset.peek(), (0.0 : Float), ctrl.max_extent)
+      ctrl.max_extent = @tmath.max_f((0.0 : Float), content_ext - vp_ext)
+      let off = @tmath.clamp_f(ctrl.offset.peek(), (0.0 : Float), ctrl.max_extent)
       if self.children.length() > 0 {
         self.children[0].offset = match axis {
           Axis::Vertical => @g2d.Point::new((0.0 : Float), -off)
@@ -508,7 +508,7 @@ pub fn RenderNode::layout(self : RenderNode, constraints : BoxConstraints) -> @g
     }
     RenderKind::TextField(_, _, pref_w, font_size, _) => {
       let w = if constraints.has_bounded_width() {
-        min_f(pref_w, constraints.max_width)
+        @tmath.min_f(pref_w, constraints.max_width)
       } else {
         pref_w
       }
@@ -713,7 +713,7 @@ fn RenderNode::paint_subtree_layer(self : RenderNode) -> Layer {
       let pad_y = if ctrl.multiline {
         (8.0 : Float)
       } else {
-        max_f((4.0 : Float), (self.size.height - para.height()) * (0.5 : Float))
+        @tmath.max_f((4.0 : Float), (self.size.height - para.height()) * (0.5 : Float))
       }
       if is_foc && txt != "" {
         let (s0, s1) = ctrl.selection_range()
@@ -808,7 +808,7 @@ pub fn RenderNode::hit_test(
         let pad_y = if ctrl.multiline {
           (8.0 : Float)
         } else {
-          max_f((4.0 : Float), (self.size.height - p.height()) * (0.5 : Float))
+          @tmath.max_f((4.0 : Float), (self.size.height - p.height()) * (0.5 : Float))
         }
         p.get_position_for_offset(
           @g2d.Point::new(pt.x - (10.0 : Float), pt.y - pad_y),

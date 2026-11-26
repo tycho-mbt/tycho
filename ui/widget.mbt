@@ -43,7 +43,7 @@ pub struct ScrollController {
 ///|
 pub fn ScrollController::new(initial_offset? : Float = (0.0 : Float)) -> ScrollController {
   {
-    offset: Signal::new(max_f((0.0 : Float), initial_offset)),
+    offset: Signal::new(@tmath.max_f((0.0 : Float), initial_offset)),
     max_extent: (0.0 : Float),
     viewport_extent: (400.0 : Float),
   }
@@ -51,7 +51,7 @@ pub fn ScrollController::new(initial_offset? : Float = (0.0 : Float)) -> ScrollC
 
 ///|
 pub fn ScrollController::scroll_by(self : ScrollController, delta : Float) -> Unit {
-  let next = clamp_f(self.offset.peek() + delta, (0.0 : Float), self.max_extent)
+  let next = @tmath.clamp_f(self.offset.peek() + delta, (0.0 : Float), self.max_extent)
   if next != self.offset.peek() {
     self.offset.set(next)
   }
@@ -59,7 +59,7 @@ pub fn ScrollController::scroll_by(self : ScrollController, delta : Float) -> Un
 
 ///|
 pub fn ScrollController::jump_to(self : ScrollController, offset : Float) -> Unit {
-  let next = clamp_f(offset, (0.0 : Float), self.max_extent)
+  let next = @tmath.clamp_f(offset, (0.0 : Float), self.max_extent)
   if next != self.offset.peek() {
     self.offset.set(next)
   }
