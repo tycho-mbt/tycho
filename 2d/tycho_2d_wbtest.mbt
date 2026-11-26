@@ -657,3 +657,39 @@ test "synthetic bold and italic glyph bitmaps" {
     None => ()
   }
 }
+
+///|
+test "SDF glyph encoding keeps inside/outside distances" {
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) =>
+      match font.ttf {
+        Some(t) => {
+          let (_ox, _oy, gw, gh, px) = rasterize_ttf_glyph_gid(
+            t,
+            font.glyph_id(65),
+            (64.0 : Float),
+          )
+          let (w, h, sdf) = build_sdf(gw, gh, px)
+          assert_eq(w, gw + SDF_SPREAD * 2)
+          assert_eq(h, gh + SDF_SPREAD * 2)
+          let mut hi = 0
+          let mut lo = 0
+          for b in sdf {
+            let v = b.to_int()
+            if v > 200 {
+              hi = hi + 1
+            }
+            if v < 50 {
+              lo = lo + 1
+            }
+          }
+          assert_true(hi > 0 && lo > 0)
+        }
+        None => ()
+      }
+    None => ()
+  }
+}

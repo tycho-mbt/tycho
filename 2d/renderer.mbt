@@ -126,6 +126,7 @@ pub(all) struct RenderStats {
   atlas_overflows : Int
   coverage_draws : Int
   coverage_entries : Int
+  sdf_glyphs : Int
 }
 
 ///|
@@ -1456,18 +1457,19 @@ pub fn Renderer2D::stats(self : Renderer2D) -> RenderStats {
     atlas_overflows: self.glyph_cache.atlas_overflow_count(),
     coverage_draws: self.coverage_draws,
     coverage_entries: self.coverage_count,
+    sdf_glyphs: self.glyph_cache.sdf_count(),
   }
 }
 
 ///|
 // Compact single-line summary suitable for a debug/performance overlay.
 pub fn RenderStats::summary(self : RenderStats) -> String {
-  "draws \{self.draw_calls} | passes \{self.path_passes} | prims \{self.prims} | coverage \{self.coverage_draws} | uploads \{self.upload_bytes}B | glyphs \{self.glyph_entries} | atlas resets \{self.atlas_resets}/\{self.atlas_overflows}"
+  "draws \{self.draw_calls} | passes \{self.path_passes} | prims \{self.prims} | coverage \{self.coverage_draws} | uploads \{self.upload_bytes}B | glyphs \{self.glyph_entries} (sdf \{self.sdf_glyphs}) | atlas resets \{self.atlas_resets}/\{self.atlas_overflows}"
 }
 
 ///|
 pub fn RenderStats::to_json(self : RenderStats) -> String {
-  "{\"draws\":\{self.draw_calls},\"path_passes\":\{self.path_passes},\"prims\":\{self.prims},\"uploads\":\{self.upload_bytes},\"glyphs\":\{self.glyph_entries},\"atlas_images\":\{self.image_entries},\"atlas_resets\":\{self.atlas_resets},\"atlas_overflows\":\{self.atlas_overflows},\"coverage_draws\":\{self.coverage_draws},\"coverage_entries\":\{self.coverage_entries}}"
+  "{\"draws\":\{self.draw_calls},\"path_passes\":\{self.path_passes},\"prims\":\{self.prims},\"uploads\":\{self.upload_bytes},\"glyphs\":\{self.glyph_entries},\"sdf_glyphs\":\{self.sdf_glyphs},\"atlas_images\":\{self.image_entries},\"atlas_resets\":\{self.atlas_resets},\"atlas_overflows\":\{self.atlas_overflows},\"coverage_draws\":\{self.coverage_draws},\"coverage_entries\":\{self.coverage_entries}}"
 }
 
 ///|
@@ -4031,6 +4033,11 @@ fn Renderer2D::replay_ops(
                 g.italic,
               )
               if ge.width > 0 && ge.height > 0 {
+                let glyph_kind = if ge.is_sdf {
+                  (8.0 : Float)
+                } else {
+                  (3.0 : Float)
+                }
                 let gx = pos.x + g.x + Float::from_int(ge.offset_x)
                 let gy = pos.y + g.baseline_y + Float::from_int(ge.offset_y)
                 self.emit_prim(
@@ -4051,7 +4058,7 @@ fn Renderer2D::replay_ops(
                   ge.uv_y1,
                   (0.0 : Float),
                   (0.0 : Float),
-                  (3.0 : Float),
+                  glyph_kind,
                   (0.0 : Float),
                   (0.0 : Float),
                   (0.0 : Float),

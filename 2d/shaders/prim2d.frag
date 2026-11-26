@@ -199,6 +199,15 @@ void main() {
     return;
   }
 
+  if (kind == 8) {
+    // Signed-distance glyph: d > 0.5 is inside.
+    float d = texture(u_glyph_atlas, clamp(v_uv, v_uv_rect.xy, v_uv_rect.zw)).r;
+    float w = max(fwidth(d), 0.0001);
+    float a = smoothstep(0.5 - w, 0.5 + w, d) * v_fill.a * clip_cov;
+    out_color = vec4(v_fill.rgb * a, a);
+    return;
+  }
+
   float d = (kind == 4)
     ? (length(v_local_pos) - min(v_half_size.x, v_half_size.y))
     : sdRoundBoxElliptic(v_local_pos, v_half_size, v_radii, v_radii_y);

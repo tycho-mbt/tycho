@@ -55,7 +55,7 @@ fn main {
         let p1 = @g2d.ParagraphBuilder::new()
           .add_text(
             "Latin fi 世界 😀",
-            style=mk_style((40.0 : Float), @g2d.Color::from_rgba8(225, 235, 250)),
+            style=mk_style((64.0 : Float), @g2d.Color::from_rgba8(225, 235, 250)),
           )
           .build()
         let p2 = @g2d.ParagraphBuilder::new()
@@ -175,24 +175,27 @@ fn main {
           }
           i = i + 4
         }
+        let st = renderer.stats()
+        let sdf_ok = st.sdf_glyphs > 0
         let errs = dev.validation_errors()
         println(
-          "{\"ligature\":\{lig_ok},\"arabic_forms\":\{arabic_forms},\"rtl_first\":\{rtl_first},\"selection_boxes\":\{p4.get_boxes_for_range(4, 20).length()},\"bold_italic\":\{bold_italic},\"yellow_pixels\":\{yellow}}",
+          "{\"ligature\":\{lig_ok},\"arabic_forms\":\{arabic_forms},\"rtl_first\":\{rtl_first},\"selection_boxes\":\{p4.get_boxes_for_range(4, 20).length()},\"bold_italic\":\{bold_italic},\"sdf_glyphs\":\{st.sdf_glyphs},\"yellow_pixels\":\{yellow}}",
         )
         let ok = lig_ok &&
           arabic_forms >= 3 &&
           rtl_ok &&
           boxes_ok &&
           bold_italic &&
+          sdf_ok &&
           yellow > 50 &&
           errs == 0
         if ok {
           println(
-            "[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + synthetic bold/italic, \{arabic_forms} Arabic forms, 0 validation errors",
+            "[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + synthetic bold/italic + SDF, \{arabic_forms} Arabic forms, \{st.sdf_glyphs} SDF glyphs, 0 validation errors",
           )
         } else {
           println(
-            "[60-tycho-2d-i18n-text] FAIL — lig=\{lig_ok} arabic=\{arabic_forms} rtl_first=\{rtl_first} boxes=\{boxes_ok} bold_italic=\{bold_italic} yellow=\{yellow} errs=\{errs}",
+            "[60-tycho-2d-i18n-text] FAIL — lig=\{lig_ok} arabic=\{arabic_forms} rtl_first=\{rtl_first} boxes=\{boxes_ok} bold_italic=\{bold_italic} sdf=\{st.sdf_glyphs} yellow=\{yellow} errs=\{errs}",
           )
         }
 

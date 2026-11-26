@@ -9,6 +9,7 @@ M8 integration example mixing:
 - Arabic joining forms (Presentation Forms-B)
 - Justified paragraph, selection boxes and caret
 - Synthetic bold + italic (3x3 dilation + vertical shear)
+- SDF glyphs for text >= 48px (`kind=8`)
 
 The fallback chain is DejaVuSans -> DroidSansFallbackFull -> NotoColorEmoji.
 Latin ligatures use GSUB `liga` with glyph-id rendering; Arabic uses GSUB
@@ -34,6 +35,6 @@ moon build --target native 60-tycho-2d-i18n-text
 Sample output:
 
 ```json
-{"ligature":true,"arabic_forms":7,"rtl_first":1501,"selection_boxes":1,"bold_italic":true,"yellow_pixels":1157}
-[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + synthetic bold/italic, 7 Arabic forms, 0 validation errors
+{"ligature":true,"arabic_forms":7,"rtl_first":1501,"selection_boxes":1,"bold_italic":true,"sdf_glyphs":6,"yellow_pixels":2874}
+[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + synthetic bold/italic + SDF, 7 Arabic forms, 6 SDF glyphs, 0 validation errors
 ```

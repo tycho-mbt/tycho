@@ -555,6 +555,102 @@ fn synthesize_glyph_bitmap(
 }
 
 ///|
+const SDF_SPREAD : Int = 6
+
+///|
+fn sdf_distance_pass(d : Array[Float], w : Int, h : Int, forward : Bool) -> Unit {
+  let diag = (1.41421356 : Float)
+  if forward {
+    for y = 0; y < h; y = y + 1 {
+      for x = 0; x < w; x = x + 1 {
+        let i = y * w + x
+        let mut v = d[i]
+        if v > (0.0 : Float) {
+          if x > 0 {
+            v = @tmath.min_f(v, d[i - 1] + (1.0 : Float))
+          }
+          if y > 0 {
+            v = @tmath.min_f(v, d[i - w] + (1.0 : Float))
+            if x > 0 {
+              v = @tmath.min_f(v, d[i - w - 1] + diag)
+            }
+            if x + 1 < w {
+              v = @tmath.min_f(v, d[i - w + 1] + diag)
+            }
+          }
+          d[i] = v
+        }
+      }
+    }
+  } else {
+    for y = h - 1; y >= 0; y = y - 1 {
+      for x = w - 1; x >= 0; x = x - 1 {
+        let i = y * w + x
+        let mut v = d[i]
+        if v > (0.0 : Float) {
+          if x + 1 < w {
+            v = @tmath.min_f(v, d[i + 1] + (1.0 : Float))
+          }
+          if y + 1 < h {
+            v = @tmath.min_f(v, d[i + w] + (1.0 : Float))
+            if x > 0 {
+              v = @tmath.min_f(v, d[i + w - 1] + diag)
+            }
+            if x + 1 < w {
+              v = @tmath.min_f(v, d[i + w + 1] + diag)
+            }
+          }
+          d[i] = v
+        }
+      }
+    }
+  }
+}
+
+///|
+// Encode a signed distance field (inside = 1.0) from an A8 glyph mask.
+fn build_sdf(gw : Int, gh : Int, pixels : Bytes) -> (Int, Int, Bytes) {
+  if gw <= 0 || gh <= 0 {
+    return (0, 0, b"")
+  }
+  let w = gw + SDF_SPREAD * 2
+  let h = gh + SDF_SPREAD * 2
+  let n = w * h
+  let inside = Array::make(n, false)
+  for y = 0; y < gh; y = y + 1 {
+    for x = 0; x < gw; x = x + 1 {
+      if pixels[y * gw + x].to_int() >= 128 {
+        inside[(y + SDF_SPREAD) * w + (x + SDF_SPREAD)] = true
+      }
+    }
+  }
+  let d_in = Array::make(n, (1.0e9 : Float))
+  let d_out = Array::make(n, (1.0e9 : Float))
+  for i = 0; i < n; i = i + 1 {
+    if inside[i] {
+      d_in[i] = (0.0 : Float)
+    } else {
+      d_out[i] = (0.0 : Float)
+    }
+  }
+  sdf_distance_pass(d_in, w, h, true)
+  sdf_distance_pass(d_in, w, h, false)
+  sdf_distance_pass(d_out, w, h, true)
+  sdf_distance_pass(d_out, w, h, false)
+  let out = Array::make(n, (0 : Byte))
+  let inv = (1.0 : Float) / (Float::from_int(SDF_SPREAD) * (2.0 : Float))
+  for i = 0; i < n; i = i + 1 {
+    let signed = d_out[i] - d_in[i]
+    let v = @tmath.max_f(
+      (0.0 : Float),
+      @tmath.min_f((1.0 : Float), (0.5 : Float) + signed * inv),
+    )
+    out[i] = (v * (255.0 : Float)).to_int().to_byte()
+  }
+  (w, h, Bytes::from_array(out))
+}
+
+///|
 fn rasterize_ttf_glyph(
   t : TtfData,
   cp : Int,
@@ -1184,6 +1280,7 @@ pub(all) struct GlyphEntry {
   width : Int
   height : Int
   advance : Float
+  is_sdf : Bool
 }
 
 ///|
@@ -1204,6 +1301,7 @@ pub struct GlyphCache {
   priv bitmaps : Map[String, GlyphBitmap]
   priv mut atlas_reset_count : Int
   priv mut atlas_overflow_count : Int
+  priv mut sdf_entries : Int
   priv mut frame : Int
   // Bumped whenever the atlas is reset; external caches (coverage bitmaps)
   // must invalidate their UVs when this changes.
@@ -1222,6 +1320,7 @@ pub fn GlyphCache::new(
     bitmaps: {},
     atlas_reset_count: 0,
     atlas_overflow_count: 0,
+    sdf_entries: 0,
     frame: 0,
     generation: 0,
   }
@@ -1295,6 +1394,11 @@ pub fn GlyphCache::atlas_size(self : GlyphCache) -> (Int, Int) {
 }
 
 ///|
+pub fn GlyphCache::sdf_count(self : GlyphCache) -> Int {
+  self.sdf_entries
+}
+
+///|
 pub fn GlyphCache::get_or_rasterize(
   self : GlyphCache,
   font : FontFace,
@@ -1353,8 +1457,10 @@ fn GlyphCache::get_or_rasterize_impl(
   } else {
     ""
   }
+  let use_sdf = gid > 0 && px_size >= (48.0 : Float)
+  let sdf_key = if use_sdf { ":sdf" } else { "" }
   let key = if gid > 0 {
-    "\{font.id}:g\{gid}:\{q4}\{style_key}"
+    "\{font.id}:g\{gid}:\{q4}\{style_key}\{sdf_key}"
   } else {
     "\{font.id}:\{cp}:\{q4}\{style_key}"
   }
@@ -1381,7 +1487,7 @@ fn GlyphCache::get_or_rasterize_impl(
     }
     None => rasterize_builtin_glyph(cp, px_size)
   }
-  let (ox, oy, gw, gh, pixels) = synthesize_glyph_bitmap(
+  let (ox1, oy1, gw1, gh1, pixels1) = synthesize_glyph_bitmap(
     ox0,
     oy0,
     gw0,
@@ -1390,6 +1496,12 @@ fn GlyphCache::get_or_rasterize_impl(
     bold,
     italic,
   )
+  let (ox, oy, gw, gh, pixels) = if use_sdf {
+    let (sw, sh, sdf) = build_sdf(gw1, gh1, pixels1)
+    (ox1 - SDF_SPREAD, oy1 - SDF_SPREAD, sw, sh, sdf)
+  } else {
+    (ox1, oy1, gw1, gh1, pixels1)
+  }
   // Padding around each glyph so a quad shifted by a fraction of a pixel
   // samples transparent padding at its edges (subpixel positioning) instead of
   // clamping to the glyph's edge pixels.
@@ -1442,9 +1554,13 @@ fn GlyphCache::get_or_rasterize_impl(
     width: quad_w,
     height: quad_h,
     advance: adv,
+    is_sdf: use_sdf,
   }
   if cacheable {
     self.entries[key] = entry
+    if use_sdf {
+      self.sdf_entries = self.sdf_entries + 1
+    }
     if gw > 0 && gh > 0 {
       self.bitmaps[key] = {
         pixels,

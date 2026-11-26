@@ -235,6 +235,7 @@ pub fn GlyphCache::get_or_rasterize(Self, FontFace, Int32, Float) -> GlyphEntry 
 pub fn GlyphCache::get_or_rasterize_gid(Self, FontFace, Int32, Int32, Float) -> GlyphEntry raise @tycho.RhiError
 pub fn GlyphCache::get_or_rasterize_styled(Self, FontFace, Int32, Int32, Float, Bool, Bool) -> GlyphEntry raise @tycho.RhiError
 pub fn GlyphCache::new(@tycho.Device, width? : Int32, height? : Int32) -> Self raise @tycho.RhiError
+pub fn GlyphCache::sdf_count(Self) -> Int32
 
 pub(all) struct GlyphEntry {
   uv_x0 : Float
@@ -246,6 +247,7 @@ pub(all) struct GlyphEntry {
   width : Int32
   height : Int32
   advance : Float
+  is_sdf : Bool
 }
 
 #derive(Eq, @debug.Debug)
@@ -505,6 +507,7 @@ pub(all) struct RenderStats {
   atlas_overflows : Int32
   coverage_draws : Int32
   coverage_entries : Int32
+  sdf_glyphs : Int32
 }
 pub fn RenderStats::summary(Self) -> String
 pub fn RenderStats::to_json(Self) -> String
