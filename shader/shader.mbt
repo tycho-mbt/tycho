@@ -1,5 +1,6 @@
 // Tycho shader & asset helpers: GLSL->SPIR-V (glslangValidator), Slang->SPIR-V
-// (slangc), binary SPIR-V loading, and PPM/BMP image decoding. No C link deps.
+// (slangc), binary SPIR-V loading, PPM/BMP/HDR/PNG image decoding, and filtered
+// (deflate) PNG encoding. No C link deps.
 // Decoupled from laplaceliu/tycho_vulkan so core Vulkan users need only -lvulkan.
 
 pub const SHADER_KIND_VERTEX : UInt32 = 0

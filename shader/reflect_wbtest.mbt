@@ -200,6 +200,64 @@ test "load_hdr_image decodes Radiance RGBE floats accurately" {
 }
 
 ///|
+test "save_png compresses and stays pixel-exact" {
+  let w = 64
+  let h = 64
+  // A per-row gradient: highly filterable, so a real deflate stream has to land
+  // far below the raw pixel size.
+  let rgba : FixedArray[Byte] = FixedArray::make(w * h * 4, (0 : Byte))
+  for y = 0; y < h; y = y + 1 {
+    for x = 0; x < w; x = x + 1 {
+      let i = (y * w + x) * 4
+      rgba[i] = (x * 4).to_byte()
+      rgba[i + 1] = (y * 4).to_byte()
+      rgba[i + 2] = (40 : Byte)
+      rgba[i + 3] = (255 : Byte)
+    }
+  }
+  let path = "/tmp/tycho_save_png_compress_test.png"
+  assert_true(save_png(path, w, h, rgba))
+  let bytes = read_file_bytes(path)
+  assert_true(bytes.length() > 0)
+  // The previous writer emitted stored blocks, which made this exactly
+  // w*h*4 + ~400 bytes; require a quarter of the raw size to catch a regression.
+  assert_true(bytes.length() < w * h * 4 / 4)
+  match decode_image(bytes) {
+    Some((px, dw, dh)) => {
+      assert_eq(dw, w)
+      assert_eq(dh, h)
+      let mid = ((h / 2) * w + w / 2) * 4
+      assert_eq(px[mid].to_int(), (w / 2) * 4)
+      assert_eq(px[mid + 1].to_int(), (h / 2) * 4)
+      assert_eq(px[mid + 2].to_int(), 40)
+      assert_eq(px[mid + 3].to_int(), 255)
+    }
+    None => assert_true(false)
+  }
+}
+
+test "save_png swaps bgra into rgba" {
+  let w = 2
+  let h = 2
+  let px : FixedArray[Byte] = FixedArray::make(w * h * 4, (0 : Byte))
+  for i = 0; i < w * h; i = i + 1 {
+    px[i * 4] = (200 : Byte) // B
+    px[i * 4 + 1] = (100 : Byte) // G
+    px[i * 4 + 2] = (50 : Byte) // R
+    px[i * 4 + 3] = (255 : Byte)
+  }
+  let path = "/tmp/tycho_save_png_bgra_test.png"
+  assert_true(save_png(path, w, h, px, bgra=true))
+  match decode_image(read_file_bytes(path)) {
+    Some((out, _, _)) => {
+      assert_eq(out[0].to_int(), 50)
+      assert_eq(out[1].to_int(), 100)
+      assert_eq(out[2].to_int(), 200)
+    }
+    None => assert_true(false)
+  }
+}
+
 test "decode_image roundtrips png" {
   let w = 3
   let h = 2
