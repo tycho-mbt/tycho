@@ -122,6 +122,7 @@ fn main {
       shadow_map_size: 1024,
       shadow_cascades: 2,
       gpu_culling: false,
+      bindless: true,
     }
     let desc_plain : @t3d.RendererDesc = {
       max_objects: 4096,
@@ -134,6 +135,7 @@ fn main {
       shadow_map_size: 1024,
       shadow_cascades: 2,
       gpu_culling: false,
+      bindless: true,
     }
     let r_msaa = @t3d.Renderer3D::new(dev, desc=desc_msaa)
     let r_plain = @t3d.Renderer3D::new(dev, desc=desc_plain)
