@@ -15,7 +15,7 @@ description = "Tycho 3D — three.js-inspired pure-MoonBit scene graph, cameras,
 keywords = [ "3d", "graphics", "pbr", "scene-graph", "threejs", "tycho" ]
 
 import {
-  "laplaceliu/tycho@0.9.0",
+  "laplaceliu/tycho@0.10.0",
   "laplaceliu/tycho_geometry@0.10.0",
   "laplaceliu/tycho_math@0.9.0",
 }
