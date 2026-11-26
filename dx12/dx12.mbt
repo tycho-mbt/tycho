@@ -95,7 +95,30 @@ extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_byte
 #borrow(pixels)
 extern "c" fn texture_create_uploaded_ffi(dev : UInt64, width : Int, height : Int, pixels : Bytes, pixel_bytes : Int) -> UInt64 = "tycho_dx12_texture_create_uploaded"
 
-extern "c" fn cmd_set_texture_ffi(cmds : UInt64, root_index : Int, tex : UInt64) -> Int32 = "tycho_dx12_cmd_set_texture"
+extern "c" fn cmd_set_texture_ffi(cmds : UInt64, root_index : Int, tex : UInt64, sampler : UInt64) -> Int32 = "tycho_dx12_cmd_set_texture"
+
+extern "c" fn sampler_create_ffi(dev : UInt64, filter : Int, address : Int, anisotropy : Float, min_lod : Float, max_lod : Float, mip_lod_bias : Float) -> UInt64 = "tycho_dx12_sampler_create"
+
+extern "c" fn sampler_destroy_ffi(sampler : UInt64) = "tycho_dx12_sampler_destroy"
+
+extern "c" fn storage_texture_create_ffi(dev : UInt64, width : Int, height : Int) -> UInt64 = "tycho_dx12_storage_texture_create"
+
+#borrow(cs)
+extern "c" fn compute_pipeline_create_ffi(dev : UInt64, cs : FixedArray[UInt32], cs_bytes : Int, cbv_count : Int, uav_tables : Int) -> UInt64 = "tycho_dx12_compute_pipeline_create"
+
+extern "c" fn compute_pipeline_destroy_ffi(pipe : UInt64) = "tycho_dx12_pipeline_destroy"
+
+extern "c" fn cmd_set_compute_pipeline_ffi(cmds : UInt64, pipe : UInt64) -> Int32 = "tycho_dx12_cmd_set_compute_pipeline"
+
+extern "c" fn cmd_set_uav_ffi(cmds : UInt64, root_index : Int, tex : UInt64) -> Int32 = "tycho_dx12_cmd_set_uav"
+
+extern "c" fn cmd_dispatch_ffi(cmds : UInt64, x : Int, y : Int, z : Int) -> Int32 = "tycho_dx12_cmd_dispatch"
+
+extern "c" fn buffer_heap_create_ffi(dev : UInt64, size : Int) -> UInt64 = "tycho_dx12_buffer_heap_create"
+
+extern "c" fn buffer_heap_destroy_ffi(heap : UInt64) = "tycho_dx12_buffer_heap_destroy"
+
+extern "c" fn buffer_place_ffi(heap : UInt64, offset : Int, size : Int) -> UInt64 = "tycho_dx12_buffer_place"
 
 extern "c" fn depth_create_ffi(dev : UInt64, width : Int, height : Int) -> UInt64 = "tycho_dx12_depth_create"
 
@@ -301,6 +324,18 @@ pub fn Texture::create_uploaded(
   pixels : Bytes,
 ) -> Texture? {
   let handle = texture_create_uploaded_ffi(device.handle, width, height, pixels, pixels.length())
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+/// A storage texture (`RWTexture2D` / UAV) that a compute shader writes into. It
+/// starts in `ResourceState::UnorderedAccess` and can be read back afterwards.
+pub fn Texture::create_storage(device : Device, width : Int, height : Int) -> Texture? {
+  let handle = storage_texture_create_ffi(device.handle, width, height)
   if handle == (0 : UInt64) {
     None
   } else {
@@ -582,8 +617,13 @@ pub fn CommandList::set_texture(
   self : CommandList,
   root_index : Int,
   tex : Texture,
+  sampler? : Sampler? = None,
 ) -> Bool {
-  cmd_set_texture_ffi(self.handle, root_index, tex.handle) != 0
+  let sampler_handle = match sampler {
+    Some(s) => s.handle
+    None => (0 : UInt64)
+  }
+  cmd_set_texture_ffi(self.handle, root_index, tex.handle, sampler_handle) != 0
 }
 
 ///|
@@ -594,6 +634,187 @@ pub fn CommandList::clear_depth(self : CommandList, tex : Texture, depth? : Floa
 
 pub fn CommandList::execute_wait(self : CommandList, device : Device) -> Bool {
   commands_execute_wait_ffi(device.handle, self.handle) != 0
+}
+
+// ---------------------------------------------------------------------------
+// Compute pipeline (root signature: root CBVs, then one UAV table)
+// ---------------------------------------------------------------------------
+
+///|
+/// Root constant buffers at `register(b<i>, space0)` followed by one UAV table
+/// covering `u0..u(n-1)` in space 0.
+pub fn ComputePipeline::create(
+  device : Device,
+  cs_dxil : FixedArray[UInt32],
+  cs_bytes : Int,
+  cbv_count? : Int = 0,
+  uav_tables? : Int = 0,
+) -> ComputePipeline? {
+  let handle = compute_pipeline_create_ffi(device.handle, cs_dxil, cs_bytes, cbv_count, uav_tables)
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn ComputePipeline::handle(self : ComputePipeline) -> UInt64 {
+  self.handle
+}
+
+///|
+pub fn ComputePipeline::destroy(self : ComputePipeline) -> Unit {
+  compute_pipeline_destroy_ffi(self.handle)
+}
+
+///|
+/// Binds the compute pipeline and its root signature. Graphics and compute use
+/// different D3D12 entry points, so this is separate from `set_pipeline`.
+pub fn CommandList::set_compute_pipeline(
+  self : CommandList,
+  pipe : ComputePipeline,
+) -> Bool {
+  cmd_set_compute_pipeline_ffi(self.handle, pipe.handle) != 0
+}
+
+///|
+/// Binds a storage texture as an UAV table at `root_index` (the UAV table follows
+/// the root CBVs in the signature `ComputePipeline::create` builds).
+pub fn CommandList::set_uav(self : CommandList, root_index : Int, tex : Texture) -> Bool {
+  cmd_set_uav_ffi(self.handle, root_index, tex.handle) != 0
+}
+
+///|
+pub fn CommandList::dispatch(self : CommandList, x : Int, y : Int, z? : Int = 1) -> Bool {
+  cmd_dispatch_ffi(self.handle, x, y, z) != 0
+}
+
+///|
+/// A compute pipeline: one DXIL blob, its own root signature.
+pub struct ComputePipeline {
+  handle : UInt64
+}
+
+// ---------------------------------------------------------------------------
+// Placed buffers (a heap the caller carves offsets out of)
+// ---------------------------------------------------------------------------
+
+///|
+/// A UPLOAD heap whose contents are carved into placed buffers. The free-list
+/// itself lives on the caller's side (the RHI uses the shared `RegionPool`).
+pub struct BufferHeap {
+  handle : UInt64
+}
+
+///|
+pub fn BufferHeap::create(device : Device, size : Int) -> BufferHeap? {
+  let handle = buffer_heap_create_ffi(device.handle, size)
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn BufferHeap::handle(self : BufferHeap) -> UInt64 {
+  self.handle
+}
+
+///|
+/// Places a buffer at `offset` inside the heap. `offset` must satisfy
+/// `D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT` (64 KiB).
+pub fn Buffer::place(heap : BufferHeap, offset : Int, size : Int) -> Buffer? {
+  let handle = buffer_place_ffi(heap.handle, offset, size)
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn BufferHeap::destroy(self : BufferHeap) -> Unit {
+  buffer_heap_destroy_ffi(self.handle)
+}
+
+// ---------------------------------------------------------------------------
+// Sampler (a slot in the device's shader-visible sampler heap)
+// ---------------------------------------------------------------------------
+
+///|
+/// How the sampled texels are interpolated.
+pub(all) enum SamplerFilter {
+  Point
+  Linear
+  Anisotropic
+}
+
+///|
+/// Out-of-range addressing, applied to all three axes.
+pub(all) enum SamplerAddress {
+  Wrap
+  Mirror
+  Clamp
+  Border
+  MirrorOnce
+}
+
+///|
+/// A sampler heap slot. Bound with `CommandList::set_texture`.
+pub struct Sampler {
+  handle : UInt64
+}
+
+///|
+pub fn Sampler::create(
+  device : Device,
+  filter : SamplerFilter,
+  address : SamplerAddress,
+  anisotropy? : Float = 1.0,
+  min_lod? : Float = 0.0,
+  max_lod? : Float = 1000.0,
+  mip_lod_bias? : Float = 0.0,
+) -> Sampler? {
+  let filter_code = match filter {
+    Point => 0
+    Linear => 1
+    Anisotropic => 2
+  }
+  let address_code = match address {
+    Wrap => 0
+    Mirror => 1
+    Clamp => 2
+    Border => 3
+    MirrorOnce => 4
+  }
+  let handle = sampler_create_ffi(
+    device.handle,
+    filter_code,
+    address_code,
+    anisotropy,
+    min_lod,
+    max_lod,
+    mip_lod_bias,
+  )
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn Sampler::handle(self : Sampler) -> UInt64 {
+  self.handle
+}
+
+///|
+/// Returns the slot to the device's free list; the heap slot is reused by the
+/// next sampler created.
+pub fn Sampler::destroy(self : Sampler) -> Unit {
+  sampler_destroy_ffi(self.handle)
 }
 
 // ---------------------------------------------------------------------------

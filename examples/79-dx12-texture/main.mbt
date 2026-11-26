@@ -76,7 +76,11 @@ fn main {
     )
     let rt = dev.create_render_target(SIZE, SIZE, @tycho.TextureFormat::RGBA8)
     let tex = dev.create_texture(2, 2, albedo())
-    let samp = dev.create_sampler()
+    // ClampToEdge keeps the albedo stretched exactly once over the viewport; the
+    // default descriptor repeats it, which would tile the 2x2 texels.
+    let samp = dev.create_sampler_desc(
+      @tycho.SamplerDesc::new(address=@tycho.AddressMode::ClampToEdge),
+    )
     let pipe = dev.create_graphics_pipeline(
       @tycho.PipelineDesc::new(
         shader_vs_dxil,
@@ -86,21 +90,25 @@ fn main {
       ),
     )
 
-    let cmd = dev.begin_commands()
-    cmd.begin_render_pass(
-      [
-        @tycho.RenderTargetDesc::new(
-          rt,
-          clear_color=@tycho.ClearColor::rgba(0.0, 0.0, 0.0, 1.0),
-        ),
-      ],
-    )
-    cmd.bind_pipeline(pipe)
-    cmd.bind_texture(pipe, 0, tex, samp)
-    cmd.draw(3, 1)
-    cmd.end_render_pass()
-    dev.end_commands(cmd)
-    let px = rt.readback()
+    // Renders one frame with `sampler` bound to slot 0 and reads it back.
+    let render = fn(sampler : @tycho.Sampler) -> FixedArray[Byte] raise @tycho.RhiError {
+      let cmd = dev.begin_commands()
+      cmd.begin_render_pass(
+        [
+          @tycho.RenderTargetDesc::new(
+            rt,
+            clear_color=@tycho.ClearColor::rgba(0.0, 0.0, 0.0, 1.0),
+          ),
+        ],
+      )
+      cmd.bind_pipeline(pipe)
+      cmd.bind_texture(pipe, 0, tex, sampler)
+      cmd.draw(3, 1)
+      cmd.end_render_pass()
+      dev.end_commands(cmd)
+      rt.readback()
+    }
+    let px = render(samp)
     if shot != "" {
       let _ = @tycho.save_png(shot, SIZE, SIZE, px)
     }
@@ -123,6 +131,60 @@ fn main {
         }
       }
     }
+    // `SamplerDesc` must actually reach the heap: at the exact centre of the
+    // image the four texels meet, so a linear sampler averages them into a grey
+    // while a point sampler returns one pure colour.
+    let nearest = dev.create_sampler_desc(
+      @tycho.SamplerDesc::new(
+        mag=@tycho.Filter::Nearest,
+        min=@tycho.Filter::Nearest,
+        mipmap=@tycho.Filter::Nearest,
+        address=@tycho.AddressMode::ClampToEdge,
+      ),
+    )
+    let px_point = render(nearest)
+    let centre_linear = pixel(px, SIZE / 2, SIZE / 2)
+    let centre_point = pixel(px_point, SIZE / 2, SIZE / 2)
+    let spread = fn(rgb : (Int, Int, Int)) -> Int {
+      let (r, g, b) = rgb
+      let hi = if r > g {
+        if r > b {
+          r
+        } else {
+          b
+        }
+      } else if g > b {
+        g
+      } else {
+        b
+      }
+      let lo = if r < g {
+        if r < b {
+          r
+        } else {
+          b
+        }
+      } else if g < b {
+        g
+      } else {
+        b
+      }
+      hi - lo
+    }
+    let linear_is_averaged = spread(centre_linear) < 100
+    let point_is_pure = spread(centre_point) > 150
+    nearest.destroy()
+
+    // Descriptor slots are recycled: the heap holds 16 samplers, so 40 create /
+    // destroy cycles only succeed if a destroyed slot is handed out again.
+    let mut recycles = 0
+    for i = 0; i < 40; i = i + 1 {
+      let scratch = dev.create_sampler()
+      scratch.destroy()
+      recycles = recycles + 1
+    }
+    let slots_recycled = recycles == 40
+
     let size_ok = px.length() == SIZE * SIZE * 4
     let errs = dev.validation_errors()
     samp.destroy()
@@ -131,13 +193,18 @@ fn main {
     rt.destroy()
     dev.destroy()
 
-    if size_ok && matched == 4 && errs == 0 {
+    if size_ok &&
+      matched == 4 &&
+      linear_is_averaged &&
+      point_is_pure &&
+      slots_recycled &&
+      errs == 0 {
       println(
-        "[79-dx12-texture] OK — 2x2 albedo sampled through an SRV table + sampler heap (\{matched}/4 quadrants matched, \{SIZE}x\{SIZE}, 0 validation errors)",
+        "[79-dx12-texture] OK — 2x2 albedo sampled through an SRV table + sampler heap (\{matched}/4 quadrants matched, linear centre=(\{centre_linear.0}, \{centre_linear.1}, \{centre_linear.2}) averaged, point centre=(\{centre_point.0}, \{centre_point.1}, \{centre_point.2}) pure, \{recycles} sampler slots recycled, 0 validation errors)",
       )
     } else {
       println(
-        "[79-dx12-texture] FAIL — size_ok=\{size_ok} matched=\{matched}/4 tl=(\{quads[0].0}, \{quads[0].1}, \{quads[0].2}) tr=(\{quads[1].0}, \{quads[1].1}, \{quads[1].2}) bl=(\{quads[2].0}, \{quads[2].1}, \{quads[2].2}) br=(\{quads[3].0}, \{quads[3].1}, \{quads[3].2}) errs=\{errs}",
+        "[79-dx12-texture] FAIL — size_ok=\{size_ok} matched=\{matched}/4 linear_avg=\{linear_is_averaged} point_pure=\{point_is_pure} recycled=\{slots_recycled} linear_centre=(\{centre_linear.0}, \{centre_linear.1}, \{centre_linear.2}) point_centre=(\{centre_point.0}, \{centre_point.1}, \{centre_point.2}) errs=\{errs}",
       )
     }
   } catch {

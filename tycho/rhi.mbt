@@ -23,6 +23,7 @@ priv enum SwapchainBackend {
 priv enum PipelineBackend {
   VkPipeline(VkPipelineState)
   Dx12Pipeline(Dx12PipelineState)
+  Dx12Compute(Dx12ComputeState)
 }
 
 ///|
@@ -126,9 +127,8 @@ fn Texture::vk(self : Texture) -> VkTextureState raise RhiError {
 ///|
 priv enum SamplerBackend {
   VkSampler(VkSamplerState)
-  /// The DX12 sampler is declared statically by the root signature
-  /// (linear filter, clamp addressing); no object is created.
-  Dx12Static
+  /// A slot in the DX12 device's shader-visible sampler heap.
+  Dx12Sampler(@dx12.Sampler)
 }
 
 ///|
@@ -140,8 +140,8 @@ pub struct Sampler {
 fn Sampler::vk(self : Sampler) -> VkSamplerState raise RhiError {
   match self.backend {
     VkSampler(state) => state
-    Dx12Static =>
-      raise RhiError::BackendUnsupported("samplers are static on the DX12 backend")
+    Dx12Sampler(_) =>
+      raise RhiError::BackendUnsupported("expected a Vulkan sampler, found a DX12 one")
   }
 }
 
@@ -265,9 +265,13 @@ pub fn Device::validation_errors(self : Device) -> Int {
 pub fn Device::allocator_stats(self : Device) -> (Int, Int) {
   match self.backend {
     VkDevice(state) => state.alloc.stats()
-    // DX12 allocates committed resources per object today; the free-list
-    // allocator is the next piece of the backend.
-    Dx12Device(_) => (0, 0)
+    // The DX12 backend runs the same RegionPool, wrapped around a placed heap.
+    Dx12Device(state) =>
+      match state.buffers {
+        Some(pool) =>
+          (pool.pool.alloc_count, pool.pool.used_bytes().to_int())
+        None => (0, 0)
+      }
   }
 }
 
@@ -275,7 +279,11 @@ pub fn Device::allocator_stats(self : Device) -> (Int, Int) {
 pub fn Device::allocator_used_bytes(self : Device) -> UInt64 {
   match self.backend {
     VkDevice(state) => state.alloc.used_bytes()
-    Dx12Device(_) => (0 : UInt64)
+    Dx12Device(state) =>
+      match state.buffers {
+        Some(pool) => pool.pool.used_bytes()
+        None => (0 : UInt64)
+      }
   }
 }
 
@@ -728,6 +736,26 @@ pub fn Device::create_compute_pipeline(
   accel_slots? : Int = 0,
   push_constant_size? : Int = 0,
 ) -> Pipeline raise RhiError {
+  match self.backend {
+    Dx12Device(state) => {
+      if storage_slots > 0 || accel_slots > 0 {
+        raise RhiError::BackendUnsupported(
+          "the DX12 compute path implements storage-image (UAV) slots and uniform slots",
+        )
+      }
+      if push_constant_size > 0 {
+        raise RhiError::BackendUnsupported(
+          "push constants are not implemented on the DX12 backend yet",
+        )
+      }
+      return {
+        backend: Dx12Compute(
+          dx12_compute_pipeline_create(state, spv, uniform_slots, storage_image_slots),
+        ),
+      }
+    }
+    VkDevice(_) => ()
+  }
   let u_binds = resolve_slot_bindings(uniform_slots, [], 0)
   let t_binds = FixedArray::make(0, 0)
   let s_binds = resolve_slot_bindings(storage_slots, [], uniform_slots)
@@ -760,6 +788,13 @@ pub fn Device::create_compute_pipeline_auto(
   self : Device,
   spv : FixedArray[UInt32],
 ) -> Pipeline raise RhiError {
+  match self.backend {
+    Dx12Device(_) =>
+      raise RhiError::BackendUnsupported(
+        "DXIL carries no SPIR-V reflection; use create_compute_pipeline with explicit slot counts on DX12",
+      )
+    VkDevice(_) => ()
+  }
   let refl = @shader.reflect_spirv(spv)
   let u_arr : Array[Int] = []
   let t_arr : Array[Int] = []
@@ -809,6 +844,7 @@ pub fn Pipeline::destroy(self : Pipeline) -> Unit {
   match self.backend {
     VkPipeline(state) => vk_pipeline_destroy(state)
     Dx12Pipeline(state) => state.pipe.destroy()
+    Dx12Compute(state) => state.pipe.destroy()
   }
 }
 
@@ -1015,7 +1051,16 @@ pub fn Device::create_storage_texture(
   height : Int,
   format : TextureFormat,
 ) -> Texture raise RhiError {
-  { backend: VkTexture(vk_texture_create_storage(self.vk(), width, height, format)) }
+  match self.backend {
+    Dx12Device(state) => {
+      if format != TextureFormat::RGBA8 {
+        raise RhiError::BackendUnsupported("the DX12 UAV path only takes RGBA8 so far")
+      }
+      { backend: Dx12Texture(dx12_storage_texture_create(state, width, height)) }
+    }
+    VkDevice(_) =>
+      { backend: VkTexture(vk_texture_create_storage(self.vk(), width, height, format)) }
+  }
 }
 
 ///|
@@ -1284,7 +1329,34 @@ pub fn Device::create_sampler_desc(
   desc : SamplerDesc,
 ) -> Sampler raise RhiError {
   match self.backend {
-    Dx12Device(_) => { backend: Dx12Static }
+    Dx12Device(state) => {
+      let filter = if desc.anisotropy > 1.0 {
+        @dx12.SamplerFilter::Anisotropic
+      } else if desc.mag == Filter::Nearest &&
+        desc.min == Filter::Nearest &&
+        desc.mipmap == Filter::Nearest {
+        @dx12.SamplerFilter::Point
+      } else {
+        @dx12.SamplerFilter::Linear
+      }
+      let address = match desc.address {
+        AddressMode::Repeat => @dx12.SamplerAddress::Wrap
+        AddressMode::ClampToEdge => @dx12.SamplerAddress::Clamp
+        AddressMode::ClampToBorder => @dx12.SamplerAddress::Border
+      }
+      match @dx12.Sampler::create(
+        state.device,
+        filter,
+        address,
+        anisotropy=desc.anisotropy,
+        min_lod=desc.min_lod,
+        max_lod=desc.max_lod,
+        mip_lod_bias=desc.mip_lod_bias,
+      ) {
+        Some(sampler) => { backend: Dx12Sampler(sampler) }
+        None => raise RhiError::AllocationFailed("DX12 sampler heap slot")
+      }
+    }
     VkDevice(_) => { backend: VkSampler(vk_sampler_create(self.vk(), desc)) }
   }
 }
@@ -1293,8 +1365,7 @@ pub fn Device::create_sampler_desc(
 pub fn Sampler::destroy(self : Sampler) -> Unit {
   match self.backend {
     VkSampler(s) => enqueue_delete(s.device, DeleteSampler(s.sampler))
-    // The DX12 sampler lives in the root signature, so there is nothing to free.
-    Dx12Static => ()
+    Dx12Sampler(sampler) => sampler.destroy()
   }
 }
 
@@ -1488,10 +1559,12 @@ pub fn CommandBuffer::bind_pipeline(
       match pipeline.backend {
         VkPipeline(pipe) => vk_cmd_bind_pipeline(state, pipe)
         Dx12Pipeline(_) => ()
-      }
+        Dx12Compute(_) => ()
+  }
     Dx12Commands(state) =>
       match pipeline.backend {
         Dx12Pipeline(pipe) => dx12_bind_pipeline(state, pipe)
+        Dx12Compute(pipe) => dx12_bind_compute_pipeline(state, pipe)
         VkPipeline(_) => ()
       }
   }
@@ -1519,7 +1592,10 @@ pub fn CommandBuffer::bind_uniform(
         (Dx12Pipeline(pipe), Dx12Buffer(state)) => {
           // Uniform binding is recorded immediately (root CBV); failures surface
           // at the next raising call, matching the Vulkan path.
-          let _ = dx12_bind_uniform(cmd, pipe, slot, state, offset)
+          let _ = dx12_bind_uniform(cmd, pipe.uniform_slots, slot, state, offset)
+        }
+        (Dx12Compute(pipe), Dx12Buffer(state)) => {
+          let _ = dx12_bind_uniform(cmd, pipe.uniform_slots, slot, state, offset)
         }
         _ => ()
       }
@@ -1546,8 +1622,12 @@ pub fn CommandBuffer::bind_texture(
       match (pipeline.backend, texture.backend) {
         (Dx12Pipeline(pipe), Dx12Texture(tex)) => {
           // The SRV table sits right after the root CBVs in the signature, and
-          // the sampler is the static one declared there.
-          let _ = cmd.commands.set_texture(pipe.uniform_slots, tex.tex)
+          // the sampler table right after that; both are bound here.
+          let dx12_sampler = match sampler.backend {
+            Dx12Sampler(sampler) => Some(sampler)
+            VkSampler(_) => None
+          }
+          let _ = cmd.commands.set_texture(pipe.uniform_slots, tex.tex, sampler=dx12_sampler)
         }
         _ => ()
       }
@@ -1578,14 +1658,20 @@ pub fn CommandBuffer::bind_storage_image(
   slot : Int,
   texture : Texture,
 ) -> Unit {
-  match pipeline.backend {
-    VkPipeline(pipe) =>
-      match texture.backend {
-        VkTexture(tex) =>
+  match self.backend {
+    VkCommands(_) =>
+      match (pipeline.backend, texture.backend) {
+        (VkPipeline(pipe), VkTexture(tex)) =>
           self.on_vk(fn(state) { state.pending_storage_images.push((pipe, slot, tex)) })
-        Dx12Texture(_) => ()
+        _ => ()
       }
-    Dx12Pipeline(_) => ()
+    Dx12Commands(cmd) =>
+      match (pipeline.backend, texture.backend) {
+        (Dx12Compute(pipe), Dx12Texture(tex)) => {
+          let _ = dx12_bind_uav(cmd, pipe, slot, tex)
+        }
+        _ => ()
+      }
   }
 }
 
@@ -1622,11 +1708,11 @@ pub fn CommandBuffer::transition_for_sampling(
         Dx12Texture(_) => ()
       }
     Dx12Commands(state) =>
-      match state.target {
-        Some(target) => {
-          let _ = state.commands.transition(target, @dx12.ResourceState::ShaderResource)
+      match texture.backend {
+        Dx12Texture(tex) => {
+          let _ = state.commands.transition(tex.tex, @dx12.ResourceState::ShaderResource)
         }
-        None => ()
+        VkTexture(_) => ()
       }
   }
 }
@@ -1693,6 +1779,7 @@ pub fn CommandBuffer::push_constants_floats(
   match pipeline.backend {
     VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_push_constants_floats(state, pipe, data, offset) })
     Dx12Pipeline(_) => ()
+    Dx12Compute(_) => ()
   }
 }
 
@@ -1717,6 +1804,7 @@ pub fn CommandBuffer::push_constants_bytes(
   match pipeline.backend {
     VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_push_constants_bytes(state, pipe, data, offset) })
     Dx12Pipeline(_) => ()
+    Dx12Compute(_) => ()
   }
 }
 
@@ -1760,6 +1848,7 @@ pub fn CommandBuffer::bind_accel_struct(
   match pipeline.backend {
     VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_accel.push((pipe, slot, accel)) })
     Dx12Pipeline(_) => ()
+    Dx12Compute(_) => ()
   }
 }
 
@@ -1838,7 +1927,12 @@ pub fn CommandBuffer::dispatch(
   y : Int,
   z : Int,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_dispatch(state, x, y, z) })
+  match self.backend {
+    VkCommands(state) => vk_cmd_dispatch(state, x, y, z)
+    Dx12Commands(state) => {
+      let _ = state.commands.dispatch(x, y, z~)
+    }
+  }
 }
 
 ///|
@@ -1939,6 +2033,7 @@ pub fn CommandBuffer::bind_bindless_heap(
   match pipeline.backend {
     VkPipeline(pipe) => self.on_vk(fn(state) { vk_cmd_bind_bindless_heap(state, pipe, heap.inner, set_index) })
     Dx12Pipeline(_) => ()
+    Dx12Compute(_) => ()
   }
 }
 

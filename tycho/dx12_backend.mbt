@@ -13,8 +13,22 @@
 // of the shader story, tracked in docs/original-design/03-dx12.md §6.1.
 
 ///|
+/// A placed-buffer heap: the native heap plus the shared interval manager. The
+/// free-list is `RegionPool` from `allocator.mbt`, the same code the Vulkan
+/// sub-allocator runs, which is what makes the two backends share one policy.
+///
+/// Regions are handed out bump-style for now (released with the device); once a
+/// request cannot be satisfied the caller falls back to a committed resource,
+/// so exhaustion is a performance cliff, never a failure.
+priv struct Dx12BufferPool {
+  heap : @dx12.BufferHeap
+  pool : RegionPool
+}
+
+///|
 priv struct Dx12DeviceState {
   device : @dx12.Device
+  mut buffers : Dx12BufferPool?
 }
 
 ///|
@@ -26,7 +40,17 @@ priv struct Dx12PipelineState {
 }
 
 ///|
+/// A DX12 compute pipeline: its own root signature (root CBVs + one UAV table).
+priv struct Dx12ComputeState {
+  pipe : @dx12.ComputePipeline
+  uniform_slots : Int
+  uav_slots : Int
+}
+
+///|
 /// A CPU-visible upload buffer; `size` is tracked so the RHI can bound checks.
+///|
+/// A CPU-visible buffer: a committed resource or a region of the placed heap.
 priv struct Dx12BufferState {
   buffer : @dx12.Buffer
   size : Int
@@ -69,12 +93,17 @@ fn dx12_device_create(desc : DeviceDesc) -> Dx12DeviceState raise RhiError {
           raise RhiError::DeviceFailed("no D3D12 device (hardware and WARP both refused)")
       }
   }
-  { device: device }
+  { device: device, buffers: None }
 }
 
 ///|
 fn dx12_device_destroy(state : Dx12DeviceState) -> Unit {
   let _ = state.device.wait_idle()
+  // The placed heap must go before the device; its regions are implicit.
+  match state.buffers {
+    Some(pool) => pool.heap.destroy()
+    None => ()
+  }
   state.device.destroy()
 }
 
@@ -197,21 +226,27 @@ fn dx12_buffer_create(
         "the DX12 backend only uploads uniform buffers so far",
       )
   }
-  match @dx12.Buffer::create(state.device, size) {
-    Some(b) => { buffer: b, size, }
-    None => raise RhiError::AllocationFailed("DX12 upload buffer")
+  // Prefer a region of the shared placed heap (RegionPool decides the offset);
+  // fall back to a committed resource when the pool is full.
+  match dx12_buffer_place(state, size) {
+    Some(placed) => placed
+    None =>
+      match @dx12.Buffer::create(state.device, size) {
+        Some(b) => { buffer: b, size }
+        None => raise RhiError::AllocationFailed("DX12 upload buffer")
+      }
   }
 }
 
 ///|
 fn dx12_bind_uniform(
   cmd : Dx12CommandState,
-  pipe : Dx12PipelineState,
+  uniform_slots : Int,
   slot : Int,
   buffer : Dx12BufferState,
   offset : Int,
 ) -> Bool {
-  if slot < 0 || slot >= pipe.uniform_slots {
+  if slot < 0 || slot >= uniform_slots {
     return false
   }
   if offset + 16 > buffer.size {
@@ -556,5 +591,116 @@ fn dx12_texture_upload_create(
         is_depth: false,
       }
     None => raise RhiError::AllocationFailed("DX12 texture upload")
+  }
+}
+
+///|
+fn dx12_compute_pipeline_create(
+  state : Dx12DeviceState,
+  cs : FixedArray[UInt32],
+  uniform_slots : Int,
+  uav_slots : Int,
+) -> Dx12ComputeState raise RhiError {
+  match @dx12.ComputePipeline::create(
+    state.device,
+    cs,
+    cs.length() * 4,
+    cbv_count=uniform_slots,
+    uav_tables=uav_slots,
+  ) {
+    Some(pipe) => { pipe, uniform_slots, uav_slots }
+    None => raise RhiError::PipelineFailed("DX12 CreateComputePipelineState failed")
+  }
+}
+
+///|
+fn dx12_bind_compute_pipeline(cmd : Dx12CommandState, state : Dx12ComputeState) -> Unit {
+  let _ = cmd.commands.set_compute_pipeline(state.pipe)
+}
+
+///|
+fn dx12_bind_uav(
+  cmd : Dx12CommandState,
+  state : Dx12ComputeState,
+  slot : Int,
+  tex : Dx12TextureState,
+) -> Bool {
+  if slot < 0 || slot >= state.uav_slots {
+    return false
+  }
+  // The UAV table sits right after the root CBVs; a per-texture slot maps onto
+  // the table base because each table entry is bound one at a time.
+  cmd.commands.set_uav(state.uniform_slots, tex.tex)
+}
+
+///|
+fn dx12_storage_texture_create(
+  state : Dx12DeviceState,
+  width : Int,
+  height : Int,
+) -> Dx12TextureState raise RhiError {
+  match @dx12.Texture::create_storage(state.device, width, height) {
+    Some(tex) =>
+      {
+        device: state.device,
+        tex: tex,
+        width: width,
+        height: height,
+        format: TextureFormat::RGBA8,
+        is_depth: false,
+      }
+    None => raise RhiError::AllocationFailed("DX12 storage texture")
+  }
+}
+
+///|
+/// `D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT`: placed resources must start on a
+/// 64 KiB boundary.
+const DX12_PLACEMENT_ALIGNMENT : UInt64 = 65536
+
+///|
+const DX12_BUFFER_BLOCK : Int = 4 * 1024 * 1024
+
+///|
+fn dx12_buffer_pool_ensure(state : Dx12DeviceState) -> Dx12BufferPool? {
+  match state.buffers {
+    Some(pool) => Some(pool)
+    None =>
+      match @dx12.BufferHeap::create(state.device, DX12_BUFFER_BLOCK) {
+        Some(heap) => {
+          let pool = {
+            heap,
+            pool: RegionPool::new(DX12_BUFFER_BLOCK.to_uint64()),
+          }
+          state.buffers = Some(pool)
+          Some(pool)
+        }
+        None => None
+      }
+  }
+}
+
+///|
+/// Places a buffer in the shared pool, or returns `None` when the pool cannot
+/// satisfy the request (the caller then commits a resource of its own).
+fn dx12_buffer_place(
+  state : Dx12DeviceState,
+  size : Int,
+) -> Dx12BufferState? {
+  match dx12_buffer_pool_ensure(state) {
+    None => None
+    Some(pool) =>
+      match pool.pool.try_alloc(size.to_uint64(), DX12_PLACEMENT_ALIGNMENT) {
+        None => None
+        Some(offset) =>
+          match @dx12.Buffer::place(pool.heap, offset.to_int(), size) {
+            Some(buffer) => Some({ buffer, size })
+            None => {
+              // Hand the region back so a later request can retry it.
+              pool.pool.free(offset, size.to_uint64())
+              None
+            }
+          }
+      }
   }
 }

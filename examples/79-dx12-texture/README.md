@@ -12,8 +12,14 @@ needs no window.
 | Root signature | one SRV descriptor table (`t0..t(n-1)`, space 0) plus **one sampler table** (`s0`, space 0) — the sampler is a real heap sampler because D3D treats a shader's `SamplerState` as a descriptor range and rejects a root-signature static sampler for it (the debug layer says so explicitly) |
 | Slot model | `PipelineDesc::texture_slots = 1` becomes the SRV table; `bind_texture` points the table at the bound texture |
 
-The 2x2 albedo (red / green / blue / yellow) is stretched over the viewport, so the four quadrants
-must come back as those four colours; the screenshot shows the bilinear blend between them.
+The 2x2 albedo (red / green / blue / yellow) is stretched over the viewport with ClampToEdge, so
+the four quadrants must come back as those four colours; the screenshot shows the bilinear blend
+between them.
+
+SamplerDesc is honoured rather than approximated: a second pass binds a Nearest sampler and the
+centre of the image (where all four texels meet) flips from the bilinear average
+(127, 129, 64) to one pure texel (255, 255, 0). The same run also creates and destroys 40
+samplers against a 16-slot heap, which only succeeds because destroyed slots are recycled.
 
 ## Screenshot
 

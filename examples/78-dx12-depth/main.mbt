@@ -125,7 +125,12 @@ fn main {
       let _ = @tycho.save_png(shot, SIZE, SIZE, shot_pixels)
     }
 
-    let ok = is_green(far_then_near) && is_green(near_then_far)
+    // The uniform buffers come out of the shared RegionPool wrapped around a
+    // placed heap, so a non-zero used size proves the pool path ran rather than
+    // the committed fallback.
+    let pooled_bytes = dev.allocator_used_bytes()
+    let pool_ok = pooled_bytes > (0 : UInt64)
+    let ok = is_green(far_then_near) && is_green(near_then_far) && pool_ok
     let errs = dev.validation_errors()
     near.destroy()
     far.destroy()
@@ -136,7 +141,7 @@ fn main {
 
     if ok && errs == 0 {
       println(
-        "[78-dx12-depth] OK — offscreen RGBA8 + Depth32F, nearer fragment wins in both draw orders (far-first=(\{far_then_near.0}, \{far_then_near.1}, \{far_then_near.2}), near-first=(\{near_then_far.0}, \{near_then_far.1}, \{near_then_far.2}), 0 validation errors)",
+        "[78-dx12-depth] OK — offscreen RGBA8 + Depth32F, nearer fragment wins in both draw orders (far-first=(\{far_then_near.0}, \{far_then_near.1}, \{far_then_near.2}), near-first=(\{near_then_far.0}, \{near_then_far.1}, \{near_then_far.2}), pooled=\{pooled_bytes} B, 0 validation errors)",
       )
     } else {
       println(

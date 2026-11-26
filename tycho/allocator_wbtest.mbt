@@ -39,3 +39,24 @@ test "region pool oom returns none" {
   assert_eq(pool.try_alloc((300 : UInt64), (1 : UInt64)), None)
   assert_eq(pool.try_alloc((0 : UInt64), (16 : UInt64)), None)
 }
+
+///|
+test "region pool serves 64 KiB placements and reuses a freed slot" {
+  // Mirrors the DX12 placed-buffer path: uniform buffers are tiny but placed
+  // resources must start on D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT.
+  let pool = RegionPool::new((262144 : UInt64))
+  let align = (65536 : UInt64)
+  let a = pool.try_alloc((32 : UInt64), align).unwrap()
+  let b = pool.try_alloc((32 : UInt64), align).unwrap()
+  let c = pool.try_alloc((32 : UInt64), align).unwrap()
+  let d = pool.try_alloc((32 : UInt64), align).unwrap()
+  assert_eq(a, (0 : UInt64))
+  assert_eq(b, (65536 : UInt64))
+  assert_eq(c, (131072 : UInt64))
+  assert_eq(d, (196608 : UInt64))
+  // A 256 KiB block fits exactly four 64 KiB slots; the fifth is when the backend
+  // falls back to a committed resource.
+  assert_eq(pool.try_alloc((32 : UInt64), align), None)
+  pool.free(b, (32 : UInt64))
+  assert_eq(pool.try_alloc((32 : UInt64), align), Some((65536 : UInt64)))
+}
