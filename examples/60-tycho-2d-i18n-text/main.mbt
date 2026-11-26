@@ -28,6 +28,9 @@ fn main {
     let latin = load_font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
     let cjk = load_font("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf")
     let emoji = load_font("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf")
+    let deva = load_font(
+      "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
+    )
     match (latin, cjk, emoji) {
       (Some(latin_f), Some(cjk_f), Some(emoji_f)) => {
         let dev = @tycho.Device::new_desc(
@@ -40,9 +43,14 @@ fn main {
         let w = 900
         let h = 520
         let bg = @g2d.Color::from_rgba8(18, 22, 34)
+        let fallback_faces : Array[@g2d.FontFace] = [cjk_f, emoji_f]
+        match deva {
+          Some(df) => fallback_faces.push(df)
+          None => ()
+        }
         let chain = @g2d.FontFallbackChain::new(
           latin_f,
-          fallbacks=[cjk_f, emoji_f],
+          fallbacks=fallback_faces,
         )
         let mk_style = fn(size : Float, color : @g2d.Color) {
           @g2d.TextStyle::new(
@@ -96,10 +104,32 @@ fn main {
         p3.layout((820.0 : Float))
         p4.layout((820.0 : Float))
         p5.layout((820.0 : Float))
+        let mut deva_ok = true
+        let mut p6 : @g2d.Paragraph? = None
+        match deva {
+          Some(_) => {
+            let para = @g2d.ParagraphBuilder::new()
+              .add_text(
+                "नमस्ते दुनिया",
+                style=mk_style((36.0 : Float), @g2d.Color::from_rgba8(240, 200, 170)),
+              )
+              .build()
+            para.layout((820.0 : Float))
+            let mut has_virama = false
+            for g in para.placed_glyphs() {
+              if g.codepoint == 0x094D {
+                has_virama = true
+              }
+            }
+            deva_ok = para.placed_glyphs().length() > 0 && !has_virama
+            p6 = Some(para)
+          }
+          None => ()
+        }
 
         let c = @g2d.Canvas::new()
         c.clear(bg)
-        let p4_y = (420.0 : Float)
+        let p4_y = (438.0 : Float)
         let sel = @g2d.Color::rgba((0.25 : Float), (0.48 : Float), (0.95 : Float), (0.35 : Float))
         for r in p4.get_boxes_for_range(4, 20) {
           c.draw_rect(
@@ -125,7 +155,12 @@ fn main {
         c.draw_paragraph(p1, @g2d.Point::new((32.0 : Float), (30.0 : Float)))
         c.draw_paragraph(p2, @g2d.Point::new((32.0 : Float), (140.0 : Float)))
         c.draw_paragraph(p3, @g2d.Point::new((32.0 : Float), (250.0 : Float)))
-        c.draw_paragraph(p5, @g2d.Point::new((32.0 : Float), (335.0 : Float)))
+        c.draw_paragraph(p5, @g2d.Point::new((32.0 : Float), (332.0 : Float)))
+        match p6 {
+          Some(para) =>
+            c.draw_paragraph(para, @g2d.Point::new((32.0 : Float), (378.0 : Float)))
+          None => ()
+        }
         c.draw_paragraph(p4, @g2d.Point::new((32.0 : Float), p4_y))
 
         let dl = c.finish()
@@ -179,7 +214,7 @@ fn main {
         let sdf_ok = st.sdf_glyphs > 0
         let errs = dev.validation_errors()
         println(
-          "{\"ligature\":\{lig_ok},\"arabic_forms\":\{arabic_forms},\"rtl_first\":\{rtl_first},\"selection_boxes\":\{p4.get_boxes_for_range(4, 20).length()},\"bold_italic\":\{bold_italic},\"sdf_glyphs\":\{st.sdf_glyphs},\"yellow_pixels\":\{yellow}}",
+          "{\"ligature\":\{lig_ok},\"arabic_forms\":\{arabic_forms},\"rtl_first\":\{rtl_first},\"selection_boxes\":\{p4.get_boxes_for_range(4, 20).length()},\"bold_italic\":\{bold_italic},\"sdf_glyphs\":\{st.sdf_glyphs},\"devanagari\":\{deva_ok},\"yellow_pixels\":\{yellow}}",
         )
         let ok = lig_ok &&
           arabic_forms >= 3 &&
@@ -187,15 +222,16 @@ fn main {
           boxes_ok &&
           bold_italic &&
           sdf_ok &&
+          deva_ok &&
           yellow > 50 &&
           errs == 0
         if ok {
           println(
-            "[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + synthetic bold/italic + SDF, \{arabic_forms} Arabic forms, \{st.sdf_glyphs} SDF glyphs, 0 validation errors",
+            "[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + Devanagari + synthetic bold/italic + SDF, \{arabic_forms} Arabic forms, \{st.sdf_glyphs} SDF glyphs, 0 validation errors",
           )
         } else {
           println(
-            "[60-tycho-2d-i18n-text] FAIL — lig=\{lig_ok} arabic=\{arabic_forms} rtl_first=\{rtl_first} boxes=\{boxes_ok} bold_italic=\{bold_italic} sdf=\{st.sdf_glyphs} yellow=\{yellow} errs=\{errs}",
+            "[60-tycho-2d-i18n-text] FAIL — lig=\{lig_ok} arabic=\{arabic_forms} rtl_first=\{rtl_first} boxes=\{boxes_ok} bold_italic=\{bold_italic} sdf=\{st.sdf_glyphs} deva=\{deva_ok} yellow=\{yellow} errs=\{errs}",
           )
         }
 

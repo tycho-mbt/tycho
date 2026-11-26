@@ -24,6 +24,16 @@ fn shaping_is_space(cp : Int) -> Bool {
 }
 
 ///|
+fn is_devanagari(cp : Int) -> Bool {
+  cp >= 0x0900 && cp <= 0x097F
+}
+
+///|
+fn is_deva_consonant(cp : Int) -> Bool {
+  (cp >= 0x0915 && cp <= 0x0939) || (cp >= 0x0958 && cp <= 0x095F)
+}
+
+///|
 fn shaping_is_transparent(cp : Int) -> Bool {
   (cp >= 0x064B && cp <= 0x065F) ||
   cp == 0x0670 ||
@@ -196,6 +206,87 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
         is_space: shaping_is_space(cp),
       })
       i = i + 1
+      continue
+    }
+    // Devanagari subset: move the pre-base i-matra before the base consonant,
+    // then apply the common GSUB features (half/cjct/akhn/pres/...).
+    if is_devanagari(cp) {
+      let start = i
+      let mut j = i
+      while j < n && is_devanagari(cps[j]) {
+        j = j + 1
+      }
+      let mut order : Array[Int] = []
+      for k = start; k < j; k = k + 1 {
+        order.push(k)
+      }
+      let mut mi = -1
+      for k = 0; k < order.length(); k = k + 1 {
+        if cps[order[k]] == 0x093F {
+          mi = k
+          break
+        }
+      }
+      if mi > 0 {
+        let mut base = mi - 1
+        while base >= 0 && !is_deva_consonant(cps[order[base]]) {
+          base = base - 1
+        }
+        if base >= 0 {
+          let matra = order[mi]
+          let next_order : Array[Int] = []
+          for k = 0; k < base; k = k + 1 {
+            next_order.push(order[k])
+          }
+          next_order.push(matra)
+          for k = base; k < mi; k = k + 1 {
+            next_order.push(order[k])
+          }
+          for k = mi + 1; k < order.length(); k = k + 1 {
+            next_order.push(order[k])
+          }
+          order = next_order
+        }
+      }
+      let run_cps : Array[Int] = []
+      let run_src : Array[Int] = []
+      let gids : Array[Int] = []
+      for k in order {
+        run_cps.push(cps[k])
+        run_src.push(k)
+        gids.push(font.glyph_id(cps[k]))
+      }
+      let shaped = font.india_shape(
+        gids,
+        [
+          "rphf", "half", "cjct", "akhn", "pres", "abvs", "blws", "psts",
+          "haln",
+        ],
+      )
+      let mut idx = 0
+      for pair in shaped {
+        let (gid, comps) = pair
+        if idx >= run_cps.length() {
+          break
+        }
+        let mut ce = idx + comps
+        if ce > run_cps.length() {
+          ce = run_cps.length()
+        }
+        if ce <= idx {
+          ce = idx + 1
+        }
+        out.push({
+          cp: run_cps[idx],
+          source_start: run_src[idx],
+          source_end: run_src[ce - 1] + 1,
+          glyph_id: gid,
+          is_newline: false,
+          is_space: false,
+        })
+        idx = ce
+      }
+      i = j
       continue
     }
     // Arabic run: GSUB joining forms + `rlig` (lam-alef etc.).

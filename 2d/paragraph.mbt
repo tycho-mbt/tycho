@@ -19,6 +19,7 @@ pub(all) struct TextStyle {
   bold : Bool
   italic : Bool
   fallback : FontFallbackChain?
+  variations : Array[(String, Float)]
 }
 
 ///|
@@ -31,8 +32,69 @@ pub fn TextStyle::new(
   bold? : Bool = false,
   italic? : Bool = false,
   fallback? : FontFallbackChain? = None,
+  variations? : Array[(String, Float)] = [],
 ) -> TextStyle {
-  { font, font_size, color, letter_spacing, underline, bold, italic, fallback }
+  {
+    font,
+    font_size,
+    color,
+    letter_spacing,
+    underline,
+    bold,
+    italic,
+    fallback,
+    variations,
+  }
+}
+
+///|
+fn variation_value(style : TextStyle, tag : String) -> Float? {
+  for pair in style.variations {
+    let (t, v) = pair
+    if t == tag {
+      return Some(v)
+    }
+  }
+  None
+}
+
+///|
+fn default_axis_value(style : TextStyle, tag : String, fallback : Float) -> Float {
+  for axis in style.font.variation_axes() {
+    if axis.tag == tag {
+      return axis.default_value
+    }
+  }
+  fallback
+}
+
+///|
+fn resolve_bold(style : TextStyle) -> Bool {
+  if style.bold {
+    return true
+  }
+  match variation_value(style, "wght") {
+    Some(w) => {
+      let base = default_axis_value(style, "wght", (400.0 : Float))
+      w >= base + (100.0 : Float)
+    }
+    None => false
+  }
+}
+
+///|
+fn resolve_italic(style : TextStyle) -> Bool {
+  if style.italic {
+    return true
+  }
+  match variation_value(style, "ital") {
+    Some(v) => v >= (0.5 : Float)
+    None =>
+      match variation_value(style, "slnt") {
+        Some(v) => @tmath.abs_f(v) > (0.01 : Float)
+        None => false
+      }
+  }
 }
 
 ///|
@@ -111,6 +173,8 @@ priv struct LayoutChar {
   glyph_id : Int
   style : TextStyle
   font : FontFace
+  bold : Bool
+  italic : Bool
   mut advance : Float
   char_index : Int
   source_start : Int
@@ -240,7 +304,23 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
 
   let chars : Array[LayoutChar] = []
   for sp in self.spans {
-    let run_font = sp.style.font
+    // Shape with the face that owns the first strong character, not blindly
+    // the primary face (Devanagari/Arabic live in fallback faces).
+    let mut first_cp = -1
+    for ch in sp.text {
+      let cp = ch.to_int()
+      if cp > 32 {
+        first_cp = cp
+        break
+      }
+    }
+    let run_font = if first_cp >= 0 {
+      style_face(sp.style, first_cp)
+    } else {
+      sp.style.font
+    }
+    let bold = resolve_bold(sp.style)
+    let italic = resolve_italic(sp.style)
     for sc in shape_run(run_font, sp.text) {
       let cp = sc.cp
       let is_nl = sc.is_newline
@@ -267,6 +347,8 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
         glyph_id: sc.glyph_id,
         style: sp.style,
         font: face,
+        bold,
+        italic,
         advance: adv,
         char_index: sc.source_start,
         source_start: sc.source_start,
@@ -490,8 +572,8 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
           advance: ch.advance,
           color: ch.style.color,
           char_index: ch.char_index,
-          bold: ch.style.bold,
-          italic: ch.style.italic,
+          bold: ch.bold,
+          italic: ch.italic,
         })
       }
       if ch.style.underline {
@@ -508,6 +590,8 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
     if ell != "" && end_idx > rs {
       let est = chars[end_idx - 1].style
       let last_src = chars[end_idx - 1].source_start
+      let ebold = resolve_bold(est)
+      let eitalic = resolve_italic(est)
       for ech in ell {
         let ecp = ech.to_int()
         let eadv = est.font.advance_width(ecp, est.font_size)
@@ -521,8 +605,8 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
           advance: eadv,
           color: est.color,
           char_index: last_src,
-          bold: est.bold,
-          italic: est.italic,
+          bold: ebold,
+          italic: eitalic,
         })
         cx = cx + eadv
       }

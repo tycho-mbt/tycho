@@ -15,6 +15,7 @@ priv struct GsubData {
   arab_medi : Array[Int]
   arab_fina : Array[Int]
   arab_rlig : Array[Int]
+  deva_features : Map[String, Array[Int]]
 }
 
 ///|
@@ -114,10 +115,19 @@ fn GsubData::parse(bytes : Bytes, base : Int) -> GsubData? {
     arab_medi: [],
     arab_fina: [],
     arab_rlig: [],
+    deva_features: Map([]),
   }
   let mut lookups = gsub_feature_lookups(tmp, "latn", "liga")
   if lookups.length() == 0 {
     lookups = gsub_feature_lookups(tmp, "DFLT", "liga")
+  }
+  let deva_tags = [
+    "akhn", "rphf", "blwf", "half", "cjct", "pres", "abvs", "blws", "psts",
+    "haln", "nukt", "vatu",
+  ]
+  let deva_features : Map[String, Array[Int]] = Map([])
+  for tag in deva_tags {
+    deva_features[tag] = gsub_feature_lookups(tmp, "deva", tag)
   }
   Some({
     bytes,
@@ -128,6 +138,7 @@ fn GsubData::parse(bytes : Bytes, base : Int) -> GsubData? {
     arab_medi: gsub_feature_lookups(tmp, "arab", "medi"),
     arab_fina: gsub_feature_lookups(tmp, "arab", "fina"),
     arab_rlig: gsub_feature_lookups(tmp, "arab", "rlig"),
+    deva_features,
   })
 }
 
@@ -340,6 +351,85 @@ pub fn FontFace::arabic_form_gid(
     Some(out)
   } else {
     None
+  }
+}
+
+///|
+fn gsub_apply_lookup_any(
+  g : GsubData,
+  lookup_off : Int,
+  input : Array[(Int, Int)],
+) -> Array[(Int, Int)] {
+  let b = g.bytes
+  let typ = gsub_u16(b, lookup_off)
+  if typ == 4 {
+    return gsub_apply_lookup(g, lookup_off, input)
+  }
+  if typ == 1 {
+    let out : Array[(Int, Int)] = []
+    for pair in input {
+      let (gid, comps) = pair
+      out.push((gsub_apply_single_lookup(g, lookup_off, gid), comps))
+    }
+    return out
+  }
+  input
+}
+
+///|
+fn GsubData::apply_feature(
+  self : GsubData,
+  input : Array[(Int, Int)],
+  tag : String,
+) -> Array[(Int, Int)] {
+  let lookups = match self.deva_features.get(tag) {
+    Some(v) => v
+    None => return input
+  }
+  let b = self.bytes
+  let lookup_list = self.base + gsub_u16(b, self.base + 8)
+  let mut cur = input
+  for idx in lookups {
+    let off = lookup_list + gsub_u16(b, lookup_list + 2 + idx * 2)
+    if off + 6 > b.length() {
+      continue
+    }
+    cur = gsub_apply_lookup_any(self, off, cur)
+  }
+  cur
+}
+
+///|
+fn GsubData::apply_features(
+  self : GsubData,
+  gids : Array[Int],
+  tags : Array[String],
+) -> Array[(Int, Int)] {
+  let mut cur : Array[(Int, Int)] = []
+  for gid in gids {
+    cur.push((gid, 1))
+  }
+  for tag in tags {
+    cur = self.apply_feature(cur, tag)
+  }
+  cur
+}
+
+///|
+pub fn FontFace::india_shape(
+  self : FontFace,
+  gids : Array[Int],
+  tags : Array[String],
+) -> Array[(Int, Int)] {
+  match self.gsub {
+    Some(g) => g.apply_features(gids, tags)
+    None => {
+      let out : Array[(Int, Int)] = []
+      for gid in gids {
+        out.push((gid, 1))
+      }
+      out
+    }
   }
 }
 

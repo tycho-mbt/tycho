@@ -205,12 +205,14 @@ pub fn FontFace::has_glyph(Self, Int32) -> Bool
 pub fn FontFace::has_gpos_kern(Self) -> Bool
 pub fn FontFace::has_liga(Self) -> Bool
 pub fn FontFace::id(Self) -> Int32
+pub fn FontFace::india_shape(Self, Array[Int32], Array[String]) -> Array[(Int32, Int32)]
 pub fn FontFace::kern(Self, Int32, Int32, Float) -> Float
 pub fn FontFace::kern_gid(Self, Int32, Int32, Float) -> Float
 pub fn FontFace::ligate_glyphs(Self, Array[Int32]) -> Array[(Int32, Int32)]
 pub fn FontFace::metrics(Self, Float) -> (Float, Float, Float)
 pub fn FontFace::rlig_ligate(Self, Array[Int32]) -> Array[(Int32, Int32)]
 pub fn FontFace::set_png_decoder((Bytes) -> DecodedImage?) -> Unit
+pub fn FontFace::variation_axes(Self) -> Array[FontVariationAxis]
 
 pub(all) struct FontFallbackChain {
   // private fields
@@ -218,6 +220,13 @@ pub(all) struct FontFallbackChain {
 pub fn FontFallbackChain::face_for(Self, Int32) -> FontFace
 pub fn FontFallbackChain::faces(Self) -> Array[FontFace]
 pub fn FontFallbackChain::new(FontFace, fallbacks? : Array[FontFace]) -> Self
+
+pub(all) struct FontVariationAxis {
+  tag : String
+  min_value : Float
+  default_value : Float
+  max_value : Float
+}
 
 pub struct GlyphCache {
   atlas : DynamicAtlas
@@ -248,6 +257,7 @@ pub(all) struct GlyphEntry {
   height : Int32
   advance : Float
   is_sdf : Bool
+  sdf_base : Float
 }
 
 #derive(Eq, @debug.Debug)
@@ -606,8 +616,9 @@ pub(all) struct TextStyle {
   bold : Bool
   italic : Bool
   fallback : FontFallbackChain?
+  variations : Array[(String, Float)]
 }
-pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool, bold? : Bool, italic? : Bool, fallback? : FontFallbackChain?) -> Self
+pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool, bold? : Bool, italic? : Bool, fallback? : FontFallbackChain?, variations? : Array[(String, Float)]) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum TileMode {

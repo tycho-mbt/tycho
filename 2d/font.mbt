@@ -64,6 +64,8 @@ priv struct TtfData {
   // GSUB/GPOS tables, -1 when absent.
   gsub_off : Int
   gpos_off : Int
+  // fvar table, -1 when absent.
+  fvar_off : Int
 }
 
 ///|
@@ -87,6 +89,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
   let mut kern_off = -1
   let mut gsub_off = -1
   let mut gpos_off = -1
+  let mut fvar_off = -1
   for i = 0; i < num_tables; i = i + 1 {
     let rec = 12 + i * 16
     let off = be_i32(bytes, rec + 8)
@@ -102,6 +105,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     else if tag_eq(bytes, rec, "kern") { kern_off = off }
     else if tag_eq(bytes, rec, "GSUB") { gsub_off = off }
     else if tag_eq(bytes, rec, "GPOS") { gpos_off = off }
+    else if tag_eq(bytes, rec, "fvar") { fvar_off = off }
   }
   if head_off < 0 || hhea_off < 0 || maxp_off < 0 || hmtx_off < 0 ||
     cmap_off < 0 {
@@ -166,6 +170,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     kern_off,
     gsub_off,
     gpos_off,
+    fvar_off,
   })
 }
 
@@ -947,6 +952,62 @@ pub fn FontFace::advance_width(self : FontFace, cp : Int, size_px : Float) -> Fl
 ///|
 // True when the face can render `cp` (builtin covers printable ASCII, TTF
 // consults cmap).
+pub(all) struct FontVariationAxis {
+  tag : String
+  min_value : Float
+  default_value : Float
+  max_value : Float
+}
+
+///|
+fn fixed_16_16(v : Int) -> Float {
+  Float::from_double(v.to_double() / 65536.0)
+}
+
+///|
+fn parse_fvar(bytes : Bytes, base : Int) -> Array[FontVariationAxis] {
+  let out : Array[FontVariationAxis] = []
+  if base + 16 > bytes.length() {
+    return out
+  }
+  let axes_off = base + be_u16(bytes, base + 4)
+  let axis_count = be_u16(bytes, base + 8)
+  let axis_size = be_u16(bytes, base + 10)
+  if axis_size < 20 {
+    return out
+  }
+  for i = 0; i < axis_count; i = i + 1 {
+    let r = axes_off + i * axis_size
+    if r + 20 > bytes.length() {
+      break
+    }
+    let chars : Array[Char] = []
+    for k = 0; k < 4; k = k + 1 {
+      chars.push(bytes[r + k].to_int().unsafe_to_char())
+    }
+    out.push({
+      tag: String::from_array(chars),
+      min_value: fixed_16_16(be_i32(bytes, r + 4)),
+      default_value: fixed_16_16(be_i32(bytes, r + 8)),
+      max_value: fixed_16_16(be_i32(bytes, r + 12)),
+    })
+  }
+  out
+}
+
+///|
+pub fn FontFace::variation_axes(self : FontFace) -> Array[FontVariationAxis] {
+  match self.ttf {
+    Some(t) => if t.fvar_off >= 0 {
+      parse_fvar(t.bytes, t.fvar_off)
+    } else {
+      []
+    }
+    None => []
+  }
+}
+
+///|
 pub fn FontFace::has_glyph(self : FontFace, cp : Int) -> Bool {
   match self.ttf {
     Some(t) => ttf_glyph_id(t, cp) != 0
@@ -1281,6 +1342,29 @@ pub(all) struct GlyphEntry {
   height : Int
   advance : Float
   is_sdf : Bool
+  // Base pixel size the SDF was generated at (0 for bitmap entries).
+  sdf_base : Float
+}
+
+///|
+fn round_int(x : Float) -> Int {
+  if x >= (0.0 : Float) {
+    (x + (0.5 : Float)).floor().to_int()
+  } else {
+    (x - (0.5 : Float)).ceil().to_int()
+  }
+}
+
+///|
+fn scale_glyph_entry(e : GlyphEntry, scale : Float, adv : Float) -> GlyphEntry {
+  {
+    ..e,
+    offset_x: round_int(Float::from_int(e.offset_x) * scale),
+    offset_y: round_int(Float::from_int(e.offset_y) * scale),
+    width: round_int(Float::from_int(e.width) * scale),
+    height: round_int(Float::from_int(e.height) * scale),
+    advance: adv,
+  }
 }
 
 ///|
@@ -1458,9 +1542,12 @@ fn GlyphCache::get_or_rasterize_impl(
     ""
   }
   let use_sdf = gid > 0 && px_size >= (48.0 : Float)
-  let sdf_key = if use_sdf { ":sdf" } else { "" }
-  let key = if gid > 0 {
-    "\{font.id}:g\{gid}:\{q4}\{style_key}\{sdf_key}"
+  // SDF entries are generated once at a fixed base size and scaled on read,
+  // so zoomed/animated text reuses the distance field.
+  let key = if use_sdf {
+    "\{font.id}:g\{gid}:sdf\{style_key}"
+  } else if gid > 0 {
+    "\{font.id}:g\{gid}:\{q4}\{style_key}"
   } else {
     "\{font.id}:\{cp}:\{q4}\{style_key}"
   }
@@ -1470,22 +1557,31 @@ fn GlyphCache::get_or_rasterize_impl(
         Some(b) => b.last_frame = self.frame
         None => ()
       }
+      if e.is_sdf && e.sdf_base > (0.0 : Float) {
+        let scale = px_size / e.sdf_base
+        return scale_glyph_entry(
+          e,
+          scale,
+          font.glyph_advance(gid, px_size),
+        )
+      }
       return e
     }
     None => ()
   }
+  let raster_size = if use_sdf { (64.0 : Float) } else { px_size }
   let adv = if gid > 0 {
-    font.glyph_advance(gid, px_size)
+    font.glyph_advance(gid, raster_size)
   } else {
-    font.advance_width(cp, px_size)
+    font.advance_width(cp, raster_size)
   }
   let (ox0, oy0, gw0, gh0, pixels0) = match font.ttf {
     Some(t) => if gid > 0 {
-      rasterize_ttf_glyph_gid(t, gid, px_size)
+      rasterize_ttf_glyph_gid(t, gid, raster_size)
     } else {
-      rasterize_ttf_glyph(t, cp, px_size)
+      rasterize_ttf_glyph(t, cp, raster_size)
     }
-    None => rasterize_builtin_glyph(cp, px_size)
+    None => rasterize_builtin_glyph(cp, raster_size)
   }
   let (ox1, oy1, gw1, gh1, pixels1) = synthesize_glyph_bitmap(
     ox0,
@@ -1555,6 +1651,7 @@ fn GlyphCache::get_or_rasterize_impl(
     height: quad_h,
     advance: adv,
     is_sdf: use_sdf,
+    sdf_base: if use_sdf { (64.0 : Float) } else { (0.0 : Float) },
   }
   if cacheable {
     self.entries[key] = entry
@@ -1569,6 +1666,14 @@ fn GlyphCache::get_or_rasterize_impl(
         last_frame: self.frame,
       }
     }
+  }
+  if use_sdf {
+    let scale = px_size / (64.0 : Float)
+    return scale_glyph_entry(
+      entry,
+      scale,
+      font.glyph_advance(gid, px_size),
+    )
   }
   entry
 }

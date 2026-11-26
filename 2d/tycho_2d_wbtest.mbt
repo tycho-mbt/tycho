@@ -687,9 +687,129 @@ test "SDF glyph encoding keeps inside/outside distances" {
             }
           }
           assert_true(hi > 0 && lo > 0)
+          // Fixed base-size entries scale metrics for arbitrary sizes.
+          let e : GlyphEntry = {
+            uv_x0: (0.0 : Float),
+            uv_y0: (0.0 : Float),
+            uv_x1: (1.0 : Float),
+            uv_y1: (1.0 : Float),
+            offset_x: -10,
+            offset_y: -20,
+            width: 100,
+            height: 80,
+            advance: 40.0,
+            is_sdf: true,
+            sdf_base: (64.0 : Float),
+          }
+          let s = scale_glyph_entry(e, (1.5 : Float), (60.0 : Float))
+          assert_eq(s.offset_x, -15)
+          assert_eq(s.offset_y, -30)
+          assert_eq(s.width, 150)
+          assert_eq(s.height, 120)
+          assert_true(s.advance == (60.0 : Float))
         }
         None => ()
       }
+    None => ()
+  }
+}
+
+///|
+fn test_u16(a : Array[Byte], off : Int, v : Int) -> Unit {
+  a[off] = ((v >> 8) & 0xFF).to_byte()
+  a[off + 1] = (v & 0xFF).to_byte()
+}
+
+///|
+fn test_u32(a : Array[Byte], off : Int, v : Int) -> Unit {
+  a[off] = ((v >> 24) & 0xFF).to_byte()
+  a[off + 1] = ((v >> 16) & 0xFF).to_byte()
+  a[off + 2] = ((v >> 8) & 0xFF).to_byte()
+  a[off + 3] = (v & 0xFF).to_byte()
+}
+
+///|
+test "fvar axes and variation-to-synthetic style" {
+  let a = Array::make(36, (0 : Byte))
+  test_u16(a, 0, 1)
+  test_u16(a, 4, 16)
+  test_u16(a, 6, 2)
+  test_u16(a, 8, 1)
+  test_u16(a, 10, 20)
+  // Axis "wght": 100..900, default 400 (16.16 fixed).
+  a[16] = 119
+  a[17] = 103
+  a[18] = 104
+  a[19] = 116
+  test_u32(a, 20, 100 * 65536)
+  test_u32(a, 24, 400 * 65536)
+  test_u32(a, 28, 900 * 65536)
+  let axes = parse_fvar(Bytes::from_array(a), 0)
+  assert_eq(axes.length(), 1)
+  assert_eq(axes[0].tag, "wght")
+  assert_true(axes[0].min_value == (100.0 : Float))
+  assert_true(axes[0].default_value == (400.0 : Float))
+  assert_true(axes[0].max_value == (900.0 : Float))
+
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) => {
+      assert_eq(font.variation_axes().length(), 0)
+      let p = ParagraphBuilder::new()
+        .add_text(
+          "A",
+          style=TextStyle::new(
+            font=font,
+            font_size=(48.0 : Float),
+            variations=[("wght", (700.0 : Float))],
+          ),
+        )
+        .build()
+      p.layout((1000.0 : Float))
+      assert_true(p.placed_glyphs()[0].bold)
+      let pi = ParagraphBuilder::new()
+        .add_text(
+          "A",
+          style=TextStyle::new(
+            font=font,
+            font_size=(48.0 : Float),
+            variations=[("ital", (1.0 : Float))],
+          ),
+        )
+        .build()
+      pi.layout((1000.0 : Float))
+      assert_true(pi.placed_glyphs()[0].italic)
+    }
+    None => ()
+  }
+}
+
+///|
+test "devanagari pre-base matra and conjunct features" {
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) => {
+      // i-matra is reordered before the base consonant.
+      let ki = shape_run(font, "कि")
+      assert_eq(ki.length(), 2)
+      assert_eq(ki[0].cp, 0x093F)
+      assert_eq(ki[1].cp, 0x0915)
+      // half/cjct consumes the virama in a conjunct.
+      let ste = shape_run(font, "स्ते")
+      assert_true(ste.length() > 0)
+      let mut has_virama = false
+      for s in ste {
+        if s.cp == 0x094D {
+          has_virama = true
+        }
+      }
+      assert_true(!has_virama)
+      assert_true(ste.length() < 4)
+    }
     None => ()
   }
 }
