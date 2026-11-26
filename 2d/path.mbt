@@ -747,3 +747,89 @@ pub fn PathMeasure::segment(
   }
   b.build()
 }
+
+///|
+// Split the path into dashes following an alternating on/off pattern (in
+// path-space units). The result is an open polyline path intended for stroke.
+pub fn Path::dashed(self : Path, pattern : Array[Float], phase? : Float = 0.0) -> Path {
+  let n = pattern.length()
+  if n == 0 {
+    return self
+  }
+  let mut total = (0.0 : Float)
+  for v in pattern {
+    total = total + @tmath.max_f(v, (1.0e-3 : Float))
+  }
+  if total <= (0.0 : Float) {
+    return self
+  }
+  let mut ph = phase
+  while ph < (0.0 : Float) {
+    ph = ph + total
+  }
+  while ph >= total {
+    ph = ph - total
+  }
+  let mut idx = 0
+  let mut remaining = @tmath.max_f(pattern[0], (1.0e-3 : Float))
+  let mut on = true
+  while ph > (0.0 : Float) {
+    if ph >= remaining {
+      ph = ph - remaining
+      idx = (idx + 1) % n
+      remaining = @tmath.max_f(pattern[idx], (1.0e-3 : Float))
+      on = !on
+    } else {
+      remaining = remaining - ph
+      ph = (0.0 : Float)
+    }
+  }
+  let b = PathBuilder::new()
+  let contours = flatten_path_contours(
+    self,
+    Matrix3::identity(),
+    tolerance=(0.25 : Float),
+  )
+  for pair in contours {
+    let pts = pair.0
+    let closed = pair.1
+    let m = pts.length()
+    if m < 2 {
+      continue
+    }
+    let seg_count = if closed { m } else { m - 1 }
+    let mut dash_started = false
+    for i = 0; i < seg_count; i = i + 1 {
+      let a = pts[i]
+      let bb = pts[(i + 1) % m]
+      let seg_len = a.distance_to(bb)
+      if seg_len <= (1.0e-6 : Float) {
+        continue
+      }
+      let mut t0 = (0.0 : Float)
+      while t0 < seg_len - (1.0e-6 : Float) {
+        let step = @tmath.min_f(remaining, seg_len - t0)
+        if on && step > (1.0e-6 : Float) {
+          let p0 = a.lerp(bb, t0 / seg_len)
+          let p1 = a.lerp(bb, (t0 + step) / seg_len)
+          if !dash_started {
+            let _ = b.move_to(p0.x, p0.y)
+            dash_started = true
+          } else {
+            let _ = b.line_to(p0.x, p0.y)
+          }
+          let _ = b.line_to(p1.x, p1.y)
+        }
+        t0 = t0 + step
+        remaining = remaining - step
+        if remaining <= (1.0e-6 : Float) {
+          idx = (idx + 1) % n
+          remaining = @tmath.max_f(pattern[idx], (1.0e-3 : Float))
+          on = !on
+          dash_started = false
+        }
+      }
+    }
+  }
+  b.build(fill_rule=self.fill_rule)
+}

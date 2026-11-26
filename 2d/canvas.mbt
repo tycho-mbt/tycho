@@ -211,6 +211,76 @@ pub fn Canvas::draw_path(self : Canvas, path : Path, paint : Paint) -> Unit {
 }
 
 ///|
+pub fn Canvas::draw_oval(self : Canvas, rect : Rect, paint : Paint) -> Unit {
+  let p = PathBuilder::new().add_oval(rect).build()
+  self.draw_path(p, paint)
+}
+
+///|
+pub fn Canvas::draw_arc(
+  self : Canvas,
+  rect : Rect,
+  start_degrees : Float,
+  sweep_degrees : Float,
+  paint : Paint,
+) -> Unit {
+  let pb = PathBuilder::new()
+  let _ = pb.arc_to(rect, start_degrees, sweep_degrees, force_move=true)
+  if @tmath.abs_f(sweep_degrees) >= (359.999 : Float) {
+    let _ = pb.close()
+  }
+  self.draw_path(pb.build(), paint)
+}
+
+///|
+// Draw the ring between two rounded rects. Fill uses an EvenOdd path; stroke
+// draws both contours.
+pub fn Canvas::draw_drrect(
+  self : Canvas,
+  outer : RRect,
+  inner : RRect,
+  paint : Paint,
+) -> Unit {
+  if paint.style == PaintStyle::Fill || paint.style == PaintStyle::StrokeAndFill {
+    let p = PathBuilder::new()
+      .add_rrect(outer)
+      .add_rrect(inner)
+      .build(fill_rule=FillRule::EvenOdd)
+    self.draw_path(p, { ..paint, style: PaintStyle::Fill })
+  }
+  if paint.style == PaintStyle::Stroke || paint.style == PaintStyle::StrokeAndFill {
+    let sp = { ..paint, style: PaintStyle::Stroke }
+    self.draw_rrect(outer, sp)
+    if !inner.rect.is_empty() {
+      self.draw_rrect(inner, sp)
+    }
+  }
+}
+
+///|
+pub fn Canvas::draw_points(
+  self : Canvas,
+  points : Array[Point],
+  paint : Paint,
+) -> Unit {
+  let r = @tmath.max_f(paint.stroke_width * (0.5 : Float), (0.5 : Float))
+  for p in points {
+    self.draw_circle(p, r, paint)
+  }
+}
+
+///|
+pub fn Canvas::draw_dashed_path(
+  self : Canvas,
+  path : Path,
+  pattern : Array[Float],
+  phase : Float,
+  paint : Paint,
+) -> Unit {
+  self.draw_path(path.dashed(pattern, phase~), paint)
+}
+
+///|
 pub fn Canvas::draw_image(
   self : Canvas,
   image : Image2D,
@@ -242,6 +312,56 @@ pub fn Canvas::draw_image_rect(
 ) -> Unit {
   self.expand_bounds(dst)
   self.ops.push(DrawOp::DrawImage(image, src, dst, paint))
+}
+
+///|
+// Nine-patch: corners keep their source size, edges stretch, center scales.
+pub fn Canvas::draw_nine_patch(
+  self : Canvas,
+  image : Image2D,
+  center_src : Rect,
+  dst : Rect,
+  paint? : Paint = Paint::new(),
+) -> Unit {
+  let iw = Float::from_int(image.width)
+  let ih = Float::from_int(image.height)
+  let l = @tmath.clamp_f(center_src.x, (0.0 : Float), iw)
+  let t = @tmath.clamp_f(center_src.y, (0.0 : Float), ih)
+  let r = iw - @tmath.clamp_f(center_src.right(), (0.0 : Float), iw)
+  let b = ih - @tmath.clamp_f(center_src.bottom(), (0.0 : Float), ih)
+  let sx : Array[Float] = [(0.0 : Float), l, iw - r, iw]
+  let sy : Array[Float] = [(0.0 : Float), t, ih - b, ih]
+  let dx : Array[Float] = [dst.x, dst.x + l, dst.right() - r, dst.right()]
+  let dy : Array[Float] = [dst.y, dst.y + t, dst.bottom() - b, dst.bottom()]
+  for row = 0; row < 3; row = row + 1 {
+    for col = 0; col < 3; col = col + 1 {
+      let sw = sx[col + 1] - sx[col]
+      let sh = sy[row + 1] - sy[row]
+      let dw = dx[col + 1] - dx[col]
+      let dh = dy[row + 1] - dy[row]
+      if sw > (0.0 : Float) && sh > (0.0 : Float) && dw > (0.0 : Float) && dh > (0.0 : Float) {
+        self.draw_image_rect(
+          image,
+          Rect::new(sx[col], sy[row], sw, sh),
+          Rect::new(dx[col], dy[row], dw, dh),
+          paint~,
+        )
+      }
+    }
+  }
+}
+
+///|
+// Draw many sub-rects of one image in a single call.
+pub fn Canvas::draw_atlas(
+  self : Canvas,
+  image : Image2D,
+  entries : Array[(Rect, Rect)],
+  paint? : Paint = Paint::new(),
+) -> Unit {
+  for e in entries {
+    self.draw_image_rect(image, e.0, e.1, paint~)
+  }
 }
 
 ///|

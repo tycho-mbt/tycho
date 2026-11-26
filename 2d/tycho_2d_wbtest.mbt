@@ -246,3 +246,64 @@ test "coverage rasterizer: rect fill and even-odd hole" {
   let ry = 10 - bm2.origin_y
   assert_eq(bm2.pixels[ry * bm2.width + rx].to_int(), 255)
 }
+
+///|
+test "canvas shape helpers: oval, arc, drrect, points, nine-patch, atlas, dash" {
+  let c = Canvas::new()
+  c.draw_oval(
+    Rect::new((0.0 : Float), (0.0 : Float), (20.0 : Float), (10.0 : Float)),
+    Paint::fill(Color::white()),
+  )
+  c.draw_arc(
+    Rect::new((0.0 : Float), (0.0 : Float), (20.0 : Float), (20.0 : Float)),
+    (0.0 : Float),
+    (180.0 : Float),
+    Paint::stroke(Color::white(), (2.0 : Float)),
+  )
+  c.draw_drrect(
+    RRect::uniform(
+      Rect::new((0.0 : Float), (0.0 : Float), (40.0 : Float), (40.0 : Float)),
+      (8.0 : Float),
+    ),
+    RRect::uniform(
+      Rect::new((10.0 : Float), (10.0 : Float), (20.0 : Float), (20.0 : Float)),
+      (4.0 : Float),
+    ),
+    Paint::fill(Color::white()),
+  )
+  c.draw_points(
+    [Point::new((1.0 : Float), (1.0 : Float)), Point::new((2.0 : Float), (2.0 : Float))],
+    Paint::stroke(Color::white(), (4.0 : Float)),
+  )
+  let img = Image2D::from_bytes(9, 4, 4, Bytes::make(64, (255 : Byte)))
+  c.draw_nine_patch(
+    img,
+    Rect::new((1.0 : Float), (1.0 : Float), (2.0 : Float), (2.0 : Float)),
+    Rect::new((0.0 : Float), (0.0 : Float), (100.0 : Float), (100.0 : Float)),
+  )
+  c.draw_atlas(img, [
+    (
+      Rect::new((0.0 : Float), (0.0 : Float), (2.0 : Float), (2.0 : Float)),
+      Rect::new((0.0 : Float), (0.0 : Float), (10.0 : Float), (10.0 : Float)),
+    ),
+    (
+      Rect::new((2.0 : Float), (2.0 : Float), (2.0 : Float), (2.0 : Float)),
+      Rect::new((10.0 : Float), (10.0 : Float), (10.0 : Float), (10.0 : Float)),
+    ),
+  ])
+  let line = PathBuilder::new()
+    .move_to((0.0 : Float), (0.0 : Float))
+    .line_to((100.0 : Float), (0.0 : Float))
+    .build()
+  c.draw_dashed_path(
+    line,
+    [(10.0 : Float), (10.0 : Float)],
+    (0.0 : Float),
+    Paint::stroke(Color::white(), (2.0 : Float)),
+  )
+  let dl = c.finish()
+  assert_true(dl.op_count() >= 7)
+  let dashed = line.dashed([(10.0 : Float), (10.0 : Float)])
+  let m = PathMeasure::new(dashed)
+  assert_true(m.length() > (49.0 : Float) && m.length() < (51.0 : Float))
+}

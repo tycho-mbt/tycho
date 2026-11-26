@@ -50,13 +50,20 @@ pub fn Canvas::clip_path(Self, Path, op? : ClipOp) -> Unit
 pub fn Canvas::clip_rect(Self, Rect, op? : ClipOp) -> Unit
 pub fn Canvas::clip_rrect(Self, RRect, op? : ClipOp) -> Unit
 pub fn Canvas::concat(Self, Matrix3) -> Unit
+pub fn Canvas::draw_arc(Self, Rect, Float, Float, Paint) -> Unit
+pub fn Canvas::draw_atlas(Self, Image2D, Array[(Rect, Rect)], paint? : Paint) -> Unit
 pub fn Canvas::draw_circle(Self, Point, Float, Paint) -> Unit
+pub fn Canvas::draw_dashed_path(Self, Path, Array[Float], Float, Paint) -> Unit
 pub fn Canvas::draw_display_list(Self, DisplayList) -> Unit
+pub fn Canvas::draw_drrect(Self, RRect, RRect, Paint) -> Unit
 pub fn Canvas::draw_image(Self, Image2D, Point, paint? : Paint) -> Unit
 pub fn Canvas::draw_image_rect(Self, Image2D, Rect, Rect, paint? : Paint) -> Unit
 pub fn Canvas::draw_line(Self, Point, Point, Paint) -> Unit
+pub fn Canvas::draw_nine_patch(Self, Image2D, Rect, Rect, paint? : Paint) -> Unit
+pub fn Canvas::draw_oval(Self, Rect, Paint) -> Unit
 pub fn Canvas::draw_paragraph(Self, Paragraph, Point) -> Unit
 pub fn Canvas::draw_path(Self, Path, Paint) -> Unit
+pub fn Canvas::draw_points(Self, Array[Point], Paint) -> Unit
 pub fn Canvas::draw_rect(Self, Rect, Paint) -> Unit
 pub fn Canvas::draw_rrect(Self, RRect, Paint) -> Unit
 pub fn Canvas::draw_rrect_shadow(Self, RRect, Float, Float, Float, Float, Color) -> Unit
@@ -306,6 +313,7 @@ pub struct Path {
 pub fn Path::bounds(Self) -> Rect
 pub fn Path::compute_tight_bounds(Self, tolerance? : Float) -> Rect
 pub fn Path::contains(Self, Float, Float, fill_rule? : FillRule?) -> Bool
+pub fn Path::dashed(Self, Array[Float], phase? : Float) -> Self
 pub fn Path::fill_rule(Self) -> FillRule
 pub fn Path::id(Self) -> UInt64
 pub fn Path::is_empty(Self) -> Bool
