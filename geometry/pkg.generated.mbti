@@ -107,13 +107,16 @@ pub(all) struct MeshData {
   mut colors : FixedArray[@tycho_math.Vec4]?
   mut skin_joints : FixedArray[@tycho_math.Vec4]?
   mut skin_weights : FixedArray[@tycho_math.Vec4]?
+  mut morph_targets : Array[MorphTarget]
   mut groups : Array[MeshGroup]
 }
+pub fn MeshData::add_morph_target(Self, FixedArray[@tycho_math.Vec3]) -> Unit raise
 pub fn MeshData::bounds(Self) -> @tycho_math.Aabb3
 pub fn MeshData::compute_tangents(Self) -> Unit
 pub fn MeshData::compute_vertex_normals(Self) -> Unit
 pub fn MeshData::flipped(Self) -> Self
 pub fn MeshData::has_colors(Self) -> Bool
+pub fn MeshData::has_morph(Self) -> Bool
 pub fn MeshData::has_skin(Self) -> Bool
 pub fn MeshData::has_tangents(Self) -> Bool
 pub fn MeshData::index_count(Self) -> Int32
@@ -132,6 +135,10 @@ pub(all) struct MeshGroup {
   material_slot : Int32
 }
 pub fn MeshGroup::new(Int32, Int32, Int32) -> Self
+
+pub(all) struct MorphTarget {
+  positions : FixedArray[@tycho_math.Vec3]
+}
 
 // Type aliases
 

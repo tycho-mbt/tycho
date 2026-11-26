@@ -36,6 +36,8 @@ pub(all) struct PointLight {
   intensity : Float
   range : Float
   decay : Float
+  // Six-face cube shadow rendered into the atlas when present.
+  shadow : ShadowDesc?
 }
 
 ///|
@@ -86,8 +88,9 @@ pub fn Light::point(
   intensity : Float,
   range? : Float = 10.0,
   decay? : Float = 2.0,
+  shadow? : ShadowDesc? = None,
 ) -> Light {
-  Light::Point({ color, intensity, range, decay })
+  Light::Point({ color, intensity, range, decay, shadow })
 }
 
 ///|

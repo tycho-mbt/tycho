@@ -50,13 +50,17 @@ const OBJECT_FLOATS : Int = 40
 
 const OBJECT_BYTES : Int = 160
 
-const LIGHT_FLOATS : Int = 36
+const LIGHT_FLOATS : Int = 40
 
-const LIGHT_BYTES : Int = 144
+const LIGHT_BYTES : Int = 160
 
 const MATERIAL_FLOATS : Int = 16
 
 const MATERIAL_BYTES : Int = 64
+
+const SHADOW_TILES_MAX : Int = 8
+
+const SHADOW_TILE_BYTES : Int = 80
 
 const MAX_BONES : Int = 4096
 
@@ -109,6 +113,16 @@ priv struct DrawBatch {
   mut cull_cmd : Int
   mut list_offset : Int
   skinned : Bool
+  morph_w0 : Float
+  morph_w1 : Float
+}
+
+///|
+/// Per-mesh acceleration structure with the buffers its BLAS references.
+priv struct RtMesh {
+  blas : @tycho.AccelStruct
+  vbuf : @tycho.Buffer
+  ibuf : @tycho.Buffer
 }
 
 ///|
@@ -157,10 +171,23 @@ pub struct Renderer3D {
   priv skin_blend_pipe : @tycho.Pipeline
   priv shadow_skin_pipe : @tycho.Pipeline
   priv bone_ssbo : @tycho.Buffer
+  priv shadow_tiles_ssbo : @tycho.Buffer
   priv bone_scratch : FixedArray[Float]
   priv mut bone_cursor : Int
   priv skins : Array[SkinBinding]
   priv lods : Array[LodGroup]
+  // Morph meshes use a 72-byte stream; weights travel per draw.
+  priv mut morph_arena : @tycho.Buffer
+  priv morph_floats : Array[Float]
+  priv morph_pipe : @tycho.Pipeline
+  priv morph_shadow_pipe : @tycho.Pipeline
+  priv morph_weights : Array[(NodeId, Array[Float])]
+  priv rt_supported : Bool
+  priv mut rt_enabled : Bool
+  priv rt_pipe : @tycho.Pipeline?
+  priv rt_cull_pipe : @tycho.Pipeline?
+  priv mut rt_tlas : @tycho.AccelStruct?
+  priv rt_meshes : Array[RtMesh?]
   priv materials : Array[MaterialDesc]
   priv object_ring : @pool.FrameRing
   priv light_ring : @pool.FrameRing
@@ -408,8 +435,8 @@ fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
   }
   w.push_float(f_of_int(albedo))
   w.push_float(f_of_int(normal))
-  w.push_float(0.0)
-  w.push_float(0.0)
+  w.push_float(m.clearcoat)
+  w.push_float(m.clearcoat_roughness)
 }
 
 ///|
@@ -516,6 +543,7 @@ pub fn Renderer3D::new(
       vertex_layouts=mesh_layouts,
     ),
   )
+  let rt_supported = dev.capabilities().supports_ray_query && bindless_ok
   let pbr_frag = if bindless_ok {
     spv_pbr_frag
   } else {
@@ -602,6 +630,50 @@ pub fn Renderer3D::new(
       samples=samples,
     ),
   )
+  let morph_layouts : Array[@tycho.VertexBufferLayout] = [
+    @tycho.VertexBufferLayout::new(
+      MORPH_VERTEX_BYTES,
+      [
+        @tycho.VertexAttribute::new(0, @tycho.VertexFormat::Float3, 0),
+        @tycho.VertexAttribute::new(1, @tycho.VertexFormat::Float3, 12),
+        @tycho.VertexAttribute::new(2, @tycho.VertexFormat::Float2, 24),
+        @tycho.VertexAttribute::new(3, @tycho.VertexFormat::Float4, 32),
+        @tycho.VertexAttribute::new(6, @tycho.VertexFormat::Float3, 48),
+        @tycho.VertexAttribute::new(7, @tycho.VertexFormat::Float3, 60),
+      ],
+    ),
+  ]
+  let morph_pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_pbr_morph_vert,
+      pbr_frag,
+      depth_test=true,
+      depth_write=true,
+      depth_compare=@tycho.CompareOp::GreaterEqual,
+      depth_format=Some(@tycho.TextureFormat::Depth32F),
+      cull_mode=@tycho.CullMode::Back,
+      front_face=@tycho.FrontFace::CounterClockwise,
+      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      vertex_layouts=morph_layouts,
+      bindless_heap=bindless,
+      samples=samples,
+    ),
+  )
+  let morph_shadow_pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_shadow_morph_vert,
+      [],
+      depth_test=true,
+      depth_write=true,
+      depth_compare=@tycho.CompareOp::LessEqual,
+      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      depth_only=true,
+      depth_bias=true,
+      depth_bias_constant=(1.5 : Float),
+      depth_bias_slope=(1.75 : Float),
+      vertex_layouts=morph_layouts,
+    ),
+  )
   let shadow_skin_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_shadow_skin_vert,
@@ -617,6 +689,50 @@ pub fn Renderer3D::new(
       vertex_layouts=skin_layouts,
     ),
   )
+  let rt_pipe = if rt_supported {
+    Some(
+      dev.create_graphics_pipeline(
+        @tycho.PipelineDesc::from_spirv(
+          spv_pbr_vert,
+          spv_pbr_frag_rt,
+          depth_test=true,
+          depth_write=true,
+          depth_compare=@tycho.CompareOp::GreaterEqual,
+          depth_format=Some(@tycho.TextureFormat::Depth32F),
+          cull_mode=@tycho.CullMode::Back,
+          front_face=@tycho.FrontFace::CounterClockwise,
+          color_format=Some(@tycho.TextureFormat::RGBA16F),
+          vertex_layouts=mesh_layouts,
+          bindless_heap=bindless,
+          samples=samples,
+        ),
+      ),
+    )
+  } else {
+    None
+  }
+  let rt_cull_pipe = if rt_supported && desc.gpu_culling && bindless_ok {
+    Some(
+      dev.create_graphics_pipeline(
+        @tycho.PipelineDesc::from_spirv(
+          spv_pbr_cull_vert,
+          spv_pbr_frag_rt,
+          depth_test=true,
+          depth_write=true,
+          depth_compare=@tycho.CompareOp::GreaterEqual,
+          depth_format=Some(@tycho.TextureFormat::Depth32F),
+          cull_mode=@tycho.CullMode::Back,
+          front_face=@tycho.FrontFace::CounterClockwise,
+          color_format=Some(@tycho.TextureFormat::RGBA16F),
+          vertex_layouts=mesh_layouts,
+          bindless_heap=bindless,
+          samples=samples,
+        ),
+      ),
+    )
+  } else {
+    None
+  }
   let sky_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_skybox_vert,
@@ -752,7 +868,7 @@ pub fn Renderer3D::new(
   let env_cube = default_environment_cubemap(dev)
   // 2x2 shadow atlas: up to four shadow-casting lights, one tile each.
   let shadow_atlas = dev.create_depth_texture_format(
-    desc.shadow_map_size * 2,
+    desc.shadow_map_size * 4,
     desc.shadow_map_size * 2,
     @tycho.TextureFormat::Depth24Stencil8,
   )
@@ -789,10 +905,28 @@ pub fn Renderer3D::new(
       @tycho.BufferKind::Storage,
       location=@tycho.MemoryLocation::CpuToGpu,
     ),
+    shadow_tiles_ssbo: dev.create_buffer_with(
+      SHADOW_TILES_MAX * SHADOW_TILE_BYTES,
+      @tycho.BufferKind::Storage,
+      location=@tycho.MemoryLocation::CpuToGpu,
+    ),
     bone_scratch: FixedArray::make(MAX_BONES * 16, (0.0 : Float)),
     bone_cursor: 0,
     skins: [],
     lods: [],
+    morph_arena: dev.create_buffer_with(
+      4,
+      @tycho.BufferKind::Vertex,
+      location=@tycho.MemoryLocation::GpuOnly,
+    ),
+    morph_floats: [],
+    morph_weights: [],
+    rt_supported,
+    rt_enabled: false,
+    rt_pipe,
+    rt_cull_pipe,
+    rt_tlas: None,
+    rt_meshes: [],
     materials: [],
     object_ring: @pool.FrameRing::new(dev, desc.max_objects * OBJECT_BYTES),
     light_ring: @pool.FrameRing::new(dev, desc.max_lights * LIGHT_BYTES),
@@ -833,6 +967,8 @@ pub fn Renderer3D::new(
     pbr_pipe,
     skin_pipe,
     skin_blend_pipe,
+    morph_pipe,
+    morph_shadow_pipe,
     pbr_blend_pipe,
     sky_pipe,
     bloom_extract_pipe,
@@ -882,6 +1018,14 @@ pub fn Renderer3D::upload_mesh(self : Renderer3D, mesh : @tgeo.MeshData) -> Mesh
     }
     self.rebuild_skin_arena()
     fv
+  } else if mesh.has_morph() {
+    let floats = mesh_morph_vertex_floats(mesh)
+    let fv = self.morph_floats.length() / MORPH_VERTEX_FLOATS
+    for f in floats {
+      self.morph_floats.push(f)
+    }
+    self.rebuild_morph_arena()
+    fv
   } else {
     let floats = mesh_vertex_floats(mesh)
     let fv = self.arena_floats.length() / MESH_VERTEX_FLOATS
@@ -892,7 +1036,101 @@ pub fn Renderer3D::upload_mesh(self : Renderer3D, mesh : @tgeo.MeshData) -> Mesh
     fv
   }
   self.meshes.push(GpuMesh::range(mesh, first_vertex, first_index))
+  if self.rt_supported && !mesh.has_skin() && !mesh.has_morph() {
+    self.rt_meshes.push(Some(self.build_mesh_blas(mesh)))
+  } else {
+    self.rt_meshes.push(None)
+  }
   MeshHandle::from_id(self.meshes.length() - 1)
+}
+
+///|
+fn Renderer3D::build_mesh_blas(self : Renderer3D, mesh : @tgeo.MeshData) -> RtMesh raise {
+  let floats = mesh_vertex_floats(mesh)
+  let vbuf = self.dev.create_buffer_with(
+    floats.length() * 4,
+    @tycho.BufferKind::Vertex,
+    location=@tycho.MemoryLocation::GpuOnly,
+  )
+  vbuf.upload_floats(floats)
+  let ix = FixedArray::from_array(mesh.indices)
+  let ibuf = self.dev.create_buffer_with(
+    if ix.length() == 0 { 4 } else { ix.length() * 4 },
+    @tycho.BufferKind::Index,
+    location=@tycho.MemoryLocation::GpuOnly,
+  )
+  if ix.length() > 0 {
+    ibuf.upload_uint32(ix)
+  }
+  let blas = self.dev.create_blas([
+    @tycho.RayGeometryDesc::new(
+      vbuf,
+      mesh.vertex_count(),
+      index_buffer=Some(ibuf),
+      index_count=mesh.index_count(),
+    ),
+  ])
+  { blas, vbuf, ibuf }
+}
+
+///|
+/// Rebuild the TLAS from the scene's static mesh instances (skinned and morph
+/// meshes have no BLAS). Falls back to shadow maps when the cap is exceeded.
+fn Renderer3D::rebuild_rt_tlas(self : Renderer3D, scene : Scene) -> Unit raise {
+  if !self.rt_supported || !self.rt_enabled {
+    return
+  }
+  match self.rt_tlas {
+    Some(t) => {
+      t.destroy()
+      self.rt_tlas = None
+    }
+    None => ()
+  }
+  let ids : Array[NodeId] = []
+  scene.traverse(fn(id) {
+    match scene.payload(id) {
+      Some(NodePayload::Mesh(_)) => ids.push(id)
+      _ => ()
+    }
+  })
+  let insts : Array[@tycho.RayInstanceDesc] = []
+  for id in ids {
+    if insts.length() >= 256 {
+      break
+    }
+    match scene.payload(id) {
+      Some(NodePayload::Mesh(inst)) => {
+        let mi = inst.mesh.id()
+        if mi >= 0 && mi < self.rt_meshes.length() {
+          match self.rt_meshes[mi] {
+            Some(rm) => {
+              insts.push(
+                @tycho.RayInstanceDesc::from_affine3(rm.blas, scene.world_transform(id)),
+              )
+            }
+            None => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  if insts.length() == 0 || insts.length() >= 256 {
+    return
+  }
+  self.rt_tlas = Some(self.dev.create_tlas(insts))
+}
+
+///|
+/// Toggle hardware ray-traced sun shadows (no effect when unsupported).
+pub fn Renderer3D::set_ray_shadows(self : Renderer3D, enabled : Bool) -> Unit {
+  self.rt_enabled = enabled && self.rt_supported
+}
+
+///|
+pub fn Renderer3D::ray_shadows_supported(self : Renderer3D) -> Bool {
+  self.rt_supported
 }
 
 ///|
@@ -947,6 +1185,112 @@ fn Renderer3D::rebuild_skin_arena(self : Renderer3D) -> Unit raise {
   if ix.length() > 0 {
     self.index_arena.upload_uint32(ix)
   }
+}
+
+///|
+fn Renderer3D::rebuild_morph_arena(self : Renderer3D) -> Unit raise {
+  let vf = FixedArray::from_array(self.morph_floats)
+  let ix = FixedArray::from_array(self.arena_indices)
+  self.morph_arena.destroy()
+  self.index_arena.destroy()
+  self.morph_arena = self.dev.create_buffer_with(
+    if vf.length() == 0 { 4 } else { vf.length() * 4 },
+    @tycho.BufferKind::Vertex,
+    location=@tycho.MemoryLocation::GpuOnly,
+  )
+  if vf.length() > 0 {
+    self.morph_arena.upload_floats(vf)
+  }
+  self.index_arena = self.dev.create_buffer_with(
+    if ix.length() == 0 { 4 } else { ix.length() * 4 },
+    @tycho.BufferKind::Index,
+    location=@tycho.MemoryLocation::GpuOnly,
+  )
+  if ix.length() > 0 {
+    self.index_arena.upload_uint32(ix)
+  }
+}
+
+///|
+fn Renderer3D::bind_morph_arenas(self : Renderer3D, cmd : @tycho.CommandBuffer) -> Unit {
+  cmd.bind_vertex(0, self.morph_arena)
+  cmd.bind_index(self.index_arena, @tycho.IndexType::Uint32)
+}
+
+///|
+fn Renderer3D::morph_weights_of(self : Renderer3D, node : NodeId) -> (Float, Float) {
+  for entry in self.morph_weights {
+    let (n, w) = entry
+    if n.index() == node.index() {
+      let w0 : Float = if w.length() > 0 { w[0] } else { 0.0 }
+      let w1 : Float = if w.length() > 1 { w[1] } else { 0.0 }
+      return (w0, w1)
+    }
+  }
+  (0.0, 0.0)
+}
+
+///|
+fn Renderer3D::pack_shadow_tiles(
+  self : Renderer3D,
+  tiles : Array[ShadowTile],
+) -> Unit raise {
+  let count = if tiles.length() > SHADOW_TILES_MAX {
+    SHADOW_TILES_MAX
+  } else {
+    tiles.length()
+  }
+  if count == 0 {
+    return
+  }
+  let data = FixedArray::make(count * 20, (0.0 : Float))
+  for i = 0; i < count; i = i + 1 {
+    let t = tiles[i]
+    let o = i * 20
+    let m = t.vp
+    data[o] = m.x_axis.x
+    data[o + 1] = m.x_axis.y
+    data[o + 2] = m.x_axis.z
+    data[o + 3] = m.x_axis.w
+    data[o + 4] = m.y_axis.x
+    data[o + 5] = m.y_axis.y
+    data[o + 6] = m.y_axis.z
+    data[o + 7] = m.y_axis.w
+    data[o + 8] = m.z_axis.x
+    data[o + 9] = m.z_axis.y
+    data[o + 10] = m.z_axis.z
+    data[o + 11] = m.z_axis.w
+    data[o + 12] = m.w_axis.x
+    data[o + 13] = m.w_axis.y
+    data[o + 14] = m.w_axis.z
+    data[o + 15] = m.w_axis.w
+    data[o + 16] = f_of_int(t.tile % 4) * 0.25
+    data[o + 17] = f_of_int(t.tile / 4) * 0.5
+    data[o + 18] = 0.25
+    data[o + 19] = 0.5
+  }
+  self.shadow_tiles_ssbo.upload_floats(data)
+}
+
+///|
+fn bind_shadow_tiles_bytes(count : Int) -> Int {
+  if count > 0 {
+    (if count > SHADOW_TILES_MAX { SHADOW_TILES_MAX } else { count }) * SHADOW_TILE_BYTES
+  } else {
+    SHADOW_TILE_BYTES
+  }
+}
+
+///|
+fn shadow_morph_pc(vp : @tmath.Mat4, w0 : Float, w1 : Float) -> FixedArray[Float] {
+  let out = FixedArray::make(20, (0.0 : Float))
+  let base = shadow_pc_floats(vp)
+  for i = 0; i < 16; i = i + 1 {
+    out[i] = base[i]
+  }
+  out[16] = w0
+  out[17] = w1
+  out
 }
 
 ///|
@@ -1253,6 +1597,26 @@ fn directional_shadow_vp(
 }
 
 ///|
+/// Cube face order matches the fragment shader: +X, -X, +Y, -Y, +Z, -Z.
+fn point_shadow_vp(eye : @tmath.Vec3, far : Float, face : Int) -> @tmath.Mat4 {
+  let dir = match face {
+    0 => @tmath.Vec3::new(1.0, 0.0, 0.0)
+    1 => @tmath.Vec3::new(-1.0, 0.0, 0.0)
+    2 => @tmath.Vec3::new(0.0, 1.0, 0.0)
+    3 => @tmath.Vec3::new(0.0, -1.0, 0.0)
+    4 => @tmath.Vec3::new(0.0, 0.0, 1.0)
+    _ => @tmath.Vec3::new(0.0, 0.0, -1.0)
+  }
+  let up = if face == 2 || face == 3 {
+    @tmath.Vec3::unit_z()
+  } else {
+    @tmath.Vec3::unit_y()
+  }
+  @tmath.perspective_rh(@tmath.PI / 2.0, 1.0, 0.05, far) *
+  @tmath.look_at_rh(eye, eye + dir, up)
+}
+
+///|
 fn spot_shadow_vp(
   eye : @tmath.Vec3,
   to_light : @tmath.Vec3,
@@ -1349,7 +1713,7 @@ fn Renderer3D::plan_shadows(
   let center = bounds.center()
   let radius = bounds.half_extents().length() + 0.05
   for i = 0; i < nodes.length(); i = i + 1 {
-    if tiles.length() >= 4 {
+    if tiles.length() >= SHADOW_TILES_MAX {
       break
     }
     let (l, wmat) = nodes[i]
@@ -1375,6 +1739,23 @@ fn Renderer3D::plan_shadows(
             })
           None => ()
         }
+      Point(p) =>
+        match p.shadow {
+          Some(_) => {
+            let far = if p.range > 0.5 { p.range } else { 50.0 }
+            for face = 0; face < 6; face = face + 1 {
+              if tiles.length() >= SHADOW_TILES_MAX {
+                break
+              }
+              tiles.push({
+                light_index: i,
+                tile: tiles.length(),
+                vp: point_shadow_vp(wmat.translation, far, face),
+              })
+            }
+          }
+          None => ()
+        }
       _ => ()
     }
   }
@@ -1389,16 +1770,33 @@ fn Renderer3D::push_light_shadow(
 ) -> Unit {
   let mut vp = @tmath.Mat4::identity()
   let mut info = @tmath.Vec4::new(0.0, 0.0, 0.0, 0.0)
+  let mut base : Float = 0.0
+  let mut count = 0
   for t in tiles {
     if t.light_index == index {
+      if count == 0 {
+        base = f_of_int(t.tile)
+        let ox = f_of_int(t.tile % 4) * 0.25
+        let oy = f_of_int(t.tile / 4) * 0.5
+        info = @tmath.Vec4::new(ox, oy, 0.25, 0.5)
+      }
       vp = t.vp
-      let ox : Float = if t.tile % 2 == 0 { 0.0 } else { 0.5 }
-      let oy : Float = if t.tile / 2 == 0 { 0.0 } else { 0.5 }
-      info = @tmath.Vec4::new(ox, oy, 0.5, 1.0)
+      count = count + 1
     }
   }
   self.light_writer.push_mat4(vp)
   self.light_writer.push_vec4(info)
+  if count >= 6 {
+    self.light_writer.push_float(base)
+    self.light_writer.push_float(6.0)
+    self.light_writer.push_float(0.0)
+    self.light_writer.push_float(1.0)
+  } else {
+    self.light_writer.push_float(0.0)
+    self.light_writer.push_float(0.0)
+    self.light_writer.push_float(0.0)
+    self.light_writer.push_float(0.0)
+  }
 }
 
 ///|
@@ -1544,6 +1942,7 @@ fn Renderer3D::render_frame(
   self.stats = RenderStats3D::new()
   scene.update()
   self.update_bones(scene)
+  self.rebuild_rt_tlas(scene)
   let cam = match scene.payload(camera) {
     Some(NodePayload::Camera(c)) => c
     _ => fail("Renderer3D: camera node has no Camera payload")
@@ -1650,10 +2049,12 @@ fn Renderer3D::render_frame(
   let mut records = 0
   for item in solid {
     self.pack_object(item, scene)
+    let (mw0, mw1) = self.morph_weights_of(item.node)
     let n = solid_batches.length()
     if n > 0 &&
       solid_batches[n - 1].mesh == item.mesh &&
-      solid_batches[n - 1].material == item.material {
+      solid_batches[n - 1].material == item.material &&
+      self.meshes[item.mesh].morph() == 0 {
       solid_batches[n - 1].count = solid_batches[n - 1].count + 1
     } else {
       solid_batches.push({
@@ -1664,6 +2065,8 @@ fn Renderer3D::render_frame(
         cull_cmd: -1,
         list_offset: 0,
         skinned: self.meshes[item.mesh].skinned(),
+        morph_w0: mw0,
+        morph_w1: mw1,
       })
     }
     records = records + 1
@@ -1672,6 +2075,7 @@ fn Renderer3D::render_frame(
   let transparent_batches : Array[DrawBatch] = []
   for item in transparent {
     self.pack_object(item, scene)
+    let (mw0, mw1) = self.morph_weights_of(item.node)
     transparent_batches.push({
       mesh: item.mesh,
       material: item.material,
@@ -1680,6 +2084,8 @@ fn Renderer3D::render_frame(
       cull_cmd: -1,
       list_offset: 0,
       skinned: self.meshes[item.mesh].skinned(),
+      morph_w0: mw0,
+      morph_w1: mw1,
     })
     records = records + 1
   }
@@ -1698,8 +2104,11 @@ fn Renderer3D::render_frame(
   let shadow_batches : Array[DrawBatch] = []
   for item in casters {
     self.pack_object(item, scene)
+    let (mw0, mw1) = self.morph_weights_of(item.node)
     let n = shadow_batches.length()
-    if n > 0 && shadow_batches[n - 1].mesh == item.mesh {
+    if n > 0 &&
+      shadow_batches[n - 1].mesh == item.mesh &&
+      self.meshes[item.mesh].morph() == 0 {
       shadow_batches[n - 1].count = shadow_batches[n - 1].count + 1
     } else {
       shadow_batches.push({
@@ -1710,15 +2119,20 @@ fn Renderer3D::render_frame(
         cull_cmd: -1,
         list_offset: 0,
         skinned: self.meshes[item.mesh].skinned(),
+        morph_w0: mw0,
+        morph_w1: mw1,
       })
     }
     records = records + 1
   }
   let static_batches : Array[DrawBatch] = []
   let skin_batches : Array[DrawBatch] = []
+  let morph_batches : Array[DrawBatch] = []
   for b in solid_batches {
     if b.skinned {
       skin_batches.push(b)
+    } else if self.meshes[b.mesh].morph() > 0 {
+      morph_batches.push(b)
     } else {
       static_batches.push(b)
     }
@@ -1762,6 +2176,7 @@ fn Renderer3D::render_frame(
     }
   }
   let shadow_tiles = self.plan_shadows(light_nodes, caster_union)
+  self.pack_shadow_tiles(shadow_tiles)
   let shadows_enabled = shadow_tiles.length() > 0
   let light_count = self.pack_lights(light_nodes, shadow_tiles)
   let light_vp0 = @tmath.Mat4::identity()
@@ -1906,9 +2321,12 @@ fn Renderer3D::render_frame(
 
   let shadow_static : Array[DrawBatch] = []
   let shadow_skinned : Array[DrawBatch] = []
+  let shadow_morph : Array[DrawBatch] = []
   for b in shadow_batches {
     if b.skinned {
       shadow_skinned.push(b)
+    } else if self.meshes[b.mesh].morph() > 0 {
+      shadow_morph.push(b)
     } else {
       shadow_static.push(b)
     }
@@ -1929,8 +2347,8 @@ fn Renderer3D::render_frame(
   )
   let tile_size = self.desc.shadow_map_size
   for st in shadow_tiles {
-    let tx = (st.tile % 2) * tile_size
-    let ty = (st.tile / 2) * tile_size
+    let tx = (st.tile % 4) * tile_size
+    let ty = (st.tile / 4) * tile_size
     cmd.set_viewport(
       f_of_int(tx),
       f_of_int(ty),
@@ -2005,6 +2423,36 @@ fn Renderer3D::render_frame(
         self.stats.shadow_passes = self.stats.shadow_passes + 1
       }
     }
+    if shadow_morph.length() > 0 {
+      cmd.bind_pipeline(self.morph_shadow_pipe)
+      cmd.bind_uniform(
+        self.morph_shadow_pipe,
+        0,
+        self.frame_ubo,
+        offset=slot * FRAME_SLOT_BYTES,
+        size=FRAME_BYTES,
+      )
+      cmd.bind_storage(
+        self.morph_shadow_pipe,
+        0,
+        self.object_ring.buffer(),
+        offset=object_offset,
+        size=bind_objects_bytes(object_count),
+      )
+      self.bind_morph_arenas(cmd)
+      for b in shadow_morph {
+        cmd.push_constants_floats(self.morph_shadow_pipe, shadow_morph_pc(st.vp, b.morph_w0, b.morph_w1))
+        let mesh = self.meshes[b.mesh]
+        cmd.draw_indexed_full(
+          mesh.index_count(),
+          b.count,
+          mesh.first_index(),
+          mesh.first_vertex(),
+          b.first,
+        )
+        self.stats.shadow_passes = self.stats.shadow_passes + 1
+      }
+    }
   }
   cmd.end_render_pass()
 
@@ -2051,15 +2499,37 @@ fn Renderer3D::render_frame(
   if main_count > 0 {
     self.bind_arenas(cmd)
     let culling = cull_cmd_count > 0
+    let use_rt = self.rt_enabled && self.rt_tlas is Some(_)
+    let mut pipe_is_rt = false
     let pipe = if culling {
-      match self.pbr_cull_pipe {
-        Some(p) => p
+      match (if use_rt { self.rt_cull_pipe } else { None }) {
+        Some(p) => {
+          pipe_is_rt = true
+          p
+        }
+        None => match self.pbr_cull_pipe {
+          Some(p) => p
+          None => self.pbr_pipe
+        }
+      }
+    } else if use_rt {
+      match self.rt_pipe {
+        Some(p) => {
+          pipe_is_rt = true
+          p
+        }
         None => self.pbr_pipe
       }
     } else {
       self.pbr_pipe
     }
     cmd.bind_pipeline(pipe)
+    if pipe_is_rt {
+      match self.rt_tlas {
+        Some(t) => cmd.bind_accel_struct(pipe, 0, t)
+        None => ()
+      }
+    }
     self.bind_material_heap(cmd, pipe)
     cmd.bind_uniform(
       pipe,
@@ -2088,6 +2558,13 @@ fn Renderer3D::render_frame(
       self.light_ring.buffer(),
       offset=light_offset,
       size=bind_lights_bytes(light_count),
+    )
+    cmd.bind_storage(
+      pipe,
+      if culling { 4 } else { 3 },
+      self.shadow_tiles_ssbo,
+      offset=0,
+      size=bind_shadow_tiles_bytes(shadow_tiles.length()),
     )
     if culling {
       cmd.bind_storage(
@@ -2166,12 +2643,82 @@ fn Renderer3D::render_frame(
         offset=0,
         size=bind_bones_bytes(self.bone_cursor),
       )
+      cmd.bind_storage(
+        self.skin_pipe,
+        4,
+        self.shadow_tiles_ssbo,
+        offset=0,
+        size=bind_shadow_tiles_bytes(shadow_tiles.length()),
+      )
       cmd.bind_texture(self.skin_pipe, 0, self.shadow_atlas, self.shadow_sampler)
       cmd.bind_texture(self.skin_pipe, 1, self.shadow_atlas, self.shadow_sampler)
       cmd.bind_texture(self.skin_pipe, 2, self.env_cube, self.env_sampler)
       cmd.bind_texture(self.skin_pipe, 3, self.brdf_lut, self.linear_sampler)
       for b in skin_batches {
         self.bind_material_textures(cmd, self.skin_pipe, b.material)
+        let mesh = self.meshes[b.mesh]
+        cmd.draw_indexed_full(
+          mesh.index_count(),
+          b.count,
+          mesh.first_index(),
+          mesh.first_vertex(),
+          b.first,
+        )
+        self.stats.draw_calls = self.stats.draw_calls + 1
+      }
+      self.bind_arenas(cmd)
+    }
+    if morph_batches.length() > 0 {
+      self.bind_morph_arenas(cmd)
+      cmd.bind_pipeline(self.morph_pipe)
+      self.bind_material_heap(cmd, self.morph_pipe)
+      cmd.bind_uniform(
+        self.morph_pipe,
+        0,
+        self.frame_ubo,
+        offset=slot * FRAME_SLOT_BYTES,
+        size=FRAME_BYTES,
+      )
+      cmd.bind_storage(
+        self.morph_pipe,
+        0,
+        self.object_ring.buffer(),
+        offset=object_offset,
+        size=bind_objects_bytes(object_count),
+      )
+      cmd.bind_storage(
+        self.morph_pipe,
+        1,
+        self.material_ssbo,
+        offset=0,
+        size=self.desc.max_materials * MATERIAL_BYTES,
+      )
+      cmd.bind_storage(
+        self.morph_pipe,
+        2,
+        self.light_ring.buffer(),
+        offset=light_offset,
+        size=bind_lights_bytes(light_count),
+      )
+      cmd.bind_storage(
+        self.morph_pipe,
+        3,
+        self.shadow_tiles_ssbo,
+        offset=0,
+        size=bind_shadow_tiles_bytes(shadow_tiles.length()),
+      )
+      cmd.bind_texture(self.morph_pipe, 0, self.shadow_atlas, self.shadow_sampler)
+      cmd.bind_texture(self.morph_pipe, 1, self.shadow_atlas, self.shadow_sampler)
+      cmd.bind_texture(self.morph_pipe, 2, self.env_cube, self.env_sampler)
+      cmd.bind_texture(self.morph_pipe, 3, self.brdf_lut, self.linear_sampler)
+      for b in morph_batches {
+        self.bind_material_textures(cmd, self.morph_pipe, b.material)
+        cmd.push_constants_floats(self.morph_pipe, [
+          b.morph_w0,
+          b.morph_w1,
+          (0.0 : Float),
+          (0.0 : Float),
+        ])
         let mesh = self.meshes[b.mesh]
         cmd.draw_indexed_full(
           mesh.index_count(),
@@ -2221,6 +2768,13 @@ fn Renderer3D::render_frame(
         self.light_ring.buffer(),
         offset=light_offset,
         size=bind_lights_bytes(light_count),
+      )
+      cmd.bind_storage(
+        self.pbr_blend_pipe,
+        3,
+        self.shadow_tiles_ssbo,
+        offset=0,
+        size=bind_shadow_tiles_bytes(shadow_tiles.length()),
       )
       cmd.bind_texture(self.pbr_blend_pipe, 0, self.shadow_atlas, self.shadow_sampler)
       cmd.bind_texture(self.pbr_blend_pipe, 1, self.shadow_atlas, self.shadow_sampler)
@@ -2473,8 +3027,10 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   self.vertex_arena.destroy()
   self.index_arena.destroy()
   self.skin_arena.destroy()
+  self.morph_arena.destroy()
   self.draw_count.destroy()
   self.bone_ssbo.destroy()
+  self.shadow_tiles_ssbo.destroy()
   match self.targets {
     Some(t) => Renderer3D::destroy_targets(t)
     None => ()
@@ -2529,10 +3085,84 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   self.skin_pipe.destroy()
   self.skin_blend_pipe.destroy()
   self.shadow_skin_pipe.destroy()
+  self.morph_pipe.destroy()
+  self.morph_shadow_pipe.destroy()
+  match self.rt_pipe {
+    Some(p) => p.destroy()
+    None => ()
+  }
+  match self.rt_cull_pipe {
+    Some(p) => p.destroy()
+    None => ()
+  }
+  match self.rt_tlas {
+    Some(t) => t.destroy()
+    None => ()
+  }
+  for m in self.rt_meshes {
+    match m {
+      Some(rm) => {
+        rm.blas.destroy()
+        rm.vbuf.destroy()
+        rm.ibuf.destroy()
+      }
+      None => ()
+    }
+  }
   self.shadow_pipe.destroy()
   self.linear_sampler.destroy()
   self.env_sampler.destroy()
   self.shadow_sampler.destroy()
+}
+
+///|
+/// Set the two GPU morph weights for a node. The mesh must carry morph targets
+/// (see `MeshData::add_morph_target`); at most two are evaluated.
+pub fn Renderer3D::set_morph_weights(
+  self : Renderer3D,
+  node : NodeId,
+  weights : Array[Float],
+) -> Unit raise {
+  if weights.length() > MORPH_TARGETS_MAX {
+    fail("Renderer3D::set_morph_weights: at most two targets are supported")
+  }
+  for i = 0; i < self.morph_weights.length(); i = i + 1 {
+    if self.morph_weights[i].0.index() == node.index() {
+      self.morph_weights[i] = (node, weights)
+      return
+    }
+  }
+  self.morph_weights.push((node, weights))
+}
+
+///|
+/// Create a morph-animated mesh node (opaque materials only).
+pub fn Renderer3D::create_morph_node(
+  self : Renderer3D,
+  scene : Scene,
+  mesh : MeshHandle,
+  desc : MaterialDesc,
+  weights : Array[Float],
+  transform? : @tmath.Transform = @tmath.Transform::identity(),
+  name? : String = "",
+) -> NodeId raise {
+  let mi = mesh.id()
+  if mi < 0 || mi >= self.meshes.length() || self.meshes[mi].morph() == 0 {
+    fail("Renderer3D::create_morph_node: mesh has no morph targets")
+  }
+  if self.meshes[mi].skinned() {
+    fail("Renderer3D::create_morph_node: morph and skin cannot be combined yet")
+  }
+  match desc.alpha_mode {
+    Blend(_) => fail("Renderer3D::create_morph_node: opaque materials only")
+    _ => ()
+  }
+  if weights.length() > self.meshes[mi].morph() {
+    fail("Renderer3D::create_morph_node: more weights than morph targets")
+  }
+  let node = self.create_pbr_node(scene, mesh, desc, transform~, name~)
+  self.set_morph_weights(node, weights)
+  node
 }
 
 ///|

@@ -56,6 +56,9 @@ pub(all) struct MaterialDesc {
   base_color : @tmath.Vec4
   metallic : Float
   roughness : Float
+  // Physical extension: a second specular lobe on top of the base layer.
+  clearcoat : Float
+  clearcoat_roughness : Float
   // Linear HDR emissive, may exceed 1.
   emissive : @tmath.Vec3
   alpha_mode : AlphaMode
@@ -77,6 +80,8 @@ pub fn MaterialDesc::pbr(
     base_color,
     metallic,
     roughness,
+    clearcoat: 0.0,
+    clearcoat_roughness: 0.04,
     emissive: @tmath.Vec3::zero(),
     alpha_mode: AlphaMode::Opaque,
     double_sided: false,
@@ -94,6 +99,8 @@ pub fn MaterialDesc::unlit(color : @tmath.Vec4) -> MaterialDesc {
     base_color: color,
     metallic: 0.0,
     roughness: 1.0,
+    clearcoat: 0.0,
+    clearcoat_roughness: 0.04,
     emissive: @tmath.Vec3::zero(),
     alpha_mode: AlphaMode::Opaque,
     double_sided: false,
@@ -102,6 +109,16 @@ pub fn MaterialDesc::unlit(color : @tmath.Vec4) -> MaterialDesc {
     metallic_roughness_tex: None,
     emissive_tex: None,
   }
+}
+
+///|
+/// Physical clearcoat layer (0 disables it).
+pub fn MaterialDesc::with_clearcoat(
+  self : MaterialDesc,
+  clearcoat : Float,
+  roughness? : Float = 0.04,
+) -> MaterialDesc {
+  { ..self, clearcoat, clearcoat_roughness: roughness }
 }
 
 ///|

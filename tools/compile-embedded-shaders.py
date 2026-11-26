@@ -30,15 +30,21 @@ def find_glslang() -> str:
 
 # Extra SPIR-V variants: (defines, identifier) keyed by source file name.
 VARIANTS = {
-    "pbr.frag": [((), None), (("-DTYCHO_NO_BINDLESS",), "spv_pbr_frag_nobindless")],
+    "pbr.frag": [
+        ((), None),
+        (("-DTYCHO_NO_BINDLESS",), "spv_pbr_frag_nobindless"),
+        (("-DTYCHO_RAY_SHADOW",), "spv_pbr_frag_rt"),
+    ],
 }
 
 
 def compile_shader(glslang: str, src: pathlib.Path, defines=()) -> list[int]:
     with tempfile.TemporaryDirectory() as tmp:
         spv_path = pathlib.Path(tmp) / "out.spv"
+        # Ray queries need SPIR-V 1.4+, so those variants target Vulkan 1.2.
+        env = "vulkan1.2" if "-DTYCHO_RAY_SHADOW" in defines else "vulkan1.0"
         subprocess.run(
-            [glslang, "-V", "--target-env", "vulkan1.0", *defines, str(src), "-o", str(spv_path)],
+            [glslang, "-V", "--target-env", env, *defines, str(src), "-o", str(spv_path)],
             check=True,
         )
         data = spv_path.read_bytes()

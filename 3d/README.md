@@ -50,6 +50,17 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   single `draw_indexed_indirect_count` issues them all (compute culling fills
   instance counts); the non-bindless fallback keeps per-batch draws because it
   rebinds material textures.
+- Physical clearcoat: `MaterialDesc::with_clearcoat(1.0, roughness=0.2)`
+  adds a second GGX lobe in the direct and environment terms (example 87).
+- Morph targets: `MeshData::add_morph_target` stores up to two position-delta
+  sets, `create_morph_node`/`set_morph_weights` animate them through a 72-byte
+  stream with per-draw push-constant weights (example 88).
+- Point cube shadows: point lights with a `ShadowDesc` render six faces into a
+  4x2 atlas; the fragment shader selects the face from the dominant axis and
+  reads the shared tile table (example 89).
+- Ray-traced sun shadows: `set_ray_shadows(true)` swaps in a VK_KHR_ray_query
+  fragment variant that traces one shadow ray per pixel against a per-mesh
+  BLAS/TLAS (example 90; opt-in, no-op without ray query support).
 - Distance LOD: `create_lod_node(scene, levels, switch_distances, material)`
   swaps meshes per camera distance, shares one material for instancing, and
   reports `stats.lod_switches` (example 86 selects 48x32 / 20x12 / 8x5 spheres).

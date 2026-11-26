@@ -20,6 +20,13 @@ pub fn MeshGroup::new(start : Int, count : Int, material_slot : Int) -> MeshGrou
 }
 
 ///|
+///|
+/// One additive morph target: per-vertex position deltas in mesh-local space.
+pub(all) struct MorphTarget {
+  positions : FixedArray[@tmath.Vec3]
+}
+
+///|
 pub(all) struct MeshData {
   positions : FixedArray[@tmath.Vec3]
   mut normals : FixedArray[@tmath.Vec3]
@@ -33,6 +40,8 @@ pub(all) struct MeshData {
   // Optional GPU skinning: four joint indices and weights per vertex.
   mut skin_joints : FixedArray[@tmath.Vec4]?
   mut skin_weights : FixedArray[@tmath.Vec4]?
+  // Additive position deltas; `tycho_3d` supports the first two on the GPU.
+  mut morph_targets : Array[MorphTarget]
   mut groups : Array[MeshGroup]
 }
 
@@ -52,6 +61,7 @@ pub fn MeshData::new(
     colors: None,
     skin_joints: None,
     skin_weights: None,
+    morph_targets: [],
     groups: [],
   }
 }
@@ -99,6 +109,22 @@ pub fn MeshData::bounds(self : MeshData) -> @tmath.Aabb3 {
 
 ///|
 /// Replace the groups array (builder support; avoids a second constructor).
+///|
+pub fn MeshData::add_morph_target(
+  self : MeshData,
+  positions : FixedArray[@tmath.Vec3],
+) -> Unit raise {
+  if positions.length() != self.vertex_count() {
+    fail("MeshData::add_morph_target: delta count must match the vertex count")
+  }
+  self.morph_targets.push({ positions })
+}
+
+///|
+pub fn MeshData::has_morph(self : MeshData) -> Bool {
+  self.morph_targets.length() > 0
+}
+
 ///|
 /// Attach four joint influences per vertex (indices into a skeleton palette).
 pub fn MeshData::set_skin(

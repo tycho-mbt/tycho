@@ -19,12 +19,23 @@ pub const SKIN_VERTEX_FLOATS : Int = 20
 pub const SKIN_VERTEX_BYTES : Int = 80
 
 ///|
+/// Morph vertices append up to two position deltas: 72 bytes per vertex.
+pub const MORPH_VERTEX_FLOATS : Int = 18
+
+///|
+pub const MORPH_VERTEX_BYTES : Int = 72
+
+///|
+pub const MORPH_TARGETS_MAX : Int = 2
+
+///|
 pub struct GpuMesh {
   priv first_vertex : Int
   priv vertex_count : Int
   priv first_index : Int
   priv index_count : Int
   priv skinned : Bool
+  priv morph : Int
   bounds : @tmath.Aabb3
   groups : Array[@tgeo.MeshGroup]
   // CPU copy kept for picking; dropped when an acceleration structure lands.
@@ -100,6 +111,30 @@ pub fn mesh_skinned_vertex_floats(mesh : @tgeo.MeshData) -> FixedArray[Float] {
 }
 
 ///|
+/// Interleaved morph vertex stream: 12 static floats plus the first two morph
+/// target deltas (zero-filled when a target is absent).
+pub fn mesh_morph_vertex_floats(mesh : @tgeo.MeshData) -> FixedArray[Float] {
+  let n = mesh.vertex_count()
+  let base = mesh_vertex_floats(mesh)
+  let out = FixedArray::make(n * MORPH_VERTEX_FLOATS, (0.0 : Float))
+  for i = 0; i < n; i = i + 1 {
+    for c = 0; c < MESH_VERTEX_FLOATS; c = c + 1 {
+      out[i * MORPH_VERTEX_FLOATS + c] = base[i * MESH_VERTEX_FLOATS + c]
+    }
+    for t = 0; t < MORPH_TARGETS_MAX; t = t + 1 {
+      if t < mesh.morph_targets.length() {
+        let d = mesh.morph_targets[t].positions[i]
+        let o = i * MORPH_VERTEX_FLOATS + MESH_VERTEX_FLOATS + t * 3
+        out[o] = d.x
+        out[o + 1] = d.y
+        out[o + 2] = d.z
+      }
+    }
+  }
+  out
+}
+
+///|
 pub fn GpuMesh::range(
   mesh : @tgeo.MeshData,
   first_vertex : Int,
@@ -111,6 +146,7 @@ pub fn GpuMesh::range(
     first_index,
     index_count: mesh.index_count(),
     skinned: mesh.has_skin(),
+    morph: mesh.morph_targets.length(),
     bounds: mesh.bounds(),
     groups: mesh.groups,
     cpu: mesh,
@@ -120,6 +156,12 @@ pub fn GpuMesh::range(
 ///|
 pub fn GpuMesh::skinned(self : GpuMesh) -> Bool {
   self.skinned
+}
+
+///|
+/// Number of GPU morph targets (0 for plain meshes).
+pub fn GpuMesh::morph(self : GpuMesh) -> Int {
+  self.morph
 }
 
 ///|

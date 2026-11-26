@@ -1,4 +1,7 @@
-#version 450
+#version 460
+#ifdef TYCHO_RAY_SHADOW
+#extension GL_EXT_ray_query : require
+#endif
 #ifndef TYCHO_NO_BINDLESS
 #extension GL_EXT_nonuniform_qualifier : require
 #endif
@@ -15,7 +18,7 @@ struct MaterialGpu {
     vec4 baseColor;
     vec4 emissive;
     vec4 params;    // metallic, roughness, alphaCutoff, flags
-    vec4 texParams; // albedo index, normal index, unused, unused
+    vec4 texParams; // albedo index, normal index, clearcoat, clearcoat roughness
 };
 layout(std430, binding = 2) readonly buffer MaterialBuf { MaterialGpu materials[]; };
 
@@ -24,10 +27,23 @@ struct LightGpu {
     vec4 posDir;   // position (point/spot) or direction (dir), w = range
     vec4 dir;      // spot direction, w = decay
     vec4 params;   // intensity, inner angle, outer angle, unused
-    mat4 shadowVP; // light view-projection for this light's atlas tile
-    vec4 shadowInfo; // xy tile offset, z tile scale, w enabled
+    mat4 shadowVP; // directional/spot light view-projection
+    vec4 shadowInfo; // xy tile offset, zw tile scale (z > 0 means enabled)
+    vec4 shadowRef;  // x cube tile base, y face count, w 1 for point cube shadows
 };
 layout(std430, binding = 3) readonly buffer LightBuf { LightGpu lights[]; };
+
+// One entry per shadow tile, shared by directional, spot and point faces.
+struct ShadowTileGpu {
+    mat4 vp;
+    vec4 rect; // xy tile offset, zw tile scale
+};
+layout(std430, binding = 11) readonly buffer ShadowTileBuf { ShadowTileGpu shadowTiles[]; };
+
+#ifdef TYCHO_RAY_SHADOW
+// Hardware ray-traced sun visibility (VK_KHR_ray_query), one ray per fragment.
+layout(binding = 14) uniform accelerationStructureEXT uTlas;
+#endif
 
 layout(binding = 4) uniform sampler2DShadow uShadow0;
 layout(binding = 5) uniform sampler2DShadow uShadow1;
@@ -103,10 +119,11 @@ float sample_shadow_atlas(sampler2DShadow smap, mat4 lvp, vec4 info, vec3 worldP
     }
     float bias = max(0.004 * (1.0 - dot(N, L)), 0.0012);
     float sz = clamp(lndc.z - bias, 0.0, 1.0);
-    float texel = frame.params.y * info.z; // atlas UV per tile texel
-    vec2 base = info.xy + suv * info.z;
-    vec2 lo = info.xy + vec2(texel);
-    vec2 hi = info.xy + vec2(info.z - texel);
+    vec2 scale = vec2(info.z, info.w);
+    vec2 texel = vec2(frame.params.y) * scale; // atlas UV per tile texel
+    vec2 base = info.xy + suv * scale;
+    vec2 lo = info.xy + texel;
+    vec2 hi = info.xy + scale - texel;
     float sum = 0.0;
     for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
@@ -115,6 +132,23 @@ float sample_shadow_atlas(sampler2DShadow smap, mat4 lvp, vec4 info, vec3 worldP
         }
     }
     return sum / 9.0;
+}
+
+// Physical clearcoat: a dielectric specular lobe evaluated at the coat
+// roughness, scaled by the coat strength.
+vec3 clearcoat_spec(vec3 N, vec3 V, vec3 L, vec3 radiance, float cc, float ccr) {
+    if (cc <= 0.001) {
+        return vec3(0.0);
+    }
+    vec3 H = normalize(V + L);
+    float ndotl = max(dot(N, L), 0.0);
+    float ndotv = max(dot(N, V), 0.0);
+    float vdoth = max(dot(V, H), 0.0);
+    float D = d_ggx(N, H, ccr);
+    float G = g_smith(N, V, L, ccr);
+    float F = 0.04 + 0.96 * pow(1.0 - vdoth, 5.0);
+    float spec = D * G * F / max(4.0 * ndotv * ndotl, 0.001);
+    return vec3(cc * spec) * radiance * ndotl;
 }
 
 vec3 direct_brdf(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float metallic, float roughness) {
@@ -159,6 +193,8 @@ void main() {
     vec3 albedo = base.rgb;
     float metallic = clamp(m.params.x, 0.0, 1.0);
     float roughness = clamp(m.params.y, 0.05, 1.0);
+    float cc = clamp(m.texParams.z, 0.0, 1.0);
+    float ccr = clamp(m.texParams.w, 0.03, 1.0);
 
     vec3 lighting = vec3(0.0);
     vec3 ambientSum = vec3(0.0);
@@ -170,10 +206,32 @@ void main() {
         if (typeCode == 0) {
             vec3 L = normalize(l.posDir.xyz);
             float sh = 1.0;
-            if (shadows && l.shadowInfo.w > 0.5) {
+            if (shadows && l.shadowInfo.z > 0.0) {
                 sh = sample_shadow_atlas(uShadow0, l.shadowVP, l.shadowInfo, vWorldPos, N, L);
             }
+#ifdef TYCHO_RAY_SHADOW
+            {
+                rayQueryEXT rq;
+                vec3 origin = vWorldPos + N * 0.02;
+                rayQueryInitializeEXT(
+                    rq,
+                    uTlas,
+                    gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT,
+                    0xFF,
+                    origin,
+                    0.0,
+                    L,
+                    200.0
+                );
+                while (rayQueryProceedEXT(rq)) {}
+                if (rayQueryGetIntersectionTypeEXT(rq, true) !=
+                    gl_RayQueryCommittedIntersectionNoneEXT) {
+                    sh = 0.0;
+                }
+            }
+#endif
             lighting += direct_brdf(N, V, L, l.color.rgb * l.params.x, albedo, metallic, roughness) * sh;
+            lighting += clearcoat_spec(N, V, L, l.color.rgb * l.params.x, cc, ccr) * sh;
         } else if (typeCode == 1 || typeCode == 2) {
             vec3 toLight = l.posDir.xyz - vWorldPos;
             float dist = length(toLight);
@@ -190,10 +248,27 @@ void main() {
                 atten *= smoothstep(l.params.y, l.params.z, cd);
             }
             float sh = 1.0;
-            if (shadows && l.shadowInfo.w > 0.5) {
-                sh = sample_shadow_atlas(uShadow0, l.shadowVP, l.shadowInfo, vWorldPos, N, L);
+            if (shadows) {
+                if (typeCode == 1 && l.shadowRef.w > 0.5) {
+                    int base = int(l.shadowRef.x + 0.5);
+                    vec3 d = vWorldPos - l.posDir.xyz;
+                    vec3 ad = abs(d);
+                    int face;
+                    if (ad.x >= ad.y && ad.x >= ad.z) {
+                        face = d.x > 0.0 ? 0 : 1;
+                    } else if (ad.y >= ad.z) {
+                        face = d.y > 0.0 ? 2 : 3;
+                    } else {
+                        face = d.z > 0.0 ? 4 : 5;
+                    }
+                    ShadowTileGpu st = shadowTiles[base + face];
+                    sh = sample_shadow_atlas(uShadow0, st.vp, st.rect, vWorldPos, N, L);
+                } else if (typeCode == 2 && l.shadowInfo.z > 0.0) {
+                    sh = sample_shadow_atlas(uShadow0, l.shadowVP, l.shadowInfo, vWorldPos, N, L);
+                }
             }
             lighting += direct_brdf(N, V, L, l.color.rgb * atten, albedo, metallic, roughness) * sh;
+            lighting += clearcoat_spec(N, V, L, l.color.rgb * atten, cc, ccr) * sh;
         } else if (typeCode == 3) {
             ambientSum += l.color.rgb * l.params.x;
         } else if (typeCode == 4) {
@@ -214,6 +289,13 @@ void main() {
     vec3 F_env = clamp(F0 * ab.x + vec3(ab.y), 0.0, 1.0);
     vec3 kD = (vec3(1.0) - F_env) * (1.0 - metallic);
     vec3 ambient = kD * envDiff * albedo + F_env * envSpec + ambientSum * albedo;
+    if (cc > 0.001) {
+        // Coat-reflection: a second, sharper environment lookup.
+        vec3 ccSpec = textureLod(uEnv, R, ccr * maxLod).rgb;
+        float ndv = clamp(dot(N, V), 0.0, 1.0);
+        float ccF = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
+        ambient += ccSpec * (cc * ccF) * envI;
+    }
 
     outHDR = vec4(ambient + lighting + emissive, base.a);
 }
