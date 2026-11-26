@@ -46,6 +46,16 @@ priv struct ImageTexEntry {
 }
 
 ///|
+// A deferred AA path waiting to be drawn into a shared MSAA pass. Only
+// non-overlapping SrcOver paths with no filter and no stencil clip are batched,
+// so combining them is pixel-equivalent to drawing each on its own.
+priv struct PendingPath {
+  path : Path
+  paint : Paint
+  transform : Matrix3
+}
+
+///|
 pub struct Renderer2D {
   priv dev : @tycho.Device
   priv sampler : @tycho.Sampler
@@ -108,6 +118,9 @@ pub struct Renderer2D {
   priv stop_scratch : FixedArray[Float]
   priv path_scratch : FixedArray[Float]
   priv path_cache : Map[String, CachedPathMesh]
+  priv path_batch : Array[PendingPath]
+  priv mut path_batch_bounds : Rect?
+  priv mut path_batch_count : Int
   priv mut frame_idx : Int
   priv mut active_slot : Int
   priv mut active_rt_slot : Int
@@ -581,6 +594,9 @@ pub fn Renderer2D::new(
     stop_scratch: FixedArray::make(STOP_FLOATS, (0.0 : Float)),
     path_scratch: FixedArray::make(max_path_verts_per_frame * PATH_VERT_FLOATS, (0.0 : Float)),
     path_cache: {},
+    path_batch: [],
+    path_batch_bounds: None,
+    path_batch_count: 0,
     frame_idx: 0,
     active_slot: 0,
     active_rt_slot: 0,
@@ -1205,6 +1221,11 @@ fn Renderer2D::flush_prims(
 ///|
 pub fn Renderer2D::dedicated_image_count(self : Renderer2D) -> Int {
   self.image_tex.length()
+}
+
+///|
+pub fn Renderer2D::path_batch_count(self : Renderer2D) -> Int {
+  self.path_batch_count
 }
 
 ///|
@@ -2024,12 +2045,204 @@ fn Renderer2D::composite_texture(
 }
 
 ///|
+// Queue an anti-aliased path for the shared MSAA batch, or draw it immediately
+// when batching is not pixel-equivalent (filters, non-SrcOver, stencil clips).
+fn Renderer2D::queue_path(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+  path : Path,
+  paint : Paint,
+) -> Unit raise @tycho.RhiError {
+  let no_filter = match paint.image_filter {
+    None => true
+    Some(_) => false
+  }
+  let batchable = self.msaa_supported &&
+    paint.anti_alias &&
+    no_filter &&
+    paint.blend_mode == BlendMode2D::SrcOver &&
+    !self.has_stencil_clip
+  if !batchable {
+    self.flush_path_batch(cmd)
+    self.draw_path_gpu(cmd, path, paint)
+    return
+  }
+  let raw = self.cur_transform.map_rect(path.bounds()).inflate(paint.stroke_width + (2.0 : Float))
+  let b = raw.intersect(self.cur_scissor)
+  if b.is_empty() {
+    return
+  }
+  if self.path_batch.length() >= 8 {
+    self.flush_path_batch(cmd)
+  }
+  let mut union = b
+  match self.path_batch_bounds {
+    Some(prev) => {
+      let merged = prev.union(b)
+      let target_area = Float::from_int(self.active_w * self.active_h)
+      let too_big = merged.width * merged.height > target_area * (0.5 : Float)
+      if !prev.intersect(b).is_empty() || too_big {
+        self.flush_path_batch(cmd)
+      } else {
+        union = merged
+      }
+    }
+    None => ()
+  }
+  self.path_batch.push({ path, paint, transform: self.cur_transform })
+  let next = match self.path_batch_bounds {
+    Some(p) => p.union(b)
+    None => union
+  }
+  self.path_batch_bounds = Some(next)
+}
+
+///|
+fn Renderer2D::flush_path_batch(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+) -> Unit raise @tycho.RhiError {
+  if self.path_batch.length() == 0 {
+    self.path_batch_bounds = None
+    return
+  }
+  let bounds = match self.path_batch_bounds {
+    Some(b) => b
+    None => {
+      self.path_batch.clear()
+      return
+    }
+  }
+  self.path_batch_bounds = None
+  let clipped = bounds.intersect(self.cur_scissor)
+  let has_target = match (self.active_tex, self.active_ds) {
+    (Some(_), Some(_)) => true
+    _ => false
+  }
+  if clipped.is_empty() || !has_target {
+    self.path_batch.clear()
+    return
+  }
+  self.flush_prims(cmd)
+  let bx = clipped.x.floor()
+  let by = clipped.y.floor()
+  let bw = @tmath.max_f((1.0 : Float), clipped.right().ceil() - bx).to_int()
+  let bh = @tmath.max_f((1.0 : Float), clipped.bottom().ceil() - by).to_int()
+  let otex = self.active_tex.unwrap()
+  let ods = self.active_ds.unwrap()
+  let ow = self.active_w
+  let oh = self.active_h
+  cmd.end_render_pass()
+  let (res_col, _) = self.rt_pool.acquire(
+    bw,
+    bh,
+    with_depth_stencil=false,
+    slot=self.active_rt_slot,
+  )
+  let (msaa_col, msaa_ds_opt) = self.rt_pool.acquire(
+    bw,
+    bh,
+    with_depth_stencil=true,
+    samples=@tycho.SampleCount::X4,
+    slot=self.active_rt_slot,
+  )
+  let msaa_ds = msaa_ds_opt.unwrap()
+  self.path_batch_count = self.path_batch_count + 1
+  cmd.begin_render_pass(
+    [
+      @tycho.RenderTargetDesc::new(
+        msaa_col,
+        load_op=@tycho.LoadOp::Clear,
+        store_op=@tycho.StoreOp::DontCare,
+        clear_color=@tycho.ClearColor::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float)),
+        resolve_texture=Some(res_col),
+      ),
+    ],
+    depth=Some(
+      @tycho.DepthTargetDesc::new(
+        msaa_ds,
+        load_op=@tycho.LoadOp::Clear,
+        store_op=@tycho.StoreOp::DontCare,
+        stencil_load_op=@tycho.LoadOp::Clear,
+        stencil_store_op=@tycho.StoreOp::DontCare,
+        clear_stencil=0,
+      ),
+    ),
+  )
+  cmd.set_viewport(
+    (0.0 : Float),
+    (0.0 : Float),
+    Float::from_int(msaa_col.width()),
+    Float::from_int(msaa_col.height()),
+  )
+  cmd.set_scissor(0, 0, bw, bh)
+  let count = self.path_batch.length()
+  for i = 0; i < count; i = i + 1 {
+    let pp = self.path_batch[i]
+    let xf = pp.transform
+    let local_xf = Matrix3::{
+      a: xf.a,
+      c: xf.c,
+      tx: xf.tx - bx,
+      b: xf.b,
+      d: xf.d,
+      ty: xf.ty - by,
+    }
+    self.draw_path_raw(
+      cmd,
+      pp.path,
+      pp.paint,
+      local_xf,
+      msaa_col.width(),
+      msaa_col.height(),
+      true,
+    )
+  }
+  self.path_batch.clear()
+  cmd.end_render_pass()
+  self.begin_target_pass(
+    cmd,
+    otex,
+    ods,
+    ow,
+    oh,
+    @tycho.LoadOp::Load,
+    Color::transparent(),
+    @tycho.LoadOp::Load,
+  )
+  let rw = Float::from_int(res_col.width())
+  let rh = Float::from_int(res_col.height())
+  let su1 = Float::from_int(bw) / rw
+  let sv1 = Float::from_int(bh) / rh
+  let dst = Rect::new(bx, by, Float::from_int(bw), Float::from_int(bh))
+  self.composite_texture(
+    cmd,
+    res_col,
+    (0.0 : Float),
+    (0.0 : Float),
+    su1,
+    sv1,
+    dst,
+    Color::white(),
+    BlendMode2D::SrcOver,
+    self.cur_clip_rrect,
+  )
+}
+
+///|
 fn Renderer2D::replay_ops(
   self : Renderer2D,
   cmd : @tycho.CommandBuffer,
   ops : FixedArray[DrawOp],
 ) -> Unit raise @tycho.RhiError {
   for op in ops {
+    match op {
+      DrawOp::DrawPath(path, paint) => {
+        self.queue_path(cmd, path, paint)
+        continue
+      }
+      _ => self.flush_path_batch(cmd)
+    }
     match op {
       DrawOp::Clear(col) => {
         self.set_blend(cmd, BlendMode2D::SrcOver)
@@ -2674,7 +2887,7 @@ fn Renderer2D::replay_ops(
           radii_y=Some((tly, tr_y, bry, bly)),
         )
       }
-      DrawOp::DrawPath(path, paint) => self.draw_path_gpu(cmd, path, paint)
+      DrawOp::DrawPath(_, _) => ()
       DrawOp::DrawImage(img, src, dst, paint) => {
         self.set_blend(cmd, paint.blend_mode)
         let (u0, v0, u1, v1, iw, ih, tex_id) = match self.ensure_image_texture(img) {
@@ -2861,6 +3074,9 @@ fn Renderer2D::reset_frame_state(
   self.has_stencil_clip = false
   self.cur_blend = BlendMode2D::SrcOver
   self.cur_color_format = @tycho.TextureFormat::RGBA8
+  self.path_batch.clear()
+  self.path_batch_bounds = None
+  self.path_batch_count = 0
   self.state_stack.clear()
 }
 
@@ -2894,6 +3110,7 @@ fn Renderer2D::render_into_scene(
     @tycho.LoadOp::Clear,
   )
   self.replay_ops(cmd, dl.ops)
+  self.flush_path_batch(cmd)
   self.flush_prims(cmd)
   cmd.end_render_pass()
   scene_tex
@@ -2928,6 +3145,7 @@ pub fn Renderer2D::render_offscreen(
     @tycho.LoadOp::Clear,
   )
   self.replay_ops(cmd, dl.ops)
+  self.flush_path_batch(cmd)
   self.flush_prims(cmd)
   cmd.end_render_pass()
   self.dev.end_commands(cmd)
@@ -2972,6 +3190,7 @@ pub fn Renderer2D::render_swapchain(
       clear_color=Some(clear_color.to_clear_color()),
     )
     self.replay_ops(cmd, dl.ops)
+    self.flush_path_batch(cmd)
     self.flush_prims(cmd)
     cmd.end_swapchain_pass()
     sc.end_frame(cmd)
