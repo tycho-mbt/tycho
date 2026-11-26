@@ -34,6 +34,18 @@ priv struct CachedPathMesh {
 }
 
 ///|
+// A large image promoted out of the shared atlas into its own mipmapped
+// texture. `tex_id` is its slot in the bindless heap; a non-negative tex_id is
+// forwarded to the fragment shader so it samples the dedicated texture (and its
+// mip chain) instead of the atlas.
+priv struct ImageTexEntry {
+  tex : @tycho.Texture
+  tex_id : Int
+  width : Int
+  height : Int
+}
+
+///|
 pub struct Renderer2D {
   priv dev : @tycho.Device
   priv sampler : @tycho.Sampler
@@ -41,6 +53,8 @@ pub struct Renderer2D {
   priv color_atlas : DynamicAtlas
   priv rt_pool : RenderTargetPool
   priv uploaded_images : Map[Int, (Float, Float, Float, Float)]
+  priv image_tex : Map[Int, ImageTexEntry]
+  priv mip_sampler : @tycho.Sampler
   priv msaa_supported : Bool
   // AOT pipelines (depth_format = Depth24Stencil8 for main / layer passes)
   priv prim_pipe : @tycho.Pipeline
@@ -148,6 +162,14 @@ pub fn Renderer2D::new(
     @tycho.SamplerDesc::new(
       mag=@tycho.Filter::Linear,
       min=@tycho.Filter::Linear,
+      address=@tycho.AddressMode::ClampToEdge,
+    ),
+  )
+  let mip_sampler = dev.create_sampler_desc(
+    @tycho.SamplerDesc::new(
+      mag=@tycho.Filter::Linear,
+      min=@tycho.Filter::Linear,
+      mipmap=@tycho.Filter::Linear,
       address=@tycho.AddressMode::ClampToEdge,
     ),
   )
@@ -516,6 +538,8 @@ pub fn Renderer2D::new(
     color_atlas,
     rt_pool,
     uploaded_images: {},
+    image_tex: {},
+    mip_sampler,
     msaa_supported,
     prim_pipe,
     prim_clip_pipe,
@@ -591,6 +615,14 @@ pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
     Some(p) => p.destroy()
     None => ()
   }
+  for _, e in self.image_tex {
+    match self.bindless_heap {
+      Some(h) => h.unregister_texture(e.tex_id)
+      None => ()
+    }
+    e.tex.destroy()
+  }
+  self.image_tex.clear()
   match self.bindless_heap {
     Some(h) => h.destroy()
     None => ()
@@ -645,6 +677,7 @@ pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
   self.rt_pool.destroy()
   self.glyph_cache.destroy()
   self.color_atlas.destroy()
+  self.mip_sampler.destroy()
   self.sampler.destroy()
 }
 
@@ -1154,6 +1187,48 @@ fn Renderer2D::flush_prims(
   )
   cmd.draw_instanced(6, count, 0, self.prim_batch_start)
   self.prim_batch_start = self.prim_cursor
+}
+
+///|
+pub fn Renderer2D::dedicated_image_count(self : Renderer2D) -> Int {
+  self.image_tex.length()
+}
+
+///|
+// Promote a large image into its own mipmapped texture so minified draws are
+// properly filtered. Only used when the device supports bindless sampling; the
+// returned tex_id is forwarded to the shader via extra0. Returns None to fall
+// back to the shared atlas (texture-backed images, small images, or no
+// bindless).
+fn Renderer2D::ensure_image_texture(
+  self : Renderer2D,
+  img : Image2D,
+) -> (Int, Int, Int)? raise @tycho.RhiError {
+  match self.bindless_heap {
+    None => return None
+    Some(_) => ()
+  }
+  if img.width < 64 || img.height < 64 || img.pixels.length() == 0 {
+    return None
+  }
+  match self.image_tex.get(img.id) {
+    Some(e) => return Some((e.tex_id, e.width, e.height))
+    None => ()
+  }
+  // Keep the bindless table bounded; excess images fall back to the atlas.
+  if self.image_tex.length() >= 64 {
+    return None
+  }
+  let tex = self.dev.create_texture_mipmapped(
+    img.width,
+    img.height,
+    @tycho.TextureFormat::RGBA8,
+    img.pixels,
+  )
+  let heap = self.bindless_heap.unwrap()
+  let tex_id = heap.register_texture(tex, self.mip_sampler)
+  self.image_tex[img.id] = { tex, tex_id, width: img.width, height: img.height }
+  Some((tex_id, img.width, img.height))
 }
 
 ///|
@@ -2589,9 +2664,30 @@ fn Renderer2D::replay_ops(
       DrawOp::DrawPath(path, paint) => self.draw_path_gpu(cmd, path, paint)
       DrawOp::DrawImage(img, src, dst, paint) => {
         self.set_blend(cmd, paint.blend_mode)
-        let (u0, v0, u1, v1) = self.ensure_image_uv(img)
-        let iw = Float::from_int(if img.width > 0 { img.width } else { 1 })
-        let ih = Float::from_int(if img.height > 0 { img.height } else { 1 })
+        let (u0, v0, u1, v1, iw, ih, tex_id) = match self.ensure_image_texture(img) {
+          Some((tid, tw, th)) =>
+            (
+              (0.0 : Float),
+              (0.0 : Float),
+              (1.0 : Float),
+              (1.0 : Float),
+              Float::from_int(tw),
+              Float::from_int(th),
+              Float::from_int(tid),
+            )
+          None => {
+            let (a, b, c, d) = self.ensure_image_uv(img)
+            (
+              a,
+              b,
+              c,
+              d,
+              Float::from_int(if img.width > 0 { img.width } else { 1 }),
+              Float::from_int(if img.height > 0 { img.height } else { 1 }),
+              (-1.0 : Float),
+            )
+          }
+        }
         let su0 = u0 + (u1 - u0) * (src.x / iw)
         let sv0 = v0 + (v1 - v0) * (src.y / ih)
         let su1 = u0 + (u1 - u0) * (src.right() / iw)
@@ -2624,6 +2720,7 @@ fn Renderer2D::replay_ops(
           (0.0 : Float),
           (0.0 : Float),
           (0.0 : Float),
+          extra0=tex_id,
         )
       }
       DrawOp::DrawParagraph(para, pos) => {

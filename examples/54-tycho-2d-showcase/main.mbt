@@ -24,6 +24,26 @@ fn make_badge_image() -> @g2d.Image2D {
 }
 
 ///|
+// 128x128 one-pixel checkerboard. Drawn 4x minified it must resolve to a smooth
+// gray via the mip chain (aliases to black/white without mipmaps).
+fn make_checker_image() -> @g2d.Image2D {
+  let w = 128
+  let h = 128
+  let px = Array::make(w * h * 4, (0 : Byte))
+  for y = 0; y < h; y = y + 1 {
+    for x = 0; x < w; x = x + 1 {
+      let i = (y * w + x) * 4
+      let v = if (x + y) % 2 == 0 { 0 } else { 255 }
+      px[i + 0] = v.to_byte()
+      px[i + 1] = v.to_byte()
+      px[i + 2] = v.to_byte()
+      px[i + 3] = (255 : Byte)
+    }
+  }
+  @g2d.Image2D::from_bytes(2, w, h, Bytes::from_array(px[:]))
+}
+
+///|
 fn sin_cos_showcase(theta : Double) -> (Double, Double) {
   let (s, c) = @tmath.sin_cos(Float::from_double(theta))
   (s.to_double(), c.to_double())
@@ -60,7 +80,11 @@ fn build_wave_path(x0 : Float, y0 : Float) -> @g2d.Path {
 }
 
 ///|
-fn build_scene(font : @g2d.FontFace, badge : @g2d.Image2D) -> @g2d.DisplayList {
+fn build_scene(
+  font : @g2d.FontFace,
+  badge : @g2d.Image2D,
+  checker : @g2d.Image2D,
+) -> @g2d.DisplayList {
   let c = @g2d.Canvas::new()
   let bg = @g2d.Color::from_rgba8(14, 18, 30)
   c.clear(bg)
@@ -252,6 +276,13 @@ fn build_scene(font : @g2d.FontFace, badge : @g2d.Image2D) -> @g2d.DisplayList {
     ),
   )
 
+  // Large image promoted to a dedicated mipmapped texture, drawn 4x minified.
+  c.draw_image_rect(
+    checker,
+    @g2d.Rect::new((0.0 : Float), (0.0 : Float), (128.0 : Float), (128.0 : Float)),
+    @g2d.Rect::new((700.0 : Float), (90.0 : Float), (32.0 : Float), (32.0 : Float)),
+  )
+
   c.finish()
 }
 
@@ -281,7 +312,8 @@ fn main {
       @g2d.FontFace::builtin()
     }
     let badge = make_badge_image()
-    let dl = build_scene(font, badge)
+    let checker = make_checker_image()
+    let dl = build_scene(font, badge, checker)
 
     let w = 800
     let h = 600
@@ -342,6 +374,17 @@ fn main {
     let blend_overlap_ok = ovr > 200 && ovb > 200 && ovg < 80
     let (blr, blg, blb, _) = px_at(px, w, 70, 32)
     let blend_blue_ok = blb > 200 && blr < 80
+    // 11. Large image -> dedicated mipmapped texture. A 1px checker drawn 4x
+    //     minified resolves to mid-gray only when the mip chain is sampled.
+    let bindless_ok = dev.capabilities().supports_bindless
+    let dedicated_count = renderer.dedicated_image_count()
+    let (ckr, ckg, ckb, _) = px_at(px, w, 716, 106)
+    let mip_ok = if bindless_ok {
+      ckr > 70 && ckr < 190 && ckg > 70 && ckg < 190 && ckb > 70 && ckb < 190
+    } else {
+      true
+    }
+    let dedicated_ok = !bindless_ok || dedicated_count >= 1
 
     rt.destroy()
 
@@ -376,11 +419,11 @@ fn main {
     let used = dev.allocator_used_bytes()
     dev.destroy()
 
-    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && errs == 0 && used == (0 : UInt64) {
-      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus blend + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified, 0 validation errors")
+    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && errs == 0 && used == (0 : UInt64) {
+      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus blend + mipmapped image + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified, 0 validation errors")
     } else {
       println(
-        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) errs=\{errs} used=\{used}",
+        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} errs=\{errs} used=\{used}",
       )
     }
   } catch {

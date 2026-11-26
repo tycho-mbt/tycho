@@ -119,6 +119,7 @@ pub struct DynamicAtlas {
   packer : SkylinePacker
 }
 pub fn DynamicAtlas::alloc_and_upload(Self, Int32, Int32, Bytes, padding? : Int32) -> (Int32, Int32)? raise @tycho.RhiError
+pub fn DynamicAtlas::alloc_and_upload_padded(Self, Int32, Int32, Bytes, padding? : Int32) -> (Int32, Int32, Int32, Int32)? raise @tycho.RhiError
 pub fn DynamicAtlas::destroy(Self) -> Unit
 pub fn DynamicAtlas::new(@tycho.Device, Int32, Int32, @tycho.TextureFormat) -> Self raise @tycho.RhiError
 pub fn DynamicAtlas::reset(Self) -> Unit
@@ -380,6 +381,7 @@ pub fn RenderTargetPool::release_slot(Self, Int32) -> Unit
 pub struct Renderer2D {
   // private fields
 }
+pub fn Renderer2D::dedicated_image_count(Self) -> Int32
 pub fn Renderer2D::destroy(Self) -> Unit
 pub fn Renderer2D::new(@tycho.Device, max_prims_per_frame? : Int32, max_stops_per_frame? : Int32, max_path_verts_per_frame? : Int32) -> Self raise @tycho.RhiError
 pub fn Renderer2D::render_offscreen(Self, DisplayList, @tycho.Texture, clear_color? : Color) -> Unit raise @tycho.RhiError
