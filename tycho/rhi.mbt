@@ -1052,6 +1052,17 @@ pub fn CommandBuffer::push_constants_floats(
 }
 
 ///|
+/// Push a column-major `Mat4` as the 16 floats of a `mat4` push constant.
+pub fn CommandBuffer::push_constants_mat4(
+  self : CommandBuffer,
+  pipeline : Pipeline,
+  m : @tmath.Mat4,
+  offset? : Int = 0,
+) -> Unit {
+  vk_cmd_push_constants_floats(self.inner, pipeline.inner, m.to_cols_array(), offset)
+}
+
+///|
 pub fn CommandBuffer::push_constants_bytes(
   self : CommandBuffer,
   pipeline : Pipeline,

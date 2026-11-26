@@ -459,15 +459,28 @@ pub(all) struct RayInstanceDesc {
 ///|
 pub fn RayInstanceDesc::new(
   blas : AccelStruct,
-  transform? : FixedArray[Float] = [
-    (1.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float),
-    (0.0 : Float), (1.0 : Float), (0.0 : Float), (0.0 : Float),
-    (0.0 : Float), (0.0 : Float), (1.0 : Float), (0.0 : Float),
-  ],
+  transform? : FixedArray[Float] = @tmath.Affine3::identity().to_vk_transform_3x4(),
   custom_index? : Int = 0,
   mask? : Int = 0xFF,
 ) -> RayInstanceDesc {
   { blas, transform, custom_index, mask }
+}
+
+///|
+/// Instance descriptor whose TLAS transform comes from an affine transform
+/// (row-major 3x4, the same layout as `VkTransformMatrixKHR`).
+pub fn RayInstanceDesc::from_affine3(
+  blas : AccelStruct,
+  affine : @tmath.Affine3,
+  custom_index? : Int = 0,
+  mask? : Int = 0xFF,
+) -> RayInstanceDesc {
+  {
+    blas,
+    transform: affine.to_vk_transform_3x4(),
+    custom_index,
+    mask,
+  }
 }
 
 ///|
