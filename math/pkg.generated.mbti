@@ -207,6 +207,7 @@ pub fn Affine3::normal_matrix(Self) -> Mat3?
 pub fn Affine3::to_mat4(Self) -> Mat4
 pub fn Affine3::to_mat4_array(Self) -> FixedArray[Float]
 pub fn Affine3::to_vk_transform_3x4(Self) -> FixedArray[Float]
+pub fn Affine3::to_vk_transform_3x4_bytes(Self) -> Bytes
 pub fn Affine3::transform_point3(Self, Vec3) -> Vec3
 pub fn Affine3::transform_vector3(Self, Vec3) -> Vec3
 pub impl Mul for Affine3

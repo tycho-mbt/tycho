@@ -148,6 +148,22 @@ pub fn Affine3::to_vk_transform_3x4(self : Affine3) -> FixedArray[Float] {
 }
 
 ///|
+/// 48-byte little-endian encoding of the same 3x4 row-major matrix, ready for
+/// `VkTransformMatrixKHR::set_matrix` (TLAS instance transform) without any
+/// hand-assembled IEEE-754 byte literals at the call site.
+pub fn Affine3::to_vk_transform_3x4_bytes(self : Affine3) -> Bytes {
+  let m = self.to_vk_transform_3x4()
+  let out : Array[Byte] = []
+  for i = 0; i < 12; i = i + 1 {
+    let b = m[i].to_le_bytes()
+    for j = 0; j < 4; j = j + 1 {
+      out.push(b[j])
+    }
+  }
+  Bytes::from_array(out)
+}
+
+///|
 pub fn Affine3::to_mat4_array(self : Affine3) -> FixedArray[Float] {
   self.to_mat4().to_cols_array()
 }

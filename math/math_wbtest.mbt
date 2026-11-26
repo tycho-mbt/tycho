@@ -521,6 +521,27 @@ test "gpu pack std140 and std430" {
 }
 
 ///|
+test "vk transform 3x4 bytes" {
+  let a = Affine3::from_translation(Vec3::new(1.0, 2.0, 3.0))
+  let bytes = a.to_vk_transform_3x4_bytes()
+  need(bytes.length() == 48, "3x4 byte length")
+  // Row-major 3x4: identity basis with the translation in the last column.
+  // 1.0f little-endian is 00 00 80 3F, 2.0f is 00 00 00 40, 3.0f is 00 00 40 40.
+  need(bytes[2] == (0x80 : Byte) && bytes[3] == (0x3F : Byte), "m00 is 1.0")
+  need(bytes[14] == (0x80 : Byte) && bytes[15] == (0x3F : Byte), "tx is 1.0")
+  need(bytes[30] == (0x00 : Byte) && bytes[31] == (0x40 : Byte), "ty is 2.0")
+  need(bytes[46] == (0x40 : Byte) && bytes[47] == (0x40 : Byte), "tz is 3.0")
+  // The byte form must agree with the float form element by element.
+  let floats = a.to_vk_transform_3x4()
+  let head = bytes[0:4]
+  let bits = head[0].to_uint() |
+    (head[1].to_uint() << 8) |
+    (head[2].to_uint() << 16) |
+    (head[3].to_uint() << 24)
+  need(Float::reinterpret_from_uint(bits) == floats[0], "byte/float agreement")
+}
+
+///|
 test "batch kernels" {
   let a : FixedArray[Mat4] = FixedArray::make(3, Mat4::identity())
   let b : FixedArray[Mat4] = FixedArray::make(3, Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0)))
