@@ -248,13 +248,24 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
           order = next_order
         }
       }
+      let cluster_of = Array::make(j - start, 0)
+      let mut cluster_base = -1
+      for k = start; k < j; k = k + 1 {
+        if is_deva_consonant(cps[k]) {
+          cluster_base = k
+        }
+        cluster_of[k - start] = if cluster_base >= 0 { cluster_base } else { k }
+      }
       let run_cps : Array[Int] = []
       let run_src : Array[Int] = []
+      let run_cluster : Array[Int] = []
       let gids : Array[Int] = []
       for k in order {
-        run_cps.push(cps[k])
+        let cpk = cps[k]
+        run_cps.push(cpk)
         run_src.push(k)
-        gids.push(font.glyph_id(cps[k]))
+        run_cluster.push(cluster_of[k - start])
+        gids.push(font.glyph_id(cpk))
       }
       let shaped = font.india_shape(
         gids,
@@ -278,8 +289,8 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
         }
         out.push({
           cp: run_cps[idx],
-          source_start: run_src[idx],
-          source_end: run_src[ce - 1] + 1,
+          source_start: run_cluster[idx],
+          source_end: run_cluster[idx] + 1,
           glyph_id: gid,
           is_newline: false,
           is_space: false,

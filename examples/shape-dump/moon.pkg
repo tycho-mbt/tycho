@@ -1,0 +1,7 @@
+import {
+  "laplaceliu/tycho" @tycho,
+  "laplaceliu/tycho_2d" @g2d,
+  "moonbitlang/core/env" @env,
+}
+
+pkgtype(kind: "executable")
