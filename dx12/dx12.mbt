@@ -67,6 +67,8 @@ extern "c" fn cmd_clear_ffi(cmds : UInt64, tex : UInt64, r : Float, g : Float, b
 
 extern "c" fn cmd_set_pipeline_ffi(cmds : UInt64, pipe : UInt64) -> Int32 = "tycho_dx12_cmd_set_pipeline"
 
+extern "c" fn cmd_set_extra_targets_ffi(cmds : UInt64, t1 : UInt64, t2 : UInt64, t3 : UInt64) -> Int32 = "tycho_dx12_cmd_set_extra_targets"
+
 extern "c" fn cmd_draw_ffi(cmds : UInt64, tex : UInt64, vertices : Int, instances : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_draw"
 
 extern "c" fn cmd_set_cbv_ffi(cmds : UInt64, index : Int, gpu_address : UInt64) -> Int32 = "tycho_dx12_cmd_set_cbv"
@@ -114,8 +116,8 @@ extern "c" fn cmd_copy_to_readback_ffi(cmds : UInt64, tex : UInt64, rb : UInt64)
 
 extern "c" fn commands_execute_wait_ffi(dev : UInt64, cmds : UInt64) -> Int32 = "tycho_dx12_commands_execute_wait"
 
-#borrow(vs, ps, inputs)
-extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int, depth_enable : Int, depth_write : Int, srv_tables : Int, push_bytes : Int, input_count : Int, inputs : FixedArray[Int]) -> UInt64 = "tycho_dx12_pipeline_create"
+#borrow(vs, ps, colors, inputs)
+extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int, depth_enable : Int, depth_write : Int, srv_tables : Int, push_bytes : Int, color_count : Int, colors : FixedArray[Int], input_count : Int, inputs : FixedArray[Int]) -> UInt64 = "tycho_dx12_pipeline_create"
 
 extern "c" fn cmd_draw_indexed_ffi(cmds : UInt64, tex : UInt64, index_count : Int, instances : Int, first_index : Int, vertex_offset : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_draw_indexed"
 
@@ -140,9 +142,9 @@ extern "c" fn timestamp_pool_count_ffi(pool : UInt64) -> Int32 = "tycho_dx12_tim
 extern "c" fn timestamp_pool_destroy_ffi(pool : UInt64) = "tycho_dx12_timestamp_pool_destroy"
 
 #borrow(pixels)
-extern "c" fn texture_create_uploaded_ffi(dev : UInt64, width : Int, height : Int, pixels : Bytes, pixel_bytes : Int) -> UInt64 = "tycho_dx12_texture_create_uploaded"
+extern "c" fn texture_create_uploaded_ffi(dev : UInt64, width : Int, height : Int, pixels : Bytes, pixel_bytes : Int, format : Int) -> UInt64 = "tycho_dx12_texture_create_uploaded"
 
-extern "c" fn cmd_set_texture_ffi(cmds : UInt64, root_index : Int, tex : UInt64, sampler : UInt64) -> Int32 = "tycho_dx12_cmd_set_texture"
+extern "c" fn cmd_set_texture_ffi(cmds : UInt64, root_index : Int, sampler_root : Int, tex : UInt64, sampler : UInt64) -> Int32 = "tycho_dx12_cmd_set_texture"
 
 extern "c" fn sampler_create_ffi(dev : UInt64, filter : Int, address : Int, anisotropy : Float, min_lod : Float, max_lod : Float, mip_lod_bias : Float) -> UInt64 = "tycho_dx12_sampler_create"
 
@@ -167,7 +169,7 @@ extern "c" fn buffer_heap_destroy_ffi(heap : UInt64) = "tycho_dx12_buffer_heap_d
 
 extern "c" fn buffer_place_ffi(heap : UInt64, offset : Int, size : Int) -> UInt64 = "tycho_dx12_buffer_place"
 
-extern "c" fn depth_create_ffi(dev : UInt64, width : Int, height : Int) -> UInt64 = "tycho_dx12_depth_create"
+extern "c" fn depth_create_ffi(dev : UInt64, width : Int, height : Int, format : Int) -> UInt64 = "tycho_dx12_depth_create"
 
 extern "c" fn cmd_set_depth_ffi(cmds : UInt64, tex : UInt64) -> Int32 = "tycho_dx12_cmd_set_depth"
 
@@ -175,7 +177,7 @@ extern "c" fn cmd_clear_depth_ffi(cmds : UInt64, tex : UInt64, depth : Float) ->
 
 extern "c" fn pipeline_destroy_ffi(pipe : UInt64) = "tycho_dx12_pipeline_destroy"
 
-extern "c" fn texture_create_ffi(dev : UInt64, width : Int, height : Int) -> UInt64 = "tycho_dx12_texture_create"
+extern "c" fn texture_create_ffi(dev : UInt64, width : Int, height : Int, format : Int) -> UInt64 = "tycho_dx12_texture_create"
 
 extern "c" fn texture_destroy_ffi(tex : UInt64) = "tycho_dx12_texture_destroy"
 
@@ -315,6 +317,7 @@ pub fn Pipeline::create(
   depth_write? : Bool = true,
   srv_tables? : Int = 0,
   push_bytes? : Int = 0,
+  color_formats? : FixedArray[Int] = [],
   inputs? : FixedArray[Int] = [],
 ) -> Pipeline? {
   let handle = pipeline_create_ffi(
@@ -329,6 +332,8 @@ pub fn Pipeline::create(
     if depth_write { 1 } else { 0 },
     srv_tables,
     push_bytes,
+    color_formats.length(),
+    color_formats,
     inputs.length() / 5,
     inputs,
   )
@@ -356,8 +361,8 @@ pub struct Texture {
 }
 
 ///|
-pub fn Texture::create(device : Device, width : Int, height : Int) -> Texture? {
-  let handle = texture_create_ffi(device.handle, width, height)
+pub fn Texture::create(device : Device, width : Int, height : Int, format? : Int = 0) -> Texture? {
+  let handle = texture_create_ffi(device.handle, width, height, format)
   if handle == (0 : UInt64) {
     None
   } else {
@@ -374,8 +379,16 @@ pub fn Texture::create_uploaded(
   width : Int,
   height : Int,
   pixels : Bytes,
+  format? : Int = 0,
 ) -> Texture? {
-  let handle = texture_create_uploaded_ffi(device.handle, width, height, pixels, pixels.length())
+  let handle = texture_create_uploaded_ffi(
+    device.handle,
+    width,
+    height,
+    pixels,
+    pixels.length(),
+    format,
+  )
   if handle == (0 : UInt64) {
     None
   } else {
@@ -398,8 +411,13 @@ pub fn Texture::create_storage(device : Device, width : Int, height : Int) -> Te
 ///|
 /// A depth buffer (`D32_FLOAT`) with its own DSV. Bind it with
 /// `CommandList::set_depth` before clearing or drawing.
-pub fn Texture::create_depth(device : Device, width : Int, height : Int) -> Texture? {
-  let handle = depth_create_ffi(device.handle, width, height)
+pub fn Texture::create_depth(
+  device : Device,
+  width : Int,
+  height : Int,
+  format? : Int = 8,
+) -> Texture? {
+  let handle = depth_create_ffi(device.handle, width, height, format)
   if handle == (0 : UInt64) {
     None
   } else {
@@ -413,6 +431,12 @@ pub fn Texture::is_depth(self : Texture) -> Bool {
     Some(DepthWrite) => true
     _ => false
   }
+}
+
+///|
+/// A null handle, used for the MRT slots a pass does not bind.
+pub fn Texture::none() -> Texture {
+  { handle: (0 : UInt64) }
 }
 
 pub fn Texture::handle(self : Texture) -> UInt64 {
@@ -582,6 +606,30 @@ pub fn CommandList::draw(
 }
 
 ///|
+/// Binds colour targets 1..3 of a multi-render-target pass; slot 0 is the
+/// texture passed to `draw`/`draw_indexed`. A null handle clears a slot.
+pub fn CommandList::set_extra_targets(
+  self : CommandList,
+  t1 : Texture?,
+  t2 : Texture?,
+  t3 : Texture?,
+) -> Bool {
+  let h1 = match t1 {
+    Some(t) => t.handle
+    None => (0 : UInt64)
+  }
+  let h2 = match t2 {
+    Some(t) => t.handle
+    None => (0 : UInt64)
+  }
+  let h3 = match t3 {
+    Some(t) => t.handle
+    None => (0 : UInt64)
+  }
+  cmd_set_extra_targets_ffi(self.handle, h1, h2, h3) != 0
+}
+
+///|
 /// Binds an upload buffer to root CBV `index` (see `Pipeline::create`'s
 /// `cbv_count`).
 pub fn CommandList::set_cbv(
@@ -668,6 +716,7 @@ pub fn CommandList::set_depth(self : CommandList, tex : Texture) -> Bool {
 pub fn CommandList::set_texture(
   self : CommandList,
   root_index : Int,
+  sampler_root : Int,
   tex : Texture,
   sampler? : Sampler? = None,
 ) -> Bool {
@@ -675,7 +724,13 @@ pub fn CommandList::set_texture(
     Some(s) => s.handle
     None => (0 : UInt64)
   }
-  cmd_set_texture_ffi(self.handle, root_index, tex.handle, sampler_handle) != 0
+  cmd_set_texture_ffi(
+    self.handle,
+    root_index,
+    sampler_root,
+    tex.handle,
+    sampler_handle,
+  ) != 0
 }
 
 ///|

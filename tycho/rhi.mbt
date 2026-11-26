@@ -659,6 +659,7 @@ pub fn Swapchain::create_pipeline(
             true,
             0,
             0,
+            FixedArray::make(1, 0),
             [],
             [],
           ),
@@ -701,6 +702,7 @@ pub fn Swapchain::create_pipeline_desc(
             desc.depth_write,
             desc.texture_slots,
             desc.push_constant_size,
+            dx12_color_formats(desc),
             inputs,
             strides,
           ),
@@ -1053,12 +1055,14 @@ pub fn Device::create_texture_format(
 ) -> Texture raise RhiError {
   match self.backend {
     Dx12Device(state) => {
-      if format != TextureFormat::RGBA8 {
+      // Four bytes per pixel keeps the upload pitch and the readback layout
+      // uniform; sRGB variants share it.
+      if !dx12_is_linear_4bpp(format) {
         raise RhiError::BackendUnsupported(
-          "the DX12 upload path only takes RGBA8 so far",
+          "the DX12 upload path takes 4-byte colour formats (RGBA8/BGRA8 and their sRGB variants)",
         )
       }
-      { backend: Dx12Texture(dx12_texture_upload_create(state, width, height, pixels)) }
+      { backend: Dx12Texture(dx12_texture_upload_create(state, width, height, pixels, format)) }
     }
     VkDevice(_) =>
       {
@@ -1191,12 +1195,12 @@ pub fn Device::create_render_target(
   }
   match self.backend {
     Dx12Device(state) => {
-      if format != TextureFormat::RGBA8 {
+      if !dx12_is_linear_4bpp(format) {
         raise RhiError::BackendUnsupported(
-          "the DX12 render-target path only allocates RGBA8 so far",
+          "the DX12 render-target path takes 4-byte colour formats (RGBA8/BGRA8 and their sRGB variants)",
         )
       }
-      { backend: Dx12Texture(dx12_render_target_create(state, width, height)) }
+      { backend: Dx12Texture(dx12_render_target_create(state, width, height, format)) }
     }
     VkDevice(_) =>
       {
@@ -1245,7 +1249,7 @@ pub fn Device::create_depth_texture_format(
           "MSAA depth targets are not implemented on DX12",
         )
       }
-      { backend: Dx12Texture(dx12_depth_create(state, width, height)) }
+      { backend: Dx12Texture(dx12_depth_create(state, width, height, format)) }
     }
     VkDevice(_) =>
       {
@@ -1686,7 +1690,14 @@ pub fn CommandBuffer::bind_texture(
             Dx12Sampler(sampler) => Some(sampler)
             VkSampler(_) => None
           }
-          let _ = cmd.commands.set_texture(pipe.uniform_slots, tex.tex, sampler=dx12_sampler)
+          // Slot i owns the root table right after the root CBVs; the sampler
+          // table follows every texture slot.
+          let _ = cmd.commands.set_texture(
+            pipe.uniform_slots + slot,
+            pipe.uniform_slots + pipe.texture_slots,
+            tex.tex,
+            sampler=dx12_sampler,
+          )
         }
         _ => ()
       }

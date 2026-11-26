@@ -39,6 +39,9 @@ priv struct Dx12PipelineState {
   pipe : @dx12.Pipeline
   uniform_slots : Int
   strides : FixedArray[Int]
+  /// Texture slots, so ind_texture can address the sampler table that follows
+  /// them in the root signature.
+  texture_slots : Int
   /// Root parameter index of the 32-bit constants block (`b15, space0`), which
   /// sits after the root CBVs and the SRV/sampler tables.
   push_index : Int
@@ -201,6 +204,7 @@ fn dx12_pipeline_create(
   depth_write : Bool,
   srv_tables : Int,
   push_bytes : Int,
+  color_formats : FixedArray[Int],
   inputs : FixedArray[Int],
   strides : FixedArray[Int],
 ) -> Dx12PipelineState raise RhiError {
@@ -220,13 +224,15 @@ fn dx12_pipeline_create(
     depth_write=depth_write,
     srv_tables=srv_tables,
     push_bytes=push_bytes,
+    color_formats=color_formats,
     inputs=inputs,
   ) {
     Some(p) => {
       pipe: p,
       uniform_slots,
       strides,
-      push_index: uniform_slots + (if srv_tables > 0 { 2 } else { 0 }),
+      texture_slots: srv_tables,
+      push_index: uniform_slots + srv_tables + (if srv_tables > 0 { 1 } else { 0 }),
       push_bytes,
     }
     None => raise RhiError::PipelineFailed("DX12 CreateGraphicsPipelineState failed")
@@ -432,15 +438,16 @@ fn dx12_render_target_create(
   state : Dx12DeviceState,
   width : Int,
   height : Int,
+  format : TextureFormat,
 ) -> Dx12TextureState raise RhiError {
-  match @dx12.Texture::create(state.device, width, height) {
+  match @dx12.Texture::create(state.device, width, height, format=dx12_format_code(format)) {
     Some(tex) =>
       {
         device: state.device,
         tex: tex,
         width: width,
         height: height,
-        format: TextureFormat::RGBA8,
+        format,
         is_depth: false,
       }
     None => raise RhiError::AllocationFailed("DX12 render target")
@@ -452,15 +459,21 @@ fn dx12_depth_create(
   state : Dx12DeviceState,
   width : Int,
   height : Int,
+  format : TextureFormat,
 ) -> Dx12TextureState raise RhiError {
-  match @dx12.Texture::create_depth(state.device, width, height) {
+  match @dx12.Texture::create_depth(
+    state.device,
+    width,
+    height,
+    format=dx12_format_code(format),
+  ) {
     Some(tex) =>
       {
         device: state.device,
         tex: tex,
         width: width,
         height: height,
-        format: TextureFormat::Depth32F,
+        format,
         is_depth: true,
       }
     None => raise RhiError::AllocationFailed("DX12 depth target")
@@ -549,9 +562,9 @@ fn dx12_begin_render_pass(
   colors : Array[RenderTargetDesc],
   depth : DepthTargetDesc?,
 ) -> Unit raise RhiError {
-  if colors.length() != 1 {
+  if colors.length() == 0 || colors.length() > 4 {
     raise RhiError::BackendUnsupported(
-      "the DX12 backend renders to exactly one colour target so far",
+      "the DX12 backend binds between one and four colour targets",
     )
   }
   let color = colors[0]
@@ -561,6 +574,32 @@ fn dx12_begin_render_pass(
   }
   let mut ok = cmd.commands.transition(target.tex, @dx12.ResourceState::RenderTarget)
   cmd.target = Some(target.tex)
+  // Slots 1..3: transition them and hand them to the command list, which binds
+  // one RTV per target.
+  let extras : Array[@dx12.Texture] = []
+  for i = 1; i < colors.length(); i = i + 1 {
+    let extra = match colors[i].texture.backend {
+      Dx12Texture(state) => state
+      VkTexture(_) => raise RhiError::InvalidArgument("Vulkan texture in a DX12 render pass")
+    }
+    ok = ok && cmd.commands.transition(extra.tex, @dx12.ResourceState::RenderTarget)
+    extras.push(extra.tex)
+  }
+  if extras.length() > 0 {
+    let _ = cmd.commands.set_extra_targets(
+      Some(extras[0]),
+      if extras.length() > 1 {
+        Some(extras[1])
+      } else {
+        None
+      },
+      if extras.length() > 2 {
+        Some(extras[2])
+      } else {
+        None
+      },
+    )
+  }
   match color.load_op {
     LoadOp::Clear =>
       ok = ok &&
@@ -609,12 +648,14 @@ fn dx12_pipeline_create_from_desc(
   state : Dx12DeviceState,
   desc : PipelineDesc,
 ) -> Dx12PipelineState raise RhiError {
-  if desc.texture_slots > 1 ||
-    desc.storage_slots > 0 ||
-    desc.storage_image_slots > 0 ||
-    desc.accel_slots > 0 {
+  if desc.texture_slots < 0 || desc.texture_slots > 8 {
     raise RhiError::BackendUnsupported(
-      "the DX12 backend implements one sampled texture slot and uniform slots so far",
+      "the DX12 backend binds between 0 and 8 sampled texture slots",
+    )
+  }
+  if desc.storage_slots > 0 || desc.storage_image_slots > 0 || desc.accel_slots > 0 {
+    raise RhiError::BackendUnsupported(
+      "the DX12 graphics path implements uniform slots and sampled textures so far",
     )
   }
   let has_depth = match desc.depth_format {
@@ -623,6 +664,7 @@ fn dx12_pipeline_create_from_desc(
   }
   let depth = desc.depth_test && has_depth
   let (inputs, strides) = dx12_vertex_input(desc)
+  let color_formats = dx12_color_formats(desc)
   dx12_pipeline_create(
     state.device,
     desc.vert,
@@ -632,6 +674,7 @@ fn dx12_pipeline_create_from_desc(
     desc.depth_write,
     desc.texture_slots,
     desc.push_constant_size,
+    color_formats,
     inputs,
     strides,
   )
@@ -645,15 +688,22 @@ fn dx12_texture_upload_create(
   width : Int,
   height : Int,
   pixels : Bytes,
+  format : TextureFormat,
 ) -> Dx12TextureState raise RhiError {
-  match @dx12.Texture::create_uploaded(state.device, width, height, pixels) {
+  match @dx12.Texture::create_uploaded(
+    state.device,
+    width,
+    height,
+    pixels,
+    format=dx12_format_code(format),
+  ) {
     Some(tex) =>
       {
         device: state.device,
         tex: tex,
         width: width,
         height: height,
-        format: TextureFormat::RGBA8,
+        format,
         is_depth: false,
       }
     None => raise RhiError::AllocationFailed("DX12 texture upload")
@@ -1049,5 +1099,52 @@ fn dx12_indirect_counted(
       )
     }
     None => dx12_unsupported(cmd, "an indirect draw without a bound render target")
+  }
+}
+
+///|
+/// `TextureFormat` ordinal, which `dx12_stub.c` maps to a DXGI format so no
+/// numeric DXGI value leaks into MoonBit.
+fn dx12_format_code(format : TextureFormat) -> Int {
+  match format {
+    TextureFormat::RGBA8 => 0
+    TextureFormat::BGRA8 => 1
+    TextureFormat::RGBA8Srgb => 2
+    TextureFormat::BGRA8Srgb => 3
+    TextureFormat::RGBA16F => 4
+    TextureFormat::RG16F => 5
+    TextureFormat::R8 => 6
+    TextureFormat::RGBA32F => 7
+    TextureFormat::Depth32F => 8
+    TextureFormat::Depth24Stencil8 => 9
+  }
+}
+
+///|
+/// The colour formats a pipeline writes, in MRT order. `color_formats` wins over
+/// the single `color_format`, matching the Vulkan path.
+fn dx12_color_formats(desc : PipelineDesc) -> FixedArray[Int] {
+  if desc.color_formats.length() > 0 {
+    FixedArray::makei(desc.color_formats.length(), fn(i) {
+      dx12_format_code(desc.color_formats[i])
+    })
+  } else {
+    match desc.color_format {
+      Some(format) => FixedArray::make(1, dx12_format_code(format))
+      None => FixedArray::make(1, 0)
+    }
+  }
+}
+
+///|
+/// The colour formats the DX12 path can allocate today: four bytes per pixel,
+/// linear or sRGB (the readback and upload pitch assume 4 B/px).
+fn dx12_is_linear_4bpp(format : TextureFormat) -> Bool {
+  match format {
+    TextureFormat::RGBA8 => true
+    TextureFormat::BGRA8 => true
+    TextureFormat::RGBA8Srgb => true
+    TextureFormat::BGRA8Srgb => true
+    _ => false
   }
 }

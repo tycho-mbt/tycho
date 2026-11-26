@@ -168,6 +168,7 @@ typedef struct TychoDxPipeline {
 
 typedef struct TychoDxTexture {
   ID3D12Resource *resource;
+  DXGI_FORMAT format;
   ID3D12DescriptorHeap *rtv_heap;  // owned by the wrapper unless `owned` is 0
   D3D12_CPU_DESCRIPTOR_HANDLE rtv;
   ID3D12DescriptorHeap *dsv_heap;
@@ -242,6 +243,10 @@ typedef struct TychoDxCommands {
   ID3D12GraphicsCommandList *list;
   struct TychoDxDevice *dev;     // owns the shader-visible SRV heap
   struct TychoDxTexture *depth;  // optional DSV bound by cmd_set_target
+  // Colour targets, in MRT order. `cmd_draw`'s texture argument is slot 0; the
+  // extra slots come from `cmd_set_extra_targets`.
+  struct TychoDxTexture *targets[4];
+  int target_count;
 } TychoDxCommands;
 
 static TychoDxDevice *as_device(uint64_t p) { return (TychoDxDevice *)(uintptr_t)p; }
@@ -669,8 +674,21 @@ static int dx12_prepare_draw(TychoDxCommands *cmds, TychoDxTexture *tex, int32_t
     g_last_hr = (HRESULT)0x8000000E;  // E_ILLEGAL_METHOD_CALL: draw before transition
     return 0;
   }
-  cmds->list->lpVtbl->OMSetRenderTargets(cmds->list, 1, &tex->rtv, FALSE,
-                                        cmds->depth ? &cmds->depth->dsv : NULL);
+  {
+    // Slot 0 is the texture the draw names; slots 1..3 come from
+    // `cmd_set_extra_targets` (multi-render-target passes).
+    D3D12_CPU_DESCRIPTOR_HANDLE rtvs[4];
+    UINT bound = 0;
+    int slot;
+    rtvs[bound++] = tex->rtv;
+    for (slot = 1; slot < 4; slot++) {
+      if (cmds->targets[slot]) {
+        rtvs[bound++] = cmds->targets[slot]->rtv;
+      }
+    }
+    cmds->list->lpVtbl->OMSetRenderTargets(cmds->list, bound, rtvs, FALSE,
+                                          cmds->depth ? &cmds->depth->dsv : NULL);
+  }
   memset(&vp, 0, sizeof vp);
   vp.TopLeftX = 0.0f;
   // A negative viewport height maps NDC y=-1 to the first framebuffer row, which
@@ -688,6 +706,18 @@ static int dx12_prepare_draw(TychoDxCommands *cmds, TychoDxTexture *tex, int32_t
   cmds->list->lpVtbl->RSSetScissorRects(cmds->list, 1, &scissor);
   cmds->list->lpVtbl->IASetPrimitiveTopology(cmds->list,
                                             D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  return 1;
+}
+
+// Extra colour targets for MRT: slot 0 always comes from the draw call, these fill
+// slots 1..3. Passing 0 clears a slot.
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_extra_targets(uint64_t cmd_p, uint64_t t1,
+                                                            uint64_t t2, uint64_t t3) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  if (!cmds) return 0;
+  cmds->targets[1] = as_texture(t1);
+  cmds->targets[2] = as_texture(t2);
+  cmds->targets[3] = as_texture(t3);
   return 1;
 }
 
@@ -758,7 +788,7 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_copy_to_readback(uint64_t cmd_p, uint6
   dst.pResource = rb->resource;
   dst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
   dst.PlacedFootprint.Offset = 0;
-  dst.PlacedFootprint.Footprint.Format = TYCHO_DX12_RT_FORMAT;
+  dst.PlacedFootprint.Footprint.Format = tex->format;
   dst.PlacedFootprint.Footprint.Width = (UINT)rb->width;
   dst.PlacedFootprint.Footprint.Height = (UINT)rb->height;
   dst.PlacedFootprint.Footprint.Depth = 1;
@@ -834,6 +864,8 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
                                                        int32_t depth_write,
                                                        int32_t srv_tables,
                                                        int32_t push_bytes,
+                                                       int32_t color_count,
+                                                       const int32_t *color_formats,
                                                        int32_t input_count,
                                                        const int32_t *inputs) {
   TychoDxDevice *dev = as_device(dev_p);
@@ -842,7 +874,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
   ID3DBlob *rs_err = NULL;
   D3D12_VERSIONED_ROOT_SIGNATURE_DESC rs_desc;
   D3D12_ROOT_PARAMETER root_params[TYCHO_DX12_MAX_ROOT_CBVS + 3];
-  D3D12_DESCRIPTOR_RANGE srv_range;
+  D3D12_DESCRIPTOR_RANGE srv_ranges[8];
   D3D12_DESCRIPTOR_RANGE sampler_range;
   D3D12_INPUT_ELEMENT_DESC *input_elements = NULL;
   int input_index;
@@ -872,37 +904,42 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
   rs_desc.Version = D3D_ROOT_SIGNATURE_VERSION_1_0;
   rs_desc.Desc_1_0.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
   if (srv_tables > 0) {
-    // One descriptor table holding SRVs t0..t(n-1) in space 0, plus a static
-    // sampler at s0: sampling needs no sampler heap, only the table.
+    // One single-descriptor table per texture slot: each slot is bound to its own
+    // heap entry, so textures do not have to be contiguous in the heap. The
+    // sampler table follows the slots.
+    int slot;
     if (srv_tables > 8) return 0;
-    memset(&srv_range, 0, sizeof srv_range);
-    srv_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srv_range.NumDescriptors = (UINT)srv_tables;
-    srv_range.BaseShaderRegister = 0;
-    srv_range.RegisterSpace = 0;
-    srv_range.OffsetInDescriptorsFromTableStart = 0;
-    root_params[cbv_count].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    root_params[cbv_count].DescriptorTable.NumDescriptorRanges = 1;
-    root_params[cbv_count].DescriptorTable.pDescriptorRanges = &srv_range;
-    root_params[cbv_count].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    for (slot = 0; slot < srv_tables; slot++) {
+      memset(&srv_ranges[slot], 0, sizeof srv_ranges[slot]);
+      srv_ranges[slot].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+      srv_ranges[slot].NumDescriptors = 1;
+      srv_ranges[slot].BaseShaderRegister = (UINT)slot;
+      srv_ranges[slot].RegisterSpace = 0;
+      srv_ranges[slot].OffsetInDescriptorsFromTableStart = 0;
+      root_params[cbv_count + slot].ParameterType =
+          D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+      root_params[cbv_count + slot].DescriptorTable.NumDescriptorRanges = 1;
+      root_params[cbv_count + slot].DescriptorTable.pDescriptorRanges = &srv_ranges[slot];
+      root_params[cbv_count + slot].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    }
     memset(&sampler_range, 0, sizeof sampler_range);
     sampler_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
     sampler_range.NumDescriptors = 1;
     sampler_range.BaseShaderRegister = 0;
     sampler_range.RegisterSpace = 0;
     sampler_range.OffsetInDescriptorsFromTableStart = 0;
-    root_params[cbv_count + 1].ParameterType =
+    root_params[cbv_count + srv_tables].ParameterType =
         D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    root_params[cbv_count + 1].DescriptorTable.NumDescriptorRanges = 1;
-    root_params[cbv_count + 1].DescriptorTable.pDescriptorRanges = &sampler_range;
-    root_params[cbv_count + 1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    root_params[cbv_count + srv_tables].DescriptorTable.NumDescriptorRanges = 1;
+    root_params[cbv_count + srv_tables].DescriptorTable.pDescriptorRanges = &sampler_range;
+    root_params[cbv_count + srv_tables].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
   }
   {
     // Push constants have no D3D12 equivalent, so they map to root constants at
     // `b15, space0`; a Slang shader pins them there with
     // `[[vk::push_constant]] ConstantBuffer<T> pc : register(b15, space0);`
     // (verified: the DXIL resource binds at cb15).
-    int push_index = cbv_count + (srv_tables > 0 ? 2 : 0);
+    int push_index = cbv_count + srv_tables + (srv_tables > 0 ? 1 : 0);
     if (push_bytes > 0) {
       root_params[push_index].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
       root_params[push_index].Constants.ShaderRegister = 15;
@@ -910,8 +947,9 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
       root_params[push_index].Constants.Num32BitValues = (UINT)(push_bytes / 4);
       root_params[push_index].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     }
-    rs_desc.Desc_1_0.NumParameters =
-        (UINT)(cbv_count + (srv_tables > 0 ? 2 : 0) + (push_bytes > 0 ? 1 : 0));
+    rs_desc.Desc_1_0.NumParameters = (UINT)(cbv_count + srv_tables +
+                                            (srv_tables > 0 ? 1 : 0) +
+                                            (push_bytes > 0 ? 1 : 0));
   }
   rs_desc.Desc_1_0.pParameters = rs_desc.Desc_1_0.NumParameters > 0 ? root_params : NULL;
   hr = g_serialize_rs(&rs_desc, &rs_blob, &rs_err);
@@ -1016,8 +1054,25 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
   }
   pso_desc.SampleMask = UINT_MAX;
   pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-  pso_desc.NumRenderTargets = 1;
-  pso_desc.RTVFormats[0] = TYCHO_DX12_RT_FORMAT;
+  if (color_count <= 0 || color_count > 4) {
+    free(pipe);
+    return 0;
+  }
+  pso_desc.NumRenderTargets = (UINT)color_count;
+  {
+    int target;
+    for (target = 0; target < color_count; target++) {
+      DXGI_FORMAT format = dx12_format_from_code(color_formats[target]);
+      if (format == DXGI_FORMAT_UNKNOWN) {
+        free(pipe);
+        return 0;
+      }
+      pso_desc.RTVFormats[target] = format;
+      // D3D12 disables a target's writes when its mask is zero.
+      pso_desc.BlendState.RenderTarget[target].RenderTargetWriteMask =
+          D3D12_COLOR_WRITE_ENABLE_ALL;
+    }
+  }
   pso_desc.SampleDesc.Count = 1;
   pso_desc.SampleDesc.Quality = 0;
   hr = dev->device->lpVtbl->CreateGraphicsPipelineState(dev->device, &pso_desc,
@@ -1050,7 +1105,7 @@ MOONBIT_FFI_EXPORT void tycho_dx12_pipeline_destroy(uint64_t p) {
 // ---------------------------------------------------------------------------
 
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create(uint64_t dev_p, int32_t width,
-                                                      int32_t height) {
+                                                      int32_t height, int32_t format_code) {
   TychoDxDevice *dev = as_device(dev_p);
   TychoDxTexture *tex;
   D3D12_HEAP_PROPERTIES heap;
@@ -1064,6 +1119,11 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create(uint64_t dev_p, int32_t wi
   if (!tex) return 0;
   tex->width = width;
   tex->height = height;
+  tex->format = dx12_format_from_code(format_code);
+  if (tex->format == DXGI_FORMAT_UNKNOWN) {
+    free(tex);
+    return 0;
+  }
   tex->state = D3D12_RESOURCE_STATE_COMMON;
   tex->state_tag = TYCHO_DX12_STATE_COMMON;
   tex->owned = 1;
@@ -1082,7 +1142,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create(uint64_t dev_p, int32_t wi
   desc.Height = (UINT)height;
   desc.DepthOrArraySize = 1;
   desc.MipLevels = 1;
-  desc.Format = TYCHO_DX12_RT_FORMAT;
+  desc.Format = tex->format;
   desc.SampleDesc.Count = 1;
   desc.SampleDesc.Quality = 0;
   desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
@@ -1114,13 +1174,14 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create(uint64_t dev_p, int32_t wi
   }
   tex->rtv_heap->lpVtbl->GetCPUDescriptorHandleForHeapStart(tex->rtv_heap, &tex->rtv);
   memset(&rtv_desc, 0, sizeof rtv_desc);
-  rtv_desc.Format = TYCHO_DX12_RT_FORMAT;
+  rtv_desc.Format = tex->format;
   rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
   dev->device->lpVtbl->CreateRenderTargetView(dev->device, tex->resource, &rtv_desc, tex->rtv);
   return (uint64_t)(uintptr_t)tex;
 }
 
-MOONBIT_FFI_EXPORT uint64_t tycho_dx12_depth_create(uint64_t dev_p, int32_t width, int32_t height) {
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_depth_create(uint64_t dev_p, int32_t width,
+                                                    int32_t height, int32_t format_code) {
   TychoDxDevice *dev = as_device(dev_p);
   TychoDxTexture *tex;
   D3D12_HEAP_PROPERTIES heap;
@@ -1136,6 +1197,11 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_depth_create(uint64_t dev_p, int32_t widt
   tex->width = width;
   tex->height = height;
   tex->is_depth = 1;
+  tex->format = dx12_format_from_code(format_code);
+  if (!dx12_format_is_depth(tex->format)) {
+    free(tex);
+    return 0;
+  }
   tex->owned = 1;
   tex->state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
   tex->state_tag = TYCHO_DX12_STATE_DEPTH_WRITE;
@@ -1316,7 +1382,8 @@ static int texture_make_srv(TychoDxDevice *dev, TychoDxTexture *tex) {
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create_uploaded(uint64_t dev_p, int32_t width,
                                                                int32_t height,
                                                                const uint8_t *pixels,
-                                                               int32_t pixel_bytes) {
+                                                               int32_t pixel_bytes,
+                                                               int32_t format_code) {
   TychoDxDevice *dev = as_device(dev_p);
   TychoDxTexture *tex;
   ID3D12Resource *staging = NULL;
@@ -1344,6 +1411,11 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create_uploaded(uint64_t dev_p, i
   tex->width = width;
   tex->height = height;
   tex->owned = 1;
+  tex->format = dx12_format_from_code(format_code);
+  if (tex->format == DXGI_FORMAT_UNKNOWN) {
+    free(tex);
+    return 0;
+  }
   tex->state = D3D12_RESOURCE_STATE_COPY_DEST;
   tex->state_tag = TYCHO_DX12_STATE_COPY_DEST;
 
@@ -1357,7 +1429,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create_uploaded(uint64_t dev_p, i
   desc.Height = (UINT)height;
   desc.DepthOrArraySize = 1;
   desc.MipLevels = 1;
-  desc.Format = TYCHO_DX12_RT_FORMAT;
+  desc.Format = tex->format;
   desc.SampleDesc.Count = 1;
   desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
   desc.Flags = D3D12_RESOURCE_FLAG_NONE;
@@ -1421,7 +1493,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create_uploaded(uint64_t dev_p, i
   }
   if (SUCCEEDED(hr)) {
     memset(&footprint, 0, sizeof footprint);
-    footprint.Footprint.Format = TYCHO_DX12_RT_FORMAT;
+    footprint.Footprint.Format = tex->format;
     footprint.Footprint.Width = (UINT)width;
     footprint.Footprint.Height = (UINT)height;
     footprint.Footprint.Depth = 1;
@@ -1477,7 +1549,8 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create_uploaded(uint64_t dev_p, i
 // Binds a texture's SRV through the descriptor table at `root_index` (the table
 // follows the root CBVs in the signature the pipelines build).
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_texture(uint64_t cmd_p, int32_t root_index,
-                                                      uint64_t tex_p, uint64_t sampler_p) {
+                                                      int32_t sampler_root, uint64_t tex_p,
+                                                      uint64_t sampler_p) {
   TychoDxCommands *cmds = as_commands(cmd_p);
   TychoDxTexture *tex = as_texture(tex_p);
   TychoDxSampler *sampler = as_sampler(sampler_p);
@@ -1496,7 +1569,7 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_texture(uint64_t cmd_p, int32_t ro
   cmds->dev->sampler_heap->lpVtbl->GetGPUDescriptorHandleForHeapStart(cmds->dev->sampler_heap,
                                                                      &sampler_gpu);
   sampler_gpu.ptr += (SIZE_T)sampler_slot * cmds->dev->sampler_increment;
-  cmds->list->lpVtbl->SetGraphicsRootDescriptorTable(cmds->list, (UINT)root_index + 1,
+  cmds->list->lpVtbl->SetGraphicsRootDescriptorTable(cmds->list, (UINT)sampler_root,
                                                     sampler_gpu);
   return 1;
 }
@@ -2217,6 +2290,43 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_buffer_place(uint64_t heap_p, int32_t off
 }
 
 // ---------------------------------------------------------------------------
+// Formats
+// ---------------------------------------------------------------------------
+
+// `TextureFormat` ordinals from tycho/types.mbt. The mapping lives here so the
+// MoonBit side never has to know a numeric DXGI value.
+static DXGI_FORMAT dx12_format_from_code(int32_t code) {
+  switch (code) {
+    case 0:
+      return DXGI_FORMAT_R8G8B8A8_UNORM;
+    case 1:
+      return DXGI_FORMAT_B8G8R8A8_UNORM;
+    case 2:
+      return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    case 3:
+      return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+    case 4:
+      return DXGI_FORMAT_R16G16B16A16_FLOAT;
+    case 5:
+      return DXGI_FORMAT_R16G16_FLOAT;
+    case 6:
+      return DXGI_FORMAT_R8_UNORM;
+    case 7:
+      return DXGI_FORMAT_R32G32B32A32_FLOAT;
+    case 8:
+      return DXGI_FORMAT_D32_FLOAT;
+    case 9:
+      return DXGI_FORMAT_D24_UNORM_S8_UINT;
+    default:
+      return DXGI_FORMAT_UNKNOWN;
+  }
+}
+
+static int dx12_format_is_depth(DXGI_FORMAT format) {
+  return format == DXGI_FORMAT_D32_FLOAT || format == DXGI_FORMAT_D24_UNORM_S8_UINT;
+}
+
+// ---------------------------------------------------------------------------
 // Upload (CPU-visible) buffers
 // ---------------------------------------------------------------------------
 
@@ -2332,6 +2442,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_storage_texture_create(uint64_t dev_p, in
   if (!tex) return 0;
   tex->width = width;
   tex->height = height;
+  tex->format = TYCHO_DX12_RT_FORMAT;
   tex->owned = 1;
   tex->state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
   tex->state_tag = TYCHO_DX12_STATE_UNORDERED_ACCESS;
@@ -2693,6 +2804,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_swapchain_target(uint64_t p, int32_t inde
   // a freshly presented back buffer is already in the PRESENT state.
   tex->resource = buffer;
   tex->rtv = sc->rtv[index];
+  tex->format = TYCHO_DX12_RT_FORMAT;
   tex->state = D3D12_RESOURCE_STATE_PRESENT;
   tex->state_tag = TYCHO_DX12_STATE_PRESENT;
   tex->width = (int)sc->width;
@@ -2858,6 +2970,15 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw_indexed(uint64_t cmd, uint64_t te
   (void)first_index;
   (void)vertex_offset;
   (void)flip_y;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_extra_targets(uint64_t cmd, uint64_t t1,
+                                                            uint64_t t2, uint64_t t3) {
+  (void)cmd;
+  (void)t1;
+  (void)t2;
+  (void)t3;
   return 0;
 }
 
@@ -3038,6 +3159,8 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev, const uint8
                                                        int32_t depth_write,
                                                        int32_t srv_tables,
                                                        int32_t push_bytes,
+                                                       int32_t color_count,
+                                                       const int32_t *color_formats,
                                                        int32_t input_count,
                                                        const int32_t *inputs) {
   (void)dev;
@@ -3059,19 +3182,22 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev, const uint8
 MOONBIT_FFI_EXPORT void tycho_dx12_pipeline_destroy(uint64_t p) { (void)p; }
 
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create(uint64_t dev, int32_t width,
-                                                      int32_t height) {
+                                                      int32_t height, int32_t format) {
   (void)dev;
   (void)width;
   (void)height;
+  (void)format;
   return 0;
 }
 
 MOONBIT_FFI_EXPORT void tycho_dx12_texture_destroy(uint64_t p) { (void)p; }
 
-MOONBIT_FFI_EXPORT uint64_t tycho_dx12_depth_create(uint64_t dev, int32_t width, int32_t height) {
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_depth_create(uint64_t dev, int32_t width, int32_t height,
+                                                    int32_t format) {
   (void)dev;
   (void)width;
   (void)height;
+  (void)format;
   return 0;
 }
 
@@ -3091,19 +3217,23 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_clear_depth(uint64_t cmd, uint64_t tex
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create_uploaded(uint64_t dev, int32_t width,
                                                                int32_t height,
                                                                const uint8_t *pixels,
-                                                               int32_t pixel_bytes) {
+                                                               int32_t pixel_bytes,
+                                                               int32_t format) {
   (void)dev;
   (void)width;
   (void)height;
   (void)pixels;
   (void)pixel_bytes;
+  (void)format;
   return 0;
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_texture(uint64_t cmd, int32_t root_index,
-                                                      uint64_t tex, uint64_t sampler) {
+                                                      int32_t sampler_root, uint64_t tex,
+                                                      uint64_t sampler) {
   (void)cmd;
   (void)root_index;
+  (void)sampler_root;
   (void)tex;
   (void)sampler;
   return 0;
