@@ -343,7 +343,7 @@ pub fn Renderer3D::new(
     @tycho.SamplerDesc::new(
       mag=@tycho.Filter::Linear,
       min=@tycho.Filter::Linear,
-      mipmap=@tycho.Filter::Nearest,
+      mipmap=@tycho.Filter::Linear,
       address=@tycho.AddressMode::ClampToEdge,
     ),
   )

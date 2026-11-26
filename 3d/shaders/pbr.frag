@@ -153,8 +153,10 @@ void main() {
 
     vec3 R = reflect(-V, N);
     float envI = frame.params.w;
-    vec3 envDiff = pow(texture(uEnv, N).rgb, vec3(2.2)) * 0.55 * envI;
-    vec3 envSpec = pow(texture(uEnv, mix(R, N, roughness * roughness)).rgb, vec3(2.2)) * (1.4 - roughness * 0.85) * envI;
+    // PMREM chain: mip 0 is sharp, the last mip is a diffuse average.
+    float maxLod = float(max(textureQueryLevels(uEnv) - 1, 0));
+    vec3 envDiff = textureLod(uEnv, N, maxLod).rgb;
+    vec3 envSpec = textureLod(uEnv, R, roughness * maxLod).rgb;
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 F_env = fresnel_schlick(max(dot(N, V), 0.0), F0, roughness);
     vec3 ambient = ((1.0 - F_env) * (1.0 - metallic) * envDiff * albedo + F_env * envSpec) + ambientSum * albedo;

@@ -10,7 +10,7 @@ layout(location = 0) out vec4 outHDR;
 
 void main() {
     vec3 d = normalize(vDir);
-    vec3 env = pow(texture(uEnvMap, d).rgb, vec3(2.2)) * 1.4 * ubo.sunDir.w;
+    vec3 env = texture(uEnvMap, d).rgb * 1.4 * ubo.sunDir.w;
     float sunDot = max(dot(d, normalize(ubo.sunDir.xyz)), 0.0);
     vec3 sunGlow = vec3(1.0, 0.88, 0.65) * (pow(sunDot, 128.0) * 5.0 + pow(sunDot, 12.0) * 0.45);
     outHDR = vec4(env + sunGlow, 1.0);
