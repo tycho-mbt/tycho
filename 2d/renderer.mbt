@@ -83,9 +83,8 @@ pub struct Renderer2D {
   priv composite_ds_dstin_pipe : @tycho.Pipeline
   priv composite_ds_srcin_pipe : @tycho.Pipeline
   priv composite_ds_mul_pipe : @tycho.Pipeline
-  // Depth-free blur & swapchain presentation pipelines
+  // Depth-free blur pipeline
   priv blur_pipe : @tycho.Pipeline
-  priv present_pipe : @tycho.Pipeline
   priv mut present_sc_pipe : @tycho.Pipeline?
   priv mut present_sc_fmt : @tycho.TextureFormat?
   // Double-buffered dynamic buffers
@@ -418,16 +417,6 @@ pub fn Renderer2D::new(
       color_format=Some(@tycho.TextureFormat::RGBA8),
     ),
   )
-  let present_pipe = dev.create_graphics_pipeline(
-    @tycho.PipelineDesc::from_spirv(
-      spv_blur_vert,
-      spv_blur_frag,
-      blend_mode=Some(@tycho.BlendMode::Opaque),
-      cull_mode=@tycho.CullMode::None,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
-    ),
-  )
-
   let msaa_supported = dev.capabilities().max_framebuffer_samples >= 4
   let (stencil_nz_msaa_pipe, stencil_eo_msaa_pipe, path_cover_msaa_pipe, stroke_msaa_pipe) = if msaa_supported {
     (
@@ -567,7 +556,6 @@ pub fn Renderer2D::new(
     composite_ds_srcin_pipe,
     composite_ds_mul_pipe,
     blur_pipe,
-    present_pipe,
     present_sc_pipe: None,
     present_sc_fmt: None,
     max_prims: max_prims_per_frame,
@@ -664,7 +652,6 @@ pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
   self.composite_ds_srcin_pipe.destroy()
   self.composite_ds_mul_pipe.destroy()
   self.blur_pipe.destroy()
-  self.present_pipe.destroy()
   match self.present_sc_pipe {
     Some(p) => p.destroy()
     None => ()
