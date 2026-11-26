@@ -10,8 +10,9 @@ M8 integration example mixing:
 - Justified paragraph, selection boxes and caret
 
 The fallback chain is DejaVuSans -> DroidSansFallbackFull -> NotoColorEmoji.
-Shaping is the current pure-MoonBit subset (Unicode presentation forms); full
-GSUB/GPOS and Indic clusters remain future work.
+Latin ligatures use GSUB `liga` with glyph-id rendering; Arabic uses
+Presentation Forms-B; GPOS `kern` is applied by glyph id. Indic clusters and
+full UAX #9 remain future work.
 
 ## Run
 

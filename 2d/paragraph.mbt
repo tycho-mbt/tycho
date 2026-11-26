@@ -286,7 +286,12 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       a.font.id() == b.font.id() &&
       a.style.font_size == b.style.font_size {
       let k = if a.glyph_id > 0 && b.glyph_id > 0 {
-        a.font.kern_gid(a.glyph_id, b.glyph_id, a.style.font_size)
+        let gp = a.font.gpos_kern(a.glyph_id, b.glyph_id, a.style.font_size)
+        if gp != (0.0 : Float) {
+          gp
+        } else {
+          a.font.kern_gid(a.glyph_id, b.glyph_id, a.style.font_size)
+        }
       } else {
         a.font.kern(a.cp, b.cp, a.style.font_size)
       }

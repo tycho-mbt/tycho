@@ -61,8 +61,9 @@ priv struct TtfData {
   cbdt_off : Int
   // Legacy `kern` table, -1 when absent.
   kern_off : Int
-  // GSUB table, -1 when absent.
+  // GSUB/GPOS tables, -1 when absent.
   gsub_off : Int
+  gpos_off : Int
 }
 
 ///|
@@ -85,6 +86,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
   let mut cbdt_off = -1
   let mut kern_off = -1
   let mut gsub_off = -1
+  let mut gpos_off = -1
   for i = 0; i < num_tables; i = i + 1 {
     let rec = 12 + i * 16
     let off = be_i32(bytes, rec + 8)
@@ -99,6 +101,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     else if tag_eq(bytes, rec, "CBDT") { cbdt_off = off }
     else if tag_eq(bytes, rec, "kern") { kern_off = off }
     else if tag_eq(bytes, rec, "GSUB") { gsub_off = off }
+    else if tag_eq(bytes, rec, "GPOS") { gpos_off = off }
   }
   if head_off < 0 || hhea_off < 0 || maxp_off < 0 || hmtx_off < 0 ||
     cmap_off < 0 {
@@ -162,6 +165,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     cbdt_off,
     kern_off,
     gsub_off,
+    gpos_off,
   })
 }
 
@@ -732,11 +736,12 @@ pub struct FontFace {
   priv id : Int
   priv ttf : TtfData?
   priv gsub : GsubData?
+  priv gpos : GposData?
 }
 
 ///|
 pub fn FontFace::builtin() -> FontFace {
-  { id: 0, ttf: None, gsub: None }
+  { id: 0, ttf: None, gsub: None, gpos: None }
 }
 
 ///|
@@ -748,7 +753,12 @@ pub fn FontFace::from_ttf_bytes(bytes : Bytes) -> FontFace? {
       } else {
         None
       }
-      Some({ id: alloc_font_id(), ttf: Some(ttf), gsub })
+      let gpos = if ttf.gpos_off >= 0 {
+        GposData::parse(bytes, ttf.gpos_off)
+      } else {
+        None
+      }
+      Some({ id: alloc_font_id(), ttf: Some(ttf), gsub, gpos })
     }
     None => None
   }

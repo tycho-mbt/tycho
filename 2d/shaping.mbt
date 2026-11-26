@@ -1,12 +1,12 @@
 // Minimal shaping subset:
-// - Latin typographic ligatures mapped to the Unicode presentation forms
-//   (U+FB00..FB06) when the face has them.
-// - Arabic joining forms mapped to Arabic Presentation Forms-B based on
-//   neighbouring joining types, also only when the face has the glyph.
+// - Latin ligatures first use real GSUB `liga` lookups (glyph-id rendering);
+//   fonts without liga fall back to Unicode presentation forms (U+FB00..FB06).
+// - Arabic joining forms map to Arabic Presentation Forms-B based on
+//   neighbouring joining types, only when the face has the glyph.
 //
-// This keeps the default pipeline pure MoonBit and 1:1 except for Latin
-// ligatures, which carry a source range so caret/selection mapping stays
-// monotonic. Full GSUB/GPOS and Indic clusters remain future work.
+// This keeps the default pipeline pure MoonBit. Latin ligatures carry a source
+// range so caret/selection mapping stays monotonic. GPOS `kern` is read
+// separately; Indic clusters remain future work.
 
 ///|
 priv struct ShapedChar {

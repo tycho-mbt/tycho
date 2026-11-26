@@ -198,8 +198,10 @@ pub fn FontFace::color_glyph(Self, Int32, Float) -> (ColorBitmap, DecodedImage)?
 pub fn FontFace::from_ttf_bytes(Bytes) -> Self?
 pub fn FontFace::glyph_advance(Self, Int32, Float) -> Float
 pub fn FontFace::glyph_id(Self, Int32) -> Int32
+pub fn FontFace::gpos_kern(Self, Int32, Int32, Float) -> Float
 pub fn FontFace::has_color_bitmap(Self, Int32) -> Bool
 pub fn FontFace::has_glyph(Self, Int32) -> Bool
+pub fn FontFace::has_gpos_kern(Self) -> Bool
 pub fn FontFace::has_liga(Self) -> Bool
 pub fn FontFace::id(Self) -> Int32
 pub fn FontFace::kern(Self, Int32, Int32, Float) -> Float

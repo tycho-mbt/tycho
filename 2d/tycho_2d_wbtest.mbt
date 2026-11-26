@@ -514,6 +514,13 @@ test "legacy kern and RTL visual order" {
     Some(font) => {
       let k = font.kern(65, 86, (100.0 : Float))
       assert_true(k < (0.0 : Float))
+      assert_true(font.has_gpos_kern())
+      let gp = font.gpos_kern(
+        font.glyph_id(65),
+        font.glyph_id(86),
+        (100.0 : Float),
+      )
+      assert_true(gp < (0.0 : Float))
       let p = ParagraphBuilder::new()
         .add_text(
           "AV",
