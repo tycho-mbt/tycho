@@ -40,6 +40,9 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
 - 4x MSAA: the HDR pass renders into a multisampled `RGBA16F` target and
   resolves into a single-sample target consumed by bloom/tonemap;
   `RendererDesc.msaa=false` selects the single-sampled path.
+- HUD composition: `Renderer3D::render_swapchain_into(cmd, sc, ...)` renders
+  and blits without ending the frame, so `tycho_2d` can draw a HUD on top with
+  `load_op = Load` before the app presents (example 72).
 - Transparent pass: `AlphaMode::Blend` nodes are sorted back-to-front by
   camera distance and drawn with a depth-tested, depth-write-disabled pipeline.
 - Debug lines: `add_debug_line` / `add_debug_aabb` queue world-space segments

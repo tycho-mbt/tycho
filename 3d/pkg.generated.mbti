@@ -252,6 +252,7 @@ pub fn Renderer3D::new(@tycho.Device, desc? : RendererDesc) -> Self raise
 pub fn Renderer3D::pick(Self, Scene, NodeId, Float, Float, layer_mask? : UInt32) -> PickHit?
 pub fn Renderer3D::render_offscreen(Self, Scene, NodeId, @tycho.Texture) -> Unit raise
 pub fn Renderer3D::render_swapchain(Self, @tycho.Swapchain, Scene, NodeId) -> Unit raise
+pub fn Renderer3D::render_swapchain_into(Self, @tycho.CommandBuffer, @tycho.Swapchain, Scene, NodeId) -> Unit raise
 pub fn Renderer3D::set_environment(Self, @tycho.Texture, @tycho_math.Vec3, intensity? : Float) -> Unit
 pub fn Renderer3D::set_procedural_environment(Self, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> Unit raise
 pub fn Renderer3D::stats(Self) -> RenderStats3D

@@ -162,6 +162,27 @@ fn is_blend_mode(mode : AlphaMode) -> Bool {
 }
 
 ///|
+/// Descriptor ranges must be non-zero even when a scene has no objects or
+/// lights; the shaders never index past `objectCount` / `lightCount`, so a
+/// one-element range is safe and keeps validation clean.
+fn bind_objects_bytes(count : Int) -> Int {
+  if count > 0 {
+    count * OBJECT_BYTES
+  } else {
+    OBJECT_BYTES
+  }
+}
+
+///|
+fn bind_lights_bytes(count : Int) -> Int {
+  if count > 0 {
+    count * LIGHT_BYTES
+  } else {
+    LIGHT_BYTES
+  }
+}
+
+///|
 fn pc_bytes(index : Int) -> Bytes {
   let v = index.reinterpret_as_uint()
   let arr : Array[Byte] = []
@@ -1287,7 +1308,7 @@ fn Renderer3D::render_frame(
           0,
           self.object_ring.buffer(),
           offset=object_offset,
-          size=object_count * OBJECT_BYTES,
+          size=bind_objects_bytes(object_count),
         )
         cmd.bind_storage(
           pipe,
@@ -1348,7 +1369,7 @@ fn Renderer3D::render_frame(
       0,
       self.object_ring.buffer(),
       offset=object_offset,
-      size=object_count * OBJECT_BYTES,
+      size=bind_objects_bytes(object_count),
     )
     if shadows_enabled {
       for b in shadow_batches {
@@ -1417,7 +1438,7 @@ fn Renderer3D::render_frame(
       0,
       self.object_ring.buffer(),
       offset=object_offset,
-      size=object_count * OBJECT_BYTES,
+      size=bind_objects_bytes(object_count),
     )
     cmd.bind_storage(
       self.pbr_pipe,
@@ -1431,7 +1452,7 @@ fn Renderer3D::render_frame(
       2,
       self.light_ring.buffer(),
       offset=light_offset,
-      size=light_count * LIGHT_BYTES,
+      size=bind_lights_bytes(light_count),
     )
     cmd.bind_texture(self.pbr_pipe, 0, self.shadow_maps[0], self.shadow_sampler)
     cmd.bind_texture(
@@ -1474,7 +1495,7 @@ fn Renderer3D::render_frame(
             0,
             self.object_ring.buffer(),
             offset=object_offset,
-            size=object_count * OBJECT_BYTES,
+            size=bind_objects_bytes(object_count),
           )
           cmd.bind_storage(
             pipe,
@@ -1488,7 +1509,7 @@ fn Renderer3D::render_frame(
             2,
             self.light_ring.buffer(),
             offset=light_offset,
-            size=light_count * LIGHT_BYTES,
+            size=bind_lights_bytes(light_count),
           )
           cmd.bind_storage(
             pipe,
@@ -1545,7 +1566,7 @@ fn Renderer3D::render_frame(
         0,
         self.object_ring.buffer(),
         offset=object_offset,
-        size=object_count * OBJECT_BYTES,
+        size=bind_objects_bytes(object_count),
       )
       cmd.bind_storage(
         self.pbr_blend_pipe,
@@ -1559,7 +1580,7 @@ fn Renderer3D::render_frame(
         2,
         self.light_ring.buffer(),
         offset=light_offset,
-        size=light_count * LIGHT_BYTES,
+        size=bind_lights_bytes(light_count),
       )
       cmd.bind_texture(self.pbr_blend_pipe, 0, self.shadow_maps[0], self.shadow_sampler)
       cmd.bind_texture(
@@ -1700,13 +1721,27 @@ pub fn Renderer3D::render_swapchain(
   camera : NodeId,
 ) -> Unit raise {
   let cmd = sc.begin_frame_commands()
+  self.render_swapchain_into(cmd, sc, scene, camera)
+  sc.end_frame(cmd)
+}
+
+///|
+/// Render into the already-acquired swapchain image without ending the frame,
+/// so an overlay (e.g. `Renderer2D::render_swapchain_pass`) can draw on top
+/// before the caller presents with `Swapchain::end_frame`.
+pub fn Renderer3D::render_swapchain_into(
+  self : Renderer3D,
+  cmd : @tycho.CommandBuffer,
+  sc : @tycho.Swapchain,
+  scene : Scene,
+  camera : NodeId,
+) -> Unit raise {
   let w = sc.width()
   let h = sc.height()
   let slot = cmd.frame_slot()
   let out = self.ensure_present(w, h)
   self.render_frame(cmd, scene, camera, w, h, out, @tycho.TextureFormat::RGBA8Srgb, slot)
   cmd.blit_to_swapchain(out, sc)
-  sc.end_frame(cmd)
 }
 
 ///|
