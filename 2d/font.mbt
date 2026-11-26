@@ -820,15 +820,25 @@ pub fn GlyphCache::get_or_rasterize(
     Some(t) => rasterize_ttf_glyph(t, cp, px_size)
     None => rasterize_builtin_glyph(cp, px_size)
   }
+  // Padding around each glyph so a quad shifted by a fraction of a pixel
+  // samples transparent padding at its edges (subpixel positioning) instead of
+  // clamping to the glyph's edge pixels.
+  let pad = 1
   let mut cacheable = true
-  let (ux0, uy0, ux1, uy1) = if gw > 0 && gh > 0 {
-    if gw > self.atlas.width || gh > self.atlas.height {
+  let mut ux0 = (0.0 : Float)
+  let mut uy0 = (0.0 : Float)
+  let mut ux1 = (0.0 : Float)
+  let mut uy1 = (0.0 : Float)
+  let mut quad_w = gw
+  let mut quad_h = gh
+  if gw > 0 && gh > 0 {
+    if gw + pad * 2 > self.atlas.width || gh + pad * 2 > self.atlas.height {
       self.atlas_overflow_count = self.atlas_overflow_count + 1
       cacheable = false
-      ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
     } else {
-      match self.atlas.alloc_and_upload(gw, gh, pixels) {
-        Some((ax, ay)) => self.atlas.uv_rect(ax, ay, gw, gh)
+      let first = self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
+      let placed = match first {
+        Some(_) => first
         None => {
           // Atlas full: reset once and retry. Only truly-full pages trigger
           // this; the old behaviour cleared entries for every overflow, so we
@@ -836,29 +846,35 @@ pub fn GlyphCache::get_or_rasterize(
           self.atlas_reset_count = self.atlas_reset_count + 1
           self.atlas.reset()
           self.entries.clear()
-          match self.atlas.alloc_and_upload(gw, gh, pixels) {
-            Some((ax2, ay2)) => self.atlas.uv_rect(ax2, ay2, gw, gh)
-            None => {
-              self.atlas_overflow_count = self.atlas_overflow_count + 1
-              cacheable = false
-              ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
-            }
-          }
+          self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
+        }
+      }
+      match placed {
+        Some((ax, ay, pw, ph)) => {
+          let (a, b, c, d) = self.atlas.uv_rect(ax, ay, pw, ph)
+          ux0 = a
+          uy0 = b
+          ux1 = c
+          uy1 = d
+          quad_w = pw
+          quad_h = ph
+        }
+        None => {
+          self.atlas_overflow_count = self.atlas_overflow_count + 1
+          cacheable = false
         }
       }
     }
-  } else {
-    ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
   }
   let entry : GlyphEntry = {
     uv_x0: ux0,
     uv_y0: uy0,
     uv_x1: ux1,
     uv_y1: uy1,
-    offset_x: ox,
-    offset_y: oy,
-    width: gw,
-    height: gh,
+    offset_x: ox - pad,
+    offset_y: oy - pad,
+    width: quad_w,
+    height: quad_h,
     advance: adv,
   }
   if cacheable {

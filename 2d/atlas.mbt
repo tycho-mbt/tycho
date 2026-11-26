@@ -188,6 +188,31 @@ pub fn DynamicAtlas::alloc_and_upload(
 }
 
 ///|
+// Like `alloc_and_upload`, but returns the padded allocation rect
+// `(x, y, padded_w, padded_h)` so callers can sample the transparent padding.
+// This is required for subpixel positioning: a quad shifted by a fraction of a
+// pixel must sample padding at its edges instead of clamping to glyph pixels.
+pub fn DynamicAtlas::alloc_and_upload_padded(
+  self : DynamicAtlas,
+  w : Int,
+  h : Int,
+  pixels : Bytes,
+  padding? : Int = 1,
+) -> (Int, Int, Int, Int)? raise @tycho.RhiError {
+  let pw = w + padding * 2
+  let ph = h + padding * 2
+  match self.packer.alloc(pw, ph) {
+    Some((ax, ay)) => {
+      if w > 0 && h > 0 {
+        self.texture.upload_subregion(ax + padding, ay + padding, w, h, pixels)
+      }
+      Some((ax, ay, pw, ph))
+    }
+    None => None
+  }
+}
+
+///|
 pub fn DynamicAtlas::uv_rect(
   self : DynamicAtlas,
   x : Int,
