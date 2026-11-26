@@ -253,6 +253,7 @@ pub(all) struct RendererDesc {
   max_objects : Int32
   max_lights : Int32
   max_materials : Int32
+  max_textures : Int32
   bloom : Bool
   shadows : Bool
   shadow_map_size : Int32

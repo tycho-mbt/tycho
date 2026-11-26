@@ -23,6 +23,7 @@ fn main {
       max_objects: 24000,
       max_lights: 16,
       max_materials: 64,
+      max_textures: 64,
       bloom: true,
       shadows: true,
       shadow_map_size: 1024,

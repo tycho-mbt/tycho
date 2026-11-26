@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : require
 layout(binding = 0) uniform FrameUBO {
     mat4 viewProj;
     mat4 lightVP;
@@ -9,7 +10,8 @@ layout(binding = 0) uniform FrameUBO {
 struct MaterialGpu {
     vec4 baseColor;
     vec4 emissive;
-    vec4 params;   // metallic, roughness, alphaCutoff, flags
+    vec4 params;    // metallic, roughness, alphaCutoff, flags
+    vec4 texParams; // albedo index, normal index, unused, unused
 };
 layout(std430, binding = 2) readonly buffer MaterialBuf { MaterialGpu materials[]; };
 
@@ -23,8 +25,7 @@ layout(std430, binding = 3) readonly buffer LightBuf { LightGpu lights[]; };
 
 layout(binding = 4) uniform sampler2DShadow uShadow;
 layout(binding = 5) uniform samplerCube uEnv;
-layout(binding = 6) uniform sampler2D uAlbedo;
-layout(binding = 7) uniform sampler2D uNormal;
+layout(set = 1, binding = 0) uniform sampler2D uTextures[];
 
 layout(push_constant) uniform PC { uint firstObject; uint materialIndex; } pc;
 
@@ -95,7 +96,7 @@ void main() {
     bool hasNormal = (flags & 4) != 0;
     vec4 base = m.baseColor;
     if (hasAlbedo) {
-        base *= texture(uAlbedo, vUV);
+        base *= texture(uTextures[nonuniformEXT(int(m.texParams.x + 0.5))], vUV);
     }
     if (m.params.z > 0.0 && base.a < m.params.z) {
         discard;
@@ -110,7 +111,7 @@ void main() {
     if (hasNormal) {
         vec3 T = normalize(vTangent.xyz - N * dot(N, vTangent.xyz));
         vec3 B = cross(N, T) * vTangent.w;
-        vec3 tn = texture(uNormal, vUV).xyz * 2.0 - 1.0;
+        vec3 tn = texture(uTextures[nonuniformEXT(int(m.texParams.y + 0.5))], vUV).xyz * 2.0 - 1.0;
         N = normalize(mat3(T, B, N) * tn);
     }
     vec3 V = normalize(frame.camPos.xyz - vWorldPos);

@@ -7,6 +7,7 @@ pub(all) struct RendererDesc {
   max_objects : Int
   max_lights : Int
   max_materials : Int
+  max_textures : Int
   bloom : Bool
   shadows : Bool
   shadow_map_size : Int
@@ -18,6 +19,7 @@ pub fn RendererDesc::default() -> RendererDesc {
     max_objects: 4096,
     max_lights: 16,
     max_materials: 1024,
+    max_textures: 1024,
     bloom: true,
     shadows: true,
     shadow_map_size: 1024,
@@ -32,9 +34,9 @@ const LIGHT_FLOATS : Int = 16
 
 const LIGHT_BYTES : Int = 64
 
-const MATERIAL_FLOATS : Int = 12
+const MATERIAL_FLOATS : Int = 16
 
-const MATERIAL_BYTES : Int = 48
+const MATERIAL_BYTES : Int = 64
 
 const FRAME_FLOATS : Int = 40
 
@@ -78,6 +80,13 @@ priv struct DrawBatch {
 }
 
 ///|
+/// A renderer-owned texture together with its bindless heap slot.
+priv struct GpuTexture {
+  tex : @tycho.Texture
+  index : Int
+}
+
+///|
 pub struct Renderer3D {
   priv dev : @tycho.Device
   priv desc : RendererDesc
@@ -93,9 +102,12 @@ pub struct Renderer3D {
   priv env_sampler : @tycho.Sampler
   priv linear_sampler : @tycho.Sampler
   priv material_sampler : @tycho.Sampler
+  priv bindless : @tycho.BindlessHeap
   priv white_tex : @tycho.Texture
   priv flat_normal_tex : @tycho.Texture
-  priv textures : Array[@tycho.Texture]
+  priv white_index : Int
+  priv flat_normal_index : Int
+  priv textures : Array[GpuTexture]
   priv mut env_cube : @tycho.Texture
   priv mut env_sun : @tmath.Vec3
   priv mut env_intensity : Float
@@ -183,7 +195,23 @@ fn pc2_bytes(first : Int, material : Int) -> Bytes {
 }
 
 ///|
-fn pack_material(w : @tmath.GpuPackWriter, m : MaterialDesc) -> Unit {
+fn Renderer3D::texture_index(self : Renderer3D, h : TextureHandle?) -> Int {
+  match h {
+    Some(x) => {
+      let i = x.id()
+      if i >= 0 && i < self.textures.length() {
+        self.textures[i].index
+      } else {
+        self.white_index
+      }
+    }
+    None => self.white_index
+  }
+}
+
+///|
+fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
+  let w = self.material_writer
   w.push_vec4(m.base_color)
   w.push_vec3_padded(m.emissive)
   let unlit : Bool = match m.shading {
@@ -208,6 +236,20 @@ fn pack_material(w : @tmath.GpuPackWriter, m : MaterialDesc) -> Unit {
   w.push_float(m.roughness)
   w.push_float(cutoff)
   w.push_float(f_of_int(flags))
+  let albedo = if m.albedo_tex.is_some() {
+    self.texture_index(m.albedo_tex)
+  } else {
+    self.white_index
+  }
+  let normal = if m.normal_tex.is_some() {
+    self.texture_index(m.normal_tex)
+  } else {
+    self.flat_normal_index
+  }
+  w.push_float(f_of_int(albedo))
+  w.push_float(f_of_int(normal))
+  w.push_float(0.0)
+  w.push_float(0.0)
 }
 
 ///|
@@ -215,6 +257,19 @@ pub fn Renderer3D::new(
   dev : @tycho.Device,
   desc? : RendererDesc = RendererDesc::default(),
 ) -> Renderer3D raise {
+  let material_sampler = dev.create_sampler_desc(
+    @tycho.SamplerDesc::new(
+      mag=@tycho.Filter::Linear,
+      min=@tycho.Filter::Linear,
+      mipmap=@tycho.Filter::Linear,
+      address=@tycho.AddressMode::Repeat,
+    ),
+  )
+  let bindless = dev.create_bindless_heap(max_textures=desc.max_textures)
+  let white_tex = solid_texture(dev, 255, 255, 255, 255, true)
+  let flat_normal_tex = solid_texture(dev, 128, 128, 255, 255, false)
+  let white_index = bindless.register_texture(white_tex, material_sampler)
+  let flat_normal_index = bindless.register_texture(flat_normal_tex, material_sampler)
   let mesh_layouts : Array[@tycho.VertexBufferLayout] = [
     @tycho.VertexBufferLayout::new(
       48,
@@ -253,6 +308,7 @@ pub fn Renderer3D::new(
       front_face=@tycho.FrontFace::CounterClockwise,
       color_format=Some(@tycho.TextureFormat::RGBA16F),
       vertex_layouts=mesh_layouts,
+      bindless_heap=Some(bindless),
     ),
   )
   let pbr_blend_pipe = dev.create_graphics_pipeline(
@@ -269,6 +325,7 @@ pub fn Renderer3D::new(
       blend_mode=Some(@tycho.BlendMode::Alpha),
       color_format=Some(@tycho.TextureFormat::RGBA16F),
       vertex_layouts=mesh_layouts,
+      bindless_heap=Some(bindless),
     ),
   )
   let sky_pipe = dev.create_graphics_pipeline(
@@ -386,16 +443,12 @@ pub fn Renderer3D::new(
     shadow_sampler,
     env_sampler,
     linear_sampler,
-    material_sampler: dev.create_sampler_desc(
-      @tycho.SamplerDesc::new(
-        mag=@tycho.Filter::Linear,
-        min=@tycho.Filter::Linear,
-        mipmap=@tycho.Filter::Linear,
-        address=@tycho.AddressMode::Repeat,
-      ),
-    ),
-    white_tex: solid_texture(dev, 255, 255, 255, 255, true),
-    flat_normal_tex: solid_texture(dev, 128, 128, 255, 255, false),
+    material_sampler,
+    bindless,
+    white_tex,
+    flat_normal_tex,
+    white_index,
+    flat_normal_index,
     textures: [],
     env_cube,
     env_sun: @tmath.Vec3::new(3.0, 4.0, -2.0).normalize(),
@@ -451,7 +504,7 @@ pub fn Renderer3D::mesh_bounds(self : Renderer3D, h : MeshHandle) -> @tmath.Aabb
 fn Renderer3D::repack_materials(self : Renderer3D) -> Unit raise {
   self.material_writer.reset()
   for m in self.materials {
-    pack_material(self.material_writer, m)
+    self.pack_material(m)
   }
   if self.materials.length() > 0 {
     self.material_ssbo.upload_floats(
@@ -485,46 +538,9 @@ pub fn Renderer3D::create_texture(
     if srgb { @tycho.TextureFormat::RGBA8Srgb } else { @tycho.TextureFormat::RGBA8 },
     Bytes::from_array(arr),
   )
-  self.textures.push(tex)
+  let index = self.bindless.register_texture(tex, self.material_sampler)
+  self.textures.push({ tex, index })
   TextureHandle::from_id(self.textures.length() - 1)
-}
-
-///|
-fn Renderer3D::resolve_texture(
-  self : Renderer3D,
-  h : TextureHandle?,
-  fallback : @tycho.Texture,
-) -> @tycho.Texture {
-  match h {
-    Some(x) => {
-      let i = x.id()
-      if i >= 0 && i < self.textures.length() {
-        self.textures[i]
-      } else {
-        fallback
-      }
-    }
-    None => fallback
-  }
-}
-
-///|
-/// Binds the material's albedo (slot 2) and normal (slot 3) maps, falling back
-/// to a 1x1 white / flat-normal texture so the shader can always sample.
-fn Renderer3D::bind_material_textures(
-  self : Renderer3D,
-  cmd : @tycho.CommandBuffer,
-  pipe : @tycho.Pipeline,
-  material : Int,
-) -> Unit {
-  if material < 0 || material >= self.materials.length() {
-    return
-  }
-  let m = self.materials[material]
-  let albedo = self.resolve_texture(m.albedo_tex, self.white_tex)
-  let normal = self.resolve_texture(m.normal_tex, self.flat_normal_tex)
-  cmd.bind_texture(pipe, 2, albedo, self.material_sampler)
-  cmd.bind_texture(pipe, 3, normal, self.material_sampler)
 }
 
 ///|
@@ -1133,6 +1149,7 @@ fn Renderer3D::render_frame(
   cmd.draw(3, 1)
   if main_count > 0 {
     cmd.bind_pipeline(self.pbr_pipe)
+    cmd.bind_bindless_heap(self.pbr_pipe, self.bindless)
     cmd.bind_uniform(
       self.pbr_pipe,
       0,
@@ -1165,7 +1182,6 @@ fn Renderer3D::render_frame(
     cmd.bind_texture(self.pbr_pipe, 1, self.env_cube, self.env_sampler)
     for b in solid_batches {
       cmd.push_constants_bytes(self.pbr_pipe, pc2_bytes(b.first, b.material))
-      self.bind_material_textures(cmd, self.pbr_pipe, b.material)
       let mesh = self.meshes[b.mesh]
       mesh.bind(cmd)
       cmd.draw_indexed(mesh.index_count(), instances=b.count)
@@ -1177,6 +1193,7 @@ fn Renderer3D::render_frame(
     }
     if transparent.length() > 0 {
       cmd.bind_pipeline(self.pbr_blend_pipe)
+      cmd.bind_bindless_heap(self.pbr_blend_pipe, self.bindless)
       cmd.bind_uniform(
         self.pbr_blend_pipe,
         0,
@@ -1209,7 +1226,6 @@ fn Renderer3D::render_frame(
       cmd.bind_texture(self.pbr_blend_pipe, 1, self.env_cube, self.env_sampler)
       for b in transparent_batches {
         cmd.push_constants_bytes(self.pbr_blend_pipe, pc2_bytes(b.first, b.material))
-        self.bind_material_textures(cmd, self.pbr_blend_pipe, b.material)
         let mesh = self.meshes[b.mesh]
         mesh.bind(cmd)
         cmd.draw_indexed(mesh.index_count(), instances=b.count)
@@ -1442,8 +1458,9 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
     self.env_cube.destroy()
   }
   for t in self.textures {
-    t.destroy()
+    t.tex.destroy()
   }
+  self.bindless.destroy()
   self.white_tex.destroy()
   self.flat_normal_tex.destroy()
   self.material_sampler.destroy()
