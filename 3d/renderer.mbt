@@ -108,6 +108,10 @@ pub struct Renderer3D {
   priv bloom_blur_pipe : @tycho.Pipeline
   priv tonemap_srgb_pipe : @tycho.Pipeline
   priv tonemap_linear_pipe : @tycho.Pipeline
+  priv line_pipe : @tycho.Pipeline
+  priv mut line_vbuf : @tycho.Buffer
+  priv mut line_capacity : Int
+  priv line_floats : Array[Float]
   priv object_writer : @tmath.GpuPackWriter
   priv light_writer : @tmath.GpuPackWriter
   priv material_writer : @tmath.GpuPackWriter
@@ -303,6 +307,28 @@ pub fn Renderer3D::new(
       color_format=Some(@tycho.TextureFormat::RGBA8),
     ),
   )
+  let line_layouts : Array[@tycho.VertexBufferLayout] = [
+    @tycho.VertexBufferLayout::new(
+      24,
+      [
+        @tycho.VertexAttribute::new(0, @tycho.VertexFormat::Float3, 0),
+        @tycho.VertexAttribute::new(1, @tycho.VertexFormat::Float3, 12),
+      ],
+    ),
+  ]
+  let line_pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_lines_vert,
+      spv_lines_frag,
+      topology=@tycho.PrimitiveTopology::LineList,
+      depth_test=true,
+      depth_write=false,
+      depth_compare=@tycho.CompareOp::GreaterEqual,
+      depth_format=Some(@tycho.TextureFormat::Depth32F),
+      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      vertex_layouts=line_layouts,
+    ),
+  )
   let shadow_sampler = dev.create_sampler_desc(
     @tycho.SamplerDesc::new(
       mag=@tycho.Filter::Linear,
@@ -383,6 +409,14 @@ pub fn Renderer3D::new(
     bloom_blur_pipe,
     tonemap_srgb_pipe,
     tonemap_linear_pipe,
+    line_pipe,
+    line_vbuf: dev.create_buffer_with(
+      1024 * 24,
+      @tycho.BufferKind::Vertex,
+      location=@tycho.MemoryLocation::GpuOnly,
+    ),
+    line_capacity: 1024,
+    line_floats: [],
     object_writer: @tmath.GpuPackWriter::std430(desc.max_objects * OBJECT_FLOATS),
     light_writer: @tmath.GpuPackWriter::std430(desc.max_lights * LIGHT_FLOATS),
     material_writer: @tmath.GpuPackWriter::std430(desc.max_materials * MATERIAL_FLOATS),
@@ -1005,11 +1039,27 @@ fn Renderer3D::render_frame(
   let mut upload_bytes = object_count * OBJECT_BYTES
   upload_bytes = upload_bytes + light_count * LIGHT_BYTES
   upload_bytes = upload_bytes + FRAME_BYTES + SKY_BYTES
-  self.stats.upload_bytes = upload_bytes
+  let line_verts = self.line_floats.length() / 6
+  if line_verts > 0 {
+    if line_verts > self.line_capacity {
+      self.line_vbuf.destroy()
+      self.line_capacity = line_verts * 2
+      self.line_vbuf = self.dev.create_buffer_with(
+        self.line_capacity * 24,
+        @tycho.BufferKind::Vertex,
+        location=@tycho.MemoryLocation::GpuOnly,
+      )
+    }
+    self.line_vbuf.upload_floats(FixedArray::from_array(self.line_floats))
+  }
+  self.stats.upload_bytes = upload_bytes + line_verts * 24
   self.stats.visible_nodes = solid.length() + transparent.length()
 
   // Shadow pass.
-  if shadows_enabled && shadow_batches.length() > 0 {
+  // Always run the shadow pass: it clears the map and transitions it to
+  // SHADER_READ_ONLY even with no casters, since the PBR pipeline always
+  // binds the shadow map.
+  if shadow_batches.length() >= 0 {
     cmd.begin_render_pass(
       [],
       depth=Some(
@@ -1038,12 +1088,14 @@ fn Renderer3D::render_frame(
       offset=object_offset,
       size=object_count * OBJECT_BYTES,
     )
-    for b in shadow_batches {
-      cmd.push_constants_bytes(self.shadow_pipe, pc_bytes(b.first))
-      let mesh = self.meshes[b.mesh]
-      mesh.bind(cmd)
-      cmd.draw_indexed(mesh.index_count(), instances=b.count)
-      self.stats.shadow_passes = self.stats.shadow_passes + 1
+    if shadows_enabled {
+      for b in shadow_batches {
+        cmd.push_constants_bytes(self.shadow_pipe, pc_bytes(b.first))
+        let mesh = self.meshes[b.mesh]
+        mesh.bind(cmd)
+        cmd.draw_indexed(mesh.index_count(), instances=b.count)
+        self.stats.shadow_passes = self.stats.shadow_passes + 1
+      }
     }
     cmd.end_render_pass()
   }
@@ -1166,6 +1218,21 @@ fn Renderer3D::render_frame(
       }
     }
   }
+  if line_verts > 0 {
+    cmd.bind_pipeline(self.line_pipe)
+    cmd.bind_uniform(
+      self.line_pipe,
+      0,
+      self.frame_ubo,
+      offset=slot * FRAME_SLOT_BYTES,
+      size=FRAME_BYTES,
+    )
+    cmd.bind_vertex(0, self.line_vbuf)
+    cmd.draw(line_verts, 1)
+    self.stats.draw_calls = self.stats.draw_calls + 1
+    self.stats.line_segments = self.stats.line_segments + line_verts / 2
+  }
+  self.line_floats.clear()
   cmd.end_render_pass()
 
   // Bloom chain.
@@ -1301,6 +1368,59 @@ pub fn Renderer3D::render_offscreen(
 }
 
 ///|
+/// Queue a world-space debug line for the next render call. Lines are
+/// depth-tested against the scene and cleared after each frame.
+pub fn Renderer3D::add_debug_line(
+  self : Renderer3D,
+  a : @tmath.Vec3,
+  b : @tmath.Vec3,
+  color : @tmath.Vec3,
+) -> Unit {
+  for p in [a, b] {
+    self.line_floats.push(p.x)
+    self.line_floats.push(p.y)
+    self.line_floats.push(p.z)
+    self.line_floats.push(color.x)
+    self.line_floats.push(color.y)
+    self.line_floats.push(color.z)
+  }
+}
+
+///|
+/// Queue the 12 edges of a world-space AABB.
+pub fn Renderer3D::add_debug_aabb(
+  self : Renderer3D,
+  box : @tmath.Aabb3,
+  color : @tmath.Vec3,
+) -> Unit {
+  let mn = box.min
+  let mx = box.max
+  let corners : Array[@tmath.Vec3] = [
+    @tmath.Vec3::new(mn.x, mn.y, mn.z),
+    @tmath.Vec3::new(mx.x, mn.y, mn.z),
+    @tmath.Vec3::new(mx.x, mx.y, mn.z),
+    @tmath.Vec3::new(mn.x, mx.y, mn.z),
+    @tmath.Vec3::new(mn.x, mn.y, mx.z),
+    @tmath.Vec3::new(mx.x, mn.y, mx.z),
+    @tmath.Vec3::new(mx.x, mx.y, mx.z),
+    @tmath.Vec3::new(mn.x, mx.y, mx.z),
+  ]
+  let edges : Array[(Int, Int)] = [
+    (0, 1), (1, 2), (2, 3), (3, 0),
+    (4, 5), (5, 6), (6, 7), (7, 4),
+    (0, 4), (1, 5), (2, 6), (3, 7),
+  ]
+  for e in edges {
+    self.add_debug_line(corners[e.0], corners[e.1], color)
+  }
+}
+
+///|
+pub fn Renderer3D::clear_debug_lines(self : Renderer3D) -> Unit {
+  self.line_floats.clear()
+}
+
+///|
 pub fn Renderer3D::stats(self : Renderer3D) -> RenderStats3D {
   self.stats
 }
@@ -1333,6 +1453,8 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   self.frame_ubo.destroy()
   self.light_ring.destroy()
   self.object_ring.destroy()
+  self.line_pipe.destroy()
+  self.line_vbuf.destroy()
   self.tonemap_linear_pipe.destroy()
   self.tonemap_srgb_pipe.destroy()
   self.bloom_blur_pipe.destroy()

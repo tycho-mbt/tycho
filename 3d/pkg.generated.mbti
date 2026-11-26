@@ -224,6 +224,7 @@ pub(all) struct RenderStats3D {
   mut shadow_passes : Int32
   mut upload_bytes : Int32
   mut instance_batches : Int32
+  mut line_segments : Int32
 }
 pub fn RenderStats3D::new() -> Self
 pub fn RenderStats3D::summary(Self) -> String
@@ -232,6 +233,9 @@ pub fn RenderStats3D::to_json(Self) -> String
 pub struct Renderer3D {
   // private fields
 }
+pub fn Renderer3D::add_debug_aabb(Self, @tycho_math.Aabb3, @tycho_math.Vec3) -> Unit
+pub fn Renderer3D::add_debug_line(Self, @tycho_math.Vec3, @tycho_math.Vec3, @tycho_math.Vec3) -> Unit
+pub fn Renderer3D::clear_debug_lines(Self) -> Unit
 pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
 pub fn Renderer3D::create_texture(Self, Int32, Int32, FixedArray[Byte], srgb? : Bool) -> TextureHandle raise
 pub fn Renderer3D::destroy(Self) -> Unit

@@ -237,7 +237,7 @@ test "stats json" {
   need(st.summary().length() > 0, "summary")
   need(
     st.to_json() ==
-      "{\"draw_calls\":3,\"triangles\":12,\"visible_nodes\":0,\"culled_nodes\":0,\"shadow_passes\":0,\"upload_bytes\":0,\"instance_batches\":0}",
+      "{\"draw_calls\":3,\"triangles\":12,\"visible_nodes\":0,\"culled_nodes\":0,\"shadow_passes\":0,\"upload_bytes\":0,\"instance_batches\":0,\"line_segments\":0}",
     "json",
   )
 }
