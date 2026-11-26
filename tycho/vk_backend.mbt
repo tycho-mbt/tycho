@@ -70,6 +70,7 @@ priv struct VkSwapchainState {
   mut views : FixedArray[@vk.VkImageView]
   mut render_finished : Array[@vk.VkSemaphore]
   has_depth : Bool
+  depth_format : TextureFormat
   enable_readback : Bool
   present_mode : PresentMode
   mut depth_image : @vk.VkImage
@@ -1986,6 +1987,7 @@ fn build_swapchain_resources(
   req_h : Int,
   old_swapchain : @vk.VkSwapchainKHR,
   has_depth : Bool,
+  depth_format : TextureFormat,
   enable_readback : Bool,
   present_mode : PresentMode,
 ) -> (
@@ -2167,15 +2169,20 @@ fn build_swapchain_resources(
   let mut depth_view = @vk.VkImageView::null()
   let mut depth_mem : MemAlloc? = None
   if has_depth {
+    let depth_aspect = if depth_format == TextureFormat::Depth24Stencil8 {
+      @vk.VK_IMAGE_ASPECT_DEPTH_BIT | @vk.VK_IMAGE_ASPECT_STENCIL_BIT
+    } else {
+      @vk.VK_IMAGE_ASPECT_DEPTH_BIT
+    }
     let dt = create_image_and_view(
       d,
       w,
       h,
-      @vk.VK_FORMAT_D32_SFLOAT,
+      vk_texture_format_for(d, depth_format),
       @vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-      @vk.VK_IMAGE_ASPECT_DEPTH_BIT,
+      depth_aspect,
       SampleCount::X1,
-      TextureFormat::Depth32F,
+      depth_format,
     )
     depth_image = dt.image
     depth_view = dt.view
@@ -2246,6 +2253,7 @@ fn vk_swapchain_create(
     desc.height,
     @vk.VkSwapchainKHR::null(),
     desc.depth,
+    desc.depth_format,
     desc.enable_readback,
     desc.present_mode,
   )
@@ -2298,6 +2306,7 @@ fn vk_swapchain_create(
     views,
     render_finished,
     has_depth: desc.depth,
+    depth_format: desc.depth_format,
     enable_readback: desc.enable_readback,
     present_mode: desc.present_mode,
     depth_image,
@@ -2357,6 +2366,7 @@ fn recreate_swapchain(s : VkSwapchainState) -> Unit raise RhiError {
     s.height,
     old_sw,
     s.has_depth,
+    s.depth_format,
     s.enable_readback,
     s.present_mode,
   )
@@ -2578,11 +2588,16 @@ fn vk_cmd_begin_swapchain_pass(
   )
   c.swapchain_image_initialized = true
   if s.has_depth {
+    let depth_aspect = if s.depth_format == TextureFormat::Depth24Stencil8 {
+      @vk.VK_IMAGE_ASPECT_DEPTH_BIT | @vk.VK_IMAGE_ASPECT_STENCIL_BIT
+    } else {
+      @vk.VK_IMAGE_ASPECT_DEPTH_BIT
+    }
     cmd_image_barrier2(
       d,
       c.cmd,
       s.depth_image,
-      @vk.VK_IMAGE_ASPECT_DEPTH_BIT,
+      depth_aspect,
       @vk.VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
       @vk.VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
       @vk.VK_ACCESS_2_NONE,

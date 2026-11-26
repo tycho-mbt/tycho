@@ -624,9 +624,11 @@ pub fn Swapchain::content_scale(Self) -> Double
 pub fn Swapchain::create_mesh_pipeline(Self, MeshPipelineDesc) -> Pipeline raise RhiError
 pub fn Swapchain::create_pipeline(Self, FixedArray[UInt32], FixedArray[UInt32], Int32) -> Pipeline raise RhiError
 pub fn Swapchain::create_pipeline_desc(Self, PipelineDesc) -> Pipeline raise RhiError
+pub fn Swapchain::depth_format(Self) -> TextureFormat
 pub fn Swapchain::destroy(Self) -> Unit
 pub fn Swapchain::end_frame(Self, CommandBuffer) -> Unit raise RhiError
 pub fn Swapchain::framebuffer_size(Self) -> (Int32, Int32)
+pub fn Swapchain::has_depth(Self) -> Bool
 pub fn Swapchain::height(Self) -> Int32
 pub fn Swapchain::is_fullscreen(Self) -> Bool
 pub fn Swapchain::is_mouse_down(Self, Int32) -> Bool
@@ -650,16 +652,18 @@ pub(all) struct SwapchainDesc {
   width : Int32
   height : Int32
   depth : Bool
+  depth_format : TextureFormat
   clear_color : ClearColor
   enable_readback : Bool
   present_mode : PresentMode
 }
-pub fn SwapchainDesc::new(String, Int32, Int32, depth? : Bool, clear_color? : ClearColor, enable_readback? : Bool, present_mode? : PresentMode) -> Self
+pub fn SwapchainDesc::new(String, Int32, Int32, depth? : Bool, depth_format? : TextureFormat, clear_color? : ClearColor, enable_readback? : Bool, present_mode? : PresentMode) -> Self
 
 pub struct Texture {
   // private fields
 }
 pub fn Texture::destroy(Self) -> Unit
+pub fn Texture::format(Self) -> TextureFormat
 pub fn Texture::height(Self) -> Int32
 pub fn Texture::layers(Self) -> Int32
 pub fn Texture::mip_levels(Self) -> Int32

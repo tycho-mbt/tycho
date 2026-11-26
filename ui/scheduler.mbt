@@ -219,7 +219,8 @@ pub fn AppRunner::run_window(
       title,
       width,
       height,
-      depth=false,
+      depth=true,
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
       clear_color=@tycho.ClearColor::rgba(
         self.clear_color.r,
         self.clear_color.g,

@@ -808,6 +808,7 @@ pub(all) struct SwapchainDesc {
   width : Int
   height : Int
   depth : Bool
+  depth_format : TextureFormat
   clear_color : ClearColor
   enable_readback : Bool
   present_mode : PresentMode
@@ -819,6 +820,7 @@ pub fn SwapchainDesc::new(
   width : Int,
   height : Int,
   depth? : Bool = false,
+  depth_format? : TextureFormat = TextureFormat::Depth32F,
   clear_color? : ClearColor = ClearColor::black(),
   enable_readback? : Bool = false,
   present_mode? : PresentMode = PresentMode::Fifo,
@@ -828,6 +830,7 @@ pub fn SwapchainDesc::new(
     width,
     height,
     depth,
+    depth_format,
     clear_color,
     enable_readback,
     present_mode,

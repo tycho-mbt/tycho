@@ -132,6 +132,35 @@ test "elliptical rrect radii and tier-2 path fallback geometry" {
 }
 
 ///|
+test "display list direct-render eligibility" {
+  let r = Rect::new((0.0 : Float), (0.0 : Float), (10.0 : Float), (10.0 : Float))
+  let c = Canvas::new()
+  c.draw_rect(r, Paint::fill(Color::white()))
+  c.clip_rect(r, op=ClipOp::Intersect)
+  assert_eq(c.finish().needs_offscreen(), false)
+
+  let c2 = Canvas::new()
+  c2.clip_rect(r, op=ClipOp::Difference)
+  assert_eq(c2.finish().needs_offscreen(), true)
+
+  let c3 = Canvas::new()
+  let p = PathBuilder::new().add_circle((5.0 : Float), (5.0 : Float), (3.0 : Float)).build()
+  c3.draw_path(p, Paint::fill(Color::white()))
+  assert_eq(c3.finish().needs_offscreen(), true)
+
+  let c4 = Canvas::new()
+  c4.draw_rrect(RRect::uniform(r, (2.0 : Float)), Paint::fill(Color::white()))
+  let sub = c4.finish()
+  let c5 = Canvas::new()
+  c5.draw_display_list(sub)
+  assert_eq(c5.finish().needs_offscreen(), false)
+
+  let c6 = Canvas::new()
+  c6.clip_rrect(RRect::uniform(r, (2.0 : Float)))
+  assert_eq(c6.finish().needs_offscreen(), true)
+}
+
+///|
 test "font advance tracks fractional sizes" {
   let f = FontFace::builtin()
   let a = f.advance_width(65, (12.0 : Float))

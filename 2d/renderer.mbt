@@ -71,6 +71,9 @@ pub struct Renderer2D {
   // (blend_index * 4 + variant), where variant encodes clip/bindless.
   priv blend_prims : Array[@tycho.Pipeline?]
   priv mut cur_blend : BlendMode2D
+  // Color format of the active target. Offscreen passes are RGBA8; direct
+  // swapchain passes may be BGRA8/sRGB, so prim pipelines are cached per format.
+  priv mut cur_color_format : @tycho.TextureFormat
   priv path_cover_pipe : @tycho.Pipeline
   priv path_cover_clip_pipe : @tycho.Pipeline
   priv stroke_pipe : @tycho.Pipeline
@@ -87,6 +90,7 @@ pub struct Renderer2D {
   priv blur_pipe : @tycho.Pipeline
   priv mut present_sc_pipe : @tycho.Pipeline?
   priv mut present_sc_fmt : @tycho.TextureFormat?
+  priv mut present_sc_depth_fmt : @tycho.TextureFormat?
   // Double-buffered dynamic buffers
   priv max_prims : Int
   priv max_stops : Int
@@ -134,6 +138,7 @@ fn make_rhi_stencil_pipeline(
   blend_mode : @tycho.BlendMode,
   samples? : @tycho.SampleCount = @tycho.SampleCount::X1,
   bindless_heap? : @tycho.BindlessHeap? = None,
+  color_format? : @tycho.TextureFormat = @tycho.TextureFormat::RGBA8,
 ) -> @tycho.Pipeline raise @tycho.RhiError {
   dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
@@ -143,7 +148,7 @@ fn make_rhi_stencil_pipeline(
       color_write~,
       cull_mode=@tycho.CullMode::None,
       samples~,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
+      color_format=Some(color_format),
       depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
       stencil=Some(stencil),
       bindless_heap~,
@@ -541,8 +546,9 @@ pub fn Renderer2D::new(
     stencil_clip_pipe,
     stencil_clear_clip_pipe,
     st_test_clip,
-    blend_prims: Array::make(28, (None : @tycho.Pipeline?)),
+    blend_prims: Array::make(112, (None : @tycho.Pipeline?)),
     cur_blend: BlendMode2D::SrcOver,
+    cur_color_format: @tycho.TextureFormat::RGBA8,
     path_cover_pipe,
     path_cover_clip_pipe,
     stroke_pipe,
@@ -558,6 +564,7 @@ pub fn Renderer2D::new(
     blur_pipe,
     present_sc_pipe: None,
     present_sc_fmt: None,
+    present_sc_depth_fmt: None,
     max_prims: max_prims_per_frame,
     max_stops: max_stops_per_frame,
     max_path_verts: max_path_verts_per_frame,
@@ -1037,12 +1044,24 @@ fn blend_mode_index(b : BlendMode2D) -> Int {
 ///|
 // Resolve (creating lazily) the Tier-1 pipeline for a given blend mode and
 // clip/bindless variant. SrcOver reuses the eagerly-created pipelines.
+fn color_format_index(f : @tycho.TextureFormat) -> Int {
+  match f {
+    @tycho.TextureFormat::RGBA8 => 0
+    @tycho.TextureFormat::BGRA8 => 1
+    @tycho.TextureFormat::RGBA8Srgb => 2
+    @tycho.TextureFormat::BGRA8Srgb => 3
+    _ => 0
+  }
+}
+
+///|
 fn Renderer2D::prim_pipe_for(
   self : Renderer2D,
   has_clip : Bool,
   blend : BlendMode2D,
 ) -> @tycho.Pipeline raise @tycho.RhiError {
-  if blend == BlendMode2D::SrcOver {
+  let fi = color_format_index(self.cur_color_format)
+  if blend == BlendMode2D::SrcOver && fi == 0 {
     return match (has_clip, self.prim_bindless_clip_pipe, self.prim_bindless_pipe) {
       (true, Some(bcp), _) => bcp
       (false, _, Some(bp)) => bp
@@ -1055,7 +1074,7 @@ fn Renderer2D::prim_pipe_for(
     _ => false
   }
   let variant = (if has_clip { 1 } else { 0 }) + (if use_bindless { 2 } else { 0 })
-  let idx = blend_mode_index(blend) * 4 + variant
+  let idx = fi * 28 + blend_mode_index(blend) * 4 + variant
   match self.blend_prims[idx] {
     Some(p) => p
     None => {
@@ -1070,6 +1089,7 @@ fn Renderer2D::prim_pipe_for(
           true,
           blend.to_rhi(),
           bindless_heap=heap,
+          color_format=self.cur_color_format,
         )
       } else {
         self.dev.create_graphics_pipeline(
@@ -1078,7 +1098,7 @@ fn Renderer2D::prim_pipe_for(
             frag,
             blend_mode=Some(blend.to_rhi()),
             cull_mode=@tycho.CullMode::None,
-            color_format=Some(@tycho.TextureFormat::RGBA8),
+            color_format=Some(self.cur_color_format),
             depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
             bindless_heap=heap,
           ),
@@ -2840,6 +2860,7 @@ fn Renderer2D::reset_frame_state(
   self.cur_clip_rrect = None
   self.has_stencil_clip = false
   self.cur_blend = BlendMode2D::SrcOver
+  self.cur_color_format = @tycho.TextureFormat::RGBA8
   self.state_stack.clear()
 }
 
@@ -2894,6 +2915,7 @@ pub fn Renderer2D::render_offscreen(
   // rendered into a pooled scene texture and then blitted it, costing one full
   // extra color target plus a full-screen sample+write per offscreen render.
   self.reset_frame_state(w, h, 0, 2)
+  self.cur_color_format = target.format()
   let ds = self.rt_pool.acquire_depth(w, h, slot=2)
   self.begin_target_pass(
     cmd,
@@ -2921,10 +2943,44 @@ pub fn Renderer2D::render_swapchain(
   dl_size? : (Int, Int)? = None,
 ) -> Unit raise @tycho.RhiError {
   self.frame_idx = self.frame_idx + 1
+  let w = sc.width()
+  let h = sc.height()
+  let (scene_w, scene_h) = match dl_size {
+    Some((dw, dh)) => if dw > 0 && dh > 0 { (dw, dh) } else { (w, h) }
+    None => (w, h)
+  }
+  let ds_opt = if sc.has_depth() { Some(sc.depth_format()) } else { None }
+  // Direct-to-swapchain: prim-only scenes that match the swapchain size and
+  // carry a Depth24Stencil8 attachment (matching the prim pipelines) can skip
+  // the offscreen scene texture and the full-screen presentation blit.
+  if sc.has_depth() &&
+    sc.depth_format() == @tycho.TextureFormat::Depth24Stencil8 &&
+    !dl.needs_offscreen() &&
+    scene_w == w &&
+    scene_h == h {
+    let cmd = sc.begin_frame_commands()
+    let sc_slot = cmd.frame_slot() & 1
+    self.reset_frame_state(w, h, sc_slot, sc_slot)
+    self.active_tex = None
+    self.active_ds = None
+    self.active_w = w
+    self.active_h = h
+    self.cur_color_format = sc.color_format()
+    cmd.begin_swapchain_pass(
+      sc,
+      load_op=@tycho.LoadOp::Clear,
+      clear_color=Some(clear_color.to_clear_color()),
+    )
+    self.replay_ops(cmd, dl.ops)
+    self.flush_prims(cmd)
+    cmd.end_swapchain_pass()
+    sc.end_frame(cmd)
+    return
+  }
   let fmt = sc.color_format()
   let sc_pipe = match self.present_sc_pipe {
     Some(p) =>
-      if self.present_sc_fmt == Some(fmt) {
+      if self.present_sc_fmt == Some(fmt) && self.present_sc_depth_fmt == ds_opt {
         p
       } else {
         p.destroy()
@@ -2935,10 +2991,12 @@ pub fn Renderer2D::render_swapchain(
             blend_mode=Some(@tycho.BlendMode::Opaque),
             cull_mode=@tycho.CullMode::None,
             color_format=Some(fmt),
+            depth_format=ds_opt,
           ),
         )
         self.present_sc_pipe = Some(np)
         self.present_sc_fmt = Some(fmt)
+        self.present_sc_depth_fmt = ds_opt
         np
       }
     None => {
@@ -2949,21 +3007,17 @@ pub fn Renderer2D::render_swapchain(
           blend_mode=Some(@tycho.BlendMode::Opaque),
           cull_mode=@tycho.CullMode::None,
           color_format=Some(fmt),
+          depth_format=ds_opt,
         ),
       )
       self.present_sc_pipe = Some(np)
       self.present_sc_fmt = Some(fmt)
+      self.present_sc_depth_fmt = ds_opt
       np
     }
   }
   let cmd = sc.begin_frame_commands()
   let sc_slot = cmd.frame_slot() & 1
-  let w = sc.width()
-  let h = sc.height()
-  let (scene_w, scene_h) = match dl_size {
-    Some((dw, dh)) => if dw > 0 && dh > 0 { (dw, dh) } else { (w, h) }
-    None => (w, h)
-  }
   let scene_tex = self.render_into_scene(
     cmd,
     dl,

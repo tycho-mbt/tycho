@@ -145,6 +145,16 @@ pub fn Swapchain::color_format(self : Swapchain) -> TextureFormat {
 }
 
 ///|
+pub fn Swapchain::has_depth(self : Swapchain) -> Bool {
+  self.inner.has_depth
+}
+
+///|
+pub fn Swapchain::depth_format(self : Swapchain) -> TextureFormat {
+  self.inner.depth_format
+}
+
+///|
 pub fn Swapchain::should_close(self : Swapchain) -> Bool {
   @win.should_close(self.inner.window) != 0
 }
@@ -706,6 +716,11 @@ pub fn Device::create_depth_texture_format(
 ///|
 pub fn Texture::width(self : Texture) -> Int {
   self.inner.width
+}
+
+///|
+pub fn Texture::format(self : Texture) -> TextureFormat {
+  self.inner.format
 }
 
 ///|

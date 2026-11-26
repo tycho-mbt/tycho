@@ -89,6 +89,7 @@ pub struct DisplayList {
   bounds : Rect
 }
 pub fn DisplayList::bounds(Self) -> Rect
+pub fn DisplayList::needs_offscreen(Self) -> Bool
 pub fn DisplayList::op_count(Self) -> Int32
 
 pub(all) enum DrawOp {
