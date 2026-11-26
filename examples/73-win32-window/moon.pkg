@@ -1,0 +1,6 @@
+import {
+  "laplaceliu/tycho" @tycho,
+  "laplaceliu/tycho_window" @win,
+}
+
+pkgtype(kind: "executable")

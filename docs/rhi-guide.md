@@ -172,3 +172,4 @@ if dev.capabilities().supports_ray_query {
 | `53-rhi-2d-sdf-batch` | 2D per-corner SDF rounded rects, procedural icon atlas, hardware `set_scissor` clipping, and 30f × 2,000-quad ring-SSBO benchmark |
 | `54-tycho-2d-showcase` | `laplaceliu/tycho_2d` showcase: gradients, TrueType/built-in paragraphs, Stencil-then-Cover paths, `save_layer`, and `BackdropFilter` blur |
 | `55-tycho-ui-gallery` | `laplaceliu/tycho_ui` declarative UI showcase: three trees, `Signal[T]`, Dark/Light theme, `TextField`, `frosted_dialog`, and 100K virtual `ListView` |
+| `73-win32-window` | Windows Win32 WSI (`user32.dll` + `VK_KHR_win32_surface`), fullscreen-resize swapchain recreation, clipboard, DPI `content_scale` |
