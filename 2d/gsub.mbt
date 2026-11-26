@@ -367,7 +367,12 @@ fn gsub_lookup_flags(g : GsubData, lookup_off : Int) -> Int {
 }
 
 ///|
-fn gsub_glyph_ignored(g : GsubData, gid : Int, flags : Int) -> Bool {
+fn gsub_glyph_ignored(
+  g : GsubData,
+  gid : Int,
+  flags : Int,
+  mark_set : Int,
+) -> Bool {
   let gdef = match g.gdef {
     Some(v) => v
     None => return false
@@ -387,8 +392,27 @@ fn gsub_glyph_ignored(g : GsubData, gid : Int, flags : Int) -> Bool {
     if attach != 0 && gdef.mark_attach_class(gid) != attach {
       return true
     }
+    if (flags & 0x0010) != 0 && mark_set >= 0 {
+      if !gdef.in_mark_set(mark_set, gid) {
+        return true
+      }
+    }
   }
   false
+}
+
+///|
+fn gsub_mark_set(g : GsubData, lookup_off : Int) -> Int {
+  let b = g.bytes
+  if (gsub_lookup_flags(g, lookup_off) & 0x0010) == 0 {
+    return -1
+  }
+  let sub_count = gsub_u16(b, lookup_off + 4)
+  let pos = lookup_off + 6 + sub_count * 2
+  if pos + 2 > b.length() {
+    return -1
+  }
+  gsub_u16(b, pos)
 }
 
 ///|
@@ -397,10 +421,11 @@ fn gsub_next_index(
   input : Array[(Int, Int)],
   from : Int,
   flags : Int,
+  mark_set : Int,
 ) -> Int? {
   let mut i = from
   while i < input.length() {
-    if !gsub_glyph_ignored(g, input[i].0, flags) {
+    if !gsub_glyph_ignored(g, input[i].0, flags, mark_set) {
       return Some(i)
     }
     i = i + 1
@@ -414,10 +439,11 @@ fn gsub_prev_index(
   input : Array[(Int, Int)],
   from : Int,
   flags : Int,
+  mark_set : Int,
 ) -> Int? {
   let mut i = from
   while i >= 0 {
-    if !gsub_glyph_ignored(g, input[i].0, flags) {
+    if !gsub_glyph_ignored(g, input[i].0, flags, mark_set) {
       return Some(i)
     }
     i = i - 1
@@ -552,6 +578,325 @@ fn gsub_apply_nested_at(
 }
 
 ///|
+fn gsub_class_match(b : Bytes, cdef : Int, gid : Int, want : Int) -> Bool {
+  want == 0 || gdef_class_value(b, cdef, gid) == want
+}
+
+///|
+fn gsub_match_literal(
+  g : GsubData,
+  input : Array[(Int, Int)],
+  start : Int,
+  flags : Int,
+  mark_set : Int,
+  ids_off : Int,
+  count : Int,
+) -> Array[Int]? {
+  let positions : Array[Int] = [start]
+  let mut cursor = start
+  for k = 0; k < count; k = k + 1 {
+    match gsub_next_index(g, input, cursor + 1, flags, mark_set) {
+      Some(p) =>
+        if input[p].0 != gsub_u16(g.bytes, ids_off + k * 2) {
+          return None
+        } else {
+          positions.push(p)
+          cursor = p
+        }
+      None => return None
+    }
+  }
+  Some(positions)
+}
+
+///|
+fn gsub_match_classes(
+  g : GsubData,
+  input : Array[(Int, Int)],
+  start : Int,
+  flags : Int,
+  mark_set : Int,
+  cdef : Int,
+  classes_off : Int,
+  count : Int,
+) -> Array[Int]? {
+  let positions : Array[Int] = [start]
+  let mut cursor = start
+  for k = 0; k < count; k = k + 1 {
+    match gsub_next_index(g, input, cursor + 1, flags, mark_set) {
+      Some(p) =>
+        if !gsub_class_match(
+          g.bytes,
+          cdef,
+          input[p].0,
+          gsub_u16(g.bytes, classes_off + k * 2),
+        ) {
+          return None
+        } else {
+          positions.push(p)
+          cursor = p
+        }
+      None => return None
+    }
+  }
+  Some(positions)
+}
+
+///|
+fn gsub_apply_records_desc(
+  g : GsubData,
+  input : Array[(Int, Int)],
+  positions : Array[Int],
+  rec_at : Int,
+  rec_count : Int,
+  depth : Int,
+) -> Array[(Int, Int)] {
+  let b = g.bytes
+  let mut cur = input
+  let mut r = rec_count
+  while r > 0 {
+    r = r - 1
+    let rec = rec_at + 2 + r * 4
+    let seq = gsub_u16(b, rec)
+    let lookup_idx = gsub_u16(b, rec + 2)
+    if seq < positions.length() {
+      cur = gsub_apply_nested_at(g, lookup_idx, cur, positions[seq], depth + 1)
+    }
+  }
+  cur
+}
+
+///|
+fn gsub_apply_chain1(
+  g : GsubData,
+  lookup_off : Int,
+  sub : Int,
+  input : Array[(Int, Int)],
+  depth : Int,
+) -> Array[(Int, Int)] {
+  let b = g.bytes
+  let flags = gsub_lookup_flags(g, lookup_off)
+  let mark_set = gsub_mark_set(g, lookup_off)
+  let cov = sub + gsub_u16(b, sub + 2)
+  let set_count = gsub_u16(b, sub + 4)
+  let mut cur = input
+  let mut i = 0
+  while i < cur.length() {
+    let cov_idx = match gsub_coverage_index(g, cov, cur[i].0) {
+      Some(v) => v
+      None => {
+        i = i + 1
+        continue
+      }
+    }
+    if cov_idx >= set_count {
+      i = i + 1
+      continue
+    }
+    let set = sub + gsub_u16(b, sub + 6 + cov_idx * 2)
+    let rule_count = gsub_u16(b, set)
+    let mut ri = 0
+    while ri < rule_count {
+      let rule = set + gsub_u16(b, set + 2 + ri * 2)
+      let back_count = gsub_u16(b, rule)
+      let back_ids = rule + 2
+      let input_at = back_ids + back_count * 2
+      let input_count = gsub_u16(b, input_at)
+      let input_ids = input_at + 2
+      let look_at = input_ids + (if input_count > 0 { (input_count - 1) * 2 } else { 0 })
+      let look_count = gsub_u16(b, look_at)
+      let look_ids = look_at + 2
+      let rec_at = look_ids + look_count * 2
+      if input_count <= 0 {
+        ri = ri + 1
+        continue
+      }
+      let mut ok = true
+      let positions = if input_count > 1 {
+        match gsub_match_literal(
+          g,
+          cur,
+          i,
+          flags,
+          mark_set,
+          input_ids,
+          input_count - 1,
+        ) {
+          Some(v) => v
+          None => {
+            ok = false
+            []
+          }
+        }
+      } else {
+        [i]
+      }
+      let mut bpos = i
+      let mut bk = 0
+      while ok && bk < back_count {
+        match gsub_prev_index(g, cur, bpos - 1, flags, mark_set) {
+          Some(p) =>
+            if cur[p].0 != gsub_u16(b, back_ids + bk * 2) {
+              ok = false
+            } else {
+              bpos = p
+            }
+          None => ok = false
+        }
+        bk = bk + 1
+      }
+      let mut lpos = if positions.length() > 0 {
+        positions[positions.length() - 1]
+      } else {
+        i
+      }
+      let mut lk = 0
+      while ok && lk < look_count {
+        match gsub_next_index(g, cur, lpos + 1, flags, mark_set) {
+          Some(p) =>
+            if cur[p].0 != gsub_u16(b, look_ids + lk * 2) {
+              ok = false
+            } else {
+              lpos = p
+            }
+          None => ok = false
+        }
+        lk = lk + 1
+      }
+      if ok {
+        cur = gsub_apply_records_desc(g, cur, positions, rec_at, gsub_u16(b, rec_at), depth)
+        ri = rule_count
+      } else {
+        ri = ri + 1
+      }
+    }
+    i = i + 1
+  }
+  cur
+}
+
+///|
+fn gsub_apply_chain2(
+  g : GsubData,
+  lookup_off : Int,
+  sub : Int,
+  input : Array[(Int, Int)],
+  depth : Int,
+) -> Array[(Int, Int)] {
+  let b = g.bytes
+  let flags = gsub_lookup_flags(g, lookup_off)
+  let mark_set = gsub_mark_set(g, lookup_off)
+  let cov = sub + gsub_u16(b, sub + 2)
+  let back_cdef = sub + gsub_u16(b, sub + 4)
+  let input_cdef = sub + gsub_u16(b, sub + 6)
+  let look_cdef = sub + gsub_u16(b, sub + 8)
+  let set_count = gsub_u16(b, sub + 10)
+  let mut cur = input
+  let mut i = 0
+  while i < cur.length() {
+    if !gsub_cov_has(g, cov, cur[i].0) {
+      i = i + 1
+      continue
+    }
+    let first_cls = gdef_class_value(b, input_cdef, cur[i].0)
+    if first_cls >= set_count {
+      i = i + 1
+      continue
+    }
+    let set = sub + gsub_u16(b, sub + 12 + first_cls * 2)
+    let rule_count = gsub_u16(b, set)
+    let mut ri = 0
+    while ri < rule_count {
+      let rule = set + gsub_u16(b, set + 2 + ri * 2)
+      let back_count = gsub_u16(b, rule)
+      let back_cls = rule + 2
+      let input_at = back_cls + back_count * 2
+      let input_count = gsub_u16(b, input_at)
+      let input_cls = input_at + 2
+      let look_at = input_cls + (if input_count > 0 { (input_count - 1) * 2 } else { 0 })
+      let look_count = gsub_u16(b, look_at)
+      let look_cls = look_at + 2
+      let rec_at = look_cls + look_count * 2
+      if input_count <= 0 {
+        ri = ri + 1
+        continue
+      }
+      let mut ok = true
+      let positions = if input_count > 1 {
+        match gsub_match_classes(
+          g,
+          cur,
+          i,
+          flags,
+          mark_set,
+          input_cdef,
+          input_cls,
+          input_count - 1,
+        ) {
+          Some(v) => v
+          None => {
+            ok = false
+            []
+          }
+        }
+      } else {
+        [i]
+      }
+      let mut bpos = i
+      let mut bk = 0
+      while ok && bk < back_count {
+        match gsub_prev_index(g, cur, bpos - 1, flags, mark_set) {
+          Some(p) =>
+            if !gsub_class_match(
+              b,
+              back_cdef,
+              cur[p].0,
+              gsub_u16(b, back_cls + bk * 2),
+            ) {
+              ok = false
+            } else {
+              bpos = p
+            }
+          None => ok = false
+        }
+        bk = bk + 1
+      }
+      let mut lpos = if positions.length() > 0 {
+        positions[positions.length() - 1]
+      } else {
+        i
+      }
+      let mut lk = 0
+      while ok && lk < look_count {
+        match gsub_next_index(g, cur, lpos + 1, flags, mark_set) {
+          Some(p) =>
+            if !gsub_class_match(
+              b,
+              look_cdef,
+              cur[p].0,
+              gsub_u16(b, look_cls + lk * 2),
+            ) {
+              ok = false
+            } else {
+              lpos = p
+            }
+          None => ok = false
+        }
+        lk = lk + 1
+      }
+      if ok {
+        cur = gsub_apply_records_desc(g, cur, positions, rec_at, gsub_u16(b, rec_at), depth)
+        ri = rule_count
+      } else {
+        ri = ri + 1
+      }
+    }
+    i = i + 1
+  }
+  cur
+}
+
+///|
 fn gsub_apply_chain3(
   g : GsubData,
   lookup_off : Int,
@@ -561,6 +906,7 @@ fn gsub_apply_chain3(
 ) -> Array[(Int, Int)] {
   let b = g.bytes
   let flags = gsub_lookup_flags(g, lookup_off)
+  let mark_set = gsub_mark_set(g, lookup_off)
   let back_count = gsub_u16(b, sub + 2)
   let back_cov = sub + 4
   let input_count_at = back_cov + back_count * 2
@@ -582,7 +928,7 @@ fn gsub_apply_chain3(
     let mut ok = gsub_cov_has(g, sub + gsub_u16(b, input_cov), cur[i].0)
     let mut k = 1
     while ok && k < input_count {
-      match gsub_next_index(g, cur, cursor + 1, flags) {
+      match gsub_next_index(g, cur, cursor + 1, flags, mark_set) {
         Some(p) => {
           if gsub_cov_has(g, sub + gsub_u16(b, input_cov + k * 2), cur[p].0) {
             positions.push(p)
@@ -599,7 +945,7 @@ fn gsub_apply_chain3(
     let mut bpos = i
     let mut bk = 0
     while ok && bk < back_count {
-      match gsub_prev_index(g, cur, bpos - 1, flags) {
+      match gsub_prev_index(g, cur, bpos - 1, flags, mark_set) {
         Some(p) => {
           if !gsub_cov_has(g, sub + gsub_u16(b, back_cov + bk * 2), cur[p].0) {
             ok = false
@@ -614,7 +960,7 @@ fn gsub_apply_chain3(
     let mut lpos = cursor
     let mut lk = 0
     while ok && lk < look_count {
-      match gsub_next_index(g, cur, lpos + 1, flags) {
+      match gsub_next_index(g, cur, lpos + 1, flags, mark_set) {
         Some(p) => {
           if !gsub_cov_has(g, sub + gsub_u16(b, look_cov + lk * 2), cur[p].0) {
             ok = false
@@ -650,6 +996,156 @@ fn gsub_apply_chain3(
 }
 
 ///|
+fn gsub_apply_context1(
+  g : GsubData,
+  lookup_off : Int,
+  sub : Int,
+  input : Array[(Int, Int)],
+  depth : Int,
+) -> Array[(Int, Int)] {
+  let b = g.bytes
+  let flags = gsub_lookup_flags(g, lookup_off)
+  let mark_set = gsub_mark_set(g, lookup_off)
+  let cov = sub + gsub_u16(b, sub + 2)
+  let set_count = gsub_u16(b, sub + 4)
+  let mut cur = input
+  let mut i = 0
+  while i < cur.length() {
+    let cov_idx = match gsub_coverage_index(g, cov, cur[i].0) {
+      Some(v) => v
+      None => {
+        i = i + 1
+        continue
+      }
+    }
+    if cov_idx >= set_count {
+      i = i + 1
+      continue
+    }
+    let set = sub + gsub_u16(b, sub + 6 + cov_idx * 2)
+    let rule_count = gsub_u16(b, set)
+    let mut ri = 0
+    while ri < rule_count {
+      let rule = set + gsub_u16(b, set + 2 + ri * 2)
+      let glyph_count = gsub_u16(b, rule)
+      let rec_count = gsub_u16(b, rule + 2)
+      let rec_at = rule + 4
+      let ids = rec_at + rec_count * 4
+      if glyph_count <= 0 {
+        ri = ri + 1
+        continue
+      }
+      let positions = if glyph_count > 1 {
+        match gsub_match_literal(
+          g,
+          cur,
+          i,
+          flags,
+          mark_set,
+          ids,
+          glyph_count - 1,
+        ) {
+          Some(v) => v
+          None => []
+        }
+      } else {
+        [i]
+      }
+      if positions.length() > 0 {
+        cur = gsub_apply_records_desc(
+          g,
+          cur,
+          positions,
+          rec_at,
+          rec_count,
+          depth,
+        )
+        ri = rule_count
+      } else {
+        ri = ri + 1
+      }
+    }
+    i = i + 1
+  }
+  cur
+}
+
+///|
+fn gsub_apply_context2(
+  g : GsubData,
+  lookup_off : Int,
+  sub : Int,
+  input : Array[(Int, Int)],
+  depth : Int,
+) -> Array[(Int, Int)] {
+  let b = g.bytes
+  let flags = gsub_lookup_flags(g, lookup_off)
+  let mark_set = gsub_mark_set(g, lookup_off)
+  let cov = sub + gsub_u16(b, sub + 2)
+  let cdef = sub + gsub_u16(b, sub + 4)
+  let set_count = gsub_u16(b, sub + 6)
+  let mut cur = input
+  let mut i = 0
+  while i < cur.length() {
+    if !gsub_cov_has(g, cov, cur[i].0) {
+      i = i + 1
+      continue
+    }
+    let first_cls = gdef_class_value(b, cdef, cur[i].0)
+    if first_cls >= set_count {
+      i = i + 1
+      continue
+    }
+    let set = sub + gsub_u16(b, sub + 8 + first_cls * 2)
+    let rule_count = gsub_u16(b, set)
+    let mut ri = 0
+    while ri < rule_count {
+      let rule = set + gsub_u16(b, set + 2 + ri * 2)
+      let glyph_count = gsub_u16(b, rule)
+      let rec_count = gsub_u16(b, rule + 2)
+      let rec_at = rule + 4
+      let cls = rec_at + rec_count * 4
+      if glyph_count <= 0 {
+        ri = ri + 1
+        continue
+      }
+      let positions = if glyph_count > 1 {
+        match gsub_match_classes(
+          g,
+          cur,
+          i,
+          flags,
+          mark_set,
+          cdef,
+          cls,
+          glyph_count - 1,
+        ) {
+          Some(v) => v
+          None => []
+        }
+      } else {
+        [i]
+      }
+      if positions.length() > 0 {
+        cur = gsub_apply_records_desc(
+          g,
+          cur,
+          positions,
+          rec_at,
+          rec_count,
+          depth,
+        )
+        ri = rule_count
+      } else {
+        ri = ri + 1
+      }
+    }
+    i = i + 1
+  }
+  cur
+}
+
+///|
 fn gsub_apply_context3(
   g : GsubData,
   lookup_off : Int,
@@ -659,6 +1155,7 @@ fn gsub_apply_context3(
 ) -> Array[(Int, Int)] {
   let b = g.bytes
   let flags = gsub_lookup_flags(g, lookup_off)
+  let mark_set = gsub_mark_set(g, lookup_off)
   let input_count = gsub_u16(b, sub + 2)
   let input_cov = sub + 4
   let rec_at = input_cov + input_count * 2
@@ -674,7 +1171,7 @@ fn gsub_apply_context3(
     let mut ok = gsub_cov_has(g, sub + gsub_u16(b, input_cov), cur[i].0)
     let mut k = 1
     while ok && k < input_count {
-      match gsub_next_index(g, cur, cursor + 1, flags) {
+      match gsub_next_index(g, cur, cursor + 1, flags, mark_set) {
         Some(p) => {
           if gsub_cov_has(g, sub + gsub_u16(b, input_cov + k * 2), cur[p].0) {
             positions.push(p)
@@ -739,6 +1236,18 @@ fn gsub_apply_lookup_depth(
     for si = 0; si < sub_count; si = si + 1 {
       let sub = lookup_off + gsub_u16(b, lookup_off + 6 + si * 2)
       match gsub_u16(b, sub) {
+        1 =>
+          if typ == 5 {
+            cur = gsub_apply_context1(g, lookup_off, sub, cur, depth)
+          } else {
+            cur = gsub_apply_chain1(g, lookup_off, sub, cur, depth)
+          }
+        2 =>
+          if typ == 5 {
+            cur = gsub_apply_context2(g, lookup_off, sub, cur, depth)
+          } else {
+            cur = gsub_apply_chain2(g, lookup_off, sub, cur, depth)
+          }
         3 =>
           if typ == 5 {
             cur = gsub_apply_context3(g, lookup_off, sub, cur, depth)

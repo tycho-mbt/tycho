@@ -899,8 +899,8 @@ test "GDEF classes drive GSUB lookup flags" {
           let mark = font.glyph_id(0x093F)
           assert_eq(gdef.glyph_class(base), 1)
           assert_eq(gdef.glyph_class(mark), 3)
-          assert_true(gsub_glyph_ignored(gsub, mark, 0x0008))
-          assert_true(!gsub_glyph_ignored(gsub, base, 0x0008))
+          assert_true(gsub_glyph_ignored(gsub, mark, 0x0008, -1))
+          assert_true(!gsub_glyph_ignored(gsub, base, 0x0008, -1))
         }
         _ => assert_true(false)
       }
@@ -931,6 +931,11 @@ test "devanagari pre-base matra and conjunct features" {
       }
       assert_true(!has_virama)
       assert_true(ste.length() < 4)
+      // Reph and the following consonant share the reph cluster.
+      let karm = shape_run(font, "कर्म")
+      assert_eq(karm.length(), 3)
+      assert_eq(karm[1].source_start, 1)
+      assert_eq(karm[2].source_start, 1)
     }
     None => ()
   }

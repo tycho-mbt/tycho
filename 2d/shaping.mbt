@@ -35,6 +35,7 @@ fn is_deva_consonant(cp : Int) -> Bool {
 
 ///|
 fn is_deva_matra(cp : Int) -> Bool {
+  cp == 0x094D ||
   (cp >= 0x093E && cp <= 0x094C) ||
   cp == 0x094E ||
   cp == 0x094F ||
@@ -346,15 +347,36 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
           }
         }
         if ri >= 0 {
-          let r0 = run_out.remove(ri)
-          // Reph is positioned at the end of the syllable and shares the
-          // final base consonant's cluster.
-          let last_src = if run_out.length() > 0 {
-            run_out[run_out.length() - 1].source_start
-          } else {
-            r0.source_start
+          // Reph cluster: its own position unless it follows a conjunct, in
+          // which case it belongs to that conjunct's syllable start.
+          let mut reph_cluster = reph_src
+          let mut q = reph_src - 2
+          while q - 1 >= start && cps[q - 1] == 0x094D {
+            q = q - 2
           }
-          let r = { ..r0, source_start: last_src, source_end: last_src + 1 }
+          if q >= start && is_deva_consonant(cps[q]) {
+            reph_cluster = run_cluster[q]
+          }
+          // Glyphs after the reph belong to the reph syllable.
+          let adjusted : Array[ShapedChar] = []
+          for sc in run_out {
+            if sc.source_start >= reph_src {
+              adjusted.push({
+                ..sc,
+                source_start: reph_cluster,
+                source_end: reph_cluster + 1,
+              })
+            } else {
+              adjusted.push(sc)
+            }
+          }
+          run_out = adjusted
+          let r0 = run_out.remove(ri)
+          let r = {
+            ..r0,
+            source_start: reph_cluster,
+            source_end: reph_cluster + 1,
+          }
           run_out.push(r)
         }
       }
