@@ -2,6 +2,7 @@
 layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inUV;
+layout(location = 3) in vec4 inTangent;
 
 layout(binding = 0) uniform FrameUBO {
     mat4 viewProj;
@@ -20,11 +21,12 @@ struct ObjectGpu {
 };
 layout(std430, binding = 1) readonly buffer ObjectBuf { ObjectGpu objects[]; };
 
-layout(push_constant) uniform PC { uint firstObject; } pc;
+layout(push_constant) uniform PC { uint firstObject; uint materialIndex; } pc;
 
 layout(location = 0) out vec3 vWorldPos;
 layout(location = 1) out vec3 vNormal;
 layout(location = 2) out vec2 vUV;
+layout(location = 3) out vec4 vTangent;
 
 void main() {
     ObjectGpu o = objects[pc.firstObject + uint(gl_InstanceIndex)];
@@ -32,5 +34,6 @@ void main() {
     vWorldPos = wp.xyz;
     vNormal = mat3(o.normalMat) * inNormal;
     vUV = inUV;
+    vTangent = vec4(mat3(o.normalMat) * inTangent.xyz, inTangent.w);
     gl_Position = frame.viewProj * wp;
 }

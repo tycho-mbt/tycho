@@ -19,7 +19,12 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   and each run is drawn with `draw_indexed(..., instances=n)`. Shaders index
   the object SSBO as `firstObject + gl_InstanceIndex`, so 10k nodes collapse
   into one draw with no per-instance vertex layout.
-- `GpuMesh`: interleaved P3/N3/UV2 upload from `@tgeo.MeshData` (16-bit indices
+- Material textures: `Renderer3D::create_texture` uploads RGBA8 (sRGB or
+  linear); materials may reference albedo and normal maps, with 1x1 fallbacks
+  so the shader always samples. Tangents are generated on upload, enabling
+  world-space normal mapping, and `AlphaMode::Mask` discards against the
+  sampled albedo alpha.
+- `GpuMesh`: interleaved P3/N3/UV2/T4 upload from `@tgeo.MeshData` (16-bit indices
   when possible, CPU copy retained for picking).
 - `Renderer3D::pick` + `ray_mesh_hit`: frustum-culled, world-space ray picking
   with Moller-Trumbore and normal-matrix-transformed normals.

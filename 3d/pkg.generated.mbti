@@ -10,9 +10,9 @@ import {
 }
 
 // Values
-pub const MESH_VERTEX_BYTES : Int32 = 32
+pub const MESH_VERTEX_BYTES : Int32 = 48
 
-pub const MESH_VERTEX_FLOATS : Int32 = 8
+pub const MESH_VERTEX_FLOATS : Int32 = 12
 
 pub fn default_environment_cubemap(@tycho.Device) -> @tycho.Texture raise
 
@@ -233,6 +233,7 @@ pub struct Renderer3D {
   // private fields
 }
 pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
+pub fn Renderer3D::create_texture(Self, Int32, Int32, FixedArray[Byte], srgb? : Bool) -> TextureHandle raise
 pub fn Renderer3D::destroy(Self) -> Unit
 pub fn Renderer3D::mesh_bounds(Self, MeshHandle) -> @tycho_math.Aabb3?
 pub fn Renderer3D::new(@tycho.Device, desc? : RendererDesc) -> Self raise

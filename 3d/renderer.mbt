@@ -92,6 +92,10 @@ pub struct Renderer3D {
   priv shadow_sampler : @tycho.Sampler
   priv env_sampler : @tycho.Sampler
   priv linear_sampler : @tycho.Sampler
+  priv material_sampler : @tycho.Sampler
+  priv white_tex : @tycho.Texture
+  priv flat_normal_tex : @tycho.Texture
+  priv textures : Array[@tycho.Texture]
   priv mut env_cube : @tycho.Texture
   priv mut env_sun : @tmath.Vec3
   priv mut env_intensity : Float
@@ -136,12 +140,61 @@ fn pc_bytes(index : Int) -> Bytes {
 }
 
 ///|
+fn byte_of(v : Int) -> Byte {
+  (v.to_uint() & (0xFF : UInt)).to_byte()
+}
+
+///|
+fn solid_texture(
+  dev : @tycho.Device,
+  r : Int,
+  g : Int,
+  b : Int,
+  a : Int,
+  srgb : Bool,
+) -> @tycho.Texture raise {
+  let bytes = Bytes::from_array([byte_of(r), byte_of(g), byte_of(b), byte_of(a)])
+  dev.create_texture_format(
+    1,
+    1,
+    if srgb { @tycho.TextureFormat::RGBA8Srgb } else { @tycho.TextureFormat::RGBA8 },
+    bytes,
+  )
+}
+
+///|
+fn pc2_bytes(first : Int, material : Int) -> Bytes {
+  let a = first.reinterpret_as_uint()
+  let b = material.reinterpret_as_uint()
+  let arr : Array[Byte] = []
+  arr.push((a & (0xFF : UInt)).to_byte())
+  arr.push(((a >> 8) & (0xFF : UInt)).to_byte())
+  arr.push(((a >> 16) & (0xFF : UInt)).to_byte())
+  arr.push(((a >> 24) & (0xFF : UInt)).to_byte())
+  arr.push((b & (0xFF : UInt)).to_byte())
+  arr.push(((b >> 8) & (0xFF : UInt)).to_byte())
+  arr.push(((b >> 16) & (0xFF : UInt)).to_byte())
+  arr.push(((b >> 24) & (0xFF : UInt)).to_byte())
+  Bytes::from_array(arr)
+}
+
+///|
 fn pack_material(w : @tmath.GpuPackWriter, m : MaterialDesc) -> Unit {
   w.push_vec4(m.base_color)
   w.push_vec3_padded(m.emissive)
-  let flags : Float = match m.shading {
-    Unlit => 1.0
-    Pbr => 0.0
+  let unlit : Bool = match m.shading {
+    Unlit => true
+    Pbr => false
+  }
+  let mut flags : Int = 0
+  if unlit {
+    flags = flags | 1
+  }
+  if m.albedo_tex.is_some() {
+    flags = flags | 2
+  }
+  if m.normal_tex.is_some() {
+    flags = flags | 4
   }
   let cutoff : Float = match m.alpha_mode {
     Mask(c) => c
@@ -150,7 +203,7 @@ fn pack_material(w : @tmath.GpuPackWriter, m : MaterialDesc) -> Unit {
   w.push_float(m.metallic)
   w.push_float(m.roughness)
   w.push_float(cutoff)
-  w.push_float(flags)
+  w.push_float(f_of_int(flags))
 }
 
 ///|
@@ -160,11 +213,12 @@ pub fn Renderer3D::new(
 ) -> Renderer3D raise {
   let mesh_layouts : Array[@tycho.VertexBufferLayout] = [
     @tycho.VertexBufferLayout::new(
-      32,
+      48,
       [
         @tycho.VertexAttribute::new(0, @tycho.VertexFormat::Float3, 0),
         @tycho.VertexAttribute::new(1, @tycho.VertexFormat::Float3, 12),
         @tycho.VertexAttribute::new(2, @tycho.VertexFormat::Float2, 24),
+        @tycho.VertexAttribute::new(3, @tycho.VertexFormat::Float4, 32),
       ],
     ),
   ]
@@ -306,6 +360,17 @@ pub fn Renderer3D::new(
     shadow_sampler,
     env_sampler,
     linear_sampler,
+    material_sampler: dev.create_sampler_desc(
+      @tycho.SamplerDesc::new(
+        mag=@tycho.Filter::Linear,
+        min=@tycho.Filter::Linear,
+        mipmap=@tycho.Filter::Linear,
+        address=@tycho.AddressMode::Repeat,
+      ),
+    ),
+    white_tex: solid_texture(dev, 255, 255, 255, 255, true),
+    flat_normal_tex: solid_texture(dev, 128, 128, 255, 255, false),
+    textures: [],
     env_cube,
     env_sun: @tmath.Vec3::new(3.0, 4.0, -2.0).normalize(),
     env_intensity: 1.0,
@@ -360,6 +425,72 @@ fn Renderer3D::repack_materials(self : Renderer3D) -> Unit raise {
       count=self.materials.length() * MATERIAL_FLOATS,
     )
   }
+}
+
+///|
+/// Upload an RGBA8 texture. `srgb` selects `RGBA8Srgb` (albedo/emissive) versus
+/// linear `RGBA8` (normal/metallic-roughness maps).
+pub fn Renderer3D::create_texture(
+  self : Renderer3D,
+  width : Int,
+  height : Int,
+  rgba8 : FixedArray[Byte],
+  srgb? : Bool = true,
+) -> TextureHandle raise {
+  let expected = width * height * 4
+  if width <= 0 || height <= 0 || rgba8.length() != expected {
+    fail("Renderer3D: create_texture expects width*height*4 bytes")
+  }
+  let arr : Array[Byte] = []
+  for b in rgba8 {
+    arr.push(b)
+  }
+  let tex = self.dev.create_texture_format(
+    width,
+    height,
+    if srgb { @tycho.TextureFormat::RGBA8Srgb } else { @tycho.TextureFormat::RGBA8 },
+    Bytes::from_array(arr),
+  )
+  self.textures.push(tex)
+  TextureHandle::from_id(self.textures.length() - 1)
+}
+
+///|
+fn Renderer3D::resolve_texture(
+  self : Renderer3D,
+  h : TextureHandle?,
+  fallback : @tycho.Texture,
+) -> @tycho.Texture {
+  match h {
+    Some(x) => {
+      let i = x.id()
+      if i >= 0 && i < self.textures.length() {
+        self.textures[i]
+      } else {
+        fallback
+      }
+    }
+    None => fallback
+  }
+}
+
+///|
+/// Binds the material's albedo (slot 2) and normal (slot 3) maps, falling back
+/// to a 1x1 white / flat-normal texture so the shader can always sample.
+fn Renderer3D::bind_material_textures(
+  self : Renderer3D,
+  cmd : @tycho.CommandBuffer,
+  pipe : @tycho.Pipeline,
+  material : Int,
+) -> Unit {
+  if material < 0 || material >= self.materials.length() {
+    return
+  }
+  let m = self.materials[material]
+  let albedo = self.resolve_texture(m.albedo_tex, self.white_tex)
+  let normal = self.resolve_texture(m.normal_tex, self.flat_normal_tex)
+  cmd.bind_texture(pipe, 2, albedo, self.material_sampler)
+  cmd.bind_texture(pipe, 3, normal, self.material_sampler)
 }
 
 ///|
@@ -981,7 +1112,8 @@ fn Renderer3D::render_frame(
     cmd.bind_texture(self.pbr_pipe, 0, self.shadow_map, self.shadow_sampler)
     cmd.bind_texture(self.pbr_pipe, 1, self.env_cube, self.env_sampler)
     for b in solid_batches {
-      cmd.push_constants_bytes(self.pbr_pipe, pc_bytes(b.first))
+      cmd.push_constants_bytes(self.pbr_pipe, pc2_bytes(b.first, b.material))
+      self.bind_material_textures(cmd, self.pbr_pipe, b.material)
       let mesh = self.meshes[b.mesh]
       mesh.bind(cmd)
       cmd.draw_indexed(mesh.index_count(), instances=b.count)
@@ -1024,7 +1156,8 @@ fn Renderer3D::render_frame(
       cmd.bind_texture(self.pbr_blend_pipe, 0, self.shadow_map, self.shadow_sampler)
       cmd.bind_texture(self.pbr_blend_pipe, 1, self.env_cube, self.env_sampler)
       for b in transparent_batches {
-        cmd.push_constants_bytes(self.pbr_blend_pipe, pc_bytes(b.first))
+        cmd.push_constants_bytes(self.pbr_blend_pipe, pc2_bytes(b.first, b.material))
+        self.bind_material_textures(cmd, self.pbr_blend_pipe, b.material)
         let mesh = self.meshes[b.mesh]
         mesh.bind(cmd)
         cmd.draw_indexed(mesh.index_count(), instances=b.count)
@@ -1188,6 +1321,12 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   if self.owns_env {
     self.env_cube.destroy()
   }
+  for t in self.textures {
+    t.destroy()
+  }
+  self.white_tex.destroy()
+  self.flat_normal_tex.destroy()
+  self.material_sampler.destroy()
   self.shadow_map.destroy()
   self.material_ssbo.destroy()
   self.sky_ubo.destroy()

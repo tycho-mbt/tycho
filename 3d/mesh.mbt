@@ -1,13 +1,15 @@
 // GPU residency for `@tgeo.MeshData`.
 //
-// The canonical vertex stream is interleaved position(3) + normal(3) + uv(2),
-// 32 bytes per vertex, which matches the AOT pipeline's single vertex binding.
+// The canonical vertex stream is interleaved position(3) + normal(3) + uv(2) +
+// tangent(4), 48 bytes per vertex, which matches the AOT pipeline's single
+// vertex binding. Tangents are generated on upload when the mesh lacks them,
+// so normal mapping works for every geometry primitive.
 
 ///|
-pub const MESH_VERTEX_FLOATS : Int = 8
+pub const MESH_VERTEX_FLOATS : Int = 12
 
 ///|
-pub const MESH_VERTEX_BYTES : Int = 32
+pub const MESH_VERTEX_BYTES : Int = 48
 
 ///|
 pub struct GpuMesh {
@@ -29,12 +31,19 @@ fn f_of_int(i : Int) -> Float {
 
 ///|
 pub fn GpuMesh::upload(dev : @tycho.Device, mesh : @tgeo.MeshData) -> GpuMesh raise {
+  if !mesh.has_tangents() {
+    mesh.compute_tangents()
+  }
   let n = mesh.vertex_count()
   let floats = FixedArray::make(n * MESH_VERTEX_FLOATS, (0.0 : Float))
   for i = 0; i < n; i = i + 1 {
     let p = mesh.positions[i]
     let nr = mesh.normals[i]
     let uv = mesh.uvs[i]
+    let tg = match mesh.tangents {
+      Some(t) => t[i]
+      None => @tmath.Vec4::new(1.0, 0.0, 0.0, 1.0)
+    }
     let o = i * MESH_VERTEX_FLOATS
     floats[o] = p.x
     floats[o + 1] = p.y
@@ -44,6 +53,10 @@ pub fn GpuMesh::upload(dev : @tycho.Device, mesh : @tgeo.MeshData) -> GpuMesh ra
     floats[o + 5] = nr.z
     floats[o + 6] = uv.x
     floats[o + 7] = uv.y
+    floats[o + 8] = tg.x
+    floats[o + 9] = tg.y
+    floats[o + 10] = tg.z
+    floats[o + 11] = tg.w
   }
   let use_u16 = n <= 65536
   let ic = mesh.index_count()

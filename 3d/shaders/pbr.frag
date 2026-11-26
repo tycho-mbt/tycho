@@ -6,16 +6,6 @@ layout(binding = 0) uniform FrameUBO {
     vec4 params;   // x lightCount, y shadow texel, z shadows, w env intensity
 } frame;
 
-struct ObjectGpu {
-    mat4 model;
-    mat4 normalMat;
-    float material;
-    float pad0;
-    float pad1;
-    float pad2;
-};
-layout(std430, binding = 1) readonly buffer ObjectBuf { ObjectGpu objects[]; };
-
 struct MaterialGpu {
     vec4 baseColor;
     vec4 emissive;
@@ -33,12 +23,15 @@ layout(std430, binding = 3) readonly buffer LightBuf { LightGpu lights[]; };
 
 layout(binding = 4) uniform sampler2DShadow uShadow;
 layout(binding = 5) uniform samplerCube uEnv;
+layout(binding = 6) uniform sampler2D uAlbedo;
+layout(binding = 7) uniform sampler2D uNormal;
 
-layout(push_constant) uniform PC { uint objectIndex; } pc;
+layout(push_constant) uniform PC { uint firstObject; uint materialIndex; } pc;
 
 layout(location = 0) in vec3 vWorldPos;
 layout(location = 1) in vec3 vNormal;
 layout(location = 2) in vec2 vUV;
+layout(location = 3) in vec4 vTangent;
 layout(location = 0) out vec4 outHDR;
 
 const float PI = 3.14159265359;
@@ -96,19 +89,30 @@ vec3 direct_brdf(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float metal
 }
 
 void main() {
-    ObjectGpu o = objects[pc.objectIndex];
-    MaterialGpu m = materials[int(o.material + 0.5)];
+    MaterialGpu m = materials[pc.materialIndex];
+    int flags = int(m.params.w + 0.5);
+    bool hasAlbedo = (flags & 2) != 0;
+    bool hasNormal = (flags & 4) != 0;
     vec4 base = m.baseColor;
+    if (hasAlbedo) {
+        base *= texture(uAlbedo, vUV);
+    }
     if (m.params.z > 0.0 && base.a < m.params.z) {
         discard;
     }
     vec3 emissive = m.emissive.rgb;
-    if (m.params.w > 0.5) {
+    if ((flags & 1) != 0) {
         outHDR = vec4(base.rgb + emissive, base.a);
         return;
     }
 
     vec3 N = normalize(vNormal);
+    if (hasNormal) {
+        vec3 T = normalize(vTangent.xyz - N * dot(N, vTangent.xyz));
+        vec3 B = cross(N, T) * vTangent.w;
+        vec3 tn = texture(uNormal, vUV).xyz * 2.0 - 1.0;
+        N = normalize(mat3(T, B, N) * tn);
+    }
     vec3 V = normalize(frame.camPos.xyz - vWorldPos);
     vec3 albedo = base.rgb;
     float metallic = clamp(m.params.x, 0.0, 1.0);
