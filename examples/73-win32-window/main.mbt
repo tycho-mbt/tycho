@@ -48,6 +48,7 @@ fn center_rgb(px : FixedArray[Byte], w : Int, h : Int, bgra : Bool) -> (Int, Int
 
 ///|
 fn main {
+  let shot = @tycho.screenshot_path()
   try {
     match @win.platform() {
       @win.Platform::Windows => ()
@@ -139,6 +140,17 @@ fn main {
         let _ = present_n(sc, 1)
         frames = frames + 1
       }
+    }
+
+    if shot != "" && px.length() == w2 * h2 * 4 {
+      // Vulkan presents BGRA8 on most Windows drivers; the RHI reports which.
+      let _ = @tycho.save_png(
+        shot,
+        w2,
+        h2,
+        px,
+        bgra=sc.color_format() == @tycho.TextureFormat::BGRA8,
+      )
     }
 
     sc.destroy()

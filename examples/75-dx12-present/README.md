@@ -22,6 +22,10 @@ Expected:
 [75-dx12-present] OK — DXGI flip-model presented 4 frames (480x320, occluded=0, adapter=hardware, resize ok, back-buffer readback verified, 0 validation errors)
 ```
 
+Add `--window` (or `TYCHO_WINDOW=1`) to keep presenting until the window is closed — the four
+verification frames still run first, and the reported frame count then covers the interactive
+loop. Add `--screenshot <path>` (or `TYCHO_SCREENSHOT`) to write the captured back buffer as PNG.
+
 `TYCHO_DX12_WARP=1` forces the WARP software adapter. Non-Windows hosts and windows the desktop
 cannot present report `SKIP`, so the Linux gate stays green.
 

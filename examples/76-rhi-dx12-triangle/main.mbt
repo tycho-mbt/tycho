@@ -31,7 +31,23 @@ fn dominant(rgb : (Int, Int, Int), channel : Int) -> Bool {
 }
 
 ///|
+fn should_quit(sc : @tycho.Swapchain) -> Bool {
+  if sc.should_close() {
+    return true
+  }
+  for ev in sc.poll_events() {
+    match ev {
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn main {
+  let show_win = @tycho.want_window()
+  let shot = @tycho.screenshot_path()
   try {
     if !@tycho.dx12_available() {
       println("[76-rhi-dx12-triangle] SKIP — d3d12.dll / dxgi.dll not loadable on this host")
@@ -75,6 +91,19 @@ fn main {
       }
       frames = frames + 1
     }
+    let verified_frames = frames
+
+    // `--window` keeps presenting until the window is closed (or Esc), exactly
+    // like the Vulkan RHI examples; the verification frames above already ran.
+    if show_win {
+      while !should_quit(sc) {
+        let cmd = sc.begin_frame()
+        cmd.bind_pipeline(pipe)
+        cmd.draw(3, 1)
+        sc.end_frame(cmd)
+        frames = frames + 1
+      }
+    }
 
     // Vertex order matches the DXIL: bottom-centre red, upper-right green,
     // upper-left blue, over a blue-ish clear color.
@@ -82,12 +111,15 @@ fn main {
     let green_ok = dominant(pixel(px, WIDTH * 3 / 4 - 6, HEIGHT * 37 / 128), 1)
     let blue_ok = dominant(pixel(px, WIDTH / 4 + 6, HEIGHT * 37 / 128), 2)
     let size_ok = px.length() == WIDTH * HEIGHT * 4
+    if shot != "" && px.length() == WIDTH * HEIGHT * 4 {
+      let _ = @tycho.save_png(shot, WIDTH, HEIGHT, px)
+    }
     let errs = dev.validation_errors()
     pipe.destroy()
     sc.destroy()
     dev.destroy()
 
-    if red_ok && green_ok && blue_ok && size_ok && errs == 0 && frames == 3 {
+    if red_ok && green_ok && blue_ok && size_ok && errs == 0 && verified_frames == 3 {
       println(
         "[76-rhi-dx12-triangle] OK — RHI triangle on the DX12 backend (\{WIDTH}x\{HEIGHT}, \{frames} frames, 3 vertex regions verified, 0 validation errors)",
       )

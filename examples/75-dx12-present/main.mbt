@@ -67,6 +67,8 @@ fn render_frame(
 
 ///|
 fn main {
+  let show_win = @shader.want_window()
+  let shot = @shader.screenshot_path()
   if !@dx12.available() {
     println("[75-dx12-present] SKIP — d3d12.dll / dxgi.dll not loadable on this host")
     return
@@ -189,6 +191,31 @@ fn main {
     }
   }
 
+  // The verification frames are done; `--window` keeps the window alive and
+  // presenting until the user closes it (same convention as the other examples).
+  let verified_frames = frames
+  if show_win {
+    while @win.should_close(win) == 0 {
+      @win.poll()
+      let (interactive_ok, _) = render_frame(
+        device,
+        swapchain,
+        cmd,
+        pipeline,
+        readback,
+        false,
+      )
+      if interactive_ok {
+        frames = frames + 1
+        match swapchain.present() {
+          @dx12.PresentResult::Presented => presented = presented + 1
+          @dx12.PresentResult::Occluded => occluded = occluded + 1
+          @dx12.PresentResult::Failed => present_failed = true
+        }
+      }
+    }
+  }
+
   // The triangle covers the whole viewport with flat orange (1.0, 0.5, 0.0), so
   // four samples across the back buffer must all match; anything else means the
   // viewport, the scissor or the flip-model copy went wrong.
@@ -211,6 +238,14 @@ fn main {
     None => ()
   }
 
+  match captured {
+    Some(bytes) => if shot != "" && bytes.length() == WIDTH * HEIGHT * 4 {
+      let px = FixedArray::makei(bytes.length(), fn(i) { bytes[i] })
+      let _ = @shader.save_png(shot, WIDTH, HEIGHT, px)
+    }
+    None => ()
+  }
+
   let errs = device.validation_errors()
   let adapter = if device.is_warp() { "warp" } else { "hardware" }
   @win.poll()
@@ -227,7 +262,8 @@ fn main {
     unsupported("Present failed for this window")
     return
   }
-  if all_ok && resize_frame_ok && resized && pixel_ok && errs == 0 && frames == 4 {
+  if all_ok && resize_frame_ok && resized && pixel_ok && errs == 0 &&
+    verified_frames == 4 {
     println(
       "[75-dx12-present] OK — DXGI flip-model presented \{presented} frames (\{WIDTH}x\{HEIGHT}, occluded=\{occluded}, adapter=\{adapter}, resize ok, back-buffer readback verified, 0 validation errors)",
     )

@@ -30,6 +30,10 @@ Expected:
 [76-rhi-dx12-triangle] OK — RHI triangle on the DX12 backend (256x256, 3 frames, 3 vertex regions verified, 0 validation errors)
 ```
 
+Add `--window` (or `TYCHO_WINDOW=1`) to keep presenting until the window is closed or `Esc` is
+pressed, exactly like `08-rhi-triangle`; add `--screenshot <path>` (or `TYCHO_SCREENSHOT`) to write
+the readback frame as PNG.
+
 `TYCHO_DX12_WARP=1` forces WARP; non-Windows hosts report `SKIP`.
 
 ## Backend coverage

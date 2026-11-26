@@ -20,3 +20,7 @@ Expected (on a 3440x1440 monitor at 150% scale):
 ```
 
 Add `--window` (or set `TYCHO_WINDOW=1`) to keep presenting frames interactively; close the window or press `Esc` to exit.
+
+Add `--screenshot <path>` (or set `TYCHO_SCREENSHOT`) to write the last presented frame as PNG. The
+file is saved with `bgra=sc.color_format() == TextureFormat::BGRA8`, because Vulkan presents BGRA8
+on most Windows drivers — skipping that flag swaps the red and blue channels in the output.
