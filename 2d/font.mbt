@@ -61,6 +61,11 @@ priv struct TtfData {
   cbdt_off : Int
   // Legacy `kern` table, -1 when absent.
   kern_off : Int
+  // GSUB/GPOS tables, -1 when absent.
+  gsub_off : Int
+  gpos_off : Int
+  // fvar table, -1 when absent.
+  fvar_off : Int
 }
 
 ///|
@@ -82,6 +87,9 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
   let mut cblc_off = -1
   let mut cbdt_off = -1
   let mut kern_off = -1
+  let mut gsub_off = -1
+  let mut gpos_off = -1
+  let mut fvar_off = -1
   for i = 0; i < num_tables; i = i + 1 {
     let rec = 12 + i * 16
     let off = be_i32(bytes, rec + 8)
@@ -95,6 +103,9 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     else if tag_eq(bytes, rec, "CBLC") { cblc_off = off }
     else if tag_eq(bytes, rec, "CBDT") { cbdt_off = off }
     else if tag_eq(bytes, rec, "kern") { kern_off = off }
+    else if tag_eq(bytes, rec, "GSUB") { gsub_off = off }
+    else if tag_eq(bytes, rec, "GPOS") { gpos_off = off }
+    else if tag_eq(bytes, rec, "fvar") { fvar_off = off }
   }
   if head_off < 0 || hhea_off < 0 || maxp_off < 0 || hmtx_off < 0 ||
     cmap_off < 0 {
@@ -157,6 +168,9 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     cblc_off,
     cbdt_off,
     kern_off,
+    gsub_off,
+    gpos_off,
+    fvar_off,
   })
 }
 
@@ -479,6 +493,169 @@ fn collect_ttf_edges(
 }
 
 ///|
+// Synthetic bold (3x3 A8 dilation) and italic (vertical shear with the top
+// rows shifted right). Returns adjusted top-left offset and bitmap size.
+fn synthesize_glyph_bitmap(
+  ox : Int,
+  oy : Int,
+  gw : Int,
+  gh : Int,
+  pixels : Bytes,
+  bold : Bool,
+  italic : Bool,
+) -> (Int, Int, Int, Int, Bytes) {
+  if gw <= 0 || gh <= 0 {
+    return (ox, oy, gw, gh, pixels)
+  }
+  let mut px = pixels
+  let mut w = gw
+  let mut h = gh
+  let mut x = ox
+  let mut y = oy
+  if bold {
+    let nw = w + 2
+    let nh = h + 2
+    let out = Array::make(nw * nh, (0 : Byte))
+    for row = 0; row < h; row = row + 1 {
+      for col = 0; col < w; col = col + 1 {
+        let v = px[row * w + col].to_int()
+        if v > 0 {
+          for dy = -1; dy <= 1; dy = dy + 1 {
+            for dx = -1; dx <= 1; dx = dx + 1 {
+              let nx = col + 1 + dx
+              let ny = row + 1 + dy
+              if nx >= 0 && nx < nw && ny >= 0 && ny < nh {
+                let idx = ny * nw + nx
+                if v > out[idx].to_int() {
+                  out[idx] = v.to_byte()
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    px = Bytes::from_array(out)
+    w = nw
+    h = nh
+    x = x - 1
+    y = y - 1
+  }
+  if italic {
+    let shift_max = (Float::from_int(h - 1) * (0.22 : Float)).ceil().to_int()
+    if shift_max > 0 {
+      let nw = w + shift_max
+      let out = Array::make(nw * h, (0 : Byte))
+      for row = 0; row < h; row = row + 1 {
+        let shift = (Float::from_int(h - 1 - row) * (0.22 : Float)).ceil().to_int()
+        for col = 0; col < w; col = col + 1 {
+          out[row * nw + col + shift] = px[row * w + col]
+        }
+      }
+      px = Bytes::from_array(out)
+      w = nw
+    }
+  }
+  (x, y, w, h, px)
+}
+
+///|
+const SDF_SPREAD : Int = 6
+
+///|
+fn sdf_distance_pass(d : Array[Float], w : Int, h : Int, forward : Bool) -> Unit {
+  let diag = (1.41421356 : Float)
+  if forward {
+    for y = 0; y < h; y = y + 1 {
+      for x = 0; x < w; x = x + 1 {
+        let i = y * w + x
+        let mut v = d[i]
+        if v > (0.0 : Float) {
+          if x > 0 {
+            v = @tmath.min_f(v, d[i - 1] + (1.0 : Float))
+          }
+          if y > 0 {
+            v = @tmath.min_f(v, d[i - w] + (1.0 : Float))
+            if x > 0 {
+              v = @tmath.min_f(v, d[i - w - 1] + diag)
+            }
+            if x + 1 < w {
+              v = @tmath.min_f(v, d[i - w + 1] + diag)
+            }
+          }
+          d[i] = v
+        }
+      }
+    }
+  } else {
+    for y = h - 1; y >= 0; y = y - 1 {
+      for x = w - 1; x >= 0; x = x - 1 {
+        let i = y * w + x
+        let mut v = d[i]
+        if v > (0.0 : Float) {
+          if x + 1 < w {
+            v = @tmath.min_f(v, d[i + 1] + (1.0 : Float))
+          }
+          if y + 1 < h {
+            v = @tmath.min_f(v, d[i + w] + (1.0 : Float))
+            if x > 0 {
+              v = @tmath.min_f(v, d[i + w - 1] + diag)
+            }
+            if x + 1 < w {
+              v = @tmath.min_f(v, d[i + w + 1] + diag)
+            }
+          }
+          d[i] = v
+        }
+      }
+    }
+  }
+}
+
+///|
+// Encode a signed distance field (inside = 1.0) from an A8 glyph mask.
+fn build_sdf(gw : Int, gh : Int, pixels : Bytes) -> (Int, Int, Bytes) {
+  if gw <= 0 || gh <= 0 {
+    return (0, 0, b"")
+  }
+  let w = gw + SDF_SPREAD * 2
+  let h = gh + SDF_SPREAD * 2
+  let n = w * h
+  let inside = Array::make(n, false)
+  for y = 0; y < gh; y = y + 1 {
+    for x = 0; x < gw; x = x + 1 {
+      if pixels[y * gw + x].to_int() >= 128 {
+        inside[(y + SDF_SPREAD) * w + (x + SDF_SPREAD)] = true
+      }
+    }
+  }
+  let d_in = Array::make(n, (1.0e9 : Float))
+  let d_out = Array::make(n, (1.0e9 : Float))
+  for i = 0; i < n; i = i + 1 {
+    if inside[i] {
+      d_in[i] = (0.0 : Float)
+    } else {
+      d_out[i] = (0.0 : Float)
+    }
+  }
+  sdf_distance_pass(d_in, w, h, true)
+  sdf_distance_pass(d_in, w, h, false)
+  sdf_distance_pass(d_out, w, h, true)
+  sdf_distance_pass(d_out, w, h, false)
+  let out = Array::make(n, (0 : Byte))
+  let inv = (1.0 : Float) / (Float::from_int(SDF_SPREAD) * (2.0 : Float))
+  for i = 0; i < n; i = i + 1 {
+    let signed = d_out[i] - d_in[i]
+    let v = @tmath.max_f(
+      (0.0 : Float),
+      @tmath.min_f((1.0 : Float), (0.5 : Float) + signed * inv),
+    )
+    out[i] = (v * (255.0 : Float)).to_int().to_byte()
+  }
+  (w, h, Bytes::from_array(out))
+}
+
+///|
 fn rasterize_ttf_glyph(
   t : TtfData,
   cp : Int,
@@ -487,7 +664,18 @@ fn rasterize_ttf_glyph(
   if t.glyf_off < 0 || t.loca_off < 0 {
     return (0, 0, 0, 0, b"")
   }
-  let gid = ttf_glyph_id(t, cp)
+  rasterize_ttf_glyph_gid(t, ttf_glyph_id(t, cp), size_px)
+}
+
+///|
+fn rasterize_ttf_glyph_gid(
+  t : TtfData,
+  gid : Int,
+  size_px : Float,
+) -> (Int, Int, Int, Int, Bytes) {
+  if t.glyf_off < 0 || t.loca_off < 0 || gid <= 0 {
+    return (0, 0, 0, 0, b"")
+  }
   let scale = size_px.to_double() / t.units_per_em.to_double()
   let edges : Array[RasterEdge] = []
   collect_ttf_edges(t, gid, scale, 0.0, 0.0, edges, 0)
@@ -715,17 +903,31 @@ fn alloc_font_id() -> Int {
 pub struct FontFace {
   priv id : Int
   priv ttf : TtfData?
+  priv gsub : GsubData?
+  priv gpos : GposData?
 }
 
 ///|
 pub fn FontFace::builtin() -> FontFace {
-  { id: 0, ttf: None }
+  { id: 0, ttf: None, gsub: None, gpos: None }
 }
 
 ///|
 pub fn FontFace::from_ttf_bytes(bytes : Bytes) -> FontFace? {
   match parse_ttf(bytes) {
-    Some(ttf) => Some({ id: alloc_font_id(), ttf: Some(ttf) })
+    Some(ttf) => {
+      let gsub = if ttf.gsub_off >= 0 {
+        GsubData::parse(bytes, ttf.gsub_off)
+      } else {
+        None
+      }
+      let gpos = if ttf.gpos_off >= 0 {
+        GposData::parse(bytes, ttf.gpos_off)
+      } else {
+        None
+      }
+      Some({ id: alloc_font_id(), ttf: Some(ttf), gsub, gpos })
+    }
     None => None
   }
 }
@@ -750,6 +952,82 @@ pub fn FontFace::advance_width(self : FontFace, cp : Int, size_px : Float) -> Fl
 ///|
 // True when the face can render `cp` (builtin covers printable ASCII, TTF
 // consults cmap).
+pub(all) struct FontVariationAxis {
+  tag : String
+  min_value : Float
+  default_value : Float
+  max_value : Float
+}
+
+///|
+fn fixed_16_16(v : Int) -> Float {
+  Float::from_double(v.to_double() / 65536.0)
+}
+
+///|
+fn parse_fvar(bytes : Bytes, base : Int) -> Array[FontVariationAxis] {
+  let out : Array[FontVariationAxis] = []
+  if base + 16 > bytes.length() {
+    return out
+  }
+  let axes_off = base + be_u16(bytes, base + 4)
+  let axis_count = be_u16(bytes, base + 8)
+  let axis_size = be_u16(bytes, base + 10)
+  if axis_size < 20 {
+    return out
+  }
+  for i = 0; i < axis_count; i = i + 1 {
+    let r = axes_off + i * axis_size
+    if r + 20 > bytes.length() {
+      break
+    }
+    let chars : Array[Char] = []
+    for k = 0; k < 4; k = k + 1 {
+      chars.push(bytes[r + k].to_int().unsafe_to_char())
+    }
+    out.push({
+      tag: String::from_array(chars),
+      min_value: fixed_16_16(be_i32(bytes, r + 4)),
+      default_value: fixed_16_16(be_i32(bytes, r + 8)),
+      max_value: fixed_16_16(be_i32(bytes, r + 12)),
+    })
+  }
+  out
+}
+
+///|
+pub fn FontFace::variation_axes(self : FontFace) -> Array[FontVariationAxis] {
+  match self.ttf {
+    Some(t) => if t.fvar_off >= 0 {
+      parse_fvar(t.bytes, t.fvar_off)
+    } else {
+      []
+    }
+    None => []
+  }
+}
+
+///|
+pub fn FontFace::rasterize_bitmap(
+  self : FontFace,
+  gid : Int,
+  cp : Int,
+  size_px : Float,
+  bold : Bool,
+  italic : Bool,
+) -> (Int, Int, Int, Int, Bytes) {
+  let (ox, oy, gw, gh, pixels) = match self.ttf {
+    Some(t) => if gid > 0 {
+      rasterize_ttf_glyph_gid(t, gid, size_px)
+    } else {
+      rasterize_ttf_glyph(t, cp, size_px)
+    }
+    None => rasterize_builtin_glyph(cp, size_px)
+  }
+  synthesize_glyph_bitmap(ox, oy, gw, gh, pixels, bold, italic)
+}
+
+///|
 pub fn FontFace::has_glyph(self : FontFace, cp : Int) -> Bool {
   match self.ttf {
     Some(t) => ttf_glyph_id(t, cp) != 0
@@ -997,6 +1275,16 @@ pub fn FontFace::color_glyph(
 ///|
 // Legacy `kern` format-0 pair adjustment, in pixels at `size_px`.
 pub fn FontFace::kern(self : FontFace, cp1 : Int, cp2 : Int, size_px : Float) -> Float {
+  self.kern_gid(self.glyph_id(cp1), self.glyph_id(cp2), size_px)
+}
+
+///|
+pub fn FontFace::kern_gid(
+  self : FontFace,
+  g1 : Int,
+  g2 : Int,
+  size_px : Float,
+) -> Float {
   let t = match self.ttf {
     Some(t) => t
     None => return (0.0 : Float)
@@ -1004,8 +1292,6 @@ pub fn FontFace::kern(self : FontFace, cp1 : Int, cp2 : Int, size_px : Float) ->
   if t.kern_off < 0 {
     return (0.0 : Float)
   }
-  let g1 = ttf_glyph_id(t, cp1)
-  let g2 = ttf_glyph_id(t, cp2)
   if g1 == 0 || g2 == 0 {
     return (0.0 : Float)
   }
@@ -1075,6 +1361,30 @@ pub(all) struct GlyphEntry {
   width : Int
   height : Int
   advance : Float
+  is_sdf : Bool
+  // Base pixel size the SDF was generated at (0 for bitmap entries).
+  sdf_base : Float
+}
+
+///|
+fn round_int(x : Float) -> Int {
+  if x >= (0.0 : Float) {
+    (x + (0.5 : Float)).floor().to_int()
+  } else {
+    (x - (0.5 : Float)).ceil().to_int()
+  }
+}
+
+///|
+fn scale_glyph_entry(e : GlyphEntry, scale : Float, adv : Float) -> GlyphEntry {
+  {
+    ..e,
+    offset_x: round_int(Float::from_int(e.offset_x) * scale),
+    offset_y: round_int(Float::from_int(e.offset_y) * scale),
+    width: round_int(Float::from_int(e.width) * scale),
+    height: round_int(Float::from_int(e.height) * scale),
+    advance: adv,
+  }
 }
 
 ///|
@@ -1095,6 +1405,7 @@ pub struct GlyphCache {
   priv bitmaps : Map[String, GlyphBitmap]
   priv mut atlas_reset_count : Int
   priv mut atlas_overflow_count : Int
+  priv mut sdf_entries : Int
   priv mut frame : Int
   // Bumped whenever the atlas is reset; external caches (coverage bitmaps)
   // must invalidate their UVs when this changes.
@@ -1113,6 +1424,7 @@ pub fn GlyphCache::new(
     bitmaps: {},
     atlas_reset_count: 0,
     atlas_overflow_count: 0,
+    sdf_entries: 0,
     frame: 0,
     generation: 0,
   }
@@ -1186,11 +1498,53 @@ pub fn GlyphCache::atlas_size(self : GlyphCache) -> (Int, Int) {
 }
 
 ///|
+pub fn GlyphCache::sdf_count(self : GlyphCache) -> Int {
+  self.sdf_entries
+}
+
+///|
 pub fn GlyphCache::get_or_rasterize(
   self : GlyphCache,
   font : FontFace,
   cp : Int,
   size_px : Float,
+) -> GlyphEntry raise @tycho.RhiError {
+  self.get_or_rasterize_impl(font, cp, -1, size_px, false, false)
+}
+
+///|
+pub fn GlyphCache::get_or_rasterize_gid(
+  self : GlyphCache,
+  font : FontFace,
+  gid : Int,
+  cp : Int,
+  size_px : Float,
+) -> GlyphEntry raise @tycho.RhiError {
+  self.get_or_rasterize_impl(font, cp, gid, size_px, false, false)
+}
+
+///|
+pub fn GlyphCache::get_or_rasterize_styled(
+  self : GlyphCache,
+  font : FontFace,
+  gid : Int,
+  cp : Int,
+  size_px : Float,
+  bold : Bool,
+  italic : Bool,
+) -> GlyphEntry raise @tycho.RhiError {
+  self.get_or_rasterize_impl(font, cp, gid, size_px, bold, italic)
+}
+
+///|
+fn GlyphCache::get_or_rasterize_impl(
+  self : GlyphCache,
+  font : FontFace,
+  cp : Int,
+  gid : Int,
+  size_px : Float,
+  bold : Bool,
+  italic : Bool,
 ) -> GlyphEntry raise @tycho.RhiError {
   // Quantize the requested size to 1/4 px. This keeps animated/zoomed text from
   // re-rasterizing on every integer step while staying small enough to be
@@ -1198,21 +1552,71 @@ pub fn GlyphCache::get_or_rasterize(
   let clamped = @tmath.max_f((6.0 : Float), size_px)
   let q4 = (clamped * (4.0 : Float) + (0.5 : Float)).to_int()
   let px_size = Float::from_int(q4) * (0.25 : Float)
-  let key = "\{font.id}:\{cp}:\{q4}"
+  let style_key = if bold && italic {
+    ":bi"
+  } else if bold {
+    ":b"
+  } else if italic {
+    ":i"
+  } else {
+    ""
+  }
+  let use_sdf = gid > 0 && px_size >= (48.0 : Float)
+  // SDF entries are generated once at a fixed base size and scaled on read,
+  // so zoomed/animated text reuses the distance field.
+  let key = if use_sdf {
+    "\{font.id}:g\{gid}:sdf\{style_key}"
+  } else if gid > 0 {
+    "\{font.id}:g\{gid}:\{q4}\{style_key}"
+  } else {
+    "\{font.id}:\{cp}:\{q4}\{style_key}"
+  }
   match self.entries.get(key) {
     Some(e) => {
       match self.bitmaps.get(key) {
         Some(b) => b.last_frame = self.frame
         None => ()
       }
+      if e.is_sdf && e.sdf_base > (0.0 : Float) {
+        let scale = px_size / e.sdf_base
+        return scale_glyph_entry(
+          e,
+          scale,
+          font.glyph_advance(gid, px_size),
+        )
+      }
       return e
     }
     None => ()
   }
-  let adv = font.advance_width(cp, px_size)
-  let (ox, oy, gw, gh, pixels) = match font.ttf {
-    Some(t) => rasterize_ttf_glyph(t, cp, px_size)
-    None => rasterize_builtin_glyph(cp, px_size)
+  let raster_size = if use_sdf { (64.0 : Float) } else { px_size }
+  let adv = if gid > 0 {
+    font.glyph_advance(gid, raster_size)
+  } else {
+    font.advance_width(cp, raster_size)
+  }
+  let (ox0, oy0, gw0, gh0, pixels0) = match font.ttf {
+    Some(t) => if gid > 0 {
+      rasterize_ttf_glyph_gid(t, gid, raster_size)
+    } else {
+      rasterize_ttf_glyph(t, cp, raster_size)
+    }
+    None => rasterize_builtin_glyph(cp, raster_size)
+  }
+  let (ox1, oy1, gw1, gh1, pixels1) = synthesize_glyph_bitmap(
+    ox0,
+    oy0,
+    gw0,
+    gh0,
+    pixels0,
+    bold,
+    italic,
+  )
+  let (ox, oy, gw, gh, pixels) = if use_sdf {
+    let (sw, sh, sdf) = build_sdf(gw1, gh1, pixels1)
+    (ox1 - SDF_SPREAD, oy1 - SDF_SPREAD, sw, sh, sdf)
+  } else {
+    (ox1, oy1, gw1, gh1, pixels1)
   }
   // Padding around each glyph so a quad shifted by a fraction of a pixel
   // samples transparent padding at its edges (subpixel positioning) instead of
@@ -1266,9 +1670,14 @@ pub fn GlyphCache::get_or_rasterize(
     width: quad_w,
     height: quad_h,
     advance: adv,
+    is_sdf: use_sdf,
+    sdf_base: if use_sdf { (64.0 : Float) } else { (0.0 : Float) },
   }
   if cacheable {
     self.entries[key] = entry
+    if use_sdf {
+      self.sdf_entries = self.sdf_entries + 1
+    }
     if gw > 0 && gh > 0 {
       self.bitmaps[key] = {
         pixels,
@@ -1277,6 +1686,14 @@ pub fn GlyphCache::get_or_rasterize(
         last_frame: self.frame,
       }
     }
+  }
+  if use_sdf {
+    let scale = px_size / (64.0 : Float)
+    return scale_glyph_entry(
+      entry,
+      scale,
+      font.glyph_advance(gid, px_size),
+    )
   }
   entry
 }

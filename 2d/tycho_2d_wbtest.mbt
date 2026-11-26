@@ -514,6 +514,13 @@ test "legacy kern and RTL visual order" {
     Some(font) => {
       let k = font.kern(65, 86, (100.0 : Float))
       assert_true(k < (0.0 : Float))
+      assert_true(font.has_gpos_kern())
+      let gp = font.gpos_kern(
+        font.glyph_id(65),
+        font.glyph_id(86),
+        (100.0 : Float),
+      )
+      assert_true(gp < (0.0 : Float))
       let p = ParagraphBuilder::new()
         .add_text(
           "AV",
@@ -540,10 +547,13 @@ test "legacy kern and RTL visual order" {
       assert_eq(gr[1].codepoint, 0x05D1)
       assert_eq(gr[2].codepoint, 0x05D0)
 
-      // Latin presentation-form ligature.
+      // Real GSUB `liga` ligature: two source chars -> one glyph id.
       let lig = shape_run(font, "fi")
       assert_eq(lig.length(), 1)
-      assert_eq(lig[0].cp, 0xFB01)
+      assert_eq(lig[0].cp, 102)
+      assert_eq(lig[0].source_end, 2)
+      assert_true(lig[0].glyph_id > 0)
+      assert_eq(lig[0].glyph_id, font.glyph_id(0xFB01))
       let pl = ParagraphBuilder::new()
         .add_text(
           "fi",
@@ -553,18 +563,317 @@ test "legacy kern and RTL visual order" {
       pl.layout((1000.0 : Float))
       let gl = pl.placed_glyphs()
       assert_eq(gl.length(), 1)
-      assert_eq(gl[0].codepoint, 0xFB01)
+      assert_eq(gl[0].codepoint, 102)
+      assert_eq(gl[0].glyph_id, font.glyph_id(0xFB01))
 
       // Arabic joining forms: beh+alef -> initial beh + final alef.
       let ar1 = shape_run(font, "با")
       assert_eq(ar1.length(), 2)
-      assert_eq(ar1[0].cp, 0xFE91)
-      assert_eq(ar1[1].cp, 0xFE8E)
+      assert_eq(ar1[0].cp, 0x0628)
+      assert_eq(ar1[1].cp, 0x0627)
+      assert_eq(ar1[0].glyph_id, font.glyph_id(0xFE91))
+      assert_eq(ar1[1].glyph_id, font.glyph_id(0xFE8E))
       // alef+beh -> isolated alef + isolated beh.
       let ar2 = shape_run(font, "اب")
       assert_eq(ar2.length(), 2)
       assert_eq(ar2[0].cp, 0xFE8D)
       assert_eq(ar2[1].cp, 0xFE8F)
+      assert_eq(ar2[0].glyph_id, font.glyph_id(0xFE8D))
+      assert_eq(ar2[1].glyph_id, font.glyph_id(0xFE8F))
+      // `rlig` combines lam+alef into one glyph with one source cluster.
+      let la = shape_run(font, "لا")
+      assert_eq(la.length(), 1)
+      assert_eq(la[0].source_start, 0)
+      assert_eq(la[0].source_end, 2)
+    }
+    None => ()
+  }
+}
+
+///|
+test "synthetic bold and italic glyph bitmaps" {
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) =>
+      match font.ttf {
+        Some(t) => {
+          let gid = font.glyph_id(65)
+          let (ox, oy, gw, gh, px) = rasterize_ttf_glyph_gid(t, gid, (64.0 : Float))
+          let (bx, by, bw, bh, bpx) = synthesize_glyph_bitmap(
+            ox,
+            oy,
+            gw,
+            gh,
+            px,
+            true,
+            false,
+          )
+          let (_ix, _iy, iw, ih, _ipx) = synthesize_glyph_bitmap(
+            ox,
+            oy,
+            gw,
+            gh,
+            px,
+            false,
+            true,
+          )
+          assert_true(bw > gw && bh > gh)
+          assert_true(bx == ox - 1 && by == oy - 1)
+          assert_true(iw > gw && ih == gh)
+          let mut normal_px = 0
+          for b in px {
+            if b.to_int() > 0 {
+              normal_px = normal_px + 1
+            }
+          }
+          let mut bold_px = 0
+          for b in bpx {
+            if b.to_int() > 0 {
+              bold_px = bold_px + 1
+            }
+          }
+          assert_true(bold_px > normal_px)
+          // Style flags propagate to PlacedGlyph.
+          let p = ParagraphBuilder::new()
+            .add_text(
+              "A",
+              style=TextStyle::new(
+                font=font,
+                font_size=(64.0 : Float),
+                bold=true,
+                italic=true,
+              ),
+            )
+            .build()
+          p.layout((1000.0 : Float))
+          let gs = p.placed_glyphs()
+          assert_eq(gs.length(), 1)
+          assert_true(gs[0].bold && gs[0].italic)
+        }
+        None => ()
+      }
+    None => ()
+  }
+}
+
+///|
+test "SDF glyph encoding keeps inside/outside distances" {
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) =>
+      match font.ttf {
+        Some(t) => {
+          let (_ox, _oy, gw, gh, px) = rasterize_ttf_glyph_gid(
+            t,
+            font.glyph_id(65),
+            (64.0 : Float),
+          )
+          let (w, h, sdf) = build_sdf(gw, gh, px)
+          assert_eq(w, gw + SDF_SPREAD * 2)
+          assert_eq(h, gh + SDF_SPREAD * 2)
+          let mut hi = 0
+          let mut lo = 0
+          for b in sdf {
+            let v = b.to_int()
+            if v > 200 {
+              hi = hi + 1
+            }
+            if v < 50 {
+              lo = lo + 1
+            }
+          }
+          assert_true(hi > 0 && lo > 0)
+          // Fixed base-size entries scale metrics for arbitrary sizes.
+          let e : GlyphEntry = {
+            uv_x0: (0.0 : Float),
+            uv_y0: (0.0 : Float),
+            uv_x1: (1.0 : Float),
+            uv_y1: (1.0 : Float),
+            offset_x: -10,
+            offset_y: -20,
+            width: 100,
+            height: 80,
+            advance: 40.0,
+            is_sdf: true,
+            sdf_base: (64.0 : Float),
+          }
+          let s = scale_glyph_entry(e, (1.5 : Float), (60.0 : Float))
+          assert_eq(s.offset_x, -15)
+          assert_eq(s.offset_y, -30)
+          assert_eq(s.width, 150)
+          assert_eq(s.height, 120)
+          assert_true(s.advance == (60.0 : Float))
+        }
+        None => ()
+      }
+    None => ()
+  }
+}
+
+///|
+fn test_u16(a : Array[Byte], off : Int, v : Int) -> Unit {
+  a[off] = ((v >> 8) & 0xFF).to_byte()
+  a[off + 1] = (v & 0xFF).to_byte()
+}
+
+///|
+fn test_u32(a : Array[Byte], off : Int, v : Int) -> Unit {
+  a[off] = ((v >> 24) & 0xFF).to_byte()
+  a[off + 1] = ((v >> 16) & 0xFF).to_byte()
+  a[off + 2] = ((v >> 8) & 0xFF).to_byte()
+  a[off + 3] = (v & 0xFF).to_byte()
+}
+
+///|
+test "caret affinity distinguishes line-end positions" {
+  let p = ParagraphBuilder::new()
+    .add_text("AB", style=TextStyle::new(font_size=(16.0 : Float)))
+    .build()
+  p.layout((1000.0 : Float))
+  let down = p.get_caret_rect(TextPosition::new(2, 0))
+  let up = p.get_caret_rect(
+    TextPosition::new(2, 0, affinity=TextAffinity::Upstream),
+  )
+  assert_true(up.x < down.x)
+}
+
+///|
+test "inline image participates in paragraph layout" {
+  let px : Array[Byte] = [
+    255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
+  ]
+  let img = Image2D::from_bytes(7, 2, 2, Bytes::from_array(px))
+  let p = ParagraphBuilder::new()
+    .add_text("A", style=TextStyle::new(font_size=(16.0 : Float)))
+    .add_inline_image(img, (20.0 : Float), (10.0 : Float))
+    .add_text("B", style=TextStyle::new(font_size=(16.0 : Float)))
+    .build()
+  p.layout((1000.0 : Float))
+  let gs = p.placed_glyphs()
+  assert_eq(gs.length(), 3)
+  let mut found = false
+  for g in gs {
+    match g.image {
+      Some(_) => {
+        found = true
+        assert_true(g.image_w == (20.0 : Float))
+        assert_true(g.image_h == (10.0 : Float))
+      }
+      None => ()
+    }
+  }
+  assert_true(found)
+  assert_true(p.line_metrics()[0].height >= (10.0 : Float))
+}
+
+///|
+test "hyphen and soft hyphen break opportunities" {
+  let p = ParagraphBuilder::new()
+    .add_text(
+      "co\u{00AD}operate",
+      style=TextStyle::new(font_size=(16.0 : Float)),
+    )
+    .build()
+  p.layout((40.0 : Float))
+  assert_true(p.line_metrics().length() > 1)
+  for g in p.placed_glyphs() {
+    assert_true(g.codepoint != 0x00AD)
+  }
+  let ph = ParagraphBuilder::new()
+    .add_text(
+      "well-known",
+      style=TextStyle::new(font_size=(16.0 : Float)),
+    )
+    .build()
+  ph.layout((40.0 : Float))
+  assert_true(ph.line_metrics().length() > 1)
+}
+
+///|
+test "fvar axes and variation-to-synthetic style" {
+  let a = Array::make(36, (0 : Byte))
+  test_u16(a, 0, 1)
+  test_u16(a, 4, 16)
+  test_u16(a, 6, 2)
+  test_u16(a, 8, 1)
+  test_u16(a, 10, 20)
+  // Axis "wght": 100..900, default 400 (16.16 fixed).
+  a[16] = 119
+  a[17] = 103
+  a[18] = 104
+  a[19] = 116
+  test_u32(a, 20, 100 * 65536)
+  test_u32(a, 24, 400 * 65536)
+  test_u32(a, 28, 900 * 65536)
+  let axes = parse_fvar(Bytes::from_array(a), 0)
+  assert_eq(axes.length(), 1)
+  assert_eq(axes[0].tag, "wght")
+  assert_true(axes[0].min_value == (100.0 : Float))
+  assert_true(axes[0].default_value == (400.0 : Float))
+  assert_true(axes[0].max_value == (900.0 : Float))
+
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) => {
+      assert_eq(font.variation_axes().length(), 0)
+      let p = ParagraphBuilder::new()
+        .add_text(
+          "A",
+          style=TextStyle::new(
+            font=font,
+            font_size=(48.0 : Float),
+            variations=[("wght", (700.0 : Float))],
+          ),
+        )
+        .build()
+      p.layout((1000.0 : Float))
+      assert_true(p.placed_glyphs()[0].bold)
+      let pi = ParagraphBuilder::new()
+        .add_text(
+          "A",
+          style=TextStyle::new(
+            font=font,
+            font_size=(48.0 : Float),
+            variations=[("ital", (1.0 : Float))],
+          ),
+        )
+        .build()
+      pi.layout((1000.0 : Float))
+      assert_true(pi.placed_glyphs()[0].italic)
+    }
+    None => ()
+  }
+}
+
+///|
+test "devanagari pre-base matra and conjunct features" {
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) => {
+      // i-matra is reordered before the base consonant.
+      let ki = shape_run(font, "कि")
+      assert_eq(ki.length(), 2)
+      assert_eq(ki[0].cp, 0x093F)
+      assert_eq(ki[1].cp, 0x0915)
+      // half/cjct consumes the virama in a conjunct.
+      let ste = shape_run(font, "स्ते")
+      assert_true(ste.length() > 0)
+      let mut has_virama = false
+      for s in ste {
+        if s.cp == 0x094D {
+          has_virama = true
+        }
+      }
+      assert_true(!has_virama)
+      assert_true(ste.length() < 4)
     }
     None => ()
   }

@@ -1,18 +1,19 @@
 // Minimal shaping subset:
-// - Latin typographic ligatures mapped to the Unicode presentation forms
-//   (U+FB00..FB06) when the face has them.
-// - Arabic joining forms mapped to Arabic Presentation Forms-B based on
-//   neighbouring joining types, also only when the face has the glyph.
+// - Latin ligatures first use real GSUB `liga` lookups (glyph-id rendering);
+//   fonts without liga fall back to Unicode presentation forms (U+FB00..FB06).
+// - Arabic joining uses GSUB init/medi/fina/isol (and rlig for lam-alef),
+//   falling back to Arabic Presentation Forms-B when the face has no GSUB.
 //
-// This keeps the default pipeline pure MoonBit and 1:1 except for Latin
-// ligatures, which carry a source range so caret/selection mapping stays
-// monotonic. Full GSUB/GPOS and Indic clusters remain future work.
+// This keeps the default pipeline pure MoonBit. Latin ligatures carry a source
+// range so caret/selection mapping stays monotonic. GPOS `kern` is read
+// separately; Indic clusters remain future work.
 
 ///|
 priv struct ShapedChar {
   cp : Int
   source_start : Int
   source_end : Int
+  glyph_id : Int
   is_newline : Bool
   is_space : Bool
 }
@@ -20,6 +21,16 @@ priv struct ShapedChar {
 ///|
 fn shaping_is_space(cp : Int) -> Bool {
   cp == 32 || cp == 9
+}
+
+///|
+fn is_devanagari(cp : Int) -> Bool {
+  cp >= 0x0900 && cp <= 0x097F
+}
+
+///|
+fn is_deva_consonant(cp : Int) -> Bool {
+  (cp >= 0x0915 && cp <= 0x0939) || (cp >= 0x0958 && cp <= 0x095F)
 }
 
 ///|
@@ -190,11 +201,224 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
         cp,
         source_start: i,
         source_end: i + 1,
+        glyph_id: 0,
         is_newline: is_nl,
         is_space: shaping_is_space(cp),
       })
       i = i + 1
       continue
+    }
+    // Devanagari subset: move the pre-base i-matra before the base consonant,
+    // then apply the common GSUB features (half/cjct/akhn/pres/...).
+    if is_devanagari(cp) {
+      let start = i
+      let mut j = i
+      while j < n && is_devanagari(cps[j]) {
+        j = j + 1
+      }
+      let mut order : Array[Int] = []
+      for k = start; k < j; k = k + 1 {
+        order.push(k)
+      }
+      let mut mi = -1
+      for k = 0; k < order.length(); k = k + 1 {
+        if cps[order[k]] == 0x093F {
+          mi = k
+          break
+        }
+      }
+      if mi > 0 {
+        let mut base = mi - 1
+        while base >= 0 && !is_deva_consonant(cps[order[base]]) {
+          base = base - 1
+        }
+        if base >= 0 {
+          let matra = order[mi]
+          let next_order : Array[Int] = []
+          for k = 0; k < base; k = k + 1 {
+            next_order.push(order[k])
+          }
+          next_order.push(matra)
+          for k = base; k < mi; k = k + 1 {
+            next_order.push(order[k])
+          }
+          for k = mi + 1; k < order.length(); k = k + 1 {
+            next_order.push(order[k])
+          }
+          order = next_order
+        }
+      }
+      let run_cps : Array[Int] = []
+      let run_src : Array[Int] = []
+      let gids : Array[Int] = []
+      for k in order {
+        run_cps.push(cps[k])
+        run_src.push(k)
+        gids.push(font.glyph_id(cps[k]))
+      }
+      let shaped = font.india_shape(
+        gids,
+        [
+          "rphf", "half", "cjct", "akhn", "pres", "abvs", "blws", "psts",
+          "haln",
+        ],
+      )
+      let mut idx = 0
+      for pair in shaped {
+        let (gid, comps) = pair
+        if idx >= run_cps.length() {
+          break
+        }
+        let mut ce = idx + comps
+        if ce > run_cps.length() {
+          ce = run_cps.length()
+        }
+        if ce <= idx {
+          ce = idx + 1
+        }
+        out.push({
+          cp: run_cps[idx],
+          source_start: run_src[idx],
+          source_end: run_src[ce - 1] + 1,
+          glyph_id: gid,
+          is_newline: false,
+          is_space: false,
+        })
+        idx = ce
+      }
+      i = j
+      continue
+    }
+    // Arabic run: GSUB joining forms + `rlig` (lam-alef etc.).
+    if types[i] != 0 {
+      let start = i
+      let mut j = i
+      while j < n && types[j] != 0 {
+        j = j + 1
+      }
+      let run : Array[ShapedChar] = []
+      for k = start; k < j; k = k + 1 {
+        let cpk = cps[k]
+        let mut gid = font.glyph_id(cpk)
+        let mut out_cp = cpk
+        if types[k] == 1 || types[k] == 2 {
+          let form = if joins_prev[k] && joins_next[k] {
+            3
+          } else if joins_prev[k] {
+            1
+          } else if joins_next[k] {
+            2
+          } else {
+            0
+          }
+          match font.arabic_form_gid(cpk, form) {
+            Some(v) => gid = v
+            None =>
+              match arabic_presentation(cpk, form) {
+                Some(pres) =>
+                  if font.has_glyph(pres) {
+                    out_cp = pres
+                    gid = font.glyph_id(pres)
+                  }
+                None => ()
+              }
+          }
+        }
+        run.push({
+          cp: out_cp,
+          source_start: k,
+          source_end: k + 1,
+          glyph_id: gid,
+          is_newline: false,
+          is_space: false,
+        })
+      }
+      let gids : Array[Int] = []
+      for sc in run {
+        gids.push(sc.glyph_id)
+      }
+      let ligated = font.rlig_ligate(gids)
+      let mut has_multi = false
+      for pair in ligated {
+        let (_gid, comps) = pair
+        if comps > 1 {
+          has_multi = true
+        }
+      }
+      if has_multi {
+        let mut idx = 0
+        for pair in ligated {
+          let (gid, comps) = pair
+          if idx >= run.length() {
+            break
+          }
+          let mut ce = idx + comps
+          if ce > run.length() {
+            ce = run.length()
+          }
+          if ce <= idx {
+            ce = idx + 1
+          }
+          out.push({
+            cp: run[idx].cp,
+            source_start: run[idx].source_start,
+            source_end: run[ce - 1].source_end,
+            glyph_id: gid,
+            is_newline: false,
+            is_space: false,
+          })
+          idx = ce
+        }
+      } else {
+        for sc in run {
+          out.push(sc)
+        }
+      }
+      i = j
+      continue
+    }
+    // Real GSUB `liga` for contiguous ASCII segments.
+    if types[i] == 0 && cp > 32 && cp < 127 && font.has_liga() {
+      let mut j = i
+      while j < n && types[j] == 0 && cps[j] > 32 && cps[j] < 127 {
+        j = j + 1
+      }
+      let gids : Array[Int] = []
+      for k = i; k < j; k = k + 1 {
+        gids.push(font.glyph_id(cps[k]))
+      }
+      let ligated = font.ligate_glyphs(gids)
+      let mut has_multi = false
+      for pair in ligated {
+        let (_gid, comps) = pair
+        if comps > 1 {
+          has_multi = true
+        }
+      }
+      if has_multi {
+        let mut src = i
+        for pair in ligated {
+          let (gid, comps) = pair
+          let mut ce = src + comps
+          if ce > j {
+            ce = j
+          }
+          if ce <= src {
+            ce = src + 1
+          }
+          out.push({
+            cp: cps[src],
+            source_start: src,
+            source_end: ce,
+            glyph_id: gid,
+            is_newline: false,
+            is_space: false,
+          })
+          src = ce
+        }
+        i = j
+        continue
+      }
     }
     if types[i] == 0 {
       match shape_latin_ligature(font, cps, i) {
@@ -203,6 +427,7 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
             cp: lig,
             source_start: i,
             source_end: i + len,
+            glyph_id: font.glyph_id(lig),
             is_newline: false,
             is_space: false,
           })
@@ -232,6 +457,7 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
       cp: shaped_cp,
       source_start: i,
       source_end: i + 1,
+      glyph_id: font.glyph_id(shaped_cp),
       is_newline: false,
       is_space: false,
     })

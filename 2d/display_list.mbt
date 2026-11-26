@@ -48,6 +48,7 @@ pub(all) enum DrawOp {
   DrawImage(Image2D, Rect, Rect, Paint)
   DrawVertices(Array[Vertex2D], Array[Int], Paint, Image2D?)
   DrawParagraph(Paragraph, Point)
+  DrawTextOnPath(Paragraph, Path, Paint, Float)
   DrawDisplayList(DisplayList)
 }
 

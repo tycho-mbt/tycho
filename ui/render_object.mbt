@@ -699,7 +699,7 @@ fn RenderNode::paint_subtree_layer(self : RenderNode) -> Layer {
           if is_foc { (2.0 : Float) } else { (1.0 : Float) },
         ),
       )
-      let txt = ctrl.text.peek()
+      let txt = ctrl.display_text()
       let shown = if txt == "" { placeholder } else { txt }
       let tcol = if txt == "" { theme.colors.text_secondary } else { theme.colors.text_primary }
       let para = @g2d.ParagraphBuilder::new()
@@ -734,10 +734,10 @@ fn RenderNode::paint_subtree_layer(self : RenderNode) -> Layer {
       }
       c.draw_paragraph(para, @g2d.Point::new(pad_x, pad_y))
       if is_foc && ctrl.blink_phase < 0.55 {
-        let pos : @g2d.TextPosition = {
-          offset: if txt == "" { 0 } else { ctrl.cursor.peek() },
-          line: 0,
-        }
+        let pos : @g2d.TextPosition = @g2d.TextPosition::new(
+          if txt == "" { 0 } else { ctrl.cursor.peek() },
+          0,
+        )
         let cr = para.get_caret_rect(pos)
         c.draw_rect(
           @g2d.Rect::new(pad_x + cr.x, pad_y + cr.y, (2.0 : Float), cr.height),
@@ -824,8 +824,15 @@ pub fn RenderNode::hit_test(
           let now = @tycho.Swapchain::time()
           if now - ctrl.last_tap_time < 0.35 &&
             (off - ctrl.last_tap_pos).abs() <= 2 {
-            ctrl.select_word_at(off)
+            ctrl.tap_count = ctrl.tap_count + 1
+            if ctrl.tap_count >= 3 {
+              ctrl.select_all()
+              ctrl.tap_count = 0
+            } else {
+              ctrl.select_word_at(off)
+            }
           } else {
+            ctrl.tap_count = 1
             ctrl.cursor.set(off)
             ctrl.sel_anchor.set(off)
           }
@@ -924,7 +931,7 @@ pub fn RenderNode::build_semantics(
     RenderKind::TextField(ctrl, ph, _, _, _) =>
       (
         SemanticsRole::TextField,
-        if ctrl.text.peek() == "" { ph } else { ctrl.text.peek() },
+        if ctrl.display_text() == "" { ph } else { ctrl.display_text() },
         ctrl.focused.peek(),
       )
     RenderKind::Image(_, _, _) => (SemanticsRole::Image, "image", false)

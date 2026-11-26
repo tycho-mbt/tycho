@@ -602,14 +602,18 @@ pub struct TextController {
   cursor : Signal[Int32]
   sel_anchor : Signal[Int32]
   focused : Signal[Bool]
+  preedit : Signal[String]
   multiline : Bool
   max_lines : Int32
   mut blink_phase : Double
   // private fields
 }
 pub fn TextController::backspace(Self) -> Unit
+pub fn TextController::clear_preedit(Self) -> Unit
+pub fn TextController::commit_preedit(Self) -> Unit
 pub fn TextController::delete_forward(Self) -> Unit
 pub fn TextController::delete_selection(Self) -> Bool
+pub fn TextController::display_text(Self) -> String
 pub fn TextController::insert_char(Self, Char) -> Unit
 pub fn TextController::insert_text(Self, String) -> Unit
 pub fn TextController::move_end(Self, select? : Bool) -> Unit
@@ -622,6 +626,7 @@ pub fn TextController::select_all(Self) -> Unit
 pub fn TextController::select_word_at(Self, Int32) -> Unit
 pub fn TextController::selected_text(Self) -> String
 pub fn TextController::selection_range(Self) -> (Int32, Int32)
+pub fn TextController::set_preedit(Self, String) -> Unit
 pub fn TextController::undo(Self) -> Unit
 
 pub(all) struct ThemeData {

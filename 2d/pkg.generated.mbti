@@ -68,6 +68,7 @@ pub fn Canvas::draw_points(Self, Array[Point], Paint) -> Unit
 pub fn Canvas::draw_rect(Self, Rect, Paint) -> Unit
 pub fn Canvas::draw_rrect(Self, RRect, Paint) -> Unit
 pub fn Canvas::draw_rrect_shadow(Self, RRect, Float, Float, Float, Float, Color) -> Unit
+pub fn Canvas::draw_text_on_path(Self, Paragraph, Path, Paint, offset? : Float) -> Unit
 pub fn Canvas::draw_vertices(Self, Array[Vertex2D], Array[Int32], paint? : Paint, image? : Image2D?) -> Unit
 pub fn Canvas::finish(Self) -> DisplayList
 pub fn Canvas::new() -> Self
@@ -163,6 +164,7 @@ pub(all) enum DrawOp {
   DrawImage(Image2D, Rect, Rect, Paint)
   DrawVertices(Array[Vertex2D], Array[Int32], Paint, Image2D?)
   DrawParagraph(Paragraph, Point)
+  DrawTextOnPath(Paragraph, Path, Paint, Float)
   DrawDisplayList(DisplayList)
 }
 
@@ -192,16 +194,28 @@ pub struct FontFace {
   // private fields
 }
 pub fn FontFace::advance_width(Self, Int32, Float) -> Float
+pub fn FontFace::arabic_form_gid(Self, Int32, Int32) -> Int32?
 pub fn FontFace::builtin() -> Self
 pub fn FontFace::color_bitmap(Self, Int32, Float) -> ColorBitmap?
 pub fn FontFace::color_glyph(Self, Int32, Float) -> (ColorBitmap, DecodedImage)?
 pub fn FontFace::from_ttf_bytes(Bytes) -> Self?
+pub fn FontFace::glyph_advance(Self, Int32, Float) -> Float
+pub fn FontFace::glyph_id(Self, Int32) -> Int32
+pub fn FontFace::gpos_kern(Self, Int32, Int32, Float) -> Float
 pub fn FontFace::has_color_bitmap(Self, Int32) -> Bool
 pub fn FontFace::has_glyph(Self, Int32) -> Bool
+pub fn FontFace::has_gpos_kern(Self) -> Bool
+pub fn FontFace::has_liga(Self) -> Bool
 pub fn FontFace::id(Self) -> Int32
+pub fn FontFace::india_shape(Self, Array[Int32], Array[String]) -> Array[(Int32, Int32)]
 pub fn FontFace::kern(Self, Int32, Int32, Float) -> Float
+pub fn FontFace::kern_gid(Self, Int32, Int32, Float) -> Float
+pub fn FontFace::ligate_glyphs(Self, Array[Int32]) -> Array[(Int32, Int32)]
 pub fn FontFace::metrics(Self, Float) -> (Float, Float, Float)
+pub fn FontFace::rasterize_bitmap(Self, Int32, Int32, Float, Bool, Bool) -> (Int32, Int32, Int32, Int32, Bytes)
+pub fn FontFace::rlig_ligate(Self, Array[Int32]) -> Array[(Int32, Int32)]
 pub fn FontFace::set_png_decoder((Bytes) -> DecodedImage?) -> Unit
+pub fn FontFace::variation_axes(Self) -> Array[FontVariationAxis]
 
 pub(all) struct FontFallbackChain {
   // private fields
@@ -209,6 +223,13 @@ pub(all) struct FontFallbackChain {
 pub fn FontFallbackChain::face_for(Self, Int32) -> FontFace
 pub fn FontFallbackChain::faces(Self) -> Array[FontFace]
 pub fn FontFallbackChain::new(FontFace, fallbacks? : Array[FontFace]) -> Self
+
+pub(all) struct FontVariationAxis {
+  tag : String
+  min_value : Float
+  default_value : Float
+  max_value : Float
+}
 
 pub struct GlyphCache {
   atlas : DynamicAtlas
@@ -223,7 +244,10 @@ pub fn GlyphCache::destroy(Self) -> Unit
 pub fn GlyphCache::entry_count(Self) -> Int32
 pub fn GlyphCache::generation(Self) -> Int32
 pub fn GlyphCache::get_or_rasterize(Self, FontFace, Int32, Float) -> GlyphEntry raise @tycho.RhiError
+pub fn GlyphCache::get_or_rasterize_gid(Self, FontFace, Int32, Int32, Float) -> GlyphEntry raise @tycho.RhiError
+pub fn GlyphCache::get_or_rasterize_styled(Self, FontFace, Int32, Int32, Float, Bool, Bool) -> GlyphEntry raise @tycho.RhiError
 pub fn GlyphCache::new(@tycho.Device, width? : Int32, height? : Int32) -> Self raise @tycho.RhiError
+pub fn GlyphCache::sdf_count(Self) -> Int32
 
 pub(all) struct GlyphEntry {
   uv_x0 : Float
@@ -235,6 +259,8 @@ pub(all) struct GlyphEntry {
   width : Int32
   height : Int32
   advance : Float
+  is_sdf : Bool
+  sdf_base : Float
 }
 
 #derive(Eq, @debug.Debug)
@@ -339,6 +365,7 @@ pub fn Paragraph::width(Self) -> Float
 pub struct ParagraphBuilder {
   // private fields
 }
+pub fn ParagraphBuilder::add_inline_image(Self, Image2D, Float, Float, style? : TextStyle) -> Self
 pub fn ParagraphBuilder::add_span(Self, TextSpan) -> Self
 pub fn ParagraphBuilder::add_text(Self, String, style? : TextStyle) -> Self
 pub fn ParagraphBuilder::build(Self) -> Paragraph
@@ -416,6 +443,7 @@ pub(all) enum PathVerb {
 
 pub(all) struct PlacedGlyph {
   codepoint : Int32
+  glyph_id : Int32
   font : FontFace
   font_size : Float
   x : Float
@@ -423,6 +451,11 @@ pub(all) struct PlacedGlyph {
   advance : Float
   color : Color
   char_index : Int32
+  bold : Bool
+  italic : Bool
+  image : Image2D?
+  image_w : Float
+  image_h : Float
 }
 
 #derive(Eq, @debug.Debug)
@@ -491,6 +524,7 @@ pub(all) struct RenderStats {
   atlas_overflows : Int32
   coverage_draws : Int32
   coverage_entries : Int32
+  sdf_glyphs : Int32
 }
 pub fn RenderStats::summary(Self) -> String
 pub fn RenderStats::to_json(Self) -> String
@@ -561,6 +595,12 @@ pub(all) enum StrokeJoin {
 }
 
 #derive(Eq, @debug.Debug)
+pub(all) enum TextAffinity {
+  Upstream
+  Downstream
+}
+
+#derive(Eq, @debug.Debug)
 pub(all) enum TextAlign {
   Left
   Center
@@ -572,12 +612,18 @@ pub(all) enum TextAlign {
 pub(all) struct TextPosition {
   offset : Int32
   line : Int32
+  affinity : TextAffinity
 }
+pub fn TextPosition::new(Int32, Int32, affinity? : TextAffinity) -> Self
 
 pub(all) struct TextSpan {
   text : String
   style : TextStyle
+  image : Image2D?
+  image_w : Float
+  image_h : Float
 }
+pub fn TextSpan::inline_image(Image2D, Float, Float, style? : TextStyle) -> Self
 pub fn TextSpan::new(String, style? : TextStyle) -> Self
 
 pub(all) struct TextStyle {
@@ -586,9 +632,12 @@ pub(all) struct TextStyle {
   color : Color
   letter_spacing : Float
   underline : Bool
+  bold : Bool
+  italic : Bool
   fallback : FontFallbackChain?
+  variations : Array[(String, Float)]
 }
-pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool, fallback? : FontFallbackChain?) -> Self
+pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool, bold? : Bool, italic? : Bool, fallback? : FontFallbackChain?, variations? : Array[(String, Float)]) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum TileMode {

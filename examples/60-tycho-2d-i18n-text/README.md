@@ -8,10 +8,16 @@ M8 integration example mixing:
 - Hebrew RTL visual order
 - Arabic joining forms (Presentation Forms-B)
 - Justified paragraph, selection boxes and caret
+- Synthetic bold + italic (3x3 dilation + vertical shear)
+- SDF glyphs for text >= 48px (`kind=8`, fixed 64px base + scaling)
+- Devanagari pre-base matra reorder + half/cjct features
+- Inline images and text on a curved path (rotated coverage bitmaps)
 
 The fallback chain is DejaVuSans -> DroidSansFallbackFull -> NotoColorEmoji.
-Shaping is the current pure-MoonBit subset (Unicode presentation forms); full
-GSUB/GPOS and Indic clusters remain future work.
+Latin ligatures use GSUB `liga` with glyph-id rendering; Arabic uses GSUB
+`init/medi/fina/isol` joining plus `rlig` (lam-alef), with Presentation Forms-B
+as fallback; GPOS `kern` is applied by glyph id. Indic clusters and full
+UAX #9 remain future work.
 
 ## Run
 
@@ -31,6 +37,6 @@ moon build --target native 60-tycho-2d-i18n-text
 Sample output:
 
 ```json
-{"ligature":true,"arabic_forms":9,"rtl_first":1501,"selection_boxes":1,"yellow_pixels":1157}
-[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining, 9 Arabic forms, 0 validation errors
+{"ligature":true,"arabic_forms":7,"rtl_first":1501,"selection_boxes":1,"bold_italic":true,"sdf_glyphs":6,"devanagari":true,"inline_image":true,"text_on_path":true,"yellow_pixels":3000}
+[60-tycho-2d-i18n-text] OK — Latin ligature + CJK + emoji + Hebrew RTL + Arabic joining + Devanagari + inline image + text-on-path + synthetic bold/italic + SDF, 7 Arabic forms, 6 SDF glyphs, 0 validation errors
 ```

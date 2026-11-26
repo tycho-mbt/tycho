@@ -102,6 +102,17 @@ test "text_controller handles selection, word select, undo and redo" {
 }
 
 ///|
+test "text_controller IME preedit commit" {
+  let tc = TextController::new(initial="ab")
+  tc.set_preedit("にほ")
+  assert_eq(tc.display_text(), "abにほ")
+  assert_eq(tc.text.peek(), "ab")
+  tc.commit_preedit()
+  assert_eq(tc.text.peek(), "abにほ")
+  assert_eq(tc.preedit.peek(), "")
+}
+
+///|
 test "focus_manager cycles nodes and dispatches shortcuts" {
   let fm = FocusManager::new()
   let n1 = FocusNode::new()
