@@ -17,6 +17,11 @@ laplaceliu/tycho_math
   └── moonbitlang/core/math   (scalar transcendentals only)
 ```
 
+The dependency arrow only points down: `laplaceliu/tycho` (RHI), `laplaceliu/tycho_2d`, and
+`laplaceliu/tycho_ui` consume this package, but `tycho_math` never imports them. That is what
+keeps it publishable on its own and usable from `native` / `wasm` / `wasm-gc` / `js` projects
+that have no GPU stack at all. `check-math-layering.sh` guards this contract.
+
 ## Quick start
 
 ```moonbit
@@ -30,9 +35,10 @@ let proj = @tmath.perspective_rh(
 )
 let vp = proj * view
 
-let mut writer = @tmath.GpuPackWriter::std140(48)
+let writer = @tmath.GpuPackWriter::std140(48)
 writer.push_mat4(vp)
 let floats = writer.as_floats()
+// or, with no copy: upload_floats(writer.buffer(), count=writer.length())
 ```
 
 Downstream `moon.pkg` should alias the package as `@tmath` to avoid clashing with `moonbitlang/core/math`:
@@ -52,7 +58,7 @@ import {
 | `ivec.mbt` | `IVec2/3/4` (`Int`) and `UVec2/3/4` (`UInt`) |
 | `quat.mbt` | Unit quaternions, Euler orders, SLERP / NLERP |
 | `mat2.mbt` / `mat3.mbt` / `mat4.mbt` | Column-major matrices, inverse, normal matrix |
-| `affine2.mbt` / `affine3.mbt` / `transform.mbt` | 2D/3D affine transforms and TRS |
+| `affine2.mbt` / `affine3.mbt` / `transform.mbt` | 2D/3D affine transforms, TRS, `VkTransformMatrixKHR` 3x4 export (floats and bytes) |
 | `projection.mbt` | `ClipSpace`, perspective / orthographic, `look_at`, `project` / `unproject` |
 | `geometry.mbt` | `Ray` / `Plane` / `Aabb2` / `Aabb3` / `Sphere` / `Frustum` |
 | `gpu_pack.mbt` | std140 / std430 aligned writer |
@@ -70,3 +76,4 @@ No dynamic arbitrary-dimension matrices, no scientific decompositions (LU/QR/SVD
 - `Vec3::extend_w` and `Vec2::extend_z` are the widening helpers (`extend` is a MoonBit keyword).
 - `Ray` directions are not normalized automatically; `t` values are in `dir` units. Use `Ray::new_normalized` when you want distances.
 - `Frustum::from_view_proj` accepts the same `clip` value that built the projection matrix.
+- `Affine3::to_vk_transform_3x4()` returns the 12 row-major floats of a `VkTransformMatrixKHR` (TLAS instance transform); `to_vk_transform_3x4_bytes()` returns the same data as 48 little-endian bytes for `set_matrix`.

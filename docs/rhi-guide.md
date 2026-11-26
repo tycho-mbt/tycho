@@ -1,16 +1,21 @@
 # Tycho RHI Programming Guide
 
-Import only `"laplaceliu/tycho" @tycho` in your `moon.pkg` and link `-lvulkan -lX11`:
+Import only `"laplaceliu/tycho" @tycho` in your `moon.pkg` — no `cc-link-flags` are needed,
+because the Vulkan loader and OS windowing libraries are resolved at runtime (`dlopen` /
+`LoadLibraryA`) by `laplaceliu/tycho_vulkan` and `laplaceliu/tycho_window`:
 
 ```moonbit-pkg
 import {
   "laplaceliu/tycho" @tycho,
 }
 pkgtype(kind: "executable")
-options(
-  "link": { "native": { "cc": "cc", "cc-link-flags": "-lvulkan -lX11" } },
-)
 ```
+
+The RHI depends on `laplaceliu/tycho_math` and exposes typed helpers for the places where
+graphics math crosses the API boundary: `cmd.push_constants_mat4(pipe, m)` and
+`RayInstanceDesc::from_affine3(blas, affine)`. The raw `FixedArray[Float]` / `Bytes` APIs
+(`upload_floats`, `push_constants_floats`, `push_constants_bytes`) remain available if you
+prefer to compute matrices yourself.
 
 ## 1. Device & Headless / Window Modes
 

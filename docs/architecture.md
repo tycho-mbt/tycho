@@ -12,8 +12,12 @@ vulkan/  (laplaceliu/tycho_vulkan)     ── dynamic Vulkan loader + vendored 1
 window/  (laplaceliu/tycho_window)     ── Linux (Wayland/X11), Windows (Win32), macOS (Cocoa+Metal) via dlopen/LoadLibraryA
 shader/  (laplaceliu/tycho_shader)     ── GLSL/Slang compile, SPIR-V reflect, image I/O
 
-tycho/   (laplaceliu/tycho)            ── imports vulkan, window, shader; zero link flags
-examples/(laplaceliu/tycho_vulkan_examples) ── 52 pure-MoonBit examples & suites
+math/    (laplaceliu/tycho_math)       ── zero-dependency float/f64 graphics math, no RHI dependency
+tycho/   (laplaceliu/tycho)            ── imports vulkan, window, shader, math; zero link flags
+2d/      (laplaceliu/tycho_2d)         ── imports tycho, math
+ui/      (laplaceliu/tycho_ui)         ── imports tycho, 2d, math
+
+examples/(laplaceliu/tycho_vulkan_examples) ── 55 pure-MoonBit examples & suites
 ```
 
 ### Design Invariants
@@ -24,6 +28,8 @@ examples/(laplaceliu/tycho_vulkan_examples) ── 52 pure-MoonBit examples & su
    Generated C shims emit `_Static_assert(sizeof(C field) <= MoonBit type width)` across generated Vulkan structs and scalar parameters; `check-generated.sh` ensures committed files match `./generate.sh` output with zero diff.
 3. **Zero user C in examples**:
    `check-examples-pure.sh` enforces that `examples/` contains zero `.c` files and zero `native-stub` declarations.
+4. **One math dialect, layered both ways** (ADR-002):
+   `tycho_math` is a leaf with no `laplaceliu/*` dependencies and never references the RHI, so it stays independently publishable. `tycho` depends on it and uses it only in the façade (`rhi.mbt`, `types.mbt`) for typed conveniences such as `CommandBuffer::push_constants_mat4` and `RayInstanceDesc::from_affine3`; the Vulkan backend (`vk_backend.mbt`) never imports `@tmath`, and the raw `FixedArray[Float]` / `Bytes` APIs remain available. `check-math-layering.sh` enforces both directions.
 
 ## RHI Layering (`tycho/`)
 
@@ -32,7 +38,7 @@ examples/(laplaceliu/tycho_vulkan_examples) ── 52 pure-MoonBit examples & su
 | `tycho/types.mbt` | Backend-agnostic descriptors (`DeviceDesc`, `PipelineDesc`, `MeshPipelineDesc`, `SwapchainDesc`, `SamplerDesc`, `RenderTargetDesc`, `DepthTargetDesc`), enums (`TextureFormat`, `BufferKind`, `MemoryLocation`, `BlendMode`, `CullMode`, `Filter`, `AddressMode`, `CompareOp`, `BackendKind`), `RhiError`, and re-exports from `tycho_window` / `tycho_shader`. |
 | `tycho/rhi.mbt` | Public RHI façade (`Device`, `Swapchain`, `Pipeline`, `Buffer`, `Texture`, `Sampler`, `Fence`, `TimestampPool`, `BindlessHeap`, `CommandBuffer`). Contains **zero** direct `@vk.*` or Vulkan dispatch (`dfn.*`) references — every operation delegates to backend helpers, keeping `BackendKind` extensible to future Metal/DX12 backends. |
 | `tycho/vk_backend.mbt` | Vulkan 1.3 backend implementation: instance/device selection, validation capture, 2-frame swapchain synchronization, dynamic rendering (`VkRenderingInfo`), `synchronization2` barriers (`VkDependencyInfo`), automatic image layout tracking, dynamic descriptor pool growth, bindless descriptor indexing heap, and `VkPipelineCache`. |
-| `tycho/alloc.mbt` | Block-based free-list GPU memory sub-allocator and generation-based deferred deletion queue. |
+| `tycho/allocator.mbt` | Block-based free-list GPU memory sub-allocator and generation-based deferred deletion queue. |
 
 ## Vulkan 1.3 Backend Internals
 

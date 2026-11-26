@@ -1,6 +1,6 @@
 # `laplaceliu/tycho_ui`
 
-Flutter-inspired pure-MoonBit declarative UI framework built on `laplaceliu/tycho_2d` and `laplaceliu/tycho`.
+Flutter-inspired pure-MoonBit declarative UI framework built on `laplaceliu/tycho_2d`, `laplaceliu/tycho`, and `laplaceliu/tycho_math`.
 
 ## Highlights
 - **Three Trees + Layer Compositing**: `Widget` → `ElementNode` (keyed Diff reconciliation) → `RenderNode` (single-pass `BoxConstraints` + `RepaintBoundary` `DisplayList` cache) → `Layer`.

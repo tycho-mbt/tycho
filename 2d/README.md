@@ -1,6 +1,6 @@
 # `laplaceliu/tycho_2d`
 
-Skia / Impeller-inspired pure-MoonBit 2D vector, text, and compositing graphics engine built on `laplaceliu/tycho`.
+Skia / Impeller-inspired pure-MoonBit 2D vector, text, and compositing graphics engine built on `laplaceliu/tycho` and `laplaceliu/tycho_math`.
 
 ## Highlights
 - **Canvas & DisplayList**: Declarative `Canvas` (`save`/`restore`, `save_layer`, `save_backdrop_layer`, transforms, clipping) recording immutable `DisplayList`s.
@@ -9,3 +9,4 @@ Skia / Impeller-inspired pure-MoonBit 2D vector, text, and compositing graphics 
 - **Tier-3 Layers & Blur**: Pooled offscreen `RenderTargetPool` for group opacity, blend modes (`SrcOver`, `Multiply`, `DstIn`, `SrcIn`), and Gaussian `BackdropFilter` blur.
 - **Pure-MoonBit Text**: Built-in fallback font + TrueType `.ttf` parser & scanline AA rasterizer + `Paragraph` layout (`get_position_for_offset`, `get_caret_rect`, `get_boxes_for_range`).
 - **Zero Runtime Shader Compiler Dependency**: AOT embedded SPIR-V (`shaders_spv.mbt`) and zero `.c` stubs or `cc-link-flags`.
+- **Shared math kernel**: scalar/trigonometry helpers (`clamp_f`, `lerp_f`, `sin_cos`, `atan2`) come from `laplaceliu/tycho_math` instead of local approximations, and `Matrix3` converts losslessly to/from `Affine2` (`to_affine2` / `from_affine2`) so a 2D UI transform can be promoted into a 3D scene.

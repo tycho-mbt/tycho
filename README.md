@@ -25,12 +25,12 @@
 | `laplaceliu/tycho_vulkan` | `vulkan/` | Pure-MoonBit Vulkan bindings generated from `vk.xml` 1.4.363 (root package, headers vendored in-package: no Vulkan SDK needed; runtime loads `libvulkan.so.1` / `vulkan-1.dll` / `libvulkan.1.dylib` / `MoltenVK` dynamically) | *(none)* |
 | `laplaceliu/tycho_window` | `window/` | Thin native window + input events + Vulkan WSI surface helper across Linux (Wayland/X11 via `dlopen`), Windows (Win32 via `LoadLibraryA`), and macOS (Cocoa + `CAMetalLayer` via `dlopen`) | *(none)* |
 | `laplaceliu/tycho_shader` | `shader/` | GLSL (`glslangValidator`), Slang (`slangc`), pure-MoonBit SPIR-V reflection (`reflect_spirv`), & PPM/BMP/PNG/HDR image helpers | *(none)* |
-| `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, free-list sub-allocator, auto-reflected pipelines (`from_spirv`), MRT, mipmaps, storage images, bindless, mesh shaders, inline Ray Query (BLAS/TLAS), stencil state, and GPU timestamps | *(none)* |
+| `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, free-list sub-allocator, auto-reflected pipelines (`from_spirv`), MRT, mipmaps, storage images, bindless, mesh shaders, inline Ray Query (BLAS/TLAS), stencil state, and GPU timestamps; typed math seams via `tycho_math` (`push_constants_mat4`, `RayInstanceDesc::from_affine3`) | *(none)* |
 | `laplaceliu/tycho_math` | `math/` | Zero-dependency pure-MoonBit fixed-dimension graphics & geometry math: `Vec2/3/4`, `IVec`/`UVec`, `Quat`, column-major `Mat2/3/4`, `Affine2/3`, `Transform`, clip-space-aware projections, `Ray`/`Aabb`/`Frustum`, std140/std430 packing, batch kernels | *(none)* |
 | `laplaceliu/tycho_2d` | `2d/` | Skia/Impeller-inspired pure-MoonBit 2D engine: `Canvas`/`DisplayList`, AOT embedded SPIR-V pipelines, Tier-1 SDF/gradient/atlas batcher, pure-MoonBit TrueType + built-in font & `Paragraph` layout, Tier-2 Stencil-then-Cover paths & strokes, `save_layer`, and Gaussian `BackdropFilter` blur | *(none)* |
 | `laplaceliu/tycho_ui` | `ui/` | Flutter-inspired declarative UI framework: Widget/Element/RenderObject/Layer trees, fine-grained `Signal[T]`, single-pass `BoxConstraints` (`Row`/`Column`/`Stack`/`Wrap`), `GestureArena`, `TextField`, `ThemeData`, virtualized `ListView`, `AppRunner` & headless `WidgetTester` | *(none)* |
 | `laplaceliu/tycho_codegen` *(private)* | `codegen/` | Khronos `vk.xml` → MoonBit + C shim generator | *(none)* |
-| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | Pure-MoonBit examples & suites (low-level Vulkan API suites + unified `@tycho` / `@tycho_2d` / `@tycho_ui` demos, Wayland check & benchmarks) | *(none)* |
+| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | Pure-MoonBit examples & suites (low-level Vulkan API suites + unified `@tycho` / `@tycho_math` / `@tycho_2d` / `@tycho_ui` demos, Wayland check & benchmarks) | *(none)* |
 
 Documentation:
 - [Architecture Overview](docs/architecture.md)
@@ -85,11 +85,13 @@ Still manual:
 1. **New platform header**: the update script only refreshes the headers this package already vendors and *lists* the ones upstream adds; pass `--add-headers` to adopt them (this also widens the compilable surface that `tools/coverage.py` measures). If a backend needs one, add a matching `VK_USE_PLATFORM_*` entry to the `platforms` map in `codegen/main.mbt` (plus WSI wiring in `tycho_window`).
 2. **The RHI is hand-written** and stays on Vulkan 1.3: header bumps do not move its runtime requirement. Adopting a newer core version is a deliberate change in `tycho/vk_backend.mbt` (`set_apiVersion`), not part of an upgrade.
 3. **Doc numbers** (`813` commands, `5,520` constants, `664/664` coverage) are quoted for 1.4.363 and need a refresh; `tools/coverage.py` recomputes them from `vk.xml`.
-4. **Package versions**: bump the four published `moon.mod` versions and republish in dependency order; dependents pin an exact version (`@0.2.1` today), so their `import` lines move too.
+4. **Package versions**: bump the seven published `moon.mod` versions (`vulkan`, `shader`, `window`, `math`, `tycho`, `2d`, `ui`) and republish in dependency order; dependents pin exact versions (`@0.7.0` / `@0.8.1` / `@0.9.0` today), so their `import` lines move too.
 
 ## Linux Vulkan API Coverage
 
-All 42 examples pass on both `lavapipe` and `nvidia` drivers with zero validation errors.
+`./build.sh && ./tools/run-all.sh both` is the release gate: it exercises all 55 example
+packages (`examples/01` … `examples/55`) on both `lavapipe` and `nvidia` and fails on any
+validation error.
 `OK` always implies at least one executed command: an example whose extension batch a driver
 cannot provide reports `SKIP` (exit 0, tallied separately by `tools/run-all.sh`), and an example
 that advertises a group but executes none of it reports `FAIL`:
@@ -108,7 +110,7 @@ that advertises a group but executes none of it reports `FAIL`:
 # 3. Run unit tests
 moon test --target native
 
-# 4. Run all 42 pure-MoonBit verification examples on lavapipe + NVIDIA
+# 4. Run all 55 pure-MoonBit verification examples on lavapipe + NVIDIA
 ./tools/run-all.sh both
 
 # 5. Measure reproducible Linux Vulkan API coverage
@@ -117,6 +119,7 @@ moon test --target native
 # 6. CI gates
 ./check-generated.sh       # codegen zero-diff check
 ./check-examples-pure.sh   # assert zero .c / native-stub in examples
+./check-math-layering.sh   # tycho_math stays a leaf; RHI uses @tmath only in its façade
 ```
 
 ## Publishing to `mooncakes.io`
@@ -141,8 +144,8 @@ Or publish from source in dependency order (after `moon login` as `laplaceliu`):
 (cd vulkan && moon publish)
 (cd shader && moon publish)
 (cd window && moon publish)
+(cd math && moon publish)   # tycho depends on it, so math goes first
 (cd tycho && moon publish)
-(cd math && moon publish)
 (cd 2d && moon publish)
 (cd ui && moon publish)
 ```
