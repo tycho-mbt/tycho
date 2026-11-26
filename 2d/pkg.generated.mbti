@@ -550,8 +550,9 @@ pub fn Renderer2D::destroy(Self) -> Unit
 pub fn Renderer2D::new(@tycho.Device, max_prims_per_frame? : Int32, max_stops_per_frame? : Int32, max_path_verts_per_frame? : Int32) -> Self raise @tycho.RhiError
 pub fn Renderer2D::path_batch_count(Self) -> Int32
 pub fn Renderer2D::prim_draw_count(Self) -> Int32
-pub fn Renderer2D::render_offscreen(Self, DisplayList, @tycho.Texture, clear_color? : Color, damage? : Rect?) -> Unit raise @tycho.RhiError
-pub fn Renderer2D::render_swapchain(Self, @tycho.Swapchain, DisplayList, clear_color? : Color, dl_size? : (Int32, Int32)?) -> Unit raise @tycho.RhiError
+pub fn Renderer2D::render_offscreen(Self, DisplayList, @tycho.Texture, clear_color? : Color, damage? : Rect?, load_op? : @tycho.LoadOp) -> Unit raise @tycho.RhiError
+pub fn Renderer2D::render_swapchain(Self, @tycho.Swapchain, DisplayList, clear_color? : Color, dl_size? : (Int32, Int32)?, load_op? : @tycho.LoadOp) -> Unit raise @tycho.RhiError
+pub fn Renderer2D::render_swapchain_pass(Self, @tycho.CommandBuffer, @tycho.Swapchain, DisplayList, clear_color? : Color, load_op? : @tycho.LoadOp, dl_size? : (Int32, Int32)?) -> Unit raise @tycho.RhiError
 pub fn Renderer2D::set_coverage_enabled(Self, Bool) -> Unit
 pub fn Renderer2D::set_msdf_enabled(Self, Bool) -> Unit
 pub fn Renderer2D::set_msdf_min_size(Self, Float) -> Unit

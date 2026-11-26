@@ -176,6 +176,10 @@ pub struct Renderer2D {
   priv mut present_sc_pipe : @tycho.Pipeline?
   priv mut present_sc_fmt : @tycho.TextureFormat?
   priv mut present_sc_depth_fmt : @tycho.TextureFormat?
+  // Premultiplied variant used when the present pass loads (R-2D1 overlay).
+  priv mut present_sc_blend_pipe : @tycho.Pipeline?
+  priv mut present_sc_blend_fmt : @tycho.TextureFormat?
+  priv mut present_sc_blend_depth_fmt : @tycho.TextureFormat?
   // Double-buffered dynamic buffers
   priv max_prims : Int
   priv max_stops : Int
@@ -698,6 +702,9 @@ pub fn Renderer2D::new(
     composite_ds_mul_pipe,
     blur_pipe,
     present_sc_pipe: None,
+    present_sc_blend_pipe: None,
+    present_sc_blend_fmt: None,
+    present_sc_blend_depth_fmt: None,
     present_sc_fmt: None,
     present_sc_depth_fmt: None,
     max_prims: max_prims_per_frame,
@@ -826,6 +833,10 @@ pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
   self.composite_ds_mul_pipe.destroy()
   self.blur_pipe.destroy()
   match self.present_sc_pipe {
+    Some(p) => p.destroy()
+    None => ()
+  }
+  match self.present_sc_blend_pipe {
     Some(p) => p.destroy()
     None => ()
   }
@@ -4392,12 +4403,141 @@ fn Renderer2D::render_into_scene(
 }
 
 ///|
+/// Cached full-screen present pipeline. `blend` selects the premultiplied
+/// variant so the pass can composite over existing swapchain content.
+fn Renderer2D::present_pipeline(
+  self : Renderer2D,
+  fmt : @tycho.TextureFormat,
+  ds_opt : @tycho.TextureFormat?,
+  blend : Bool,
+) -> @tycho.Pipeline raise @tycho.RhiError {
+  if blend {
+    match self.present_sc_blend_pipe {
+      Some(p) => {
+        if self.present_sc_blend_fmt == Some(fmt) &&
+          self.present_sc_blend_depth_fmt == ds_opt {
+          return p
+        }
+        p.destroy()
+      }
+      None => ()
+    }
+    let np = self.dev.create_graphics_pipeline(
+      @tycho.PipelineDesc::from_spirv(
+        spv_blur_vert,
+        spv_blur_frag,
+        blend_mode=Some(@tycho.BlendMode::Premultiplied),
+        cull_mode=@tycho.CullMode::None,
+        color_format=Some(fmt),
+        depth_format=ds_opt,
+      ),
+    )
+    self.present_sc_blend_pipe = Some(np)
+    self.present_sc_blend_fmt = Some(fmt)
+    self.present_sc_blend_depth_fmt = ds_opt
+    np
+  } else {
+    match self.present_sc_pipe {
+      Some(p) => {
+        if self.present_sc_fmt == Some(fmt) && self.present_sc_depth_fmt == ds_opt {
+          return p
+        }
+        p.destroy()
+      }
+      None => ()
+    }
+    let np = self.dev.create_graphics_pipeline(
+      @tycho.PipelineDesc::from_spirv(
+        spv_blur_vert,
+        spv_blur_frag,
+        blend_mode=Some(@tycho.BlendMode::Opaque),
+        cull_mode=@tycho.CullMode::None,
+        color_format=Some(fmt),
+        depth_format=ds_opt,
+      ),
+    )
+    self.present_sc_pipe = Some(np)
+    self.present_sc_fmt = Some(fmt)
+    self.present_sc_depth_fmt = ds_opt
+    np
+  }
+}
+
+///|
+/// Present the 2D scene texture into the swapchain. `load_op = Load` keeps the
+/// existing image (used when a 3D pass already wrote it) and blends the
+/// premultiplied 2D result on top.
+fn Renderer2D::present_scene(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+  sc : @tycho.Swapchain,
+  scene_tex : @tycho.Texture,
+  scene_w : Int,
+  scene_h : Int,
+  load_op : @tycho.LoadOp,
+  clear_color : Color,
+) -> Unit raise @tycho.RhiError {
+  let w = sc.width()
+  let h = sc.height()
+  let ds_opt = if sc.has_depth() { Some(sc.depth_format()) } else { None }
+  let blend = match load_op {
+    @tycho.LoadOp::Load => true
+    _ => false
+  }
+  let sc_pipe = self.present_pipeline(sc.color_format(), ds_opt, blend)
+  let u1 = Float::from_int(scene_w) / Float::from_int(scene_tex.width())
+  let v1 = Float::from_int(scene_h) / Float::from_int(scene_tex.height())
+  let dst_w_frac = Float::from_int(scene_w) / Float::from_int(w)
+  let dst_h_frac = Float::from_int(scene_h) / Float::from_int(h)
+  cmd.begin_swapchain_pass(
+    sc,
+    load_op~,
+    clear_color=Some(clear_color.to_clear_color()),
+  )
+  cmd.set_viewport((0.0 : Float), (0.0 : Float), Float::from_int(w), Float::from_int(h))
+  cmd.set_scissor(0, 0, w, h)
+  cmd.bind_pipeline(sc_pipe)
+  cmd.bind_texture(sc_pipe, 0, scene_tex, self.sampler)
+  cmd.bind_storage(sc_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
+  cmd.push_constants_floats(sc_pipe, [
+    (0.0 : Float),
+    (0.0 : Float),
+    dst_w_frac,
+    dst_h_frac,
+    (0.0 : Float),
+    (0.0 : Float),
+    u1,
+    v1,
+    (0.0 : Float),
+    (0.0 : Float),
+    Float::from_int(w),
+    (1.0 : Float),
+    (1.0 : Float),
+    (1.0 : Float),
+    (1.0 : Float),
+    (1.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (-1.0 : Float),
+    (-1.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+  ])
+  cmd.draw(6, 1)
+  cmd.end_swapchain_pass()
+  self.flush_atlas_uploads()
+}
+
+///|
 pub fn Renderer2D::render_offscreen(
   self : Renderer2D,
   dl : DisplayList,
   target : @tycho.Texture,
   clear_color? : Color = Color::transparent(),
   damage? : Rect? = None,
+  load_op? : @tycho.LoadOp = @tycho.LoadOp::Clear,
 ) -> Unit raise @tycho.RhiError {
   self.frame_idx = self.frame_idx + 1
   self.dev.wait_idle()
@@ -4428,9 +4568,11 @@ pub fn Renderer2D::render_offscreen(
     None => None
   }
   let ds = self.rt_pool.acquire_depth(w, h, slot=2)
+  // Load keeps the existing pixels (3D scene underneath); a damage rect
+  // additionally repaints only its clipped region.
   let color_load = match damage_clip {
     Some(_) => @tycho.LoadOp::Load
-    None => @tycho.LoadOp::Clear
+    None => load_op
   }
   self.begin_target_pass(
     cmd,
@@ -4498,6 +4640,7 @@ pub fn Renderer2D::render_swapchain(
   dl : DisplayList,
   clear_color? : Color = Color::black(),
   dl_size? : (Int, Int)? = None,
+  load_op? : @tycho.LoadOp = @tycho.LoadOp::Clear,
 ) -> Unit raise @tycho.RhiError {
   self.frame_idx = self.frame_idx + 1
   let w = sc.width()
@@ -4506,7 +4649,6 @@ pub fn Renderer2D::render_swapchain(
     Some((dw, dh)) => if dw > 0 && dh > 0 { (dw, dh) } else { (w, h) }
     None => (w, h)
   }
-  let ds_opt = if sc.has_depth() { Some(sc.depth_format()) } else { None }
   // Direct-to-swapchain: prim-only scenes that match the swapchain size and
   // carry a Depth24Stencil8 attachment (matching the prim pipelines) can skip
   // the offscreen scene texture and the full-screen presentation blit.
@@ -4525,7 +4667,7 @@ pub fn Renderer2D::render_swapchain(
     self.cur_color_format = sc.color_format()
     cmd.begin_swapchain_pass(
       sc,
-      load_op=@tycho.LoadOp::Clear,
+      load_op~,
       clear_color=Some(clear_color.to_clear_color()),
     )
     self.replay_ops(cmd, dl.ops)
@@ -4535,45 +4677,6 @@ pub fn Renderer2D::render_swapchain(
     self.flush_atlas_uploads()
     sc.end_frame(cmd)
     return
-  }
-  let fmt = sc.color_format()
-  let sc_pipe = match self.present_sc_pipe {
-    Some(p) =>
-      if self.present_sc_fmt == Some(fmt) && self.present_sc_depth_fmt == ds_opt {
-        p
-      } else {
-        p.destroy()
-        let np = self.dev.create_graphics_pipeline(
-          @tycho.PipelineDesc::from_spirv(
-            spv_blur_vert,
-            spv_blur_frag,
-            blend_mode=Some(@tycho.BlendMode::Opaque),
-            cull_mode=@tycho.CullMode::None,
-            color_format=Some(fmt),
-            depth_format=ds_opt,
-          ),
-        )
-        self.present_sc_pipe = Some(np)
-        self.present_sc_fmt = Some(fmt)
-        self.present_sc_depth_fmt = ds_opt
-        np
-      }
-    None => {
-      let np = self.dev.create_graphics_pipeline(
-        @tycho.PipelineDesc::from_spirv(
-          spv_blur_vert,
-          spv_blur_frag,
-          blend_mode=Some(@tycho.BlendMode::Opaque),
-          cull_mode=@tycho.CullMode::None,
-          color_format=Some(fmt),
-          depth_format=ds_opt,
-        ),
-      )
-      self.present_sc_pipe = Some(np)
-      self.present_sc_fmt = Some(fmt)
-      self.present_sc_depth_fmt = ds_opt
-      np
-    }
   }
   let cmd = sc.begin_frame_commands()
   let sc_slot = cmd.frame_slot() & 1
@@ -4586,48 +4689,40 @@ pub fn Renderer2D::render_swapchain(
     slot=sc_slot,
     rt_slot=sc_slot,
   )
-  let u1 = Float::from_int(scene_w) / Float::from_int(scene_tex.width())
-  let v1 = Float::from_int(scene_h) / Float::from_int(scene_tex.height())
-  let dst_w_frac = Float::from_int(scene_w) / Float::from_int(w)
-  let dst_h_frac = Float::from_int(scene_h) / Float::from_int(h)
-  cmd.begin_swapchain_pass(
-    sc,
-    load_op=@tycho.LoadOp::Clear,
-    clear_color=Some(clear_color.to_clear_color()),
-  )
-  cmd.set_viewport((0.0 : Float), (0.0 : Float), Float::from_int(w), Float::from_int(h))
-  cmd.set_scissor(0, 0, w, h)
-  cmd.bind_pipeline(sc_pipe)
-  cmd.bind_texture(sc_pipe, 0, scene_tex, self.sampler)
-  cmd.bind_storage(sc_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
-  cmd.push_constants_floats(sc_pipe, [
-    (0.0 : Float),
-    (0.0 : Float),
-    dst_w_frac,
-    dst_h_frac,
-    (0.0 : Float),
-    (0.0 : Float),
-    u1,
-    v1,
-    (0.0 : Float),
-    (0.0 : Float),
-    Float::from_int(w),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (-1.0 : Float),
-    (-1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-  ])
-  cmd.draw(6, 1)
-  cmd.end_swapchain_pass()
-  self.flush_atlas_uploads()
+  self.present_scene(cmd, sc, scene_tex, scene_w, scene_h, load_op, clear_color)
   sc.end_frame(cmd)
+}
+
+///|
+/// Draw `dl` over an already-open swapchain frame, e.g. after
+/// `Renderer3D::render_swapchain_into`. It neither acquires nor presents: the
+/// caller must invoke `Swapchain::end_frame` with the same command buffer.
+/// Defaults to `Load` with a transparent clear so the 3D image survives.
+pub fn Renderer2D::render_swapchain_pass(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+  sc : @tycho.Swapchain,
+  dl : DisplayList,
+  clear_color? : Color = Color::transparent(),
+  load_op? : @tycho.LoadOp = @tycho.LoadOp::Load,
+  dl_size? : (Int, Int)? = None,
+) -> Unit raise @tycho.RhiError {
+  self.frame_idx = self.frame_idx + 1
+  let w = sc.width()
+  let h = sc.height()
+  let (scene_w, scene_h) = match dl_size {
+    Some((dw, dh)) => if dw > 0 && dh > 0 { (dw, dh) } else { (w, h) }
+    None => (w, h)
+  }
+  let sc_slot = cmd.frame_slot() & 1
+  let scene_tex = self.render_into_scene(
+    cmd,
+    dl,
+    scene_w,
+    scene_h,
+    clear_color,
+    slot=sc_slot,
+    rt_slot=sc_slot,
+  )
+  self.present_scene(cmd, sc, scene_tex, scene_w, scene_h, load_op, clear_color)
 }
