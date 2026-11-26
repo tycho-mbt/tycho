@@ -672,6 +672,27 @@ fn build_sdf(gw : Int, gh : Int, pixels : Bytes) -> (Int, Int, Bytes) {
 }
 
 ///|
+// RGBA distance texture for the MSDF path. The CPU fallback uses the same
+// Euclidean signed distance in all three channels; the shader takes the median,
+// so future per-corner channel generation can be swapped in without touching
+// the atlas or pipeline.
+fn build_msdf(gw : Int, gh : Int, pixels : Bytes) -> (Int, Int, Bytes) {
+  let (w, h, sdf) = build_sdf(gw, gh, pixels)
+  if w <= 0 || h <= 0 {
+    return (0, 0, b"")
+  }
+  let out = Array::make(w * h * 4, (0 : Byte))
+  for i = 0; i < w * h; i = i + 1 {
+    let d = sdf[i]
+    out[i * 4] = d
+    out[i * 4 + 1] = d
+    out[i * 4 + 2] = d
+    out[i * 4 + 3] = (255 : Byte)
+  }
+  (w, h, Bytes::from_array(out))
+}
+
+///|
 fn rasterize_ttf_glyph(
   t : TtfData,
   cp : Int,
@@ -1692,6 +1713,8 @@ pub(all) struct GlyphEntry {
   is_sdf : Bool
   // Base pixel size the SDF was generated at (0 for bitmap entries).
   sdf_base : Float
+  // MSDF entries live in the dedicated RGBA atlas and use kind=9.
+  is_msdf : Bool
 }
 
 ///|
@@ -1729,11 +1752,13 @@ priv struct GlyphBitmap {
 ///|
 pub struct GlyphCache {
   atlas : DynamicAtlas
+  msdf_atlas : DynamicAtlas
   priv entries : Map[String, GlyphEntry]
   priv bitmaps : Map[String, GlyphBitmap]
   priv mut atlas_reset_count : Int
   priv mut atlas_overflow_count : Int
   priv mut sdf_entries : Int
+  priv mut msdf_entries : Int
   priv mut frame : Int
   // Bumped whenever the atlas is reset; external caches (coverage bitmaps)
   // must invalidate their UVs when this changes.
@@ -1748,11 +1773,13 @@ pub fn GlyphCache::new(
 ) -> GlyphCache raise @tycho.RhiError {
   {
     atlas: DynamicAtlas::new(dev, width, height, @tycho.TextureFormat::R8),
+    msdf_atlas: DynamicAtlas::new(dev, 2048, 2048, @tycho.TextureFormat::RGBA8),
     entries: {},
     bitmaps: {},
     atlas_reset_count: 0,
     atlas_overflow_count: 0,
     sdf_entries: 0,
+    msdf_entries: 0,
     frame: 0,
     generation: 0,
   }
@@ -1778,6 +1805,10 @@ fn GlyphCache::compact(self : GlyphCache) -> Unit raise @tycho.RhiError {
   self.atlas.reset()
   let survivors : Array[(String, GlyphEntry, GlyphBitmap)] = []
   for k, e in self.entries {
+    if e.is_msdf {
+      // MSDF entries use a separate RGBA atlas and are re-rasterized on demand.
+      continue
+    }
     match self.bitmaps.get(k) {
       Some(b) => {
         if b.last_frame + 1 >= self.frame {
@@ -1787,6 +1818,8 @@ fn GlyphCache::compact(self : GlyphCache) -> Unit raise @tycho.RhiError {
       None => ()
     }
   }
+  self.msdf_atlas.reset()
+  self.msdf_entries = 0
   self.entries.clear()
   self.bitmaps.clear()
   for pair in survivors {
@@ -1831,6 +1864,11 @@ pub fn GlyphCache::sdf_count(self : GlyphCache) -> Int {
 }
 
 ///|
+pub fn GlyphCache::msdf_count(self : GlyphCache) -> Int {
+  self.msdf_entries
+}
+
+///|
 pub fn GlyphCache::get_or_rasterize(
   self : GlyphCache,
   font : FontFace,
@@ -1865,6 +1903,84 @@ pub fn GlyphCache::get_or_rasterize_styled(
 }
 
 ///|
+fn GlyphCache::glyph_atlas_limit(self : GlyphCache, msdf : Bool) -> (Int, Int) {
+  if msdf {
+    (self.msdf_atlas.width, self.msdf_atlas.height)
+  } else {
+    (self.atlas.width, self.atlas.height)
+  }
+}
+
+///|
+// Drop MSDF entries after resetting the dedicated atlas so their UVs do not
+// point into freed space.
+fn GlyphCache::clear_msdf_entries(self : GlyphCache) -> Unit {
+  let dead : Array[String] = []
+  for k, e in self.entries {
+    if e.is_msdf {
+      dead.push(k)
+    }
+  }
+  for k in dead {
+    let _ = self.entries.remove(k)
+    let _ = self.bitmaps.remove(k)
+  }
+  self.msdf_entries = 0
+}
+
+///|
+fn GlyphCache::alloc_glyph(
+  self : GlyphCache,
+  msdf : Bool,
+  gw : Int,
+  gh : Int,
+  pixels : Bytes,
+  pad : Int,
+) -> (Int, Int, Int, Int)? raise @tycho.RhiError {
+  if msdf {
+    let first = self.msdf_atlas.alloc_and_upload_padded(
+      gw,
+      gh,
+      pixels,
+      padding=pad,
+    )
+    match first {
+      Some(v) => Some(v)
+      None => {
+        self.msdf_atlas.reset()
+        self.clear_msdf_entries()
+        self.msdf_atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
+      }
+    }
+  } else {
+    let first = self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
+    match first {
+      Some(v) => Some(v)
+      None => {
+        self.compact()
+        self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
+      }
+    }
+  }
+}
+
+///|
+fn GlyphCache::glyph_uv(
+  self : GlyphCache,
+  msdf : Bool,
+  ax : Int,
+  ay : Int,
+  pw : Int,
+  ph : Int,
+) -> (Float, Float, Float, Float) {
+  if msdf {
+    self.msdf_atlas.uv_rect(ax, ay, pw, ph)
+  } else {
+    self.atlas.uv_rect(ax, ay, pw, ph)
+  }
+}
+
+///|
 fn GlyphCache::get_or_rasterize_impl(
   self : GlyphCache,
   font : FontFace,
@@ -1893,7 +2009,7 @@ fn GlyphCache::get_or_rasterize_impl(
   // SDF entries are generated once at a fixed base size and scaled on read,
   // so zoomed/animated text reuses the distance field.
   let key = if use_sdf {
-    "\{font.id}:g\{gid}:sdf\{style_key}"
+    "\{font.id}:g\{gid}:msdf\{style_key}"
   } else if gid > 0 {
     "\{font.id}:g\{gid}:\{q4}\{style_key}"
   } else {
@@ -1941,8 +2057,8 @@ fn GlyphCache::get_or_rasterize_impl(
     italic,
   )
   let (ox, oy, gw, gh, pixels) = if use_sdf {
-    let (sw, sh, sdf) = build_sdf(gw1, gh1, pixels1)
-    (ox1 - SDF_SPREAD, oy1 - SDF_SPREAD, sw, sh, sdf)
+    let (sw, sh, msdf) = build_msdf(gw1, gh1, pixels1)
+    (ox1 - SDF_SPREAD, oy1 - SDF_SPREAD, sw, sh, msdf)
   } else {
     (ox1, oy1, gw1, gh1, pixels1)
   }
@@ -1958,22 +2074,15 @@ fn GlyphCache::get_or_rasterize_impl(
   let mut quad_w = gw
   let mut quad_h = gh
   if gw > 0 && gh > 0 {
-    if gw + pad * 2 > self.atlas.width || gh + pad * 2 > self.atlas.height {
+    let (aw, ah) = self.glyph_atlas_limit(use_sdf)
+    if gw + pad * 2 > aw || gh + pad * 2 > ah {
       self.atlas_overflow_count = self.atlas_overflow_count + 1
       cacheable = false
     } else {
-      let first = self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
-      let placed = match first {
-        Some(_) => first
-        None => {
-          // Atlas full: compact (keep hot glyphs, drop cold ones) and retry.
-          self.compact()
-          self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
-        }
-      }
+      let placed = self.alloc_glyph(use_sdf, gw, gh, pixels, pad)
       match placed {
         Some((ax, ay, pw, ph)) => {
-          let (a, b, c, d) = self.atlas.uv_rect(ax, ay, pw, ph)
+          let (a, b, c, d) = self.glyph_uv(use_sdf, ax, ay, pw, ph)
           ux0 = a
           uy0 = b
           ux1 = c
@@ -2000,11 +2109,13 @@ fn GlyphCache::get_or_rasterize_impl(
     advance: adv,
     is_sdf: use_sdf,
     sdf_base: if use_sdf { (64.0 : Float) } else { (0.0 : Float) },
+    is_msdf: use_sdf,
   }
   if cacheable {
     self.entries[key] = entry
     if use_sdf {
       self.sdf_entries = self.sdf_entries + 1
+      self.msdf_entries = self.msdf_entries + 1
     }
     if gw > 0 && gh > 0 {
       self.bitmaps[key] = {
@@ -2054,4 +2165,5 @@ pub fn GlyphCache::alloc_coverage(
 ///|
 pub fn GlyphCache::destroy(self : GlyphCache) -> Unit {
   self.atlas.destroy()
+  self.msdf_atlas.destroy()
 }

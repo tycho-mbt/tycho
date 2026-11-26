@@ -18,6 +18,7 @@ layout(std430, set = 0, binding = 1) readonly buffer GradBuf {
 
 layout(set = 0, binding = 2) uniform sampler2D u_glyph_atlas;
 layout(set = 0, binding = 3) uniform sampler2D u_color_atlas;
+layout(set = 0, binding = 4) uniform sampler2D u_msdf_atlas;
 
 layout(location = 0) in vec2 v_local_pos;
 layout(location = 1) flat in vec2 v_half_size;
@@ -202,6 +203,16 @@ void main() {
   if (kind == 8) {
     // Signed-distance glyph: d > 0.5 is inside.
     float d = texture(u_glyph_atlas, clamp(v_uv, v_uv_rect.xy, v_uv_rect.zw)).r;
+    float w = max(fwidth(d), 0.0001);
+    float a = smoothstep(0.5 - w, 0.5 + w, d) * v_fill.a * clip_cov;
+    out_color = vec4(v_fill.rgb * a, a);
+    return;
+  }
+
+  if (kind == 9) {
+    // MSDF glyph from the dedicated RGBA atlas; median of RGB keeps corners.
+    vec3 msd = texture(u_msdf_atlas, clamp(v_uv, v_uv_rect.xy, v_uv_rect.zw)).rgb;
+    float d = max(min(msd.r, msd.g), min(max(msd.r, msd.g), msd.b));
     float w = max(fwidth(d), 0.0001);
     float a = smoothstep(0.5 - w, 0.5 + w, d) * v_fill.a * clip_cov;
     out_color = vec4(v_fill.rgb * a, a);

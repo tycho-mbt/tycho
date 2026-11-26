@@ -239,6 +239,7 @@ pub(all) struct FontVariationAxis {
 
 pub struct GlyphCache {
   atlas : DynamicAtlas
+  msdf_atlas : DynamicAtlas
   // private fields
 }
 pub fn GlyphCache::alloc_coverage(Self, Int32, Int32, Bytes) -> (Float, Float, Float, Float)? raise @tycho.RhiError
@@ -252,6 +253,7 @@ pub fn GlyphCache::generation(Self) -> Int32
 pub fn GlyphCache::get_or_rasterize(Self, FontFace, Int32, Float) -> GlyphEntry raise @tycho.RhiError
 pub fn GlyphCache::get_or_rasterize_gid(Self, FontFace, Int32, Int32, Float) -> GlyphEntry raise @tycho.RhiError
 pub fn GlyphCache::get_or_rasterize_styled(Self, FontFace, Int32, Int32, Float, Bool, Bool) -> GlyphEntry raise @tycho.RhiError
+pub fn GlyphCache::msdf_count(Self) -> Int32
 pub fn GlyphCache::new(@tycho.Device, width? : Int32, height? : Int32) -> Self raise @tycho.RhiError
 pub fn GlyphCache::sdf_count(Self) -> Int32
 
@@ -267,6 +269,7 @@ pub(all) struct GlyphEntry {
   advance : Float
   is_sdf : Bool
   sdf_base : Float
+  is_msdf : Bool
 }
 
 #derive(Eq, @debug.Debug)
@@ -531,6 +534,7 @@ pub(all) struct RenderStats {
   coverage_draws : Int32
   coverage_entries : Int32
   sdf_glyphs : Int32
+  msdf_glyphs : Int32
 }
 pub fn RenderStats::summary(Self) -> String
 pub fn RenderStats::to_json(Self) -> String

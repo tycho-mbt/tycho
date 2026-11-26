@@ -273,10 +273,10 @@ fn main {
         }
         let path_ok = path_px > 20
         let st = renderer.stats()
-        let sdf_ok = st.sdf_glyphs > 0
+        let sdf_ok = st.sdf_glyphs > 0 && st.msdf_glyphs > 0
         let errs = dev.validation_errors()
         println(
-          "{\"ligature\":\{lig_ok},\"arabic_forms\":\{arabic_forms},\"rtl_first\":\{rtl_first},\"selection_boxes\":\{p4.get_boxes_for_range(4, 20).length()},\"bold_italic\":\{bold_italic},\"sdf_glyphs\":\{st.sdf_glyphs},\"devanagari\":\{deva_ok},\"inline_image\":\{inline_ok},\"text_on_path\":\{path_ok},\"yellow_pixels\":\{yellow}}",
+          "{\"ligature\":\{lig_ok},\"arabic_forms\":\{arabic_forms},\"rtl_first\":\{rtl_first},\"selection_boxes\":\{p4.get_boxes_for_range(4, 20).length()},\"bold_italic\":\{bold_italic},\"sdf_glyphs\":\{st.sdf_glyphs},\"msdf_glyphs\":\{st.msdf_glyphs},\"devanagari\":\{deva_ok},\"inline_image\":\{inline_ok},\"text_on_path\":\{path_ok},\"yellow_pixels\":\{yellow}}",
         )
         let ok = lig_ok &&
           arabic_forms >= 3 &&

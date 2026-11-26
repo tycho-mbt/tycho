@@ -127,6 +127,7 @@ pub(all) struct RenderStats {
   coverage_draws : Int
   coverage_entries : Int
   sdf_glyphs : Int
+  msdf_glyphs : Int
 }
 
 ///|
@@ -602,6 +603,7 @@ pub fn Renderer2D::new(
     let heap = dev.create_bindless_heap(max_textures=256)
     let _ = heap.register_texture(glyph_cache.atlas.texture, sampler)
     let _ = heap.register_texture(color_atlas.texture, sampler)
+    let _ = heap.register_texture(glyph_cache.msdf_atlas.texture, sampler)
     let cid = heap.register_texture(coverage_atlas.texture, sampler)
     let bp = dev.create_graphics_pipeline(
       @tycho.PipelineDesc::from_spirv(
@@ -1360,6 +1362,7 @@ fn Renderer2D::flush_prims(
   )
   cmd.bind_texture(pipe, 0, self.glyph_cache.atlas.texture, self.sampler)
   cmd.bind_texture(pipe, 1, self.color_atlas.texture, self.sampler)
+  cmd.bind_texture(pipe, 2, self.glyph_cache.msdf_atlas.texture, self.sampler)
   match self.bindless_heap {
     Some(heap) => cmd.bind_bindless_heap(pipe, heap, set_index=1)
     None => ()
@@ -1458,6 +1461,7 @@ pub fn Renderer2D::stats(self : Renderer2D) -> RenderStats {
     coverage_draws: self.coverage_draws,
     coverage_entries: self.coverage_count,
     sdf_glyphs: self.glyph_cache.sdf_count(),
+    msdf_glyphs: self.glyph_cache.msdf_count(),
   }
 }
 
@@ -1469,7 +1473,7 @@ pub fn RenderStats::summary(self : RenderStats) -> String {
 
 ///|
 pub fn RenderStats::to_json(self : RenderStats) -> String {
-  "{\"draws\":\{self.draw_calls},\"path_passes\":\{self.path_passes},\"prims\":\{self.prims},\"uploads\":\{self.upload_bytes},\"glyphs\":\{self.glyph_entries},\"sdf_glyphs\":\{self.sdf_glyphs},\"atlas_images\":\{self.image_entries},\"atlas_resets\":\{self.atlas_resets},\"atlas_overflows\":\{self.atlas_overflows},\"coverage_draws\":\{self.coverage_draws},\"coverage_entries\":\{self.coverage_entries}}"
+  "{\"draws\":\{self.draw_calls},\"path_passes\":\{self.path_passes},\"prims\":\{self.prims},\"uploads\":\{self.upload_bytes},\"glyphs\":\{self.glyph_entries},\"sdf_glyphs\":\{self.sdf_glyphs},\"msdf_glyphs\":\{self.msdf_glyphs},\"atlas_images\":\{self.image_entries},\"atlas_resets\":\{self.atlas_resets},\"atlas_overflows\":\{self.atlas_overflows},\"coverage_draws\":\{self.coverage_draws},\"coverage_entries\":\{self.coverage_entries}}"
 }
 
 ///|
@@ -4084,7 +4088,9 @@ fn Renderer2D::replay_ops(
                 g.italic,
               )
               if ge.width > 0 && ge.height > 0 {
-                let glyph_kind = if ge.is_sdf {
+                let glyph_kind = if ge.is_msdf {
+                  (9.0 : Float)
+                } else if ge.is_sdf {
                   (8.0 : Float)
                 } else {
                   (3.0 : Float)

@@ -699,6 +699,7 @@ test "SDF glyph encoding keeps inside/outside distances" {
             height: 80,
             advance: 40.0,
             is_sdf: true,
+            is_msdf: false,
             sdf_base: (64.0 : Float),
           }
           let s = scale_glyph_entry(e, (1.5 : Float), (60.0 : Float))
