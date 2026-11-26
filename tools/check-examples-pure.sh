@@ -17,7 +17,12 @@ for dir in "$ROOT"/examples/[0-9]*; do
     *) continue ;;
   esac
 
-  if grep -qE 'tycho_2d|tycho_ui' "$pkg"; then
+  # Example 72 is the 3D + 2D HUD composition demo (R-2D1): importing tycho_2d
+  # is its entire point. The tycho_3d library itself never depends on 2d/ui,
+  # and the raw-RHI ban below still applies to it.
+  if [ "$name" = "72-tycho-3d-hud" ]; then
+    :
+  elif grep -qE 'tycho_2d|tycho_ui' "$pkg"; then
     echo "PURITY: $name imports a 2d/ui sibling" >&2
     fail=1
   fi

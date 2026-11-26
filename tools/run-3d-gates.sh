@@ -20,6 +20,7 @@ EXAMPLES=(
   69-tycho-3d-msaa
   70-tycho-3d-gltf
   71-tycho-3d-gpu-driven
+  72-tycho-3d-hud
 )
 
 echo "== unit tests =="
