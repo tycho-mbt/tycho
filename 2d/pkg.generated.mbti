@@ -292,24 +292,44 @@ pub struct Path {
   // private fields
 }
 pub fn Path::bounds(Self) -> Rect
+pub fn Path::compute_tight_bounds(Self, tolerance? : Float) -> Rect
+pub fn Path::contains(Self, Float, Float, fill_rule? : FillRule?) -> Bool
 pub fn Path::fill_rule(Self) -> FillRule
 pub fn Path::id(Self) -> UInt64
 pub fn Path::is_empty(Self) -> Bool
+pub fn Path::measure(Self, force_closed? : Bool, tolerance? : Float) -> PathMeasure
+pub fn Path::revision(Self) -> Int32
+pub fn Path::transform(Self, Matrix3) -> Self
+pub fn Path::translated(Self, Float, Float) -> Self
 
 pub struct PathBuilder {
   // private fields
 }
+pub fn PathBuilder::add_arc(Self, Rect, Float, Float) -> Self
 pub fn PathBuilder::add_circle(Self, Float, Float, Float) -> Self
 pub fn PathBuilder::add_oval(Self, Rect) -> Self
+pub fn PathBuilder::add_path(Self, Path) -> Self
+pub fn PathBuilder::add_path_translated(Self, Path, Float, Float) -> Self
 pub fn PathBuilder::add_rect(Self, Rect) -> Self
 pub fn PathBuilder::add_rrect(Self, RRect) -> Self
+pub fn PathBuilder::arc_to(Self, Rect, Float, Float, force_move? : Bool) -> Self
 pub fn PathBuilder::build(Self, fill_rule? : FillRule) -> Path
 pub fn PathBuilder::close(Self) -> Self
+pub fn PathBuilder::conic_to(Self, Float, Float, Float, Float, Float) -> Self
 pub fn PathBuilder::cubic_to(Self, Float, Float, Float, Float, Float, Float) -> Self
+pub fn PathBuilder::current_point(Self) -> Point?
 pub fn PathBuilder::line_to(Self, Float, Float) -> Self
 pub fn PathBuilder::move_to(Self, Float, Float) -> Self
 pub fn PathBuilder::new() -> Self
 pub fn PathBuilder::quad_to(Self, Float, Float, Float, Float) -> Self
+
+pub struct PathMeasure {
+  // private fields
+}
+pub fn PathMeasure::length(Self) -> Float
+pub fn PathMeasure::new(Path, force_closed? : Bool, tolerance? : Float) -> Self
+pub fn PathMeasure::pos_at(Self, Float) -> (Point, Point)?
+pub fn PathMeasure::segment(Self, Float, Float) -> Path
 
 #derive(Eq, @debug.Debug)
 pub(all) enum PathVerb {

@@ -170,3 +170,54 @@ test "font advance tracks fractional sizes" {
   let (asc1, desc1, lh1) = f.metrics((24.0 : Float))
   assert_true(asc1 > asc0 && desc1 > desc0 && lh1 > lh0)
 }
+
+///|
+test "path api: arc, conic, add_path, transform, contains, measure" {
+  let rect = Rect::new((0.0 : Float), (0.0 : Float), (100.0 : Float), (100.0 : Float))
+  // Quarter arc: top-right quadrant of the inscribed ellipse.
+  let arc = PathBuilder::new()
+    .arc_to(rect, (0.0 : Float), (90.0 : Float), force_move=true)
+    .build()
+  let qb = arc.compute_tight_bounds()
+  assert_true(qb.x > (49.0 : Float) && qb.x < (51.0 : Float))
+  assert_true(qb.width > (49.0 : Float) && qb.width < (51.0 : Float))
+  // Full ellipse closes and covers the whole rect.
+  let full = PathBuilder::new().add_arc(rect, (0.0 : Float), (360.0 : Float)).build()
+  let fb = full.compute_tight_bounds()
+  assert_true(fb.width > (99.0 : Float) && fb.width < (101.0 : Float))
+  assert_true(fb.height > (99.0 : Float) && fb.height < (101.0 : Float))
+  // Conic with weight 1 is a parabola with the given control point.
+  let conic = PathBuilder::new()
+    .move_to((0.0 : Float), (0.0 : Float))
+    .conic_to((50.0 : Float), (100.0 : Float), (100.0 : Float), (0.0 : Float), (1.0 : Float))
+    .build()
+  assert_true(conic.bounds().width >= (100.0 : Float))
+  // add_path translates all commands.
+  let small = PathBuilder::new()
+    .add_rect(Rect::new((0.0 : Float), (0.0 : Float), (10.0 : Float), (10.0 : Float)))
+    .build()
+  let moved = PathBuilder::new().add_path_translated(small, (20.0 : Float), (30.0 : Float)).build()
+  assert_eq(moved.bounds().x, (20.0 : Float))
+  assert_eq(moved.bounds().y, (30.0 : Float))
+  let scaled = small.transform(Matrix3::scale((2.0 : Float), (2.0 : Float)))
+  assert_eq(scaled.bounds().width, (20.0 : Float))
+  // contains.
+  assert_true(small.contains((5.0 : Float), (5.0 : Float)))
+  assert_true(!small.contains((15.0 : Float), (5.0 : Float)))
+  // PathMeasure on a straight line.
+  let line = PathBuilder::new()
+    .move_to((0.0 : Float), (0.0 : Float))
+    .line_to((100.0 : Float), (0.0 : Float))
+    .build()
+  let m = line.measure()
+  assert_true(m.length() > (99.0 : Float) && m.length() < (101.0 : Float))
+  match m.pos_at((50.0 : Float)) {
+    Some((p, d)) => {
+      assert_true(p.x > (49.0 : Float) && p.x < (51.0 : Float))
+      assert_true(d.x > (0.9 : Float))
+    }
+    None => assert_true(false)
+  }
+  let seg = m.segment((25.0 : Float), (75.0 : Float))
+  assert_true(seg.bounds().width > (49.0 : Float))
+}
