@@ -20,9 +20,9 @@ struct ObjectGpu {
 };
 layout(std430, binding = 1) readonly buffer ObjectBuf { ObjectGpu objects[]; };
 
-layout(push_constant) uniform PC { uint objectIndex; } pc;
+layout(push_constant) uniform PC { uint firstObject; } pc;
 
 void main() {
-    ObjectGpu o = objects[pc.objectIndex];
+    ObjectGpu o = objects[pc.firstObject + uint(gl_InstanceIndex)];
     gl_Position = frame.lightVP * o.model * vec4(inPos, 1.0);
 }

@@ -20,14 +20,14 @@ struct ObjectGpu {
 };
 layout(std430, binding = 1) readonly buffer ObjectBuf { ObjectGpu objects[]; };
 
-layout(push_constant) uniform PC { uint objectIndex; } pc;
+layout(push_constant) uniform PC { uint firstObject; } pc;
 
 layout(location = 0) out vec3 vWorldPos;
 layout(location = 1) out vec3 vNormal;
 layout(location = 2) out vec2 vUV;
 
 void main() {
-    ObjectGpu o = objects[pc.objectIndex];
+    ObjectGpu o = objects[pc.firstObject + uint(gl_InstanceIndex)];
     vec4 wp = o.model * vec4(inPos, 1.0);
     vWorldPos = wp.xyz;
     vNormal = mat3(o.normalMat) * inNormal;

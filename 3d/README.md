@@ -3,7 +3,7 @@
 three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
 (RHI), `laplaceliu/tycho_math`, and `laplaceliu/tycho_geometry`.
 
-## What works today (M0)
+## What works today (M0–M1)
 
 - `Scene`: arena-based scene graph with generation-checked `NodeId` handles,
   dirty-flag world-transform propagation, reparenting with `keep_world`,
@@ -15,6 +15,10 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   directional/point/spot/ambient/hemisphere lights, one directional PCF shadow
   map, procedural environment IBL, HDR `RGBA16F`, separable bloom, and ACES
   tonemapping into `RGBA8Srgb`.
+- Automatic instancing: visible mesh nodes are grouped by `(mesh, material)`
+  and each run is drawn with `draw_indexed(..., instances=n)`. Shaders index
+  the object SSBO as `firstObject + gl_InstanceIndex`, so 10k nodes collapse
+  into one draw with no per-instance vertex layout.
 - `GpuMesh`: interleaved P3/N3/UV2 upload from `@tgeo.MeshData` (16-bit indices
   when possible, CPU copy retained for picking).
 - `Renderer3D::pick` + `ray_mesh_hit`: frustum-culled, world-space ray picking

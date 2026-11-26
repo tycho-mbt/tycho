@@ -66,7 +66,15 @@ priv struct DrawItem {
   distance : Float
   cast_shadow : Bool
   transparent : Bool
-  mut object_index : Int
+}
+
+///|
+/// A contiguous run of object records drawn with one instanced call.
+priv struct DrawBatch {
+  mesh : Int
+  material : Int
+  first : Int
+  mut count : Int
 }
 
 ///|
@@ -670,7 +678,6 @@ fn Renderer3D::render_frame(
             distance: dist,
             cast_shadow: inst.cast_shadow,
             transparent: is_blend_mode(self.materials[mati].alpha_mode),
-            object_index: 0,
           }
           if item.transparent {
             transparent.push(item)
@@ -682,8 +689,14 @@ fn Renderer3D::render_frame(
       _ => ()
     }
   }
+  // Opaque objects are grouped by (mesh, material) so equal objects become one
+  // instanced draw; depth testing makes front-to-back ordering optional.
   solid.sort_by(fn(a, b) {
-    if a.distance < b.distance {
+    if a.mesh != b.mesh {
+      a.mesh - b.mesh
+    } else if a.material != b.material {
+      a.material - b.material
+    } else if a.distance < b.distance {
       -1
     } else if a.distance > b.distance {
       1
@@ -700,22 +713,72 @@ fn Renderer3D::render_frame(
       0
     }
   })
-  let ordered : Array[DrawItem] = []
+  // Object records: opaque batches, then transparent singles, then shadow-only
+  // copies grouped per mesh. Shaders index this array as
+  // `firstObject + gl_InstanceIndex`.
+  self.object_writer.reset()
+  let solid_batches : Array[DrawBatch] = []
+  let mut records = 0
   for item in solid {
-    ordered.push(item)
+    self.pack_object(item, scene)
+    let n = solid_batches.length()
+    if n > 0 &&
+      solid_batches[n - 1].mesh == item.mesh &&
+      solid_batches[n - 1].material == item.material {
+      solid_batches[n - 1].count = solid_batches[n - 1].count + 1
+    } else {
+      solid_batches.push({
+        mesh: item.mesh,
+        material: item.material,
+        first: records,
+        count: 1,
+      })
+    }
+    records = records + 1
+  }
+  let main_count = records
+  let transparent_batches : Array[DrawBatch] = []
+  for item in transparent {
+    self.pack_object(item, scene)
+    transparent_batches.push({
+      mesh: item.mesh,
+      material: item.material,
+      first: records,
+      count: 1,
+    })
+    records = records + 1
+  }
+  let casters : Array[DrawItem] = []
+  for item in solid {
+    if item.cast_shadow {
+      casters.push(item)
+    }
   }
   for item in transparent {
-    ordered.push(item)
+    if item.cast_shadow {
+      casters.push(item)
+    }
   }
-  self.object_writer.reset()
-  for i = 0; i < ordered.length(); i = i + 1 {
-    let item = ordered[i]
-    item.object_index = i
+  casters.sort_by(fn(a, b) { a.mesh - b.mesh })
+  let shadow_batches : Array[DrawBatch] = []
+  for item in casters {
     self.pack_object(item, scene)
+    let n = shadow_batches.length()
+    if n > 0 && shadow_batches[n - 1].mesh == item.mesh {
+      shadow_batches[n - 1].count = shadow_batches[n - 1].count + 1
+    } else {
+      shadow_batches.push({
+        mesh: item.mesh,
+        material: -1,
+        first: records,
+        count: 1,
+      })
+    }
+    records = records + 1
   }
-  let object_count = ordered.length()
+  let object_count = records
   let mut caster_union : @tmath.Aabb3? = None
-  for item in ordered {
+  for item in casters {
     if item.cast_shadow {
       match scene.world_bounds(item.node) {
         Some(b) =>
@@ -812,10 +875,10 @@ fn Renderer3D::render_frame(
   upload_bytes = upload_bytes + light_count * LIGHT_BYTES
   upload_bytes = upload_bytes + FRAME_BYTES + SKY_BYTES
   self.stats.upload_bytes = upload_bytes
-  self.stats.visible_nodes = object_count
+  self.stats.visible_nodes = solid.length() + transparent.length()
 
   // Shadow pass.
-  if shadows_enabled && object_count > 0 {
+  if shadows_enabled && shadow_batches.length() > 0 {
     cmd.begin_render_pass(
       [],
       depth=Some(
@@ -844,14 +907,12 @@ fn Renderer3D::render_frame(
       offset=object_offset,
       size=object_count * OBJECT_BYTES,
     )
-    for item in ordered {
-      if item.cast_shadow {
-        cmd.push_constants_bytes(self.shadow_pipe, pc_bytes(item.object_index))
-        let mesh = self.meshes[item.mesh]
-        mesh.bind(cmd)
-        mesh.draw(cmd)
-        self.stats.shadow_passes = self.stats.shadow_passes + 1
-      }
+    for b in shadow_batches {
+      cmd.push_constants_bytes(self.shadow_pipe, pc_bytes(b.first))
+      let mesh = self.meshes[b.mesh]
+      mesh.bind(cmd)
+      cmd.draw_indexed(mesh.index_count(), instances=b.count)
+      self.stats.shadow_passes = self.stats.shadow_passes + 1
     }
     cmd.end_render_pass()
   }
@@ -887,7 +948,7 @@ fn Renderer3D::render_frame(
   )
   cmd.bind_texture(self.sky_pipe, 0, self.env_cube, self.env_sampler)
   cmd.draw(3, 1)
-  if object_count > 0 {
+  if main_count > 0 {
     cmd.bind_pipeline(self.pbr_pipe)
     cmd.bind_uniform(
       self.pbr_pipe,
@@ -919,13 +980,16 @@ fn Renderer3D::render_frame(
     )
     cmd.bind_texture(self.pbr_pipe, 0, self.shadow_map, self.shadow_sampler)
     cmd.bind_texture(self.pbr_pipe, 1, self.env_cube, self.env_sampler)
-    for item in solid {
-      cmd.push_constants_bytes(self.pbr_pipe, pc_bytes(item.object_index))
-      let mesh = self.meshes[item.mesh]
+    for b in solid_batches {
+      cmd.push_constants_bytes(self.pbr_pipe, pc_bytes(b.first))
+      let mesh = self.meshes[b.mesh]
       mesh.bind(cmd)
-      mesh.draw(cmd)
+      cmd.draw_indexed(mesh.index_count(), instances=b.count)
       self.stats.draw_calls = self.stats.draw_calls + 1
-      self.stats.triangles = self.stats.triangles + mesh.index_count() / 3
+      self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
+      if b.count > 1 {
+        self.stats.instance_batches = self.stats.instance_batches + 1
+      }
     }
     if transparent.length() > 0 {
       cmd.bind_pipeline(self.pbr_blend_pipe)
@@ -959,13 +1023,13 @@ fn Renderer3D::render_frame(
       )
       cmd.bind_texture(self.pbr_blend_pipe, 0, self.shadow_map, self.shadow_sampler)
       cmd.bind_texture(self.pbr_blend_pipe, 1, self.env_cube, self.env_sampler)
-      for item in transparent {
-        cmd.push_constants_bytes(self.pbr_blend_pipe, pc_bytes(item.object_index))
-        let mesh = self.meshes[item.mesh]
+      for b in transparent_batches {
+        cmd.push_constants_bytes(self.pbr_blend_pipe, pc_bytes(b.first))
+        let mesh = self.meshes[b.mesh]
         mesh.bind(cmd)
-        mesh.draw(cmd)
+        cmd.draw_indexed(mesh.index_count(), instances=b.count)
         self.stats.draw_calls = self.stats.draw_calls + 1
-        self.stats.triangles = self.stats.triangles + mesh.index_count() / 3
+        self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
       }
     }
   }
