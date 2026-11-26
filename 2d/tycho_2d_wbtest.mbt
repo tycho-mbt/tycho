@@ -978,3 +978,31 @@ test "MSDF encoding is RGBA and alpha-opaque" {
   assert_eq(rgba[mid + 3].to_int(), 255)
   assert_true(rgba[mid].to_int() > rgba[0].to_int())
 }
+
+///|
+test "gvar changes glyph outline" {
+  let path = "/home/laplaceliu/Source/laplaceliu/tycho-mbt/refs/skia/modules/canvaskit/tests/assets/RobotoSlab-VariableFont_wght.ttf"
+  let bytes = @tycho.read_file_bytes(path)
+  if bytes.length() > 0 {
+    match FontFace::from_ttf_bytes(bytes) {
+      Some(font) => {
+        let gid = font.glyph_id(72)
+        font.set_variation("wght", (100.0 : Float))
+        let (tx, ty, tw, th, thin) = font.rasterize_bitmap(gid, 72, (64.0 : Float), false, false)
+        font.set_variation("wght", (900.0 : Float))
+        let (bx, by, bw, bh, bold) = font.rasterize_bitmap(gid, 72, (64.0 : Float), false, false)
+        let mut thin_px = 0
+        let mut bold_px = 0
+        for p in thin {
+          if p.to_int() >= 128 { thin_px = thin_px + 1 }
+        }
+        for p in bold {
+          if p.to_int() >= 128 { bold_px = bold_px + 1 }
+        }
+        assert_true(bold_px > thin_px + 20)
+        assert_true(bw > tw)
+      }
+      None => ()
+    }
+  }
+}

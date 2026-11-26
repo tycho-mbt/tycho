@@ -325,6 +325,7 @@ fn collect_ttf_edges(
   scale : Double,
   ox : Double,
   oy : Double,
+  coords : Array[Float],
   edges : Array[RasterEdge],
   depth : Int,
 ) -> Unit {
@@ -370,7 +371,16 @@ fn collect_ttf_edges(
       } else if (flags & 0x0080) != 0 {
         p = p + 8
       }
-      collect_ttf_edges(t, sub_gid, scale, ox + dx * scale, oy - dy * scale, edges, depth + 1)
+      collect_ttf_edges(
+        t,
+        sub_gid,
+        scale,
+        ox + dx * scale,
+        oy - dy * scale,
+        coords,
+        edges,
+        depth + 1,
+      )
       if (flags & 0x0020) == 0 {
         break
       }
@@ -408,6 +418,7 @@ fn collect_ttf_edges(
   }
   let xs : Array[Double] = Array::make(n_pts, 0.0)
   let ys : Array[Double] = Array::make(n_pts, 0.0)
+  let (gdx, gdy) = gvar_deltas(t, gid, coords, n_pts)
   let mut cx = 0
   for i = 0; i < n_pts && p <= g_end; i = i + 1 {
     let fl = flags[i]
@@ -423,7 +434,7 @@ fn collect_ttf_edges(
       v
     }
     cx = cx + dx
-    xs[i] = ox + cx.to_double() * scale
+    xs[i] = ox + (cx.to_double() + gdx[i].to_double()) * scale
   }
   let mut cy = 0
   for i = 0; i < n_pts && p <= g_end; i = i + 1 {
@@ -440,7 +451,7 @@ fn collect_ttf_edges(
       v
     }
     cy = cy + dy
-    ys[i] = oy - cy.to_double() * scale
+    ys[i] = oy - (cy.to_double() + gdy[i].to_double()) * scale
   }
 
   let mut start = 0
@@ -700,11 +711,12 @@ fn rasterize_ttf_glyph(
   t : TtfData,
   cp : Int,
   size_px : Float,
+  coords? : Array[Float] = [],
 ) -> (Int, Int, Int, Int, Bytes) {
   if t.glyf_off < 0 || t.loca_off < 0 {
     return (0, 0, 0, 0, b"")
   }
-  rasterize_ttf_glyph_gid(t, ttf_glyph_id(t, cp), size_px)
+  rasterize_ttf_glyph_gid(t, ttf_glyph_id(t, cp), size_px, coords=coords)
 }
 
 ///|
@@ -712,13 +724,14 @@ fn rasterize_ttf_glyph_gid(
   t : TtfData,
   gid : Int,
   size_px : Float,
+  coords? : Array[Float] = [],
 ) -> (Int, Int, Int, Int, Bytes) {
   if t.glyf_off < 0 || t.loca_off < 0 || gid <= 0 {
     return (0, 0, 0, 0, b"")
   }
   let scale = size_px.to_double() / t.units_per_em.to_double()
   let edges : Array[RasterEdge] = []
-  collect_ttf_edges(t, gid, scale, 0.0, 0.0, edges, 0)
+  collect_ttf_edges(t, gid, scale, 0.0, 0.0, coords, edges, 0)
   if edges.length() == 0 {
     return (0, 0, 0, 0, b"")
   }
@@ -1370,9 +1383,9 @@ pub fn FontFace::rasterize_bitmap(
 ) -> (Int, Int, Int, Int, Bytes) {
   let (ox, oy, gw, gh, pixels) = match self.ttf {
     Some(t) => if gid > 0 {
-      rasterize_ttf_glyph_gid(t, gid, size_px)
+      rasterize_ttf_glyph_gid(t, gid, size_px, coords=self.normalized_coords())
     } else {
-      rasterize_ttf_glyph(t, cp, size_px)
+      rasterize_ttf_glyph(t, cp, size_px, coords=self.normalized_coords())
     }
     None => rasterize_builtin_glyph(cp, size_px)
   }
@@ -2060,9 +2073,19 @@ fn GlyphCache::get_or_rasterize_impl(
   }
   let (ox0, oy0, gw0, gh0, pixels0) = match font.ttf {
     Some(t) => if gid > 0 {
-      rasterize_ttf_glyph_gid(t, gid, raster_size)
+      rasterize_ttf_glyph_gid(
+        t,
+        gid,
+        raster_size,
+        coords=font.normalized_coords(),
+      )
     } else {
-      rasterize_ttf_glyph(t, cp, raster_size)
+      rasterize_ttf_glyph(
+        t,
+        cp,
+        raster_size,
+        coords=font.normalized_coords(),
+      )
     }
     None => rasterize_builtin_glyph(cp, raster_size)
   }
