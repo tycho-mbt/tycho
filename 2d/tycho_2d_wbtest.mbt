@@ -539,6 +539,32 @@ test "legacy kern and RTL visual order" {
       assert_eq(gr[0].codepoint, 0x05D2)
       assert_eq(gr[1].codepoint, 0x05D1)
       assert_eq(gr[2].codepoint, 0x05D0)
+
+      // Latin presentation-form ligature.
+      let lig = shape_run(font, "fi")
+      assert_eq(lig.length(), 1)
+      assert_eq(lig[0].cp, 0xFB01)
+      let pl = ParagraphBuilder::new()
+        .add_text(
+          "fi",
+          style=TextStyle::new(font=font, font_size=(100.0 : Float)),
+        )
+        .build()
+      pl.layout((1000.0 : Float))
+      let gl = pl.placed_glyphs()
+      assert_eq(gl.length(), 1)
+      assert_eq(gl[0].codepoint, 0xFB01)
+
+      // Arabic joining forms: beh+alef -> initial beh + final alef.
+      let ar1 = shape_run(font, "با")
+      assert_eq(ar1.length(), 2)
+      assert_eq(ar1[0].cp, 0xFE91)
+      assert_eq(ar1[1].cp, 0xFE8E)
+      // alef+beh -> isolated alef + isolated beh.
+      let ar2 = shape_run(font, "اب")
+      assert_eq(ar2.length(), 2)
+      assert_eq(ar2[0].cp, 0xFE8D)
+      assert_eq(ar2[1].cp, 0xFE8F)
     }
     None => ()
   }

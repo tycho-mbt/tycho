@@ -104,6 +104,8 @@ priv struct LayoutChar {
   font : FontFace
   mut advance : Float
   char_index : Int
+  source_start : Int
+  source_end : Int
   is_newline : Bool
   is_space : Bool
 }
@@ -228,12 +230,15 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
   self.underlines.clear()
 
   let chars : Array[LayoutChar] = []
-  let mut idx = 0
   for sp in self.spans {
-    for ch in sp.text {
-      let cp = ch.to_int()
-      let is_nl = cp == 10
-      let is_sp = cp == 32 || cp == 9
+    let run_font = sp.style.font
+    for sc in shape_run(run_font, sp.text) {
+      let cp = sc.cp
+      let is_nl = sc.is_newline
+      let is_sp = sc.is_space
+      // Shaped presentation forms/ligatures stay on the primary face because
+      // shape_run only substitutes glyphs the face has; emoji still goes
+      // through the fallback chain (color faces are preferred there).
       let face = style_face(sp.style, cp)
       let adv = if is_nl {
         (0.0 : Float)
@@ -250,13 +255,16 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
         style: sp.style,
         font: face,
         advance: adv,
-        char_index: idx,
+        char_index: sc.source_start,
+        source_start: sc.source_start,
+        source_end: sc.source_end,
         is_newline: is_nl,
         is_space: is_sp,
       })
-      self.char_x.push((0.0 : Float))
-      self.char_line.push(0)
-      idx = idx + 1
+      while self.char_x.length() < sc.source_end {
+        self.char_x.push((0.0 : Float))
+        self.char_line.push(0)
+      }
     }
   }
 
@@ -442,8 +450,10 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
     for oi2 = 0; oi2 < order.length(); oi2 = oi2 + 1 {
       let k = order[oi2]
       let ch = chars[k]
-      self.char_x[ch.char_index] = cx
-      self.char_line[ch.char_index] = li
+      for si = ch.source_start; si < ch.source_end; si = si + 1 {
+        self.char_x[si] = cx
+        self.char_line[si] = li
+      }
       let add_gap = is_justify &&
         oi2 < order.length() - 1 &&
         (if space_gaps > 0 { ch.is_space } else { true })
@@ -472,6 +482,7 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
     }
     if ell != "" && end_idx > rs {
       let est = chars[end_idx - 1].style
+      let last_src = chars[end_idx - 1].source_start
       for ech in ell {
         let ecp = ech.to_int()
         let eadv = est.font.advance_width(ecp, est.font_size)
@@ -483,16 +494,22 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
           baseline_y: baseline,
           advance: eadv,
           color: est.color,
-          char_index: end_idx - 1,
+          char_index: last_src,
         })
         cx = cx + eadv
       }
     }
     let reported_w = if is_justify { mw } else { line_w }
     if reported_w > max_w { max_w = reported_w }
+    let src_start = if rs < chars.length() { chars[rs].source_start } else { rs }
+    let src_end = if end_idx > rs {
+      chars[end_idx - 1].source_end
+    } else {
+      src_start
+    }
     self.lines.push({
-      start_index: rs,
-      end_index: end_idx,
+      start_index: src_start,
+      end_index: src_end,
       y: cur_y,
       height: max_h,
       baseline,
