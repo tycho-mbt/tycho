@@ -12,11 +12,19 @@ pub const MESH_VERTEX_FLOATS : Int = 12
 pub const MESH_VERTEX_BYTES : Int = 48
 
 ///|
+/// Skinned vertices append joints(4) and weights(4): 80 bytes per vertex.
+pub const SKIN_VERTEX_FLOATS : Int = 20
+
+///|
+pub const SKIN_VERTEX_BYTES : Int = 80
+
+///|
 pub struct GpuMesh {
   priv first_vertex : Int
   priv vertex_count : Int
   priv first_index : Int
   priv index_count : Int
+  priv skinned : Bool
   bounds : @tmath.Aabb3
   groups : Array[@tgeo.MeshGroup]
   // CPU copy kept for picking; dropped when an acceleration structure lands.
@@ -60,6 +68,38 @@ pub fn mesh_vertex_floats(mesh : @tgeo.MeshData) -> FixedArray[Float] {
 }
 
 ///|
+/// Interleaved skinned vertex stream: the static 12 floats plus joints(4) and
+/// weights(4). Vertices without skin data get zero joints and weights.
+pub fn mesh_skinned_vertex_floats(mesh : @tgeo.MeshData) -> FixedArray[Float] {
+  let n = mesh.vertex_count()
+  let base = mesh_vertex_floats(mesh)
+  let out = FixedArray::make(n * SKIN_VERTEX_FLOATS, (0.0 : Float))
+  for i = 0; i < n; i = i + 1 {
+    for c = 0; c < MESH_VERTEX_FLOATS; c = c + 1 {
+      out[i * SKIN_VERTEX_FLOATS + c] = base[i * MESH_VERTEX_FLOATS + c]
+    }
+    let joints = match mesh.skin_joints {
+      Some(j) => j[i]
+      None => @tmath.Vec4::zero()
+    }
+    let weights = match mesh.skin_weights {
+      Some(w) => w[i]
+      None => @tmath.Vec4::zero()
+    }
+    let o = i * SKIN_VERTEX_FLOATS + MESH_VERTEX_FLOATS
+    out[o] = joints.x
+    out[o + 1] = joints.y
+    out[o + 2] = joints.z
+    out[o + 3] = joints.w
+    out[o + 4] = weights.x
+    out[o + 5] = weights.y
+    out[o + 6] = weights.z
+    out[o + 7] = weights.w
+  }
+  out
+}
+
+///|
 pub fn GpuMesh::range(
   mesh : @tgeo.MeshData,
   first_vertex : Int,
@@ -70,10 +110,16 @@ pub fn GpuMesh::range(
     vertex_count: mesh.vertex_count(),
     first_index,
     index_count: mesh.index_count(),
+    skinned: mesh.has_skin(),
     bounds: mesh.bounds(),
     groups: mesh.groups,
     cpu: mesh,
   }
+}
+
+///|
+pub fn GpuMesh::skinned(self : GpuMesh) -> Bool {
+  self.skinned
 }
 
 ///|

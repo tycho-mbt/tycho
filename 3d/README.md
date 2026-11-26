@@ -50,6 +50,11 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   single `draw_indexed_indirect_count` issues them all (compute culling fills
   instance counts); the non-bindless fallback keeps per-batch draws because it
   rebinds material textures.
+- GPU skinning: `MeshData::set_skin` attaches four joint indices/weights per
+  vertex (80-byte stream), `Renderer3D::create_skinned_node` binds a joint list
+  plus inverse bind matrices, and the vertex shader applies the palette from a
+  bone SSBO indexed through the object record (example 79). Skinned shadows are
+  not rendered yet.
 - Automatic instancing: visible mesh nodes are grouped by `(mesh, material)`
   and each run is drawn with `draw_indexed(..., instances=n)`. Shaders index
   the object SSBO as `firstObject + gl_InstanceIndex`, so 10k nodes collapse

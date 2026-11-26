@@ -58,6 +58,10 @@ const MATERIAL_FLOATS : Int = 16
 
 const MATERIAL_BYTES : Int = 64
 
+const MAX_BONES : Int = 4096
+
+const BONE_BYTES : Int = 64
+
 const FRAME_FLOATS : Int = 60
 
 const BRDF_LUT_SIZE : Int = 64
@@ -104,6 +108,18 @@ priv struct DrawBatch {
   // Set when the batch goes through GPU culling.
   mut cull_cmd : Int
   mut list_offset : Int
+  skinned : Bool
+}
+
+///|
+/// A skeleton bound to one scene node: joint nodes plus inverse bind matrices.
+/// `offset` is the palette slot in the bone SSBO, stable for the renderer's life.
+priv struct SkinBinding {
+  node : NodeId
+  joints : Array[NodeId]
+  inverse_bind : Array[@tmath.Mat4]
+  offset : Int
+  count : Int
 }
 
 ///|
@@ -125,6 +141,15 @@ pub struct Renderer3D {
   priv arena_floats : Array[Float]
   priv arena_indices : Array[UInt]
   priv draw_count : @tycho.Buffer
+  // Skinned meshes use a 80-byte vertex stream and a separate pipeline.
+  priv mut skin_arena : @tycho.Buffer
+  priv skin_floats : Array[Float]
+  priv skin_pipe : @tycho.Pipeline
+  priv skin_blend_pipe : @tycho.Pipeline
+  priv bone_ssbo : @tycho.Buffer
+  priv bone_scratch : FixedArray[Float]
+  priv mut bone_cursor : Int
+  priv skins : Array[SkinBinding]
   priv materials : Array[MaterialDesc]
   priv object_ring : @pool.FrameRing
   priv light_ring : @pool.FrameRing
@@ -519,6 +544,53 @@ pub fn Renderer3D::new(
       samples=samples,
     ),
   )
+  let skin_layouts : Array[@tycho.VertexBufferLayout] = [
+    @tycho.VertexBufferLayout::new(
+      SKIN_VERTEX_BYTES,
+      [
+        @tycho.VertexAttribute::new(0, @tycho.VertexFormat::Float3, 0),
+        @tycho.VertexAttribute::new(1, @tycho.VertexFormat::Float3, 12),
+        @tycho.VertexAttribute::new(2, @tycho.VertexFormat::Float2, 24),
+        @tycho.VertexAttribute::new(3, @tycho.VertexFormat::Float4, 32),
+        @tycho.VertexAttribute::new(4, @tycho.VertexFormat::Float4, 48),
+        @tycho.VertexAttribute::new(5, @tycho.VertexFormat::Float4, 64),
+      ],
+    ),
+  ]
+  let skin_pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_pbr_skin_vert,
+      pbr_frag,
+      depth_test=true,
+      depth_write=true,
+      depth_compare=@tycho.CompareOp::GreaterEqual,
+      depth_format=Some(@tycho.TextureFormat::Depth32F),
+      cull_mode=@tycho.CullMode::Back,
+      front_face=@tycho.FrontFace::CounterClockwise,
+      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      vertex_layouts=skin_layouts,
+      bindless_heap=bindless,
+      samples=samples,
+    ),
+  )
+  let skin_blend_pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_pbr_skin_vert,
+      pbr_frag,
+      depth_test=true,
+      depth_write=false,
+      depth_compare=@tycho.CompareOp::GreaterEqual,
+      depth_format=Some(@tycho.TextureFormat::Depth32F),
+      cull_mode=@tycho.CullMode::Back,
+      front_face=@tycho.FrontFace::CounterClockwise,
+      blend=true,
+      blend_mode=Some(@tycho.BlendMode::Alpha),
+      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      vertex_layouts=skin_layouts,
+      bindless_heap=bindless,
+      samples=samples,
+    ),
+  )
   let sky_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_skybox_vert,
@@ -680,6 +752,20 @@ pub fn Renderer3D::new(
       @tycho.BufferKind::Indirect,
       location=@tycho.MemoryLocation::CpuToGpu,
     ),
+    skin_arena: dev.create_buffer_with(
+      4,
+      @tycho.BufferKind::Vertex,
+      location=@tycho.MemoryLocation::GpuOnly,
+    ),
+    skin_floats: [],
+    bone_ssbo: dev.create_buffer_with(
+      MAX_BONES * BONE_BYTES,
+      @tycho.BufferKind::Storage,
+      location=@tycho.MemoryLocation::CpuToGpu,
+    ),
+    bone_scratch: FixedArray::make(MAX_BONES * 16, (0.0 : Float)),
+    bone_cursor: 0,
+    skins: [],
     materials: [],
     object_ring: @pool.FrameRing::new(dev, desc.max_objects * OBJECT_BYTES),
     light_ring: @pool.FrameRing::new(dev, desc.max_lights * LIGHT_BYTES),
@@ -717,6 +803,8 @@ pub fn Renderer3D::new(
     owns_env: true,
     shadow_pipe,
     pbr_pipe,
+    skin_pipe,
+    skin_blend_pipe,
     pbr_blend_pipe,
     sky_pipe,
     bloom_extract_pipe,
@@ -754,17 +842,28 @@ pub fn Renderer3D::upload_mesh(self : Renderer3D, mesh : @tgeo.MeshData) -> Mesh
   if !mesh.has_tangents() {
     mesh.compute_tangents()
   }
-  let floats = mesh_vertex_floats(mesh)
-  let first_vertex = self.arena_floats.length() / MESH_VERTEX_FLOATS
-  for f in floats {
-    self.arena_floats.push(f)
-  }
   let first_index = self.arena_indices.length()
   for ix in mesh.indices {
     self.arena_indices.push(ix)
   }
+  let first_vertex = if mesh.has_skin() {
+    let floats = mesh_skinned_vertex_floats(mesh)
+    let fv = self.skin_floats.length() / SKIN_VERTEX_FLOATS
+    for f in floats {
+      self.skin_floats.push(f)
+    }
+    self.rebuild_skin_arena()
+    fv
+  } else {
+    let floats = mesh_vertex_floats(mesh)
+    let fv = self.arena_floats.length() / MESH_VERTEX_FLOATS
+    for f in floats {
+      self.arena_floats.push(f)
+    }
+    self.rebuild_arenas()
+    fv
+  }
   self.meshes.push(GpuMesh::range(mesh, first_vertex, first_index))
-  self.rebuild_arenas()
   MeshHandle::from_id(self.meshes.length() - 1)
 }
 
@@ -796,6 +895,80 @@ fn Renderer3D::rebuild_arenas(self : Renderer3D) -> Unit raise {
 fn Renderer3D::bind_arenas(self : Renderer3D, cmd : @tycho.CommandBuffer) -> Unit {
   cmd.bind_vertex(0, self.vertex_arena)
   cmd.bind_index(self.index_arena, @tycho.IndexType::Uint32)
+}
+
+///|
+fn Renderer3D::rebuild_skin_arena(self : Renderer3D) -> Unit raise {
+  let vf = FixedArray::from_array(self.skin_floats)
+  let ix = FixedArray::from_array(self.arena_indices)
+  self.skin_arena.destroy()
+  self.index_arena.destroy()
+  self.skin_arena = self.dev.create_buffer_with(
+    if vf.length() == 0 { 4 } else { vf.length() * 4 },
+    @tycho.BufferKind::Vertex,
+    location=@tycho.MemoryLocation::GpuOnly,
+  )
+  if vf.length() > 0 {
+    self.skin_arena.upload_floats(vf)
+  }
+  self.index_arena = self.dev.create_buffer_with(
+    if ix.length() == 0 { 4 } else { ix.length() * 4 },
+    @tycho.BufferKind::Index,
+    location=@tycho.MemoryLocation::GpuOnly,
+  )
+  if ix.length() > 0 {
+    self.index_arena.upload_uint32(ix)
+  }
+}
+
+///|
+fn Renderer3D::bind_skin_arenas(self : Renderer3D, cmd : @tycho.CommandBuffer) -> Unit {
+  cmd.bind_vertex(0, self.skin_arena)
+  cmd.bind_index(self.index_arena, @tycho.IndexType::Uint32)
+}
+
+///|
+/// Refresh the palette: joint world matrix * inverse bind, in mesh-local space.
+fn Renderer3D::update_bones(self : Renderer3D, scene : Scene) -> Unit raise {
+  for s in self.skins {
+    for i = 0; i < s.count; i = i + 1 {
+      let world = scene.world_transform(s.joints[i]).to_mat4()
+      let m = world * s.inverse_bind[i]
+      let base = (s.offset + i) * 16
+      self.bone_scratch[base] = m.x_axis.x
+      self.bone_scratch[base + 1] = m.x_axis.y
+      self.bone_scratch[base + 2] = m.x_axis.z
+      self.bone_scratch[base + 3] = m.x_axis.w
+      self.bone_scratch[base + 4] = m.y_axis.x
+      self.bone_scratch[base + 5] = m.y_axis.y
+      self.bone_scratch[base + 6] = m.y_axis.z
+      self.bone_scratch[base + 7] = m.y_axis.w
+      self.bone_scratch[base + 8] = m.z_axis.x
+      self.bone_scratch[base + 9] = m.z_axis.y
+      self.bone_scratch[base + 10] = m.z_axis.z
+      self.bone_scratch[base + 11] = m.z_axis.w
+      self.bone_scratch[base + 12] = m.w_axis.x
+      self.bone_scratch[base + 13] = m.w_axis.y
+      self.bone_scratch[base + 14] = m.w_axis.z
+      self.bone_scratch[base + 15] = m.w_axis.w
+    }
+  }
+  if self.bone_cursor > 0 {
+    self.bone_ssbo.upload_floats(
+      self.bone_scratch,
+      count=self.bone_cursor * 16,
+    )
+  }
+}
+
+///|
+/// Descriptor ranges must stay non-zero even with no bones uploaded.
+fn bind_bones_bytes(count : Int) -> Int {
+  if count > 0 {
+    count * BONE_BYTES
+  } else {
+    BONE_BYTES
+  }
 }
 
 ///|
@@ -1004,10 +1177,23 @@ fn Renderer3D::pack_object(
   self.object_writer.push_float(c.y)
   self.object_writer.push_float(c.z)
   self.object_writer.push_float(b.half_extents().length())
+  let mesh = self.meshes[item.mesh]
+  let mut joint_offset : Float = 0.0
+  let mut joint_count : Float = 0.0
+  let mut skinned : Float = 0.0
+  if mesh.skinned() {
+    skinned = 1.0
+    for s in self.skins {
+      if s.node.index() == item.node.index() {
+        joint_offset = f_of_int(s.offset)
+        joint_count = f_of_int(s.count)
+      }
+    }
+  }
   self.object_writer.push_float(f_of_int(item.material))
-  self.object_writer.push_float(0.0)
-  self.object_writer.push_float(0.0)
-  self.object_writer.push_float(0.0)
+  self.object_writer.push_float(joint_offset)
+  self.object_writer.push_float(joint_count)
+  self.object_writer.push_float(skinned)
 }
 
 ///|
@@ -1329,6 +1515,7 @@ fn Renderer3D::render_frame(
 ) -> Unit raise {
   self.stats = RenderStats3D::new()
   scene.update()
+  self.update_bones(scene)
   let cam = match scene.payload(camera) {
     Some(NodePayload::Camera(c)) => c
     _ => fail("Renderer3D: camera node has no Camera payload")
@@ -1435,6 +1622,7 @@ fn Renderer3D::render_frame(
         count: 1,
         cull_cmd: -1,
         list_offset: 0,
+        skinned: self.meshes[item.mesh].skinned(),
       })
     }
     records = records + 1
@@ -1450,6 +1638,7 @@ fn Renderer3D::render_frame(
       count: 1,
       cull_cmd: -1,
       list_offset: 0,
+      skinned: self.meshes[item.mesh].skinned(),
     })
     records = records + 1
   }
@@ -1479,15 +1668,25 @@ fn Renderer3D::render_frame(
         count: 1,
         cull_cmd: -1,
         list_offset: 0,
+        skinned: false,
       })
     }
     records = records + 1
+  }
+  let static_batches : Array[DrawBatch] = []
+  let skin_batches : Array[DrawBatch] = []
+  for b in solid_batches {
+    if b.skinned {
+      skin_batches.push(b)
+    } else {
+      static_batches.push(b)
+    }
   }
   let mut cull_cmd_count = 0
   let mut cull_list_count = 0
   if gpu_cull_enabled {
     let mut total = 0
-    for b in solid_batches {
+    for b in static_batches {
       total = total + b.count
     }
     // The visibility list is sized by max_objects; fall back to the CPU path
@@ -1497,8 +1696,8 @@ fn Renderer3D::render_frame(
     }
   }
   if gpu_cull_enabled {
-    for i = 0; i < solid_batches.length(); i = i + 1 {
-      let b = solid_batches[i]
+    for i = 0; i < static_batches.length(); i = i + 1 {
+      let b = static_batches[i]
       b.cull_cmd = i
       b.list_offset = cull_list_count
       cull_list_count = cull_list_count + b.count
@@ -1602,11 +1801,11 @@ fn Renderer3D::render_frame(
   // Static batch cache: every solid batch is one indirect command over the
   // shared arenas. Culled batches start at instanceCount 0 and are filled by
   // the compute pass below; CPU-resolved batches are ready as-is.
-  let batch_count = solid_batches.length()
+  let batch_count = static_batches.length()
   if batch_count > 0 {
     let cmds = FixedArray::make(batch_count * 5, (0 : UInt))
     for i = 0; i < batch_count; i = i + 1 {
-      let b = solid_batches[i]
+      let b = static_batches[i]
       let mesh = self.meshes[b.mesh]
       let culled = b.cull_cmd >= 0
       cmds[i * 5] = mesh.index_count().reinterpret_as_uint()
@@ -1649,7 +1848,7 @@ fn Renderer3D::render_frame(
           offset=0,
           size=self.desc.max_objects * 20,
         )
-        for b in solid_batches {
+        for b in static_batches {
           if b.cull_cmd >= 0 {
             cmd.push_constants_floats(
               pipe,
@@ -1813,18 +2012,76 @@ fn Renderer3D::render_frame(
     cmd.bind_texture(pipe, 1, self.shadow_atlas, self.shadow_sampler)
     cmd.bind_texture(pipe, 2, self.env_cube, self.env_sampler)
     cmd.bind_texture(pipe, 3, self.brdf_lut, self.linear_sampler)
-    if self.bindless_ok {
-      cmd.draw_indexed_indirect_count(
-        self.cull_cmds[slot & 1],
-        self.draw_count,
-        batch_count,
+    if batch_count > 0 {
+      if self.bindless_ok {
+        cmd.draw_indexed_indirect_count(
+          self.cull_cmds[slot & 1],
+          self.draw_count,
+          batch_count,
+        )
+        self.stats.draw_calls = self.stats.draw_calls + 1
+      } else {
+        // The fallback binds albedo/normal per material, which a single
+        // multi-draw cannot express, so it keeps one draw per batch.
+        for b in static_batches {
+          self.bind_material_textures(cmd, pipe, b.material)
+          let mesh = self.meshes[b.mesh]
+          cmd.draw_indexed_full(
+            mesh.index_count(),
+            b.count,
+            mesh.first_index(),
+            mesh.first_vertex(),
+            b.first,
+          )
+          self.stats.draw_calls = self.stats.draw_calls + 1
+        }
+      }
+    }
+    if skin_batches.length() > 0 && self.bone_cursor > 0 {
+      self.bind_skin_arenas(cmd)
+      cmd.bind_pipeline(self.skin_pipe)
+      self.bind_material_heap(cmd, self.skin_pipe)
+      cmd.bind_uniform(
+        self.skin_pipe,
+        0,
+        self.frame_ubo,
+        offset=slot * FRAME_SLOT_BYTES,
+        size=FRAME_BYTES,
       )
-      self.stats.draw_calls = self.stats.draw_calls + 1
-    } else {
-      // The fallback binds albedo/normal per material, which a single
-      // multi-draw cannot express, so it keeps one draw per batch.
-      for b in solid_batches {
-        self.bind_material_textures(cmd, pipe, b.material)
+      cmd.bind_storage(
+        self.skin_pipe,
+        0,
+        self.object_ring.buffer(),
+        offset=object_offset,
+        size=bind_objects_bytes(object_count),
+      )
+      cmd.bind_storage(
+        self.skin_pipe,
+        1,
+        self.material_ssbo,
+        offset=0,
+        size=self.desc.max_materials * MATERIAL_BYTES,
+      )
+      cmd.bind_storage(
+        self.skin_pipe,
+        2,
+        self.light_ring.buffer(),
+        offset=light_offset,
+        size=bind_lights_bytes(light_count),
+      )
+      cmd.bind_storage(
+        self.skin_pipe,
+        3,
+        self.bone_ssbo,
+        offset=0,
+        size=bind_bones_bytes(self.bone_cursor),
+      )
+      cmd.bind_texture(self.skin_pipe, 0, self.shadow_atlas, self.shadow_sampler)
+      cmd.bind_texture(self.skin_pipe, 1, self.shadow_atlas, self.shadow_sampler)
+      cmd.bind_texture(self.skin_pipe, 2, self.env_cube, self.env_sampler)
+      cmd.bind_texture(self.skin_pipe, 3, self.brdf_lut, self.linear_sampler)
+      for b in skin_batches {
+        self.bind_material_textures(cmd, self.skin_pipe, b.material)
         let mesh = self.meshes[b.mesh]
         cmd.draw_indexed_full(
           mesh.index_count(),
@@ -1835,6 +2092,7 @@ fn Renderer3D::render_frame(
         )
         self.stats.draw_calls = self.stats.draw_calls + 1
       }
+      self.bind_arenas(cmd)
     }
     for b in solid_batches {
       let mesh = self.meshes[b.mesh]
@@ -2124,7 +2382,9 @@ pub fn Renderer3D::stats(self : Renderer3D) -> RenderStats3D {
 pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   self.vertex_arena.destroy()
   self.index_arena.destroy()
+  self.skin_arena.destroy()
   self.draw_count.destroy()
+  self.bone_ssbo.destroy()
   match self.targets {
     Some(t) => Renderer3D::destroy_targets(t)
     None => ()
@@ -2176,10 +2436,60 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   self.sky_pipe.destroy()
   self.pbr_blend_pipe.destroy()
   self.pbr_pipe.destroy()
+  self.skin_pipe.destroy()
+  self.skin_blend_pipe.destroy()
   self.shadow_pipe.destroy()
   self.linear_sampler.destroy()
   self.env_sampler.destroy()
   self.shadow_sampler.destroy()
+}
+
+///|
+/// Create a mesh node driven by a skeleton. `joints` are scene nodes and
+/// `inverse_bind` their rest-pose inverse world matrices (mesh-local space).
+pub fn Renderer3D::create_skinned_node(
+  self : Renderer3D,
+  scene : Scene,
+  mesh : MeshHandle,
+  desc : MaterialDesc,
+  joints : Array[NodeId],
+  inverse_bind : Array[@tmath.Mat4],
+  transform? : @tmath.Transform = @tmath.Transform::identity(),
+  name? : String = "",
+) -> NodeId raise {
+  if joints.length() == 0 || joints.length() != inverse_bind.length() {
+    fail("Renderer3D::create_skinned_node: joints and inverse_bind must match")
+  }
+  let mi = mesh.id()
+  if mi < 0 || mi >= self.meshes.length() || !self.meshes[mi].skinned() {
+    fail("Renderer3D::create_skinned_node: mesh has no skin data")
+  }
+  if self.bone_cursor + joints.length() > MAX_BONES {
+    fail("Renderer3D::create_skinned_node: bone palette exhausted")
+  }
+  let mat = self.create_material(desc)
+  let node = scene.create_node(
+    transform=transform,
+    payload=NodePayload::Mesh(MeshInstance::new(mesh, mat)),
+    name=name,
+  )
+  scene.set_local_bounds(node, self.mesh_bounds(mesh))
+  // No skinned shadow variant yet: keep the T-pose out of the shadow atlas.
+  scene.set_payload(node, NodePayload::Mesh({
+    mesh,
+    material: mat,
+    cast_shadow: false,
+    receive_shadow: true,
+  }))
+  self.skins.push({
+    node,
+    joints,
+    inverse_bind,
+    offset: self.bone_cursor,
+    count: joints.length(),
+  })
+  self.bone_cursor = self.bone_cursor + joints.length()
+  node
 }
 
 ///|

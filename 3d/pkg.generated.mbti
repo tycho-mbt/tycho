@@ -14,6 +14,10 @@ pub const MESH_VERTEX_BYTES : Int32 = 48
 
 pub const MESH_VERTEX_FLOATS : Int32 = 12
 
+pub const SKIN_VERTEX_BYTES : Int32 = 80
+
+pub const SKIN_VERTEX_FLOATS : Int32 = 20
+
 pub fn add_ambient(Scene, color? : @tycho_math.Vec3, intensity? : Float) -> NodeId
 
 pub fn add_sun(Scene, @tycho_math.Vec3, color? : @tycho_math.Vec3, intensity? : Float, shadow? : Bool) -> NodeId
@@ -37,6 +41,8 @@ pub fn load_gltf(Renderer3D, Scene, @tycho_geometry.GltfScene, parent? : NodeId?
 pub fn load_gltf_animations(@tycho_geometry.GltfScene, Array[NodeId?]) -> Array[AnimationClip]
 
 pub fn load_gltf_with_nodes(Renderer3D, Scene, @tycho_geometry.GltfScene, parent? : NodeId?) -> Array[NodeId?] raise
+
+pub fn mesh_skinned_vertex_floats(@tycho_geometry.MeshData) -> FixedArray[Float]
 
 pub fn mesh_vertex_floats(@tycho_geometry.MeshData) -> FixedArray[Float]
 
@@ -133,6 +139,7 @@ pub fn GpuMesh::first_vertex(Self) -> Int32
 pub fn GpuMesh::index_count(Self) -> Int32
 pub fn GpuMesh::mesh(Self) -> @tycho_geometry.MeshData
 pub fn GpuMesh::range(@tycho_geometry.MeshData, Int32, Int32) -> Self
+pub fn GpuMesh::skinned(Self) -> Bool
 pub fn GpuMesh::vertex_count(Self) -> Int32
 
 pub(all) struct HdrImage {
@@ -315,6 +322,7 @@ pub fn Renderer3D::clear_debug_lines(Self) -> Unit
 pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
 pub fn Renderer3D::create_mesh_node(Self, Scene, MeshHandle, MaterialHandle, transform? : @tycho_math.Transform, name? : String) -> NodeId
 pub fn Renderer3D::create_pbr_node(Self, Scene, MeshHandle, MaterialDesc, transform? : @tycho_math.Transform, name? : String) -> NodeId raise
+pub fn Renderer3D::create_skinned_node(Self, Scene, MeshHandle, MaterialDesc, Array[NodeId], Array[@tycho_math.Mat4], transform? : @tycho_math.Transform, name? : String) -> NodeId raise
 pub fn Renderer3D::create_texture(Self, Int32, Int32, FixedArray[Byte], srgb? : Bool) -> TextureHandle raise
 pub fn Renderer3D::destroy(Self) -> Unit
 pub fn Renderer3D::mesh_bounds(Self, MeshHandle) -> @tycho_math.Aabb3?
