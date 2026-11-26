@@ -574,6 +574,45 @@ fn main {
       cfpx[cfi + 2].to_int() < 30
     rt_cf.destroy()
 
+    // B6: custom indexed vertex mesh (solid + textured).
+    let rt_v = dev.create_render_target(64, 64, @tycho.TextureFormat::RGBA8)
+    let vc = @g2d.Color::rgba((0.2 : Float), (0.4 : Float), (0.6 : Float), (1.0 : Float))
+    let vs : Array[@g2d.Vertex2D] = [
+      @g2d.Vertex2D::new((0.0 : Float), (0.0 : Float), u=(0.0 : Float), v=(0.0 : Float), color=vc),
+      @g2d.Vertex2D::new((64.0 : Float), (0.0 : Float), u=(1.0 : Float), v=(0.0 : Float), color=vc),
+      @g2d.Vertex2D::new((64.0 : Float), (64.0 : Float), u=(1.0 : Float), v=(1.0 : Float), color=vc),
+      @g2d.Vertex2D::new((0.0 : Float), (64.0 : Float), u=(0.0 : Float), v=(1.0 : Float), color=vc),
+    ]
+    let cv = @g2d.Canvas::new()
+    cv.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cv.draw_vertices(vs, [0, 1, 2, 0, 2, 3])
+    renderer.render_offscreen(cv.finish(), rt_v)
+    let vpx = rt_v.readback()
+    let vi = (32 * 64 + 32) * 4
+    let verts_ok = near(vpx[vi].to_int(), 51) &&
+      near(vpx[vi + 1].to_int(), 102) &&
+      near(vpx[vi + 2].to_int(), 153)
+    // Textured: a solid magenta 2x2 image with white vertex colors.
+    let mag : Array[Byte] = [
+      255, 0, 255, 255, 255, 0, 255, 255, 255, 0, 255, 255, 255, 0, 255, 255,
+    ]
+    let img_v = @g2d.Image2D::from_bytes(5, 2, 2, Bytes::from_array(mag))
+    let vs2 : Array[@g2d.Vertex2D] = [
+      @g2d.Vertex2D::new((0.0 : Float), (0.0 : Float), u=(0.0 : Float), v=(0.0 : Float)),
+      @g2d.Vertex2D::new((64.0 : Float), (0.0 : Float), u=(1.0 : Float), v=(0.0 : Float)),
+      @g2d.Vertex2D::new((64.0 : Float), (64.0 : Float), u=(1.0 : Float), v=(1.0 : Float)),
+      @g2d.Vertex2D::new((0.0 : Float), (64.0 : Float), u=(0.0 : Float), v=(1.0 : Float)),
+    ]
+    let cv2 = @g2d.Canvas::new()
+    cv2.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cv2.draw_vertices(vs2, [0, 1, 2, 0, 2, 3], image=Some(img_v))
+    renderer.render_offscreen(cv2.finish(), rt_v)
+    let vpx2 = rt_v.readback()
+    let verts_tex_ok = near(vpx2[vi].to_int(), 255) &&
+      near(vpx2[vi + 1].to_int(), 0) &&
+      near(vpx2[vi + 2].to_int(), 255)
+    rt_v.destroy()
+
     if show_win {
       let cc = @g2d.Color::from_rgba8(14, 18, 30)
       let sc = dev.create_swapchain_desc(
@@ -607,11 +646,11 @@ fn main {
     let used = dev.allocator_used_bytes()
     dev.destroy()
 
-    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && blend2d_ok && alpha_ok && cf_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
-      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus/Darken/Lighten blend + premultiplied images + Paint.color_filter + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries} coverage=\{st.coverage_draws}), 0 validation errors")
+    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && blend2d_ok && alpha_ok && cf_ok && verts_ok && verts_tex_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
+      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus/Darken/Lighten blend + premultiplied images + Paint.color_filter + custom vertices + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries} coverage=\{st.coverage_draws}), 0 validation errors")
     } else {
       println(
-        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) blend2d=\{blend2d_ok} alpha=\{alpha_ok}(\{apx[ai]},\{apx[ai + 3]}) cf=\{cf_ok}(\{cfpx[cfi]}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
+        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) blend2d=\{blend2d_ok} alpha=\{alpha_ok}(\{apx[ai]},\{apx[ai + 3]}) cf=\{cf_ok}(\{cfpx[cfi]}) verts=\{verts_ok}(\{vpx[vi]},\{vpx[vi + 1]},\{vpx[vi + 2]}) vtex=\{verts_tex_ok}(\{vpx2[vi]},\{vpx2[vi + 1]},\{vpx2[vi + 2]}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
       )
     }
   } catch {

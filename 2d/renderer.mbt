@@ -8,6 +8,12 @@ const STOP_BYTES : Int = 32
 const PATH_VERT_FLOATS : Int = 2
 const PATH_VERT_BYTES : Int = 8
 
+// Custom vertex mesh: position (2f) + color (4f) + uv (2f).
+const VERT_FLOATS : Int = 8
+const VERT_BYTES : Int = 32
+const MAX_VERTS_PER_FRAME : Int = 16384
+const MAX_INDICES_PER_FRAME : Int = 32768
+
 ///|
 priv struct RenderSaveState {
   transform : Matrix3
@@ -169,6 +175,13 @@ pub struct Renderer2D {
   priv prim_batch_scratch : FixedArray[Float]
   priv stop_scratch : FixedArray[Float]
   priv path_scratch : FixedArray[Float]
+  priv vert_pipes : Array[@tycho.Pipeline?]
+  priv vert_vbuf : @tycho.Buffer
+  priv vert_ibuf : @tycho.Buffer
+  priv vert_scratch : FixedArray[Float]
+  priv vert_index_scratch : FixedArray[UInt32]
+  priv mut vert_cursor : Int
+  priv mut vert_index_cursor : Int
   priv path_cache : Map[Int, Array[CachedPathMesh]]
   priv mut path_cache_count : Int
   priv coverage_cache : Map[Int, Array[CachedCoverage]]
@@ -614,6 +627,16 @@ pub fn Renderer2D::new(
     @tycho.BufferKind::Vertex,
     location=@tycho.MemoryLocation::CpuToGpu,
   )
+  let vert_vbuf = dev.create_buffer_with(
+    2 * MAX_VERTS_PER_FRAME * VERT_BYTES,
+    @tycho.BufferKind::Vertex,
+    location=@tycho.MemoryLocation::CpuToGpu,
+  )
+  let vert_ibuf = dev.create_buffer_with(
+    2 * MAX_INDICES_PER_FRAME * 4,
+    @tycho.BufferKind::Index,
+    location=@tycho.MemoryLocation::CpuToGpu,
+  )
 
   {
     dev,
@@ -670,6 +693,13 @@ pub fn Renderer2D::new(
     prim_batch_scratch: FixedArray::make(max_prims_per_frame * PRIM_FLOATS, (0.0 : Float)),
     stop_scratch: FixedArray::make(STOP_FLOATS, (0.0 : Float)),
     path_scratch: FixedArray::make(max_path_verts_per_frame * PATH_VERT_FLOATS, (0.0 : Float)),
+    vert_pipes: Array::make(8, (None : @tycho.Pipeline?)),
+    vert_vbuf,
+    vert_ibuf,
+    vert_scratch: FixedArray::make(MAX_VERTS_PER_FRAME * VERT_FLOATS, (0.0 : Float)),
+    vert_index_scratch: FixedArray::make(MAX_INDICES_PER_FRAME, (0 : UInt32)),
+    vert_cursor: 0,
+    vert_index_cursor: 0,
     path_cache: {},
     path_cache_count: 0,
     coverage_cache: {},
@@ -781,6 +811,14 @@ pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
   self.color_mat_ssbo.destroy()
   self.path_vbuf.destroy()
   self.rt_pool.destroy()
+  self.vert_vbuf.destroy()
+  self.vert_ibuf.destroy()
+  for p in self.vert_pipes {
+    match p {
+      Some(pipe) => pipe.destroy()
+      None => ()
+    }
+  }
   self.glyph_cache.destroy()
   self.color_atlas.destroy()
   self.coverage_atlas.destroy()
@@ -801,6 +839,16 @@ fn Renderer2D::slot_stop_base(self : Renderer2D) -> Int {
 ///|
 fn Renderer2D::slot_path_base(self : Renderer2D) -> Int {
   (self.active_slot % 2) * self.max_path_verts * PATH_VERT_BYTES
+}
+
+///|
+fn Renderer2D::slot_vert_base(self : Renderer2D) -> Int {
+  (self.active_slot % 2) * MAX_VERTS_PER_FRAME * VERT_BYTES
+}
+
+///|
+fn Renderer2D::slot_index_base(self : Renderer2D) -> Int {
+  (self.active_slot % 2) * MAX_INDICES_PER_FRAME * 4
 }
 
 ///|
@@ -2155,6 +2203,149 @@ fn Renderer2D::try_draw_coverage(
   )
   self.cur_transform = saved
   true
+}
+
+///|
+fn Renderer2D::vert_pipe_for(
+  self : Renderer2D,
+  fi : Int,
+  has_clip : Bool,
+) -> @tycho.Pipeline raise @tycho.RhiError {
+  let idx = fi * 2 + (if has_clip { 1 } else { 0 })
+  match self.vert_pipes[idx] {
+    Some(p) => p
+    None => {
+      let fmt = match fi {
+        0 => @tycho.TextureFormat::RGBA8
+        1 => @tycho.TextureFormat::BGRA8
+        2 => @tycho.TextureFormat::RGBA8Srgb
+        _ => @tycho.TextureFormat::BGRA8Srgb
+      }
+      let layout = @tycho.VertexBufferLayout::new(VERT_BYTES, [
+        @tycho.VertexAttribute::new(0, @tycho.VertexFormat::Float2, 0),
+        @tycho.VertexAttribute::new(1, @tycho.VertexFormat::Float4, 8),
+        @tycho.VertexAttribute::new(2, @tycho.VertexFormat::Float2, 24),
+      ])
+      let pipe = self.dev.create_graphics_pipeline(
+        @tycho.PipelineDesc::from_spirv(
+          spv_vertices_vert,
+          spv_vertices_frag,
+          blend_mode=Some(@tycho.BlendMode::Premultiplied),
+          cull_mode=@tycho.CullMode::None,
+          color_format=Some(fmt),
+          depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+          stencil=if has_clip { Some(self.st_test_clip) } else { None },
+          vertex_layouts=[layout],
+        ),
+      )
+      self.vert_pipes[idx] = Some(pipe)
+      pipe
+    }
+  }
+}
+
+///|
+fn Renderer2D::draw_vertices_gpu(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+  vertices : Array[Vertex2D],
+  indices : Array[Int],
+  _paint : Paint,
+  image : Image2D?,
+) -> Unit raise @tycho.RhiError {
+  let n_in = vertices.length()
+  if n_in < 3 || self.active_w <= 0 || self.active_h <= 0 {
+    return
+  }
+  let avail = MAX_VERTS_PER_FRAME - self.vert_cursor
+  if avail < 3 {
+    return
+  }
+  let n = if n_in > avail { avail } else { n_in }
+  let mut i = 0
+  while i < n {
+    let v = vertices[i]
+    let p = self.cur_transform.map_point({ x: v.x, y: v.y })
+    let o = i * VERT_FLOATS
+    self.vert_scratch[o] = p.x
+    self.vert_scratch[o + 1] = p.y
+    self.vert_scratch[o + 2] = v.color.r
+    self.vert_scratch[o + 3] = v.color.g
+    self.vert_scratch[o + 4] = v.color.b
+    self.vert_scratch[o + 5] = v.color.a
+    self.vert_scratch[o + 6] = v.u
+    self.vert_scratch[o + 7] = v.v
+    i = i + 1
+  }
+  let vbase = self.slot_vert_base() + self.vert_cursor * VERT_BYTES
+  self.vert_vbuf.upload_floats(
+    self.vert_scratch,
+    offset=vbase,
+    count=n * VERT_FLOATS,
+  )
+  let idx_avail = MAX_INDICES_PER_FRAME - self.vert_index_cursor
+  let idx_want = if indices.length() == 0 { n } else { indices.length() }
+  let idx_count = if idx_want > idx_avail { idx_avail } else { idx_want }
+  if idx_count < 3 {
+    return
+  }
+  let mut k = 0
+  while k < idx_count {
+    let src = if indices.length() == 0 { k } else { indices[k] }
+    let safe = if src < 0 || src >= n { 0 } else { src }
+    self.vert_index_scratch[k] = safe.reinterpret_as_uint()
+    k = k + 1
+  }
+  let ibase = self.slot_index_base() + self.vert_index_cursor * 4
+  self.vert_ibuf.upload_uint32(
+    self.vert_index_scratch,
+    offset=ibase,
+    count=idx_count,
+  )
+  self.vert_cursor = self.vert_cursor + n
+  self.vert_index_cursor = self.vert_index_cursor + idx_count
+  let (use_tex, u0, v0, u1, v1) = match image {
+    Some(img) => {
+      let (a, b, c, d) = self.ensure_image_uv(img)
+      if c > a && d > b {
+        ((1.0 : Float), a, b, c, d)
+      } else {
+        ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
+      }
+    }
+    None =>
+      ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
+  }
+  let fi = color_format_index(self.cur_color_format)
+  let pipe = self.vert_pipe_for(fi, self.has_stencil_clip)
+  cmd.bind_pipeline(pipe)
+  if self.has_stencil_clip {
+    cmd.set_stencil_reference(128)
+  }
+  cmd.bind_vertex(0, self.vert_vbuf, offset=vbase)
+  cmd.bind_index(self.vert_ibuf, @tycho.IndexType::Uint32, offset=ibase)
+  cmd.bind_texture(pipe, 0, self.color_atlas.texture, self.sampler)
+  let fw = Float::from_int(self.active_w)
+  let fh = Float::from_int(self.active_h)
+  cmd.push_constants_floats(pipe, [
+    fw,
+    fh,
+    (1.0 : Float) / fw,
+    (1.0 : Float) / fh,
+    u0,
+    v0,
+    u1,
+    v1,
+    use_tex,
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+  ])
+  cmd.draw_indexed(idx_count)
 }
 
 ///|
@@ -3550,6 +3741,11 @@ fn Renderer2D::replay_ops(
         )
       }
       DrawOp::DrawPath(_, _) => ()
+      DrawOp::DrawVertices(verts, idx, paint, image) => {
+        self.flush_path_batch(cmd)
+        self.flush_prims(cmd)
+        self.draw_vertices_gpu(cmd, verts, idx, paint, image)
+      }
       DrawOp::DrawImage(img, src, dst, paint) => {
         self.set_blend(cmd, paint.blend_mode)
         let (u0, v0, u1, v1, iw, ih, tex_id) = match self.ensure_image_texture(img) {
@@ -3725,6 +3921,8 @@ fn Renderer2D::reset_frame_state(
   self.prim_total = 0
   self.upload_bytes = 0
   self.coverage_draws = 0
+  self.vert_cursor = 0
+  self.vert_index_cursor = 0
   self.active_prim_ssbo = self.prim_ssbo
   self.active_prim_slot_base = self.slot_prim_base()
   self.active_prim_chunk = 0

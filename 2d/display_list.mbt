@@ -8,6 +8,27 @@ pub(all) enum ClipOp {
 }
 
 ///|
+#derive(Eq, Debug)
+pub(all) struct Vertex2D {
+  x : Float
+  y : Float
+  u : Float
+  v : Float
+  color : Color
+}
+
+///|
+pub fn Vertex2D::new(
+  x : Float,
+  y : Float,
+  u? : Float = (0.0 : Float),
+  v? : Float = (0.0 : Float),
+  color? : Color = Color::white(),
+) -> Vertex2D {
+  { x, y, u, v, color }
+}
+
+///|
 pub(all) enum DrawOp {
   Clear(Color)
   Save
@@ -25,6 +46,7 @@ pub(all) enum DrawOp {
   DrawRRectShadow(RRect, Float, Float, Float, Float, Color)
   DrawPath(Path, Paint)
   DrawImage(Image2D, Rect, Rect, Paint)
+  DrawVertices(Array[Vertex2D], Array[Int], Paint, Image2D?)
   DrawParagraph(Paragraph, Point)
   DrawDisplayList(DisplayList)
 }

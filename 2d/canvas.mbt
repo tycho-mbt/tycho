@@ -365,6 +365,54 @@ pub fn Canvas::draw_atlas(
 }
 
 ///|
+// Draw an indexed triangle mesh. Vertex positions are in local space and
+// transformed by the current matrix; `image` (optional) is sampled with the
+// per-vertex UVs in [0, 1] and multiplied by the vertex color.
+pub fn Canvas::draw_vertices(
+  self : Canvas,
+  vertices : Array[Vertex2D],
+  indices : Array[Int],
+  paint? : Paint = Paint::new(),
+  image? : Image2D? = None,
+) -> Unit {
+  if vertices.length() == 0 {
+    return
+  }
+  let mut has = false
+  let mut min_x = (0.0 : Float)
+  let mut min_y = (0.0 : Float)
+  let mut max_x = (0.0 : Float)
+  let mut max_y = (0.0 : Float)
+  for v in vertices {
+    let p = self.cur_transform.map_point({ x: v.x, y: v.y })
+    if !has {
+      has = true
+      min_x = p.x
+      max_x = p.x
+      min_y = p.y
+      max_y = p.y
+    } else {
+      if p.x < min_x {
+        min_x = p.x
+      }
+      if p.x > max_x {
+        max_x = p.x
+      }
+      if p.y < min_y {
+        min_y = p.y
+      }
+      if p.y > max_y {
+        max_y = p.y
+      }
+    }
+  }
+  if has {
+    self.expand_bounds(Rect::from_ltrb(min_x, min_y, max_x, max_y))
+  }
+  self.ops.push(DrawOp::DrawVertices(vertices, indices, paint, image))
+}
+
+///|
 pub fn Canvas::draw_paragraph(
   self : Canvas,
   paragraph : Paragraph,

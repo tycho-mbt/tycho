@@ -67,6 +67,7 @@ pub fn Canvas::draw_points(Self, Array[Point], Paint) -> Unit
 pub fn Canvas::draw_rect(Self, Rect, Paint) -> Unit
 pub fn Canvas::draw_rrect(Self, RRect, Paint) -> Unit
 pub fn Canvas::draw_rrect_shadow(Self, RRect, Float, Float, Float, Float, Color) -> Unit
+pub fn Canvas::draw_vertices(Self, Array[Vertex2D], Array[Int32], paint? : Paint, image? : Image2D?) -> Unit
 pub fn Canvas::finish(Self) -> DisplayList
 pub fn Canvas::new() -> Self
 pub fn Canvas::restore(Self) -> Unit
@@ -142,6 +143,7 @@ pub(all) enum DrawOp {
   DrawRRectShadow(RRect, Float, Float, Float, Float, Color)
   DrawPath(Path, Paint)
   DrawImage(Image2D, Rect, Rect, Paint)
+  DrawVertices(Array[Vertex2D], Array[Int32], Paint, Image2D?)
   DrawParagraph(Paragraph, Point)
   DrawDisplayList(DisplayList)
 }
@@ -561,6 +563,16 @@ pub(all) enum TileMode {
   Mirror
   Decal
 }
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Vertex2D {
+  x : Float
+  y : Float
+  u : Float
+  v : Float
+  color : Color
+}
+pub fn Vertex2D::new(Float, Float, u? : Float, v? : Float, color? : Color) -> Self
 
 // Type aliases
 

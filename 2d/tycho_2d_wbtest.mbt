@@ -375,3 +375,20 @@ test "paint color/mask filters are independent of image_filter" {
     _ => assert_true(false)
   }
 }
+
+///|
+test "draw_vertices records a mesh and expands bounds" {
+  let c = Canvas::new()
+  c.draw_vertices([
+    Vertex2D::new((10.0 : Float), (20.0 : Float)),
+    Vertex2D::new((50.0 : Float), (20.0 : Float)),
+    Vertex2D::new((10.0 : Float), (60.0 : Float)),
+  ], [0, 1, 2])
+  let dl = c.finish()
+  assert_eq(dl.op_count(), 1)
+  let b = dl.bounds()
+  assert_true(b.x <= (10.0 : Float))
+  assert_true(b.y <= (20.0 : Float))
+  assert_true(b.width >= (40.0 : Float))
+  assert_true(b.height >= (40.0 : Float))
+}
