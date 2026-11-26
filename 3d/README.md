@@ -15,10 +15,11 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   directional/point/spot/ambient/hemisphere lights, one directional PCF shadow
   map, GGX-prefiltered (PMREM) environment IBL, HDR `RGBA16F`, separable
   bloom, and ACES tonemapping into `RGBA8Srgb`.
-- `procedural_environment_cubemap`: linear sky baked into a 7-level GGX mip
-  chain (CPU prefilter, uploaded via `create_cubemap_mipmapped`); PBR samples
-  `textureLod(uEnv, R, roughness * maxLod)` and diffuse uses the last mip, so
-  there is no `pow(2.2)` approximation left.
+- `procedural_environment_cubemap(size=256, samples=128)`: linear sky baked
+  into a full GGX mip chain by a GPU prefilter pass (one draw per face per
+  mip, read back and uploaded via `create_cubemap_mipmapped`); 512^2 with 256
+  samples is supported, and PBR samples
+  `textureLod(uEnv, R, roughness * maxLod)` with no `pow(2.2)` approximation.
 - Automatic instancing: visible mesh nodes are grouped by `(mesh, material)`
   and each run is drawn with `draw_indexed(..., instances=n)`. Shaders index
   the object SSBO as `firstObject + gl_InstanceIndex`, so 10k nodes collapse
