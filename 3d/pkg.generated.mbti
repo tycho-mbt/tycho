@@ -1,0 +1,332 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_3d"
+
+import {
+  "laplaceliu/tycho",
+  "laplaceliu/tycho_geometry",
+  "laplaceliu/tycho_math",
+  "laplaceliu/tycho_window",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const MESH_VERTEX_BYTES : Int32 = 48
+
+pub const MESH_VERTEX_FLOATS : Int32 = 12
+
+pub fn add_ambient(Scene, color? : @tycho_math.Vec3, intensity? : Float) -> NodeId
+
+pub fn add_sun(Scene, @tycho_math.Vec3, color? : @tycho_math.Vec3, intensity? : Float, shadow? : Bool) -> NodeId
+
+pub fn default_environment_cubemap(@tycho.Device) -> @tycho.Texture raise
+
+pub fn load_gltf(Renderer3D, Scene, @tycho_geometry.GltfScene, parent? : NodeId?) -> Array[NodeId] raise
+
+pub fn procedural_environment_cubemap(@tycho.Device, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> @tycho.Texture raise
+
+pub fn ray_mesh_hit(@tycho_math.Ray, @tycho_geometry.MeshData, @tycho_math.Affine3) -> MeshHit?
+
+pub fn srgb(Float, Float, Float, a? : Float) -> @tycho_math.Vec4
+
+pub fn srgb_to_linear(Float) -> Float
+
+// Errors
+
+// Types and methods
+pub(all) enum AlphaMode {
+  Opaque
+  Mask(Float)
+  Blend
+}
+
+pub(all) struct AmbientLight {
+  color : @tycho_math.Vec3
+  intensity : Float
+}
+
+pub(all) struct Camera {
+  projection : Projection
+  clip : @tycho_math.ClipSpace
+}
+pub fn Camera::orthographic(Float, Float, Float, Float, near? : Float, far? : Float, clip? : @tycho_math.ClipSpace) -> Self
+pub fn Camera::perspective(Float, Float, near? : Float, far? : Float?, clip? : @tycho_math.ClipSpace) -> Self
+pub fn Camera::projection_matrix(Self) -> @tycho_math.Mat4
+pub fn Camera::screen_ray(Self, @tycho_math.Affine3, Float, Float) -> @tycho_math.Ray?
+pub fn Camera::sky_ray_matrix(Self, @tycho_math.Affine3) -> @tycho_math.Mat3?
+pub fn Camera::view_matrix(Self, @tycho_math.Affine3) -> @tycho_math.Mat4?
+pub fn Camera::view_proj(Self, @tycho_math.Affine3) -> @tycho_math.Mat4?
+pub fn Camera::with_aspect(Self, Float) -> Self
+
+pub(all) struct DirectionalLight {
+  color : @tycho_math.Vec3
+  intensity : Float
+  shadow : ShadowDesc?
+}
+
+pub struct FlyCamera {
+  // private fields
+}
+pub fn FlyCamera::apply(Self, @tycho_window.Event) -> Bool
+pub fn FlyCamera::new(position? : @tycho_math.Vec3, yaw? : Float, pitch? : Float) -> Self
+pub fn FlyCamera::pitch(Self) -> Float
+pub fn FlyCamera::position(Self) -> @tycho_math.Vec3
+pub fn FlyCamera::rotation(Self) -> @tycho_math.Quat
+pub fn FlyCamera::transform(Self) -> @tycho_math.Transform
+pub fn FlyCamera::yaw(Self) -> Float
+
+pub struct GpuMesh {
+  bounds : @tycho_math.Aabb3
+  groups : Array[@tycho_geometry.MeshGroup]
+  cpu : @tycho_geometry.MeshData
+  // private fields
+}
+pub fn GpuMesh::bind(Self, @tycho.CommandBuffer) -> Unit
+pub fn GpuMesh::bounds(Self) -> @tycho_math.Aabb3
+pub fn GpuMesh::destroy(Self) -> Unit
+pub fn GpuMesh::draw(Self, @tycho.CommandBuffer) -> Unit
+pub fn GpuMesh::index_count(Self) -> Int32
+pub fn GpuMesh::mesh(Self) -> @tycho_geometry.MeshData
+pub fn GpuMesh::upload(@tycho.Device, @tycho_geometry.MeshData) -> Self raise
+pub fn GpuMesh::vertex_count(Self) -> Int32
+
+pub(all) struct HemisphereLight {
+  sky : @tycho_math.Vec3
+  ground : @tycho_math.Vec3
+  intensity : Float
+}
+
+pub(all) enum Light {
+  Directional(DirectionalLight)
+  Point(PointLight)
+  Spot(SpotLight)
+  Ambient(AmbientLight)
+  Hemisphere(HemisphereLight)
+}
+pub fn Light::ambient(@tycho_math.Vec3, Float) -> Self
+pub fn Light::cast_shadow(Self) -> Bool
+pub fn Light::directional(@tycho_math.Vec3, Float, shadow? : ShadowDesc?) -> Self
+pub fn Light::hemisphere(@tycho_math.Vec3, @tycho_math.Vec3, Float) -> Self
+pub fn Light::point(@tycho_math.Vec3, Float, range? : Float, decay? : Float) -> Self
+pub fn Light::spot(@tycho_math.Vec3, Float, range? : Float, inner_angle? : Float, outer_angle? : Float) -> Self
+
+pub(all) struct MaterialDesc {
+  shading : Shading
+  base_color : @tycho_math.Vec4
+  metallic : Float
+  roughness : Float
+  emissive : @tycho_math.Vec3
+  alpha_mode : AlphaMode
+  double_sided : Bool
+  albedo_tex : TextureHandle?
+  normal_tex : TextureHandle?
+  metallic_roughness_tex : TextureHandle?
+  emissive_tex : TextureHandle?
+}
+pub fn MaterialDesc::pbr(@tycho_math.Vec4, metallic? : Float, roughness? : Float) -> Self
+pub fn MaterialDesc::unlit(@tycho_math.Vec4) -> Self
+pub fn MaterialDesc::with_albedo_tex(Self, TextureHandle) -> Self
+pub fn MaterialDesc::with_alpha(Self, AlphaMode) -> Self
+pub fn MaterialDesc::with_double_sided(Self, Bool) -> Self
+pub fn MaterialDesc::with_emissive(Self, @tycho_math.Vec3) -> Self
+pub fn MaterialDesc::with_normal_tex(Self, TextureHandle) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) struct MaterialHandle {
+  // private fields
+}
+pub fn MaterialHandle::from_id(Int32) -> Self
+pub fn MaterialHandle::id(Self) -> Int32
+
+#derive(Eq, @debug.Debug)
+pub(all) struct MeshHandle {
+  // private fields
+}
+pub fn MeshHandle::from_id(Int32) -> Self
+pub fn MeshHandle::id(Self) -> Int32
+
+pub(all) struct MeshHit {
+  triangle : Int32
+  distance : Float
+  position : @tycho_math.Vec3
+  normal : @tycho_math.Vec3
+}
+
+pub(all) struct MeshInstance {
+  mesh : MeshHandle
+  material : MaterialHandle
+  cast_shadow : Bool
+  receive_shadow : Bool
+}
+pub fn MeshInstance::new(MeshHandle, MaterialHandle) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) struct NodeId {
+  // private fields
+}
+pub fn NodeId::index(Self) -> Int32
+
+pub(all) enum NodePayload {
+  Empty
+  Mesh(MeshInstance)
+  Light(Light)
+  Camera(Camera)
+}
+
+pub struct OrbitCamera {
+  // private fields
+}
+pub fn OrbitCamera::apply(Self, @tycho_window.Event) -> Bool
+pub fn OrbitCamera::distance(Self) -> Float
+pub fn OrbitCamera::new(target? : @tycho_math.Vec3, distance? : Float, yaw? : Float, pitch? : Float) -> Self
+pub fn OrbitCamera::pitch(Self) -> Float
+pub fn OrbitCamera::position(Self) -> @tycho_math.Vec3
+pub fn OrbitCamera::set_distance(Self, Float) -> Unit
+pub fn OrbitCamera::set_target(Self, @tycho_math.Vec3) -> Unit
+pub fn OrbitCamera::target(Self) -> @tycho_math.Vec3
+pub fn OrbitCamera::transform(Self) -> @tycho_math.Transform
+pub fn OrbitCamera::yaw(Self) -> Float
+
+pub(all) struct OrthoParams {
+  left : Float
+  right : Float
+  bottom : Float
+  top : Float
+  near : Float
+  far : Float
+}
+
+pub(all) struct PerspectiveParams {
+  fov_y_rad : Float
+  aspect : Float
+  near : Float
+  far : Float?
+}
+
+pub(all) struct PickHit {
+  node : NodeId
+  distance : Float
+  position : @tycho_math.Vec3
+  normal : @tycho_math.Vec3
+  triangle : Int32
+}
+
+pub(all) struct PointLight {
+  color : @tycho_math.Vec3
+  intensity : Float
+  range : Float
+  decay : Float
+}
+
+pub(all) enum Projection {
+  Perspective(PerspectiveParams)
+  Orthographic(OrthoParams)
+}
+
+pub(all) struct RenderStats3D {
+  mut draw_calls : Int32
+  mut triangles : Int32
+  mut visible_nodes : Int32
+  mut culled_nodes : Int32
+  mut shadow_passes : Int32
+  mut upload_bytes : Int32
+  mut instance_batches : Int32
+  mut line_segments : Int32
+}
+pub fn RenderStats3D::new() -> Self
+pub fn RenderStats3D::summary(Self) -> String
+pub fn RenderStats3D::to_json(Self) -> String
+
+pub struct Renderer3D {
+  // private fields
+}
+pub fn Renderer3D::add_debug_aabb(Self, @tycho_math.Aabb3, @tycho_math.Vec3) -> Unit
+pub fn Renderer3D::add_debug_line(Self, @tycho_math.Vec3, @tycho_math.Vec3, @tycho_math.Vec3) -> Unit
+pub fn Renderer3D::clear_debug_lines(Self) -> Unit
+pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
+pub fn Renderer3D::create_mesh_node(Self, Scene, MeshHandle, MaterialHandle, transform? : @tycho_math.Transform, name? : String) -> NodeId
+pub fn Renderer3D::create_pbr_node(Self, Scene, MeshHandle, MaterialDesc, transform? : @tycho_math.Transform, name? : String) -> NodeId raise
+pub fn Renderer3D::create_texture(Self, Int32, Int32, FixedArray[Byte], srgb? : Bool) -> TextureHandle raise
+pub fn Renderer3D::destroy(Self) -> Unit
+pub fn Renderer3D::mesh_bounds(Self, MeshHandle) -> @tycho_math.Aabb3?
+pub fn Renderer3D::new(@tycho.Device, desc? : RendererDesc) -> Self raise
+pub fn Renderer3D::pick(Self, Scene, NodeId, Float, Float, layer_mask? : UInt32) -> PickHit?
+pub fn Renderer3D::render_offscreen(Self, Scene, NodeId, @tycho.Texture) -> Unit raise
+pub fn Renderer3D::render_swapchain(Self, @tycho.Swapchain, Scene, NodeId) -> Unit raise
+pub fn Renderer3D::set_environment(Self, @tycho.Texture, @tycho_math.Vec3, intensity? : Float) -> Unit
+pub fn Renderer3D::set_procedural_environment(Self, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> Unit raise
+pub fn Renderer3D::stats(Self) -> RenderStats3D
+pub fn Renderer3D::update_material(Self, MaterialHandle, MaterialDesc) -> Unit raise
+pub fn Renderer3D::upload_mesh(Self, @tycho_geometry.MeshData) -> MeshHandle raise
+
+pub(all) struct RendererDesc {
+  max_objects : Int32
+  max_lights : Int32
+  max_materials : Int32
+  max_textures : Int32
+  msaa : Bool
+  shadow_cascades : Int32
+  gpu_culling : Bool
+  bloom : Bool
+  shadows : Bool
+  shadow_map_size : Int32
+}
+pub fn RendererDesc::default() -> Self
+
+pub struct Scene {
+  // private fields
+}
+pub fn Scene::alive_count(Self) -> Int32
+pub fn Scene::children_of(Self, NodeId) -> Array[NodeId]
+pub fn Scene::collect_visible(Self, @tycho_math.Frustum, UInt32) -> Array[NodeId]
+pub fn Scene::create_node(Self, parent? : NodeId?, transform? : @tycho_math.Transform, payload? : NodePayload, name? : String, layer_mask? : UInt32) -> NodeId
+pub fn Scene::destroy_node(Self, NodeId) -> Unit
+pub fn Scene::find_by_name(Self, String) -> NodeId?
+pub fn Scene::is_alive(Self, NodeId) -> Bool
+pub fn Scene::new() -> Self
+pub fn Scene::parent_of(Self, NodeId) -> NodeId?
+pub fn Scene::payload(Self, NodeId) -> NodePayload?
+pub fn Scene::set_layer_mask(Self, NodeId, UInt32) -> Unit
+pub fn Scene::set_local_bounds(Self, NodeId, @tycho_math.Aabb3?) -> Unit
+pub fn Scene::set_name(Self, NodeId, String) -> Unit
+pub fn Scene::set_parent(Self, NodeId, NodeId?, keep_world? : Bool) -> Bool
+pub fn Scene::set_payload(Self, NodeId, NodePayload) -> Unit
+pub fn Scene::set_transform(Self, NodeId, @tycho_math.Transform) -> Unit
+pub fn Scene::set_visible(Self, NodeId, Bool) -> Unit
+pub fn Scene::transform(Self, NodeId) -> @tycho_math.Transform
+pub fn Scene::traverse(Self, (NodeId) -> Unit, root? : NodeId?) -> Unit
+pub fn Scene::update(Self) -> Unit
+pub fn Scene::world_bounds(Self, NodeId) -> @tycho_math.Aabb3?
+pub fn Scene::world_transform(Self, NodeId) -> @tycho_math.Affine3
+
+pub(all) enum Shading {
+  Pbr
+  Unlit
+}
+
+pub(all) struct ShadowDesc {
+  map_size : Int32
+  bias : Float
+  normal_bias : Float
+  pcf_radius : Int32
+  half_extents : Float?
+}
+pub fn ShadowDesc::default() -> Self
+
+pub(all) struct SpotLight {
+  color : @tycho_math.Vec3
+  intensity : Float
+  range : Float
+  inner_angle : Float
+  outer_angle : Float
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct TextureHandle {
+  // private fields
+}
+pub fn TextureHandle::from_id(Int32) -> Self
+pub fn TextureHandle::id(Self) -> Int32
+
+// Type aliases
+
+// Traits

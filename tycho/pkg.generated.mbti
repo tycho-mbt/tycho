@@ -141,9 +141,13 @@ pub fn compile_glsl_source(String, ShaderStage) -> FixedArray[UInt32]
 
 pub fn compile_slang(String, String) -> FixedArray[UInt32]
 
+pub fn decode_image(Bytes) -> (Bytes, Int32, Int32)?
+
 pub fn load_hdr_image(String) -> (FixedArray[Float], Int32, Int32)
 
 pub fn load_image(String) -> (FixedArray[Byte], Int32, Int32)
+
+pub fn load_image_rgba(String) -> (Bytes, Int32, Int32)?
 
 pub fn load_spirv(String) -> FixedArray[UInt32]
 
@@ -367,6 +371,7 @@ pub fn Device::create_buffer_with(Self, Int32, BufferKind, location? : MemoryLoc
 pub fn Device::create_compute_pipeline(Self, FixedArray[UInt32], Int32, Int32, storage_image_slots? : Int32, accel_slots? : Int32, push_constant_size? : Int32) -> Pipeline raise RhiError
 pub fn Device::create_compute_pipeline_auto(Self, FixedArray[UInt32]) -> Pipeline raise RhiError
 pub fn Device::create_cubemap(Self, Int32, TextureFormat, Array[Bytes]) -> Texture raise RhiError
+pub fn Device::create_cubemap_mipmapped(Self, Int32, TextureFormat, Array[Array[Bytes]]) -> Texture raise RhiError
 pub fn Device::create_depth_texture(Self, Int32, Int32, samples? : SampleCount) -> Texture raise RhiError
 pub fn Device::create_depth_texture_format(Self, Int32, Int32, TextureFormat, samples? : SampleCount) -> Texture raise RhiError
 pub fn Device::create_fence(Self, Bool) -> Fence raise RhiError

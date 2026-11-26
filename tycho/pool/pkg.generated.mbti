@@ -1,0 +1,40 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho/pool"
+
+import {
+  "laplaceliu/tycho",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct FrameRing {
+  // private fields
+}
+pub fn FrameRing::alloc(Self, Int32) -> Int32?
+pub fn FrameRing::begin_frame(Self, Int32) -> Unit
+pub fn FrameRing::buffer(Self) -> @tycho.Buffer
+pub fn FrameRing::destroy(Self) -> Unit
+pub fn FrameRing::new(@tycho.Device, Int32, slots? : Int32, kind? : @tycho.BufferKind) -> Self raise @tycho.RhiError
+pub fn FrameRing::reset(Self) -> Unit
+pub fn FrameRing::slot_bytes(Self) -> Int32
+pub fn FrameRing::upload_floats(Self, FixedArray[Float], Int32) -> Int32? raise @tycho.RhiError
+pub fn FrameRing::used_bytes(Self) -> Int32
+
+pub struct RenderTargetPool {
+  // private fields
+}
+pub fn RenderTargetPool::acquire(Self, Int32, Int32, with_depth_stencil? : Bool, samples? : @tycho.SampleCount, slot? : Int32, color_format? : @tycho.TextureFormat, depth_format? : @tycho.TextureFormat) -> (@tycho.Texture, @tycho.Texture?) raise @tycho.RhiError
+pub fn RenderTargetPool::acquire_depth(Self, Int32, Int32, samples? : @tycho.SampleCount, slot? : Int32, depth_format? : @tycho.TextureFormat) -> @tycho.Texture raise @tycho.RhiError
+pub fn RenderTargetPool::bytes_used(Self) -> Int32
+pub fn RenderTargetPool::destroy(Self) -> Unit
+pub fn RenderTargetPool::new(@tycho.Device) -> Self
+pub fn RenderTargetPool::release_all(Self) -> Unit
+pub fn RenderTargetPool::release_slot(Self, Int32) -> Unit
+pub fn RenderTargetPool::set_max_bytes(Self, Int32) -> Unit
+
+// Type aliases
+
+// Traits

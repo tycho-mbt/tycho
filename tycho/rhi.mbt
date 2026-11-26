@@ -634,6 +634,45 @@ pub fn Device::create_cubemap(
 }
 
 ///|
+/// Create a cubemap with an explicit, CPU-prefiltered mip chain.
+/// `levels[m][f]` is mip `m` face `f` (mip 0 is `size` x `size`).
+pub fn Device::create_cubemap_mipmapped(
+  self : Device,
+  size : Int,
+  format : TextureFormat,
+  levels : Array[Array[Bytes]],
+) -> Texture raise RhiError {
+  if levels.length() == 0 {
+    raise InvalidArgument("Cubemap requires at least one mip level")
+  }
+  let bpp = texture_format_bytes(format)
+  let all : Array[Byte] = []
+  for m = 0; m < levels.length(); m = m + 1 {
+    let s = if size >> m < 1 { 1 } else { size >> m }
+    let faces = levels[m]
+    if faces.length() != 6 {
+      raise InvalidArgument("Each cubemap mip needs exactly 6 faces")
+    }
+    let need = s * s * bpp
+    for f = 0; f < 6; f = f + 1 {
+      let buf = faces[f]
+      for i = 0; i < need; i = i + 1 {
+        all.push(if i < buf.length() { buf[i] } else { (0 : Byte) })
+      }
+    }
+  }
+  {
+    inner: vk_texture_create_cubemap_mipmapped(
+      self.inner,
+      size,
+      format,
+      levels.length(),
+      Bytes::from_array(all),
+    ),
+  }
+}
+
+///|
 pub fn Device::create_texture_array(
   self : Device,
   width : Int,

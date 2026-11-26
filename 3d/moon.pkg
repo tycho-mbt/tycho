@@ -1,0 +1,6 @@
+import {
+  "laplaceliu/tycho" @tycho,
+  "laplaceliu/tycho/pool" @pool,
+  "laplaceliu/tycho_math" @tmath,
+  "laplaceliu/tycho_geometry" @tgeo,
+}

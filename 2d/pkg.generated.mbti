@@ -3,6 +3,7 @@ package "laplaceliu/tycho_2d"
 
 import {
   "laplaceliu/tycho",
+  "laplaceliu/tycho/pool",
   "laplaceliu/tycho_math",
   "moonbitlang/core/debug",
 }
@@ -541,18 +542,6 @@ pub(all) struct RenderStats {
 pub fn RenderStats::summary(Self) -> String
 pub fn RenderStats::to_json(Self) -> String
 
-pub struct RenderTargetPool {
-  // private fields
-}
-pub fn RenderTargetPool::acquire(Self, Int32, Int32, with_depth_stencil? : Bool, samples? : @tycho.SampleCount, slot? : Int32) -> (@tycho.Texture, @tycho.Texture?) raise @tycho.RhiError
-pub fn RenderTargetPool::acquire_depth(Self, Int32, Int32, samples? : @tycho.SampleCount, slot? : Int32) -> @tycho.Texture raise @tycho.RhiError
-pub fn RenderTargetPool::bytes_used(Self) -> Int32
-pub fn RenderTargetPool::destroy(Self) -> Unit
-pub fn RenderTargetPool::new(@tycho.Device) -> Self
-pub fn RenderTargetPool::release_all(Self) -> Unit
-pub fn RenderTargetPool::release_slot(Self, Int32) -> Unit
-pub fn RenderTargetPool::set_max_bytes(Self, Int32) -> Unit
-
 pub struct Renderer2D {
   // private fields
 }
@@ -672,5 +661,6 @@ pub(all) struct Vertex2D {
 pub fn Vertex2D::new(Float, Float, u? : Float, v? : Float, color? : Color) -> Self
 
 // Type aliases
+pub using @pool {type RenderTargetPool}
 
 // Traits

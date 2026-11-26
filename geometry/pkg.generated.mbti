@@ -1,0 +1,100 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_geometry"
+
+import {
+  "laplaceliu/tycho_math",
+}
+
+// Values
+pub fn box(width? : Float, height? : Float, depth? : Float, width_segments? : Int32, height_segments? : Int32, depth_segments? : Int32) -> MeshData
+
+pub fn capsule(radius? : Float, length? : Float, cap_segments? : Int32, radial_segments? : Int32) -> MeshData
+
+pub fn circle(radius? : Float, segments? : Int32) -> MeshData
+
+pub fn cone(radius? : Float, height? : Float, radial_segments? : Int32, height_segments? : Int32, open_ended? : Bool, theta_start? : Float, theta_length? : Float) -> MeshData
+
+pub fn cylinder(radius_top? : Float, radius_bottom? : Float, height? : Float, radial_segments? : Int32, height_segments? : Int32, open_ended? : Bool, theta_start? : Float, theta_length? : Float) -> MeshData
+
+pub fn parse_gltf(String) -> GltfScene raise
+
+pub fn parse_obj(Bytes) -> Array[(String, MeshData)]
+
+pub fn parse_obj_text(String) -> Array[(String, MeshData)]
+
+pub fn plane(width? : Float, height? : Float, width_segments? : Int32, height_segments? : Int32) -> MeshData
+
+pub fn ring(inner? : Float, outer? : Float, theta_segments? : Int32) -> MeshData
+
+pub fn sphere(radius? : Float, width_segments? : Int32, height_segments? : Int32, phi_start? : Float, phi_length? : Float, theta_start? : Float, theta_length? : Float) -> MeshData
+
+pub fn torus(radius? : Float, tube? : Float, radial_segments? : Int32, tubular_segments? : Int32, arc? : Float) -> MeshData
+
+// Errors
+
+// Types and methods
+pub(all) enum GltfAlphaMode {
+  Opaque
+  Mask(Float)
+  Blend
+}
+
+pub(all) struct GltfMaterial {
+  name : String
+  base_color : @tycho_math.Vec4
+  metallic : Float
+  roughness : Float
+  alpha_mode : GltfAlphaMode
+  double_sided : Bool
+}
+
+pub(all) struct GltfNode {
+  name : String
+  mesh : Int32
+  translation : @tycho_math.Vec3
+  rotation : @tycho_math.Quat
+  scale : @tycho_math.Vec3
+  children : Array[Int32]
+}
+
+pub(all) struct GltfScene {
+  meshes : Array[MeshData]
+  materials : Array[GltfMaterial]
+  nodes : Array[GltfNode]
+  roots : Array[Int32]
+}
+
+pub(all) struct MeshData {
+  positions : FixedArray[@tycho_math.Vec3]
+  mut normals : FixedArray[@tycho_math.Vec3]
+  uvs : FixedArray[@tycho_math.Vec2]
+  indices : FixedArray[UInt32]
+  mut tangents : FixedArray[@tycho_math.Vec4]?
+  mut colors : FixedArray[@tycho_math.Vec4]?
+  mut groups : Array[MeshGroup]
+}
+pub fn MeshData::bounds(Self) -> @tycho_math.Aabb3
+pub fn MeshData::compute_tangents(Self) -> Unit
+pub fn MeshData::compute_vertex_normals(Self) -> Unit
+pub fn MeshData::flipped(Self) -> Self
+pub fn MeshData::has_colors(Self) -> Bool
+pub fn MeshData::has_tangents(Self) -> Bool
+pub fn MeshData::index_count(Self) -> Int32
+pub fn MeshData::merge(Array[Self]) -> Self
+pub fn MeshData::new(FixedArray[@tycho_math.Vec3], FixedArray[@tycho_math.Vec3], FixedArray[@tycho_math.Vec2], FixedArray[UInt32]) -> Self
+pub fn MeshData::to_non_indexed(Self) -> Self
+pub fn MeshData::transformed(Self, @tycho_math.Affine3) -> Self
+pub fn MeshData::triangle_count(Self) -> Int32
+pub fn MeshData::vertex_count(Self) -> Int32
+pub fn MeshData::with_groups(Self, Array[MeshGroup]) -> Self
+
+pub(all) struct MeshGroup {
+  start : Int32
+  count : Int32
+  material_slot : Int32
+}
+pub fn MeshGroup::new(Int32, Int32, Int32) -> Self
+
+// Type aliases
+
+// Traits

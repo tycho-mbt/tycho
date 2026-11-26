@@ -4,6 +4,8 @@ members = [
   "shader",
   "tycho",
   "math",
+  "geometry",
+  "3d",
   "2d",
   "ui",
   "codegen",
