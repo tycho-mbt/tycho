@@ -477,6 +477,66 @@ fn main {
       dpx[dr_i].to_int() < 100
     rt_dmg.destroy()
 
+    // A2: custom blend equations. Base (0.4, 0.6, 0.8); left half applies
+    // Darken with (0.8, 0.3, 0.5) -> (0.4, 0.3, 0.5); right half Lighten ->
+    // (0.8, 0.6, 0.8).
+    let rt_b2 = dev.create_render_target(64, 64, @tycho.TextureFormat::RGBA8)
+    let cb2 = @g2d.Canvas::new()
+    cb2.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cb2.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (64.0 : Float), (64.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::rgba((0.4 : Float), (0.6 : Float), (0.8 : Float), (1.0 : Float))),
+    )
+    cb2.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      @g2d.Paint::new(
+        color=@g2d.Color::rgba((0.8 : Float), (0.3 : Float), (0.5 : Float), (1.0 : Float)),
+        blend_mode=@g2d.BlendMode2D::Darken,
+      ),
+    )
+    cb2.draw_rect(
+      @g2d.Rect::new((32.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      @g2d.Paint::new(
+        color=@g2d.Color::rgba((0.8 : Float), (0.3 : Float), (0.5 : Float), (1.0 : Float)),
+        blend_mode=@g2d.BlendMode2D::Lighten,
+      ),
+    )
+    renderer.render_offscreen(cb2.finish(), rt_b2)
+    let b2px = rt_b2.readback()
+    let bl_i = (32 * 64 + 16) * 4
+    let br_i = (32 * 64 + 48) * 4
+    let near = fn(a : Int, b : Int) -> Bool {
+      let d = if a > b { a - b } else { b - a }
+      d <= 14
+    }
+    let blend2d_ok = near(b2px[bl_i].to_int(), 102) &&
+      near(b2px[bl_i + 1].to_int(), 76) &&
+      near(b2px[bl_i + 2].to_int(), 128) &&
+      near(b2px[br_i].to_int(), 204) &&
+      near(b2px[br_i + 1].to_int(), 153) &&
+      near(b2px[br_i + 2].to_int(), 204)
+    rt_b2.destroy()
+
+    // A3: straight-alpha image data is premultiplied on upload. White with
+    // alpha 128 over black must read back as ~128, not 255.
+    let rt_a = dev.create_render_target(32, 32, @tycho.TextureFormat::RGBA8)
+    let ca = @g2d.Canvas::new()
+    ca.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    let alpha_px : Array[Byte] = [
+      255, 255, 255, 128, 255, 255, 255, 128, 255, 255, 255, 128, 255, 255, 255, 128,
+    ]
+    let img_a = @g2d.Image2D::from_bytes(3, 2, 2, Bytes::from_array(alpha_px))
+    ca.draw_image_rect(
+      img_a,
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (2.0 : Float), (2.0 : Float)),
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+    )
+    renderer.render_offscreen(ca.finish(), rt_a)
+    let apx = rt_a.readback()
+    let ai = (16 * 32 + 16) * 4
+    let alpha_ok = near(apx[ai].to_int(), 128)
+    rt_a.destroy()
+
     if show_win {
       let cc = @g2d.Color::from_rgba8(14, 18, 30)
       let sc = dev.create_swapchain_desc(
@@ -510,11 +570,11 @@ fn main {
     let used = dev.allocator_used_bytes()
     dev.destroy()
 
-    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
-      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus blend + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries}), 0 validation errors")
+    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && blend2d_ok && alpha_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
+      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus/Darken/Lighten blend + premultiplied images + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries}), 0 validation errors")
     } else {
       println(
-        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
+        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) blend2d=\{blend2d_ok} alpha=\{alpha_ok}(\{apx[ai]},\{apx[ai + 3]}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
       )
     }
   } catch {

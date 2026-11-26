@@ -229,6 +229,56 @@ pub(all) enum BlendMode {
 
 ///|
 #derive(Eq, Debug)
+pub(all) enum BlendFactor {
+  Zero
+  One
+  SrcColor
+  OneMinusSrcColor
+  DstColor
+  OneMinusDstColor
+  SrcAlpha
+  OneMinusSrcAlpha
+  DstAlpha
+  OneMinusDstAlpha
+}
+
+///|
+#derive(Eq, Debug)
+pub(all) enum BlendOp {
+  Add
+  Subtract
+  ReverseSubtract
+  Min
+  Max
+}
+
+///|
+// Explicit blend equation, used for Porter-Duff and separable modes that the
+// preset `BlendMode` values do not cover.
+#derive(Eq, Debug)
+pub(all) struct BlendState {
+  src_color : BlendFactor
+  dst_color : BlendFactor
+  color_op : BlendOp
+  src_alpha : BlendFactor
+  dst_alpha : BlendFactor
+  alpha_op : BlendOp
+}
+
+///|
+pub fn BlendState::new(
+  src_color : BlendFactor,
+  dst_color : BlendFactor,
+  src_alpha : BlendFactor,
+  dst_alpha : BlendFactor,
+  color_op? : BlendOp = BlendOp::Add,
+  alpha_op? : BlendOp = BlendOp::Add,
+) -> BlendState {
+  { src_color, dst_color, color_op, src_alpha, dst_alpha, alpha_op }
+}
+
+///|
+#derive(Eq, Debug)
 pub(all) enum VertexStepMode {
   Vertex
   Instance
@@ -358,6 +408,7 @@ pub(all) struct PipelineDesc {
   front_face : FrontFace
   blend : Bool
   blend_mode : BlendMode?
+  blend_state : BlendState?
   color_write : Bool
   samples : SampleCount
   color_format : TextureFormat?
@@ -516,6 +567,7 @@ pub fn PipelineDesc::new(
   front_face? : FrontFace = FrontFace::Clockwise,
   blend? : Bool = false,
   blend_mode? : BlendMode? = None,
+  blend_state? : BlendState? = None,
   color_write? : Bool = true,
   samples? : SampleCount = SampleCount::X1,
   color_format? : TextureFormat? = None,
@@ -554,6 +606,7 @@ pub fn PipelineDesc::new(
     front_face,
     blend,
     blend_mode,
+    blend_state,
     color_write,
     samples,
     color_format,
@@ -592,6 +645,7 @@ pub fn PipelineDesc::from_spirv(
   front_face? : FrontFace = FrontFace::Clockwise,
   blend? : Bool = false,
   blend_mode? : BlendMode? = None,
+  blend_state? : BlendState? = None,
   color_write? : Bool = true,
   samples? : SampleCount = SampleCount::X1,
   color_format? : TextureFormat? = None,
@@ -699,6 +753,7 @@ pub fn PipelineDesc::from_spirv(
     front_face~,
     blend~,
     blend_mode~,
+    blend_state~,
     color_write~,
     samples~,
     color_format~,

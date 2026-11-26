@@ -38,10 +38,20 @@ pub(all) enum TileMode {
 pub(all) enum BlendMode2D {
   SrcOver
   Src
+  Dst
+  DstOver
+  SrcIn
+  DstIn
+  SrcOut
+  DstOut
+  SrcAtop
+  DstAtop
+  Xor
   Plus
   Multiply
-  DstIn
-  SrcIn
+  Screen
+  Darken
+  Lighten
   Clear
 }
 
@@ -50,11 +60,63 @@ pub fn BlendMode2D::to_rhi(self : BlendMode2D) -> @tycho.BlendMode {
   match self {
     SrcOver => @tycho.BlendMode::Premultiplied
     Src => @tycho.BlendMode::Opaque
+    Dst => @tycho.BlendMode::Opaque
+    DstOver => @tycho.BlendMode::Premultiplied
+    SrcIn => @tycho.BlendMode::SrcIn
+    DstIn => @tycho.BlendMode::DstIn
+    SrcOut => @tycho.BlendMode::Premultiplied
+    DstOut => @tycho.BlendMode::Premultiplied
+    SrcAtop => @tycho.BlendMode::Premultiplied
+    DstAtop => @tycho.BlendMode::Premultiplied
+    Xor => @tycho.BlendMode::Premultiplied
     Plus => @tycho.BlendMode::Additive
     Multiply => @tycho.BlendMode::Multiply
-    DstIn => @tycho.BlendMode::DstIn
-    SrcIn => @tycho.BlendMode::SrcIn
+    Screen => @tycho.BlendMode::Additive
+    Darken => @tycho.BlendMode::Opaque
+    Lighten => @tycho.BlendMode::Opaque
     Clear => @tycho.BlendMode::Clear
+  }
+}
+
+///|
+// Explicit blend equations for modes the preset `BlendMode` values do not
+// cover. `None` means the preset is exact.
+pub fn BlendMode2D::to_blend_state(self : BlendMode2D) -> @tycho.BlendState? {
+  let one = @tycho.BlendFactor::One
+  let zero = @tycho.BlendFactor::Zero
+  let sa = @tycho.BlendFactor::SrcAlpha
+  let osa = @tycho.BlendFactor::OneMinusSrcAlpha
+  let da = @tycho.BlendFactor::DstAlpha
+  let oda = @tycho.BlendFactor::OneMinusDstAlpha
+  match self {
+    SrcOver => None
+    Src => None
+    Dst => Some(@tycho.BlendState::new(zero, one, zero, one))
+    DstOver => Some(@tycho.BlendState::new(oda, one, oda, one))
+    SrcIn => None
+    DstIn => None
+    SrcOut => Some(@tycho.BlendState::new(oda, zero, oda, zero))
+    DstOut => Some(@tycho.BlendState::new(zero, osa, zero, osa))
+    SrcAtop => Some(@tycho.BlendState::new(da, osa, da, osa))
+    DstAtop => Some(@tycho.BlendState::new(oda, sa, oda, sa))
+    Xor => Some(@tycho.BlendState::new(oda, osa, oda, osa))
+    Plus => Some(@tycho.BlendState::new(one, one, one, one))
+    Multiply => None
+    Screen => Some(
+      @tycho.BlendState::new(
+        @tycho.BlendFactor::OneMinusDstColor,
+        one,
+        one,
+        osa,
+      ),
+    )
+    Darken => Some(
+      @tycho.BlendState::new(one, one, one, osa, color_op=@tycho.BlendOp::Min),
+    )
+    Lighten => Some(
+      @tycho.BlendState::new(one, one, one, osa, color_op=@tycho.BlendOp::Max),
+    )
+    Clear => None
   }
 }
 
@@ -78,6 +140,20 @@ pub(all) struct Image2D {
   height : Int
   pixels : Bytes
   texture : @tycho.Texture?
+  // Pixel encoding hints. `pixels` is straight-alpha RGBA8 by default;
+  // `premultiplied` marks data that is already premultiplied. `srgb` selects
+  // an sRGB texture format when the image is promoted out of the atlas.
+  srgb : Bool
+  premultiplied : Bool
+}
+
+///|
+fn is_srgb_texture_format(f : @tycho.TextureFormat) -> Bool {
+  match f {
+    @tycho.TextureFormat::RGBA8Srgb => true
+    @tycho.TextureFormat::BGRA8Srgb => true
+    _ => false
+  }
 }
 
 ///|
@@ -86,8 +162,10 @@ pub fn Image2D::from_bytes(
   width : Int,
   height : Int,
   pixels : Bytes,
+  srgb? : Bool = false,
+  premultiplied? : Bool = false,
 ) -> Image2D {
-  { id, width, height, pixels, texture: None }
+  { id, width, height, pixels, texture: None, srgb, premultiplied }
 }
 
 ///|
@@ -98,6 +176,8 @@ pub fn Image2D::from_texture(id : Int, texture : @tycho.Texture) -> Image2D {
     height: texture.height(),
     pixels: b"",
     texture: Some(texture),
+    srgb: is_srgb_texture_format(texture.format()),
+    premultiplied: true,
   }
 }
 

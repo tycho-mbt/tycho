@@ -77,6 +77,8 @@ pub(all) struct RenderStats {
   upload_bytes : Int
   glyph_entries : Int
   image_entries : Int
+  atlas_resets : Int
+  atlas_overflows : Int
 }
 
 ///|
@@ -182,12 +184,14 @@ fn make_rhi_stencil_pipeline(
   samples? : @tycho.SampleCount = @tycho.SampleCount::X1,
   bindless_heap? : @tycho.BindlessHeap? = None,
   color_format? : @tycho.TextureFormat = @tycho.TextureFormat::RGBA8,
+  blend_state? : @tycho.BlendState? = None,
 ) -> @tycho.Pipeline raise @tycho.RhiError {
   dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       vert,
       frag,
       blend_mode=Some(blend_mode),
+      blend_state~,
       color_write~,
       cull_mode=@tycho.CullMode::None,
       samples~,
@@ -589,7 +593,7 @@ pub fn Renderer2D::new(
     stencil_clip_pipe,
     stencil_clear_clip_pipe,
     st_test_clip,
-    blend_prims: Array::make(112, (None : @tycho.Pipeline?)),
+    blend_prims: Array::make(4 * BLEND_MODE_COUNT * 4, (None : @tycho.Pipeline?)),
     cur_blend: BlendMode2D::SrcOver,
     cur_color_format: @tycho.TextureFormat::RGBA8,
     path_cover_pipe,
@@ -1089,15 +1093,28 @@ fn Renderer2D::emit_prim(
 }
 
 ///|
+const BLEND_MODE_COUNT : Int = 17
+
+///|
 fn blend_mode_index(b : BlendMode2D) -> Int {
   match b {
     BlendMode2D::SrcOver => 0
     BlendMode2D::Src => 1
-    BlendMode2D::Plus => 2
-    BlendMode2D::Multiply => 3
-    BlendMode2D::DstIn => 4
-    BlendMode2D::SrcIn => 5
-    BlendMode2D::Clear => 6
+    BlendMode2D::Dst => 2
+    BlendMode2D::DstOver => 3
+    BlendMode2D::SrcIn => 4
+    BlendMode2D::DstIn => 5
+    BlendMode2D::SrcOut => 6
+    BlendMode2D::DstOut => 7
+    BlendMode2D::SrcAtop => 8
+    BlendMode2D::DstAtop => 9
+    BlendMode2D::Xor => 10
+    BlendMode2D::Plus => 11
+    BlendMode2D::Multiply => 12
+    BlendMode2D::Screen => 13
+    BlendMode2D::Darken => 14
+    BlendMode2D::Lighten => 15
+    BlendMode2D::Clear => 16
   }
 }
 
@@ -1134,7 +1151,7 @@ fn Renderer2D::prim_pipe_for(
     _ => false
   }
   let variant = (if has_clip { 1 } else { 0 }) + (if use_bindless { 2 } else { 0 })
-  let idx = fi * 28 + blend_mode_index(blend) * 4 + variant
+  let idx = fi * (BLEND_MODE_COUNT * 4) + blend_mode_index(blend) * 4 + variant
   match self.blend_prims[idx] {
     Some(p) => p
     None => {
@@ -1150,6 +1167,7 @@ fn Renderer2D::prim_pipe_for(
           blend.to_rhi(),
           bindless_heap=heap,
           color_format=self.cur_color_format,
+          blend_state=blend.to_blend_state(),
         )
       } else {
         self.dev.create_graphics_pipeline(
@@ -1157,6 +1175,7 @@ fn Renderer2D::prim_pipe_for(
             spv_prim2d_vert,
             frag,
             blend_mode=Some(blend.to_rhi()),
+            blend_state=blend.to_blend_state(),
             cull_mode=@tycho.CullMode::None,
             color_format=Some(self.cur_color_format),
             depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
@@ -1297,6 +1316,46 @@ pub fn Renderer2D::stats(self : Renderer2D) -> RenderStats {
     upload_bytes: self.upload_bytes,
     glyph_entries: self.glyph_cache.entry_count(),
     image_entries: self.uploaded_images.length() + self.image_tex.length(),
+    atlas_resets: self.glyph_cache.atlas_reset_count(),
+    atlas_overflows: self.glyph_cache.atlas_overflow_count(),
+  }
+}
+
+///|
+// The Tier-1 shaders expect straight-alpha texels and premultiply them at
+// output (`rgb * a`). Convert premultiplied input back to straight alpha on
+// upload so both encodings render identically.
+fn unpremultiply_rgba(pixels : Bytes, w : Int, h : Int) -> Bytes {
+  let n = w * h * 4
+  if n <= 0 || pixels.length() < n {
+    return pixels
+  }
+  let out = Array::make(n, (0 : Byte))
+  for i = 0; i < n; i = i + 4 {
+    let a = pixels[i + 3].to_int()
+    if a == 0 {
+      out[i] = (0 : Byte)
+      out[i + 1] = (0 : Byte)
+      out[i + 2] = (0 : Byte)
+    } else {
+      let r = pixels[i].to_int() * 255 / a
+      let g = pixels[i + 1].to_int() * 255 / a
+      let b = pixels[i + 2].to_int() * 255 / a
+      out[i] = (if r > 255 { 255 } else { r }).to_byte()
+      out[i + 1] = (if g > 255 { 255 } else { g }).to_byte()
+      out[i + 2] = (if b > 255 { 255 } else { b }).to_byte()
+    }
+    out[i + 3] = pixels[i + 3]
+  }
+  Bytes::from_array(out)
+}
+
+///|
+fn image_upload_pixels(img : Image2D) -> Bytes {
+  if img.premultiplied && img.pixels.length() > 0 {
+    unpremultiply_rgba(img.pixels, img.width, img.height)
+  } else {
+    img.pixels
   }
 }
 
@@ -1325,11 +1384,16 @@ fn Renderer2D::ensure_image_texture(
   if self.image_tex.length() >= 64 {
     return None
   }
+  let fmt = if img.srgb {
+    @tycho.TextureFormat::RGBA8Srgb
+  } else {
+    @tycho.TextureFormat::RGBA8
+  }
   let tex = self.dev.create_texture_mipmapped(
     img.width,
     img.height,
-    @tycho.TextureFormat::RGBA8,
-    img.pixels,
+    fmt,
+    image_upload_pixels(img),
   )
   let heap = self.bindless_heap.unwrap()
   let tex_id = heap.register_texture(tex, self.mip_sampler)
@@ -1347,7 +1411,7 @@ fn Renderer2D::ensure_image_uv(
     None => ()
   }
   let pixels = if img.pixels.length() > 0 {
-    img.pixels
+    image_upload_pixels(img)
   } else {
     match img.texture {
       Some(tex) => {
@@ -3312,6 +3376,7 @@ fn Renderer2D::reset_frame_state(
 ) -> Unit {
   self.active_slot = slot
   self.active_rt_slot = rt_slot
+  self.glyph_cache.begin_frame(self.frame_idx)
   self.rt_pool.release_slot(rt_slot)
   // Reclaim overflow prim buffers that have been idle for several frames (the
   // extra slack covers the 2-frames-in-flight submissions).

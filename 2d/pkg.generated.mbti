@@ -21,12 +21,23 @@ pub fn tessellate_stroke(Path, Matrix3, Float, StrokeCap, StrokeJoin, Float, tol
 pub(all) enum BlendMode2D {
   SrcOver
   Src
+  Dst
+  DstOver
+  SrcIn
+  DstIn
+  SrcOut
+  DstOut
+  SrcAtop
+  DstAtop
+  Xor
   Plus
   Multiply
-  DstIn
-  SrcIn
+  Screen
+  Darken
+  Lighten
   Clear
 }
+pub fn BlendMode2D::to_blend_state(Self) -> @tycho.BlendState?
 pub fn BlendMode2D::to_rhi(Self) -> @tycho.BlendMode
 
 pub struct Canvas {
@@ -150,6 +161,7 @@ pub struct GlyphCache {
 pub fn GlyphCache::atlas_overflow_count(Self) -> Int32
 pub fn GlyphCache::atlas_reset_count(Self) -> Int32
 pub fn GlyphCache::atlas_size(Self) -> (Int32, Int32)
+pub fn GlyphCache::begin_frame(Self, Int32) -> Unit
 pub fn GlyphCache::destroy(Self) -> Unit
 pub fn GlyphCache::entry_count(Self) -> Int32
 pub fn GlyphCache::get_or_rasterize(Self, FontFace, Int32, Float) -> GlyphEntry raise @tycho.RhiError
@@ -180,8 +192,10 @@ pub(all) struct Image2D {
   height : Int32
   pixels : Bytes
   texture : @tycho.Texture?
+  srgb : Bool
+  premultiplied : Bool
 }
-pub fn Image2D::from_bytes(Int32, Int32, Int32, Bytes) -> Self
+pub fn Image2D::from_bytes(Int32, Int32, Int32, Bytes, srgb? : Bool, premultiplied? : Bool) -> Self
 pub fn Image2D::from_texture(Int32, @tycho.Texture) -> Self
 
 pub(all) enum ImageFilter {
@@ -379,6 +393,8 @@ pub(all) struct RenderStats {
   upload_bytes : Int32
   glyph_entries : Int32
   image_entries : Int32
+  atlas_resets : Int32
+  atlas_overflows : Int32
 }
 
 pub struct RenderTargetPool {

@@ -753,24 +753,77 @@ pub(all) struct GlyphEntry {
 }
 
 ///|
+// CPU copy of a rasterized glyph, retained so a full atlas can be compacted
+// (reset + re-upload of hot glyphs) without re-rasterizing or clearing the
+// whole cache.
+priv struct GlyphBitmap {
+  pixels : Bytes
+  gw : Int
+  gh : Int
+  mut last_frame : Int
+}
+
+///|
 pub struct GlyphCache {
   atlas : DynamicAtlas
   priv entries : Map[String, GlyphEntry]
+  priv bitmaps : Map[String, GlyphBitmap]
   priv mut atlas_reset_count : Int
   priv mut atlas_overflow_count : Int
+  priv mut frame : Int
 }
 
 ///|
 pub fn GlyphCache::new(
   dev : @tycho.Device,
-  width? : Int = 2048,
-  height? : Int = 2048,
+  width? : Int = 4096,
+  height? : Int = 4096,
 ) -> GlyphCache raise @tycho.RhiError {
   {
     atlas: DynamicAtlas::new(dev, width, height, @tycho.TextureFormat::R8),
     entries: {},
+    bitmaps: {},
     atlas_reset_count: 0,
     atlas_overflow_count: 0,
+    frame: 0,
+  }
+}
+
+///|
+pub fn GlyphCache::begin_frame(self : GlyphCache, frame : Int) -> Unit {
+  self.frame = frame
+}
+
+///|
+// Reclaim a full atlas without dropping every glyph: keep glyphs used in the
+// current or previous frame, reset the packer, and re-upload those survivors
+// from their retained CPU bitmaps.
+fn GlyphCache::compact(self : GlyphCache) -> Unit raise @tycho.RhiError {
+  self.atlas_reset_count = self.atlas_reset_count + 1
+  self.atlas.reset()
+  let survivors : Array[(String, GlyphEntry, GlyphBitmap)] = []
+  for k, e in self.entries {
+    match self.bitmaps.get(k) {
+      Some(b) => {
+        if b.last_frame + 1 >= self.frame {
+          survivors.push((k, e, b))
+        }
+      }
+      None => ()
+    }
+  }
+  self.entries.clear()
+  self.bitmaps.clear()
+  for pair in survivors {
+    let (k, e, b) = pair
+    match self.atlas.alloc_and_upload_padded(b.gw, b.gh, b.pixels, padding=1) {
+      Some((ax, ay, pw, ph)) => {
+        let (a, c, d, e2) = self.atlas.uv_rect(ax, ay, pw, ph)
+        self.entries[k] = { ..e, uv_x0: a, uv_y0: c, uv_x1: d, uv_y1: e2 }
+        self.bitmaps[k] = b
+      }
+      None => ()
+    }
   }
 }
 
@@ -812,7 +865,13 @@ pub fn GlyphCache::get_or_rasterize(
   let px_size = Float::from_int(q4) * (0.25 : Float)
   let key = "\{font.id}:\{cp}:\{q4}"
   match self.entries.get(key) {
-    Some(e) => return e
+    Some(e) => {
+      match self.bitmaps.get(key) {
+        Some(b) => b.last_frame = self.frame
+        None => ()
+      }
+      return e
+    }
     None => ()
   }
   let adv = font.advance_width(cp, px_size)
@@ -840,12 +899,8 @@ pub fn GlyphCache::get_or_rasterize(
       let placed = match first {
         Some(_) => first
         None => {
-          // Atlas full: reset once and retry. Only truly-full pages trigger
-          // this; the old behaviour cleared entries for every overflow, so we
-          // track it explicitly for tests and diagnostics.
-          self.atlas_reset_count = self.atlas_reset_count + 1
-          self.atlas.reset()
-          self.entries.clear()
+          // Atlas full: compact (keep hot glyphs, drop cold ones) and retry.
+          self.compact()
           self.atlas.alloc_and_upload_padded(gw, gh, pixels, padding=pad)
         }
       }
@@ -879,6 +934,14 @@ pub fn GlyphCache::get_or_rasterize(
   }
   if cacheable {
     self.entries[key] = entry
+    if gw > 0 && gh > 0 {
+      self.bitmaps[key] = {
+        pixels,
+        gw,
+        gh,
+        last_frame: self.frame,
+      }
+    }
   }
   entry
 }

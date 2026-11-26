@@ -3234,6 +3234,48 @@ fn alloc_pipeline_descriptors(
 }
 
 ///|
+fn blend_factor_vk(f : BlendFactor) -> UInt32 {
+  match f {
+    BlendFactor::Zero => @vk.VK_BLEND_FACTOR_ZERO
+    BlendFactor::One => @vk.VK_BLEND_FACTOR_ONE
+    BlendFactor::SrcColor => @vk.VK_BLEND_FACTOR_SRC_COLOR
+    BlendFactor::OneMinusSrcColor => @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR
+    BlendFactor::DstColor => @vk.VK_BLEND_FACTOR_DST_COLOR
+    BlendFactor::OneMinusDstColor => @vk.VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR
+    BlendFactor::SrcAlpha => @vk.VK_BLEND_FACTOR_SRC_ALPHA
+    BlendFactor::OneMinusSrcAlpha => @vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA
+    BlendFactor::DstAlpha => @vk.VK_BLEND_FACTOR_DST_ALPHA
+    BlendFactor::OneMinusDstAlpha => @vk.VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA
+  }
+}
+
+///|
+fn blend_op_vk(op : BlendOp) -> UInt32 {
+  match op {
+    BlendOp::Add => @vk.VK_BLEND_OP_ADD
+    BlendOp::Subtract => @vk.VK_BLEND_OP_SUBTRACT
+    BlendOp::ReverseSubtract => @vk.VK_BLEND_OP_REVERSE_SUBTRACT
+    BlendOp::Min => @vk.VK_BLEND_OP_MIN
+    BlendOp::Max => @vk.VK_BLEND_OP_MAX
+  }
+}
+
+///|
+fn configure_blend_state(
+  blend_atts : @vk.VkPipelineColorBlendAttachmentState,
+  i : Int,
+  bs : BlendState,
+) -> Unit {
+  blend_atts.set_blendEnable_at(i, (1 : UInt32))
+  blend_atts.set_srcColorBlendFactor_at(i, blend_factor_vk(bs.src_color))
+  blend_atts.set_dstColorBlendFactor_at(i, blend_factor_vk(bs.dst_color))
+  blend_atts.set_colorBlendOp_at(i, blend_op_vk(bs.color_op))
+  blend_atts.set_srcAlphaBlendFactor_at(i, blend_factor_vk(bs.src_alpha))
+  blend_atts.set_dstAlphaBlendFactor_at(i, blend_factor_vk(bs.dst_alpha))
+  blend_atts.set_alphaBlendOp_at(i, blend_op_vk(bs.alpha_op))
+}
+
+///|
 fn configure_blend_attachment(
   blend_atts : @vk.VkPipelineColorBlendAttachmentState,
   i : Int,
@@ -3519,6 +3561,10 @@ fn vk_graphics_pipeline_create(
   let blend_atts = @vk.VkPipelineColorBlendAttachmentState::array(n_colors)
   for i = 0; i < n_colors; i = i + 1 {
     configure_blend_attachment(blend_atts, i, effective_blend, desc.color_write)
+    match desc.blend_state {
+      Some(bs) => configure_blend_state(blend_atts, i, bs)
+      None => ()
+    }
   }
   let color_blend = @vk.VkPipelineColorBlendStateCreateInfo::new()
   color_blend.set_attachmentCount(n_colors.reinterpret_as_uint())

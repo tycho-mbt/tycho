@@ -195,6 +195,20 @@ pub fn BindlessHeap::register_texture(Self, Texture, Sampler) -> Int32 raise Rhi
 pub fn BindlessHeap::unregister_texture(Self, Int32) -> Unit
 
 #derive(Eq, @debug.Debug)
+pub(all) enum BlendFactor {
+  Zero
+  One
+  SrcColor
+  OneMinusSrcColor
+  DstColor
+  OneMinusDstColor
+  SrcAlpha
+  OneMinusSrcAlpha
+  DstAlpha
+  OneMinusDstAlpha
+}
+
+#derive(Eq, @debug.Debug)
 pub(all) enum BlendMode {
   Opaque
   Alpha
@@ -205,6 +219,26 @@ pub(all) enum BlendMode {
   SrcIn
   Clear
 }
+
+#derive(Eq, @debug.Debug)
+pub(all) enum BlendOp {
+  Add
+  Subtract
+  ReverseSubtract
+  Min
+  Max
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct BlendState {
+  src_color : BlendFactor
+  dst_color : BlendFactor
+  color_op : BlendOp
+  src_alpha : BlendFactor
+  dst_alpha : BlendFactor
+  alpha_op : BlendOp
+}
+pub fn BlendState::new(BlendFactor, BlendFactor, BlendFactor, BlendFactor, color_op? : BlendOp, alpha_op? : BlendOp) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum BorderColor {
@@ -490,14 +524,15 @@ pub(all) struct PipelineDesc {
   front_face : FrontFace
   blend : Bool
   blend_mode : BlendMode?
+  blend_state : BlendState?
   color_write : Bool
   samples : SampleCount
   color_format : TextureFormat?
   color_formats : Array[TextureFormat]
   bindless_heap : BindlessHeap?
 }
-pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState?, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout], bindless_heap? : BindlessHeap?) -> Self
-pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, accel_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], accel_bindings? : Array[Int32], push_constant_size? : Int32, topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState?, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap?) -> Self
+pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState?, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, blend_state? : BlendState?, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout], bindless_heap? : BindlessHeap?) -> Self
+pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, accel_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], accel_bindings? : Array[Int32], push_constant_size? : Int32, topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState?, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, blend_state? : BlendState?, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap?) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum PresentMode {
