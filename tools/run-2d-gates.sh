@@ -53,4 +53,27 @@ if [ "$uploads" -le 0 ]; then
   echo "2D GATE FAILED: uploads=$uploads" >&2
   exit 1
 fi
+# Shaping corpus vs HarfBuzz (default gate: the three baseline strings;
+# --extended covers the wider Devanagari set).
+moon build --target native shape-dump
+python3 "$ROOT/tools/shape_corpus.py" \
+  "$BIN_DIR/shape-dump/shape-dump.exe" --extended
+
+# Window/IME smoke: run a couple of examples under Xvfb with --window and
+# require zero validation errors (no pixel/golden assertion here).
+if command -v xvfb-run >/dev/null 2>&1; then
+  for exe in 54-tycho-2d-showcase 60-tycho-2d-i18n-text; do
+    log="$(mktemp)"
+    timeout 12 xvfb-run -a -s "-screen 0 1280x800x24" \
+      "$BIN_DIR/$exe/$exe.exe" --window >"$log" 2>&1 || true
+    if grep -q "VALIDATION ERROR" "$log"; then
+      echo "2D GATE FAILED: $exe validation error under Xvfb" >&2
+      cat "$log" >&2
+      rm -f "$log"
+      exit 1
+    fi
+    rm -f "$log"
+  done
+fi
+
 echo "2D GATE OK: prims=$prims draws=$draws passes=$passes uploads=$uploads"
