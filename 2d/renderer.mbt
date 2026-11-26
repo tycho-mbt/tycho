@@ -1,8 +1,8 @@
 // GPU Renderer2D over laplaceliu/tycho RHI (AOT pipelines, Tier-1 SDF/Atlas batching,
 // Tier-2 Stencil-then-Cover + Stroker, Tier-3 SaveLayer / BackdropFilter Gaussian Blur).
 
-const PRIM_FLOATS : Int = 40
-const PRIM_BYTES : Int = 160
+const PRIM_FLOATS : Int = 44
+const PRIM_BYTES : Int = 176
 const STOP_FLOATS : Int = 8
 const STOP_BYTES : Int = 32
 const PATH_VERT_FLOATS : Int = 2
@@ -904,6 +904,7 @@ fn Renderer2D::emit_prim(
   stop_cnt : Float,
   extra0? : Float = (-1.0 : Float),
   extra1? : Float = (0.0 : Float),
+  radii_y? : (Float, Float, Float, Float)? = None,
 ) -> Unit raise @tycho.RhiError {
   if self.prim_cursor >= self.max_prims {
     self.flush_prims(cmd)
@@ -967,6 +968,14 @@ fn Renderer2D::emit_prim(
   p[37] = stop_cnt
   p[38] = extra0
   p[39] = extra1
+  let (tly, tr_y, bry, bly) = match radii_y {
+    Some(v) => v
+    None => (tl, tr, br, bl)
+  }
+  p[40] = tly
+  p[41] = tr_y
+  p[42] = bry
+  p[43] = bly
   let off = self.active_prim_slot_base + self.prim_cursor * PRIM_BYTES
   self.active_prim_ssbo.upload_floats(self.prim_scratch, offset=off, count=PRIM_FLOATS)
   self.prim_cursor = self.prim_cursor + 1
@@ -2213,13 +2222,6 @@ fn Renderer2D::replay_ops(
       DrawOp::DrawRect(r, paint) =>
         self.replay_ops(cmd, [DrawOp::DrawRRect(RRect::from_rect(r), paint)])
       DrawOp::DrawRRect(rr, paint) => {
-        if !rr.is_circular() {
-          // Elliptical corners are not representable by the circular-corner
-          // Tier-1 SDF pipeline; fall back to the Tier-2 path pipeline.
-          let p = PathBuilder::new().add_rrect(rr).build()
-          self.draw_path_gpu(cmd, p, paint)
-          return
-        }
         if paint.blend_mode != BlendMode2D::SrcOver {
           self.flush_prims(cmd)
         }
@@ -2259,6 +2261,7 @@ fn Renderer2D::replay_ops(
           sh.stop_cnt,
           extra0=sh.extra0,
           extra1=sh.extra1,
+          radii_y=Some((rr.tl_y, rr.tr_y, rr.br_y, rr.bl_y)),
         )
       }
       DrawOp::DrawCircle(center, radius, paint) => {
@@ -2337,10 +2340,17 @@ fn Renderer2D::replay_ops(
       }
       DrawOp::DrawRRectShadow(rr, dx, dy, blur, spread, col) => {
         let r = rr.rect.offset(dx, dy).inflate(spread)
-        let tl = if rr.tl > (0.0 : Float) { @tmath.max_f((0.0 : Float), rr.tl + spread) } else { (0.0 : Float) }
-        let tr = if rr.tr > (0.0 : Float) { @tmath.max_f((0.0 : Float), rr.tr + spread) } else { (0.0 : Float) }
-        let br = if rr.br > (0.0 : Float) { @tmath.max_f((0.0 : Float), rr.br + spread) } else { (0.0 : Float) }
-        let bl = if rr.bl > (0.0 : Float) { @tmath.max_f((0.0 : Float), rr.bl + spread) } else { (0.0 : Float) }
+        let grow = fn(v : Float) {
+          if v > (0.0 : Float) { @tmath.max_f((0.0 : Float), v + spread) } else { (0.0 : Float) }
+        }
+        let tl = grow(rr.tl)
+        let tr = grow(rr.tr)
+        let br = grow(rr.br)
+        let bl = grow(rr.bl)
+        let tly = grow(rr.tl_y)
+        let tr_y = grow(rr.tr_y)
+        let bry = grow(rr.br_y)
+        let bly = grow(rr.bl_y)
         self.emit_prim(
           cmd,
           r.x,
@@ -2369,6 +2379,7 @@ fn Renderer2D::replay_ops(
           (0.0 : Float),
           (0.0 : Float),
           (0.0 : Float),
+          radii_y=Some((tly, tr_y, bry, bly)),
         )
       }
       DrawOp::DrawPath(path, paint) => self.draw_path_gpu(cmd, path, paint)

@@ -32,6 +32,7 @@ layout(location = 9) in vec2 v_shape_pos;
 layout(location = 10) flat in vec4 v_grad_pts;
 layout(location = 11) flat in vec4 v_grad_meta;
 layout(location = 12) flat in vec4 v_grad_extra;
+layout(location = 13) flat in vec4 v_radii_y;
 
 layout(location = 0) out vec4 out_color;
 
@@ -41,6 +42,33 @@ float sdRoundedBox(vec2 p, vec2 b, vec4 r) {
   rad = min(rad, min(b.x, b.y));
   vec2 q = abs(p) - b + vec2(rad);
   return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - rad;
+}
+
+// Rounded box with per-corner elliptical radii. The corner ellipse is evaluated
+// with a first-order distance approximation, which is accurate where it matters
+// (near the edge) and reduces exactly to sdRoundedBox when rx == ry.
+float sdRoundBoxElliptic(vec2 p, vec2 b, vec4 rx, vec4 ry) {
+  vec2 rx2 = (p.x > 0.0) ? vec2(rx.y, rx.z) : vec2(rx.x, rx.w);
+  vec2 ry2 = (p.x > 0.0) ? vec2(ry.y, ry.z) : vec2(ry.x, ry.w);
+  float rxc = (p.y > 0.0) ? rx2.y : rx2.x;
+  float ryc = (p.y > 0.0) ? ry2.y : ry2.x;
+  vec2 r = min(vec2(rxc, ryc), b);
+  vec2 c = b - r;
+  vec2 ap = abs(p);
+  vec2 q = ap - c;
+  if (q.x <= 0.0 && q.y <= 0.0) {
+    return max(ap.x - b.x, ap.y - b.y);
+  }
+  if (q.x <= 0.0) {
+    return ap.y - b.y;
+  }
+  if (q.y <= 0.0) {
+    return ap.x - b.x;
+  }
+  vec2 rr = max(r, vec2(1e-4));
+  float f = length(q / rr);
+  float g = length(q / (rr * rr));
+  return (f - 1.0) * f / max(g, 1e-6);
 }
 
 float sdSegment(vec2 p, vec2 a, vec2 b) {
@@ -144,7 +172,7 @@ void main() {
 
   float d = (kind == 4)
     ? (length(v_local_pos) - min(v_half_size.x, v_half_size.y))
-    : sdRoundedBox(v_local_pos, v_half_size, v_radii);
+    : sdRoundBoxElliptic(v_local_pos, v_half_size, v_radii, v_radii_y);
 
   if (kind == 1) {
     // Analytical drop shadow
