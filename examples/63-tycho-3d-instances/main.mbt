@@ -162,7 +162,11 @@ fn main {
     let errs = dev.validation_errors()
     renderer.destroy()
     env_cube.destroy()
+    let leaks = dev.allocator_used_bytes()
     dev.destroy()
+    if leaks != (0 : UInt64) {
+      println("[63-tycho-3d-instances] LEAK — \{leaks} bytes after destroy")
+    }
     if errs != 0 {
       println("[63-tycho-3d-instances] validation errors: \{errs}")
     }

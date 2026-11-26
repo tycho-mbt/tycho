@@ -197,7 +197,11 @@ fn main {
     r_cpu.destroy()
     env_gpu.destroy()
     env_cpu.destroy()
+    let leaks = dev.allocator_used_bytes()
     dev.destroy()
+    if leaks != (0 : UInt64) {
+      println("[70-tycho-3d-gpu-driven] LEAK — \{leaks} bytes after destroy")
+    }
     if errs != 0 {
       println("[70-tycho-3d-gpu-driven] validation errors: \{errs}")
     }

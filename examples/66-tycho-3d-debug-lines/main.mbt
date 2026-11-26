@@ -190,7 +190,11 @@ fn main {
     let errs = dev.validation_errors()
     renderer.destroy()
     env_cube.destroy()
+    let leaks = dev.allocator_used_bytes()
     dev.destroy()
+    if leaks != (0 : UInt64) {
+      println("[66-tycho-3d-debug-lines] LEAK — \{leaks} bytes after destroy")
+    }
     if errs != 0 {
       println("[66-tycho-3d-debug-lines] validation errors: \{errs}")
     }

@@ -186,7 +186,11 @@ fn main {
     r_plain.destroy()
     env1.destroy()
     env2.destroy()
+    let leaks = dev.allocator_used_bytes()
     dev.destroy()
+    if leaks != (0 : UInt64) {
+      println("[68-tycho-3d-msaa] LEAK — \{leaks} bytes after destroy")
+    }
     if errs != 0 {
       println("[68-tycho-3d-msaa] validation errors: \{errs}")
     }

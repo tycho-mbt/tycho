@@ -26,8 +26,16 @@ echo "== unit tests =="
 (cd "$ROOT/geometry" && moon test --target native)
 (cd "$ROOT/3d" && moon test --target native)
 
+echo "== geometry wasm =="
+(cd "$ROOT/geometry" && moon check --target wasm-gc .)
+
+echo "== layering =="
+"$ROOT/tools/check-3d-layering.sh"
+echo "== examples purity =="
+"$ROOT/tools/check-examples-pure.sh"
+
 echo "== build examples =="
-(cd "$ROOT/examples" && moon build --target native "${EXAMPLES[@]}")
+(cd "$ROOT/examples" && moon build --target native "${EXAMPLES[@]}" 49-rhi-pbr-showcase)
 BIN_DIR="$ROOT/_build/native/debug/build/laplaceliu/tycho_vulkan_examples"
 
 drivers=()
@@ -60,7 +68,18 @@ for entry in "${drivers[@]}"; do
       echo "3D GATE FAILED: $exe on $name did not report OK" >&2
       exit 1
     fi
+    if grep -q "LEAK" <<<"$out"; then
+      echo "3D GATE FAILED: $exe on $name reported an allocator leak" >&2
+      exit 1
+    fi
   done
+  echo "== driver: $name raw RHI regression (49) =="
+  reg_out="$(VK_ICD_FILENAMES="$icd" timeout 300 "$BIN_DIR/49-rhi-pbr-showcase/49-rhi-pbr-showcase.exe" 2>&1)"
+  echo "$reg_out" | tail -1
+  if ! grep -q "\] OK" <<<"$reg_out" || ! grep -q "0 validation errors" <<<"$reg_out"; then
+    echo "3D GATE FAILED: 49 regression on $name" >&2
+    exit 1
+  fi
 done
 
 echo "3D GATE OK: ${#drivers[@]} driver(s), ${#EXAMPLES[@]} examples, unit tests green"
