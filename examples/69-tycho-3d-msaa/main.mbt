@@ -106,7 +106,7 @@ fn main {
     let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
-        "68-tycho-3d-msaa",
+        "69-tycho-3d-msaa",
         validation=true,
         headless=!show_win,
       ),
@@ -153,18 +153,18 @@ fn main {
       let errs = dev.validation_errors()
       let draws_ok = r_msaa.stats().draw_calls == r_plain.stats().draw_calls
       println(
-        "[68-tycho-3d-msaa] draws=\{r_msaa.stats().draw_calls} edge_diff=\{diff} validation=\{errs}",
+        "[69-tycho-3d-msaa] draws=\{r_msaa.stats().draw_calls} edge_diff=\{diff} validation=\{errs}",
       )
       if errs == 0 && diff > 1500 && draws_ok {
-        println("[68-tycho-3d-msaa] OK — 4x MSAA resolves edges (diff=\{diff})")
+        println("[69-tycho-3d-msaa] OK — 4x MSAA resolves edges (diff=\{diff})")
       } else {
         println(
-          "[68-tycho-3d-msaa] FAIL — diff=\{diff} draws_ok=\{draws_ok} errs=\{errs}",
+          "[69-tycho-3d-msaa] FAIL — diff=\{diff} draws_ok=\{draws_ok} errs=\{errs}",
         )
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("68-tycho-3d-msaa", 800, 600)
+      let sc = dev.create_swapchain("69-tycho-3d-msaa", 800, 600)
       let mut quit = false
       while !sc.should_close() && !quit {
         for ev in sc.poll_events() {
@@ -189,12 +189,12 @@ fn main {
     let leaks = dev.allocator_used_bytes()
     dev.destroy()
     if leaks != (0 : UInt64) {
-      println("[68-tycho-3d-msaa] LEAK — \{leaks} bytes after destroy")
+      println("[69-tycho-3d-msaa] LEAK — \{leaks} bytes after destroy")
     }
     if errs != 0 {
-      println("[68-tycho-3d-msaa] validation errors: \{errs}")
+      println("[69-tycho-3d-msaa] validation errors: \{errs}")
     }
   } catch {
-    err => println("[68-tycho-3d-msaa] FAIL — \{err}")
+    err => println("[69-tycho-3d-msaa] FAIL — \{err}")
   }
 }

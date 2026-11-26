@@ -24,7 +24,7 @@ fn main {
     let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
-        "62-tycho-geometry-primitives",
+        "63-tycho-geometry-primitives",
         validation=true,
         headless=!show_win,
       ),
@@ -202,18 +202,18 @@ fn main {
       }
       let errs = dev.validation_errors()
       println(
-        "[62-tycho-geometry-primitives] \{renderer.stats().summary()} lit=\{lit} pick=\{pick_ok} validation=\{errs}",
+        "[63-tycho-geometry-primitives] \{renderer.stats().summary()} lit=\{lit} pick=\{pick_ok} validation=\{errs}",
       )
       if errs == 0 && lit > 10000 && pick_ok {
-        println("[62-tycho-geometry-primitives] OK — 9 generators + orbit + picking")
+        println("[63-tycho-geometry-primitives] OK — 9 generators + orbit + picking")
       } else {
         println(
-          "[62-tycho-geometry-primitives] FAIL — lit=\{lit} pick=\{pick_ok} errs=\{errs}",
+          "[63-tycho-geometry-primitives] FAIL — lit=\{lit} pick=\{pick_ok} errs=\{errs}",
         )
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("62-tycho-geometry-primitives", 800, 600)
+      let sc = dev.create_swapchain("63-tycho-geometry-primitives", 800, 600)
       let mut quit = false
       while !sc.should_close() && !quit {
         for ev in sc.poll_events() {
@@ -239,12 +239,12 @@ fn main {
     let leaks = dev.allocator_used_bytes()
     dev.destroy()
     if leaks != (0 : UInt64) {
-      println("[62-tycho-geometry-primitives] LEAK — \{leaks} bytes after destroy")
+      println("[63-tycho-geometry-primitives] LEAK — \{leaks} bytes after destroy")
     }
     if errs != 0 {
-      println("[62-tycho-geometry-primitives] validation errors: \{errs}")
+      println("[63-tycho-geometry-primitives] validation errors: \{errs}")
     }
   } catch {
-    err => println("[62-tycho-geometry-primitives] FAIL — \{err}")
+    err => println("[63-tycho-geometry-primitives] FAIL — \{err}")
   }
 }

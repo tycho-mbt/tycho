@@ -101,7 +101,7 @@ fn main {
     let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
-        "64-tycho-3d-textures",
+        "65-tycho-3d-textures",
         validation=true,
         headless=!show_win,
       ),
@@ -230,20 +230,20 @@ fn main {
       let mask_diff = diff_pixels(no_normal, no_panel)
       let errs = dev.validation_errors()
       println(
-        "[64-tycho-3d-textures] \{renderer.stats().summary()} lit=\{lit} normal_diff=\{normal_diff} mask_diff=\{mask_diff} validation=\{errs}",
+        "[65-tycho-3d-textures] \{renderer.stats().summary()} lit=\{lit} normal_diff=\{normal_diff} mask_diff=\{mask_diff} validation=\{errs}",
       )
       if errs == 0 && lit > 20000 && normal_diff > 1200 && mask_diff > 1500 {
         println(
-          "[64-tycho-3d-textures] OK — albedo + normal map + alpha mask (normal_diff=\{normal_diff} mask_diff=\{mask_diff})",
+          "[65-tycho-3d-textures] OK — albedo + normal map + alpha mask (normal_diff=\{normal_diff} mask_diff=\{mask_diff})",
         )
       } else {
         println(
-          "[64-tycho-3d-textures] FAIL — lit=\{lit} normal_diff=\{normal_diff} mask_diff=\{mask_diff} errs=\{errs}",
+          "[65-tycho-3d-textures] FAIL — lit=\{lit} normal_diff=\{normal_diff} mask_diff=\{mask_diff} errs=\{errs}",
         )
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("64-tycho-3d-textures", 800, 600)
+      let sc = dev.create_swapchain("65-tycho-3d-textures", 800, 600)
       let mut quit = false
       while !sc.should_close() && !quit {
         for ev in sc.poll_events() {
@@ -269,12 +269,12 @@ fn main {
     let leaks = dev.allocator_used_bytes()
     dev.destroy()
     if leaks != (0 : UInt64) {
-      println("[64-tycho-3d-textures] LEAK — \{leaks} bytes after destroy")
+      println("[65-tycho-3d-textures] LEAK — \{leaks} bytes after destroy")
     }
     if errs != 0 {
-      println("[64-tycho-3d-textures] validation errors: \{errs}")
+      println("[65-tycho-3d-textures] validation errors: \{errs}")
     }
   } catch {
-    err => println("[64-tycho-3d-textures] FAIL — \{err}")
+    err => println("[65-tycho-3d-textures] FAIL — \{err}")
   }
 }

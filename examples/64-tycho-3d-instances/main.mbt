@@ -14,7 +14,7 @@ fn main {
     let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
-        "63-tycho-3d-instances",
+        "64-tycho-3d-instances",
         validation=true,
         headless=!show_win,
       ),
@@ -128,18 +128,18 @@ fn main {
       }
       let errs = dev.validation_errors()
       println(
-        "[63-tycho-3d-instances] \{st.summary()} lit=\{lit} nodes=\{count} validation=\{errs}",
+        "[64-tycho-3d-instances] \{st.summary()} lit=\{lit} nodes=\{count} validation=\{errs}",
       )
       if errs == 0 && lit > 10000 && draws_ok && batch_ok && visible_ok && tris_ok {
-        println("[63-tycho-3d-instances] OK — 10000 nodes in \{st.draw_calls} draws")
+        println("[64-tycho-3d-instances] OK — 10000 nodes in \{st.draw_calls} draws")
       } else {
         println(
-          "[63-tycho-3d-instances] FAIL — lit=\{lit} draws=\{st.draw_calls} batches=\{st.instance_batches} visible=\{st.visible_nodes} tris=\{st.triangles} errs=\{errs}",
+          "[64-tycho-3d-instances] FAIL — lit=\{lit} draws=\{st.draw_calls} batches=\{st.instance_batches} visible=\{st.visible_nodes} tris=\{st.triangles} errs=\{errs}",
         )
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("63-tycho-3d-instances", 800, 600)
+      let sc = dev.create_swapchain("64-tycho-3d-instances", 800, 600)
       let mut quit = false
       while !sc.should_close() && !quit {
         for ev in sc.poll_events() {
@@ -165,12 +165,12 @@ fn main {
     let leaks = dev.allocator_used_bytes()
     dev.destroy()
     if leaks != (0 : UInt64) {
-      println("[63-tycho-3d-instances] LEAK — \{leaks} bytes after destroy")
+      println("[64-tycho-3d-instances] LEAK — \{leaks} bytes after destroy")
     }
     if errs != 0 {
-      println("[63-tycho-3d-instances] validation errors: \{errs}")
+      println("[64-tycho-3d-instances] validation errors: \{errs}")
     }
   } catch {
-    err => println("[63-tycho-3d-instances] FAIL — \{err}")
+    err => println("[64-tycho-3d-instances] FAIL — \{err}")
   }
 }

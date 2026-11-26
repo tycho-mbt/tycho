@@ -11,11 +11,11 @@ for dir in "$ROOT"/examples/[0-9]*; do
   name="$(basename "$dir")"
   pkg="$dir/moon.pkg"
   [ -f "$pkg" ] || continue
-  num="${name%%-*}"
   # Only the typed 3D examples are covered by this check.
-  if ! [ "$num" -ge 61 ] 2>/dev/null; then
-    continue
-  fi
+  case "$name" in
+    *tycho-3d*|*tycho-geometry*) ;;
+    *) continue ;;
+  esac
 
   if grep -qE 'tycho_2d|tycho_ui' "$pkg"; then
     echo "PURITY: $name imports a 2d/ui sibling" >&2

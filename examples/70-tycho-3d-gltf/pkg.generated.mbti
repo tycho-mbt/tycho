@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "laplaceliu/tycho_vulkan_examples/69-tycho-3d-gltf"
+package "laplaceliu/tycho_vulkan_examples/70-tycho-3d-gltf"
 
 // Values
 pub let box_scene_json : String

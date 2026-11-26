@@ -9,7 +9,7 @@ fn main {
     let show_win = @tycho.want_window()
     let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
-      @tycho.DeviceDesc::new("61-tycho-3d-showcase", validation=true, headless=!show_win),
+      @tycho.DeviceDesc::new("62-tycho-3d-showcase", validation=true, headless=!show_win),
     )
     let renderer = @t3d.Renderer3D::new(dev)
     let scene = @t3d.Scene::new()
@@ -103,15 +103,15 @@ fn main {
         let _ = @tycho.save_png(shot, 800, 600, px)
       }
       let errs = dev.validation_errors()
-      println("[61-tycho-3d-showcase] \{renderer.stats().summary()} lit=\{lit} validation=\{errs}")
+      println("[62-tycho-3d-showcase] \{renderer.stats().summary()} lit=\{lit} validation=\{errs}")
       if errs == 0 && lit > 10000 {
-        println("[61-tycho-3d-showcase] OK — scene graph + PBR + shadow + HDR bloom/ACES")
+        println("[62-tycho-3d-showcase] OK — scene graph + PBR + shadow + HDR bloom/ACES")
       } else {
-        println("[61-tycho-3d-showcase] FAIL — errs=\{errs} lit=\{lit}")
+        println("[62-tycho-3d-showcase] FAIL — errs=\{errs} lit=\{lit}")
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("61-tycho-3d-showcase", 800, 600)
+      let sc = dev.create_swapchain("62-tycho-3d-showcase", 800, 600)
       let mut quit = false
       while !sc.should_close() && !quit {
         for ev in sc.poll_events() {
@@ -135,12 +135,12 @@ fn main {
     let leaks = dev.allocator_used_bytes()
     dev.destroy()
     if errs != 0 {
-      println("[61-tycho-3d-showcase] validation errors: \{errs}")
+      println("[62-tycho-3d-showcase] validation errors: \{errs}")
     }
     if leaks != (0 : UInt64) {
-      println("[61-tycho-3d-showcase] LEAK — \{leaks} bytes after destroy")
+      println("[62-tycho-3d-showcase] LEAK — \{leaks} bytes after destroy")
     }
   } catch {
-    err => println("[61-tycho-3d-showcase] FAIL — \{err}")
+    err => println("[62-tycho-3d-showcase] FAIL — \{err}")
   }
 }

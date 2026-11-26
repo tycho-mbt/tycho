@@ -80,7 +80,7 @@ scene.set_local_bounds(node, renderer.mesh_bounds(mesh))
 renderer.render_swapchain(sc, scene, camera_node)
 ```
 
-See [`examples/61-tycho-3d-showcase`](../examples/61-tycho-3d-showcase).
+See [`examples/62-tycho-3d-showcase`](../examples/62-tycho-3d-showcase).
 
 ## Conventions
 

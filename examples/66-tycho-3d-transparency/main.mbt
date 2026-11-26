@@ -10,7 +10,7 @@ fn main {
     let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
-        "65-tycho-3d-transparency",
+        "66-tycho-3d-transparency",
         validation=true,
         headless=!show_win,
       ),
@@ -80,18 +80,18 @@ fn main {
       let errs = dev.validation_errors()
       let st = renderer.stats()
       println(
-        "[65-tycho-3d-transparency] \{st.summary()} front=(\{fr},\{fg},\{fb}) back=(\{br},\{bg},\{bb}) validation=\{errs}",
+        "[66-tycho-3d-transparency] \{st.summary()} front=(\{fr},\{fg},\{fb}) back=(\{br},\{bg},\{bb}) validation=\{errs}",
       )
       if errs == 0 && red_ok && blue_ok && blend_ok {
-        println("[65-tycho-3d-transparency] OK — back-to-front blending verified")
+        println("[66-tycho-3d-transparency] OK — back-to-front blending verified")
       } else {
         println(
-          "[65-tycho-3d-transparency] FAIL — red_ok=\{red_ok} blue_ok=\{blue_ok} blend_ok=\{blend_ok} errs=\{errs}",
+          "[66-tycho-3d-transparency] FAIL — red_ok=\{red_ok} blue_ok=\{blue_ok} blend_ok=\{blend_ok} errs=\{errs}",
         )
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("65-tycho-3d-transparency", 800, 600)
+      let sc = dev.create_swapchain("66-tycho-3d-transparency", 800, 600)
       let mut quit = false
       while !sc.should_close() && !quit {
         for ev in sc.poll_events() {
@@ -113,12 +113,12 @@ fn main {
     let leaks = dev.allocator_used_bytes()
     dev.destroy()
     if leaks != (0 : UInt64) {
-      println("[65-tycho-3d-transparency] LEAK — \{leaks} bytes after destroy")
+      println("[66-tycho-3d-transparency] LEAK — \{leaks} bytes after destroy")
     }
     if errs != 0 {
-      println("[65-tycho-3d-transparency] validation errors: \{errs}")
+      println("[66-tycho-3d-transparency] validation errors: \{errs}")
     }
   } catch {
-    err => println("[65-tycho-3d-transparency] FAIL — \{err}")
+    err => println("[66-tycho-3d-transparency] FAIL — \{err}")
   }
 }

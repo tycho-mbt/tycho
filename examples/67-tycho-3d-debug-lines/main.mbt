@@ -23,7 +23,7 @@ fn main {
     let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
-        "66-tycho-3d-debug-lines",
+        "67-tycho-3d-debug-lines",
         validation=true,
         headless=!show_win,
       ),
@@ -146,18 +146,18 @@ fn main {
       let after = renderer.stats().line_segments
       let errs = dev.validation_errors()
       println(
-        "[66-tycho-3d-debug-lines] \{st.summary()} after_clear=\{after} diff=\{diff} validation=\{errs}",
+        "[67-tycho-3d-debug-lines] \{st.summary()} after_clear=\{after} diff=\{diff} validation=\{errs}",
       )
       if errs == 0 && lines == 39 && after == 0 && diff > 1000 {
-        println("[66-tycho-3d-debug-lines] OK — depth-tested debug lines (\{lines} segments)")
+        println("[67-tycho-3d-debug-lines] OK — depth-tested debug lines (\{lines} segments)")
       } else {
         println(
-          "[66-tycho-3d-debug-lines] FAIL — segments=\{lines} after_clear=\{after} diff=\{diff} errs=\{errs}",
+          "[67-tycho-3d-debug-lines] FAIL — segments=\{lines} after_clear=\{after} diff=\{diff} errs=\{errs}",
         )
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("66-tycho-3d-debug-lines", 800, 600)
+      let sc = dev.create_swapchain("67-tycho-3d-debug-lines", 800, 600)
       let mut quit = false
       while !sc.should_close() && !quit {
         for ev in sc.poll_events() {
@@ -193,12 +193,12 @@ fn main {
     let leaks = dev.allocator_used_bytes()
     dev.destroy()
     if leaks != (0 : UInt64) {
-      println("[66-tycho-3d-debug-lines] LEAK — \{leaks} bytes after destroy")
+      println("[67-tycho-3d-debug-lines] LEAK — \{leaks} bytes after destroy")
     }
     if errs != 0 {
-      println("[66-tycho-3d-debug-lines] validation errors: \{errs}")
+      println("[67-tycho-3d-debug-lines] validation errors: \{errs}")
     }
   } catch {
-    err => println("[66-tycho-3d-debug-lines] FAIL — \{err}")
+    err => println("[67-tycho-3d-debug-lines] FAIL — \{err}")
   }
 }

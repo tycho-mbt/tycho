@@ -105,7 +105,7 @@ fn main {
     let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
-        "70-tycho-3d-gpu-driven",
+        "71-tycho-3d-gpu-driven",
         validation=true,
         headless=!show_win,
       ),
@@ -160,22 +160,22 @@ fn main {
         sg.visible_nodes == 10001 &&
         sc.visible_nodes < sg.visible_nodes
       println(
-        "[70-tycho-3d-gpu-driven] gpu: \{sg.summary()}",
+        "[71-tycho-3d-gpu-driven] gpu: \{sg.summary()}",
       )
       println(
-        "[70-tycho-3d-gpu-driven] cpu: \{sc.summary()}",
+        "[71-tycho-3d-gpu-driven] cpu: \{sc.summary()}",
       )
       println(
-        "[70-tycho-3d-gpu-driven] diff=\{diff} validation=\{errs}",
+        "[71-tycho-3d-gpu-driven] diff=\{diff} validation=\{errs}",
       )
       if ok {
-        println("[70-tycho-3d-gpu-driven] OK — compute culling + indirect draw match the CPU path")
+        println("[71-tycho-3d-gpu-driven] OK — compute culling + indirect draw match the CPU path")
       } else {
-        println("[70-tycho-3d-gpu-driven] FAIL — see counters above")
+        println("[71-tycho-3d-gpu-driven] FAIL — see counters above")
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("70-tycho-3d-gpu-driven", 800, 600)
+      let sc = dev.create_swapchain("71-tycho-3d-gpu-driven", 800, 600)
       let mut quit = false
       while !sc.should_close() && !quit {
         for ev in sc.poll_events() {
@@ -200,12 +200,12 @@ fn main {
     let leaks = dev.allocator_used_bytes()
     dev.destroy()
     if leaks != (0 : UInt64) {
-      println("[70-tycho-3d-gpu-driven] LEAK — \{leaks} bytes after destroy")
+      println("[71-tycho-3d-gpu-driven] LEAK — \{leaks} bytes after destroy")
     }
     if errs != 0 {
-      println("[70-tycho-3d-gpu-driven] validation errors: \{errs}")
+      println("[71-tycho-3d-gpu-driven] validation errors: \{errs}")
     }
   } catch {
-    err => println("[70-tycho-3d-gpu-driven] FAIL — \{err}")
+    err => println("[71-tycho-3d-gpu-driven] FAIL — \{err}")
   }
 }

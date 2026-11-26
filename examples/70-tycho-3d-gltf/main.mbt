@@ -8,7 +8,7 @@ fn main {
     let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
-        "69-tycho-3d-gltf",
+        "70-tycho-3d-gltf",
         validation=true,
         headless=!show_win,
       ),
@@ -87,16 +87,16 @@ fn main {
         st.instance_batches == 1 &&
         lit > 20000
       println(
-        "[69-tycho-3d-gltf] gltf_meshes=\{gltf.meshes.length()} gltf_nodes=\{gltf.nodes.length()} scene_nodes=\{nodes.length()} \{st.summary()} lit=\{lit} validation=\{errs}",
+        "[70-tycho-3d-gltf] gltf_meshes=\{gltf.meshes.length()} gltf_nodes=\{gltf.nodes.length()} scene_nodes=\{nodes.length()} \{st.summary()} lit=\{lit} validation=\{errs}",
       )
       if ok {
-        println("[69-tycho-3d-gltf] OK — parsed glTF hierarchy and rendered it")
+        println("[70-tycho-3d-gltf] OK — parsed glTF hierarchy and rendered it")
       } else {
-        println("[69-tycho-3d-gltf] FAIL — see counts above")
+        println("[70-tycho-3d-gltf] FAIL — see counts above")
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("69-tycho-3d-gltf", 800, 600)
+      let sc = dev.create_swapchain("70-tycho-3d-gltf", 800, 600)
       let mut quit = false
       while !sc.should_close() && !quit {
         for ev in sc.poll_events() {
@@ -122,12 +122,12 @@ fn main {
     let leaks = dev.allocator_used_bytes()
     dev.destroy()
     if leaks != (0 : UInt64) {
-      println("[69-tycho-3d-gltf] LEAK — \{leaks} bytes after destroy")
+      println("[70-tycho-3d-gltf] LEAK — \{leaks} bytes after destroy")
     }
     if errs != 0 {
-      println("[69-tycho-3d-gltf] validation errors: \{errs}")
+      println("[70-tycho-3d-gltf] validation errors: \{errs}")
     }
   } catch {
-    err => println("[69-tycho-3d-gltf] FAIL — \{err}")
+    err => println("[70-tycho-3d-gltf] FAIL — \{err}")
   }
 }

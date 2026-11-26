@@ -1,12 +1,11 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "laplaceliu/tycho_vulkan_examples/62-tycho-geometry-primitives"
+package "laplaceliu/tycho_vulkan_examples/64-tycho-3d-instances"
 
 // Values
 
 // Errors
 
 // Types and methods
-type ShapeSpec
 
 // Type aliases
 

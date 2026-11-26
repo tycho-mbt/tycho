@@ -10,16 +10,16 @@ if [ -d "$ROOT/.toolchain" ]; then
 fi
 
 EXAMPLES=(
-  61-tycho-3d-showcase
-  62-tycho-geometry-primitives
-  63-tycho-3d-instances
-  64-tycho-3d-textures
-  65-tycho-3d-transparency
-  66-tycho-3d-debug-lines
-  67-tycho-3d-env-quality
-  68-tycho-3d-msaa
-  69-tycho-3d-gltf
-  70-tycho-3d-gpu-driven
+  62-tycho-3d-showcase
+  63-tycho-geometry-primitives
+  64-tycho-3d-instances
+  65-tycho-3d-textures
+  66-tycho-3d-transparency
+  67-tycho-3d-debug-lines
+  68-tycho-3d-env-quality
+  69-tycho-3d-msaa
+  70-tycho-3d-gltf
+  71-tycho-3d-gpu-driven
 )
 
 echo "== unit tests =="
