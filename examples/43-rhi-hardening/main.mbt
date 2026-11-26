@@ -39,6 +39,29 @@ fn main {
     }
     gpu_buf.destroy()
 
+    // upload_mat4 equivalence: rotation + non-uniform scale + translation, so a
+    // row/column-major mix-up cannot hide behind a symmetric identity matrix.
+    let mat_buf = dev_h.create_buffer_with(
+      64,
+      @tycho.BufferKind::Storage,
+      location=@tycho.MemoryLocation::GpuOnly,
+    )
+    let probe_mat = @tmath.Mat4::from_scale_rotation_translation(
+      @tmath.Vec3::new(2.0, 0.5, 3.0),
+      @tmath.Quat::from_axis_angle(@tmath.Vec3::new(0.3, 1.0, -0.2), 0.7),
+      @tmath.Vec3::new(4.0, -2.0, 1.5),
+    )
+    mat_buf.upload_mat4(probe_mat)
+    let mat_bytes = mat_buf.download()
+    let mat_want = probe_mat.to_cols_array()
+    let mut mat_ok = true
+    for i = 0; i < 16; i = i + 1 {
+      if float_at(mat_bytes, i) != mat_want[i] {
+        mat_ok = false
+      }
+    }
+    mat_buf.destroy()
+
     // Deferred deletion across submit_commands + Fence::wait() without wait_idle()
     let async_buf = dev_h.create_buffer_with(256, @tycho.BufferKind::Storage)
     async_buf.upload_floats([(1.0 : Float), (2.0 : Float), (3.0 : Float), (4.0 : Float)])
@@ -212,6 +235,7 @@ fn main {
     )
     if caps_ok &&
       gpu_buf_ok &&
+      mat_ok &&
       async_del_ok &&
       headless_clean &&
       draw40_ok &&
@@ -221,11 +245,11 @@ fn main {
       used_after_wait == (0 : UInt64) &&
       errs == 0 {
       println(
-        "[43-rhi-hardening] OK — headless, GpuOnly+offset, submit+fence deferred deletion, in-flight UBO destroy, cursor/keys, and 40-draw expansion passed (0 validation errors)",
+        "[43-rhi-hardening] OK — headless, GpuOnly+offset+upload_mat4, submit+fence deferred deletion, in-flight UBO destroy, cursor/keys, and 40-draw expansion passed (0 validation errors)",
       )
     } else {
       println(
-        "[43-rhi-hardening] FAIL — caps=\{caps_ok} gpu_buf=\{gpu_buf_ok} async_del=\{async_del_ok} headless=\{headless_clean} draw40=\{draw40_ok} scale=\{scale} fs=\{is_fs} keys=\{keys_ok} used=\{used_after_wait} errs=\{errs}",
+        "[43-rhi-hardening] FAIL — caps=\{caps_ok} gpu_buf=\{gpu_buf_ok} mat4=\{mat_ok} async_del=\{async_del_ok} headless=\{headless_clean} draw40=\{draw40_ok} scale=\{scale} fs=\{is_fs} keys=\{keys_ok} used=\{used_after_wait} errs=\{errs}",
       )
     }
   } catch {

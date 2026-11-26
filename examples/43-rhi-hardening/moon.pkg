@@ -1,5 +1,6 @@
 import {
   "laplaceliu/tycho" @tycho,
+  "laplaceliu/tycho_math" @tmath,
 }
 
 pkgtype(kind: "executable")
