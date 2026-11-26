@@ -221,3 +221,28 @@ test "path api: arc, conic, add_path, transform, contains, measure" {
   let seg = m.segment((25.0 : Float), (75.0 : Float))
   assert_true(seg.bounds().width > (49.0 : Float))
 }
+
+///|
+test "coverage rasterizer: rect fill and even-odd hole" {
+  let rect = PathBuilder::new()
+    .add_rect(Rect::new((0.0 : Float), (0.0 : Float), (10.0 : Float), (10.0 : Float)))
+    .build()
+  let bmp = rasterize_coverage(rect, Matrix3::identity()).unwrap()
+  assert_true(bmp.width >= 10 && bmp.height >= 10)
+  let cx = 5 - bmp.origin_x
+  let cy = 5 - bmp.origin_y
+  assert_eq(bmp.pixels[cy * bmp.width + cx].to_int(), 255)
+  assert_eq(bmp.pixels[0].to_int(), 0)
+  // Two nested rects with EvenOdd leave the center empty.
+  let rings = PathBuilder::new()
+    .add_rect(Rect::new((0.0 : Float), (0.0 : Float), (20.0 : Float), (20.0 : Float)))
+    .add_rect(Rect::new((5.0 : Float), (5.0 : Float), (10.0 : Float), (10.0 : Float)))
+    .build(fill_rule=FillRule::EvenOdd)
+  let bm2 = rasterize_coverage(rings, Matrix3::identity()).unwrap()
+  let hx = 10 - bm2.origin_x
+  let hy = 10 - bm2.origin_y
+  assert_eq(bm2.pixels[hy * bm2.width + hx].to_int(), 0)
+  let rx = 2 - bm2.origin_x
+  let ry = 10 - bm2.origin_y
+  assert_eq(bm2.pixels[ry * bm2.width + rx].to_int(), 255)
+}

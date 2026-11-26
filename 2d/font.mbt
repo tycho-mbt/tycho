@@ -771,6 +771,9 @@ pub struct GlyphCache {
   priv mut atlas_reset_count : Int
   priv mut atlas_overflow_count : Int
   priv mut frame : Int
+  // Bumped whenever the atlas is reset; external caches (coverage bitmaps)
+  // must invalidate their UVs when this changes.
+  priv mut generation : Int
 }
 
 ///|
@@ -786,7 +789,13 @@ pub fn GlyphCache::new(
     atlas_reset_count: 0,
     atlas_overflow_count: 0,
     frame: 0,
+    generation: 0,
   }
+}
+
+///|
+pub fn GlyphCache::generation(self : GlyphCache) -> Int {
+  self.generation
 }
 
 ///|
@@ -800,6 +809,7 @@ pub fn GlyphCache::begin_frame(self : GlyphCache, frame : Int) -> Unit {
 // from their retained CPU bitmaps.
 fn GlyphCache::compact(self : GlyphCache) -> Unit raise @tycho.RhiError {
   self.atlas_reset_count = self.atlas_reset_count + 1
+  self.generation = self.generation + 1
   self.atlas.reset()
   let survivors : Array[(String, GlyphEntry, GlyphBitmap)] = []
   for k, e in self.entries {
@@ -944,6 +954,31 @@ pub fn GlyphCache::get_or_rasterize(
     }
   }
   entry
+}
+
+///|
+// Allocate an R8 coverage bitmap in the shared glyph atlas and return its UV
+// rect. The bitmap is not retained: callers re-rasterize when the atlas
+// generation changes.
+pub fn GlyphCache::alloc_coverage(
+  self : GlyphCache,
+  w : Int,
+  h : Int,
+  pixels : Bytes,
+) -> (Float, Float, Float, Float)? raise @tycho.RhiError {
+  if w <= 0 || h <= 0 || w + 2 > self.atlas.width || h + 2 > self.atlas.height {
+    return None
+  }
+  match self.atlas.alloc_and_upload(w, h, pixels, padding=1) {
+    Some((tx, ty)) => Some(self.atlas.uv_rect(tx, ty, w, h))
+    None => {
+      self.compact()
+      match self.atlas.alloc_and_upload(w, h, pixels, padding=1) {
+        Some((tx, ty)) => Some(self.atlas.uv_rect(tx, ty, w, h))
+        None => None
+      }
+    }
+  }
 }
 
 ///|

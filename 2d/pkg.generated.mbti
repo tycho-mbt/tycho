@@ -10,6 +10,8 @@ import {
 // Values
 pub fn flatten_path_contours(Path, Matrix3, tolerance? : Float) -> Array[(Array[Point], Bool)]
 
+pub fn rasterize_coverage(Path, Matrix3, fill_rule? : FillRule?, tolerance? : Float, max_area? : Int32) -> CoverageBitmap?
+
 pub fn tessellate_fill_fan(Path, Matrix3, tolerance? : Float) -> (Array[Float], Rect)
 
 pub fn tessellate_stroke(Path, Matrix3, Float, StrokeCap, StrokeJoin, Float, tolerance? : Float) -> Array[Float]
@@ -95,6 +97,14 @@ pub fn Color::transparent() -> Self
 pub fn Color::white() -> Self
 pub fn Color::with_alpha(Self, Float) -> Self
 
+pub(all) struct CoverageBitmap {
+  width : Int32
+  height : Int32
+  origin_x : Int32
+  origin_y : Int32
+  pixels : Bytes
+}
+
 pub struct DisplayList {
   ops : FixedArray[DrawOp]
   bounds : Rect
@@ -158,12 +168,14 @@ pub struct GlyphCache {
   atlas : DynamicAtlas
   // private fields
 }
+pub fn GlyphCache::alloc_coverage(Self, Int32, Int32, Bytes) -> (Float, Float, Float, Float)? raise @tycho.RhiError
 pub fn GlyphCache::atlas_overflow_count(Self) -> Int32
 pub fn GlyphCache::atlas_reset_count(Self) -> Int32
 pub fn GlyphCache::atlas_size(Self) -> (Int32, Int32)
 pub fn GlyphCache::begin_frame(Self, Int32) -> Unit
 pub fn GlyphCache::destroy(Self) -> Unit
 pub fn GlyphCache::entry_count(Self) -> Int32
+pub fn GlyphCache::generation(Self) -> Int32
 pub fn GlyphCache::get_or_rasterize(Self, FontFace, Int32, Float) -> GlyphEntry raise @tycho.RhiError
 pub fn GlyphCache::new(@tycho.Device, width? : Int32, height? : Int32) -> Self raise @tycho.RhiError
 
@@ -415,6 +427,8 @@ pub(all) struct RenderStats {
   image_entries : Int32
   atlas_resets : Int32
   atlas_overflows : Int32
+  coverage_draws : Int32
+  coverage_entries : Int32
 }
 pub fn RenderStats::summary(Self) -> String
 pub fn RenderStats::to_json(Self) -> String

@@ -27,6 +27,27 @@ priv struct RenderSaveState {
 }
 
 ///|
+// A CPU-rasterized coverage bitmap cached in the shared R8 atlas. UVs are
+// invalidated when the atlas generation changes (compaction/reset).
+priv struct CachedCoverage {
+  aq : Int
+  bq : Int
+  cq : Int
+  dq : Int
+  txq : Int
+  tyq : Int
+  rule : Int
+  u0 : Float
+  v0 : Float
+  u1 : Float
+  v1 : Float
+  x : Int
+  y : Int
+  w : Int
+  h : Int
+  mut last_frame : Int
+}
+
 // One cached tessellation of a path for a specific (quantized) transform and
 // paint variant. `wq == -1` means fill; otherwise it is the stroke width in
 // 1/16 px, paired with cap/join/miter codes.
@@ -79,6 +100,8 @@ pub(all) struct RenderStats {
   image_entries : Int
   atlas_resets : Int
   atlas_overflows : Int
+  coverage_draws : Int
+  coverage_entries : Int
 }
 
 ///|
@@ -147,6 +170,10 @@ pub struct Renderer2D {
   priv path_scratch : FixedArray[Float]
   priv path_cache : Map[Int, Array[CachedPathMesh]]
   priv mut path_cache_count : Int
+  priv coverage_cache : Map[Int, Array[CachedCoverage]]
+  priv mut coverage_count : Int
+  priv mut coverage_generation : Int
+  priv mut coverage_draws : Int
   priv path_batch : Array[PendingPath]
   priv mut path_batch_bounds : Rect?
   priv mut path_batch_count : Int
@@ -630,6 +657,10 @@ pub fn Renderer2D::new(
     path_scratch: FixedArray::make(max_path_verts_per_frame * PATH_VERT_FLOATS, (0.0 : Float)),
     path_cache: {},
     path_cache_count: 0,
+    coverage_cache: {},
+    coverage_count: 0,
+    coverage_generation: 0,
+    coverage_draws: 0,
     path_batch: [],
     path_batch_bounds: None,
     path_batch_count: 0,
@@ -1318,18 +1349,20 @@ pub fn Renderer2D::stats(self : Renderer2D) -> RenderStats {
     image_entries: self.uploaded_images.length() + self.image_tex.length(),
     atlas_resets: self.glyph_cache.atlas_reset_count(),
     atlas_overflows: self.glyph_cache.atlas_overflow_count(),
+    coverage_draws: self.coverage_draws,
+    coverage_entries: self.coverage_count,
   }
 }
 
 ///|
 // Compact single-line summary suitable for a debug/performance overlay.
 pub fn RenderStats::summary(self : RenderStats) -> String {
-  "draws \{self.draw_calls} | passes \{self.path_passes} | prims \{self.prims} | uploads \{self.upload_bytes}B | glyphs \{self.glyph_entries} | atlas resets \{self.atlas_resets}/\{self.atlas_overflows}"
+  "draws \{self.draw_calls} | passes \{self.path_passes} | prims \{self.prims} | coverage \{self.coverage_draws} | uploads \{self.upload_bytes}B | glyphs \{self.glyph_entries} | atlas resets \{self.atlas_resets}/\{self.atlas_overflows}"
 }
 
 ///|
 pub fn RenderStats::to_json(self : RenderStats) -> String {
-  "{\"draws\":\{self.draw_calls},\"path_passes\":\{self.path_passes},\"prims\":\{self.prims},\"uploads\":\{self.upload_bytes},\"glyphs\":\{self.glyph_entries},\"atlas_images\":\{self.image_entries},\"atlas_resets\":\{self.atlas_resets},\"atlas_overflows\":\{self.atlas_overflows}}"
+  "{\"draws\":\{self.draw_calls},\"path_passes\":\{self.path_passes},\"prims\":\{self.prims},\"uploads\":\{self.upload_bytes},\"glyphs\":\{self.glyph_entries},\"atlas_images\":\{self.image_entries},\"atlas_resets\":\{self.atlas_resets},\"atlas_overflows\":\{self.atlas_overflows},\"coverage_draws\":\{self.coverage_draws},\"coverage_entries\":\{self.coverage_entries}}"
 }
 
 ///|
@@ -1876,6 +1909,177 @@ fn Renderer2D::draw_path_raw(
 }
 
 ///|
+fn Renderer2D::evict_oldest_coverage(self : Renderer2D) -> Unit {
+  let mut oldest_pid = 0
+  let mut oldest_idx = -1
+  let mut oldest_frame = self.frame_idx + 1
+  for pid, arr in self.coverage_cache {
+    for i = 0; i < arr.length(); i = i + 1 {
+      if arr[i].last_frame < oldest_frame {
+        oldest_frame = arr[i].last_frame
+        oldest_pid = pid
+        oldest_idx = i
+      }
+    }
+  }
+  if oldest_idx < 0 {
+    return
+  }
+  match self.coverage_cache.get(oldest_pid) {
+    Some(arr) => {
+      let _ = arr.remove(oldest_idx)
+      if arr.length() == 0 {
+        let _ = self.coverage_cache.remove(oldest_pid)
+      }
+      self.coverage_count = self.coverage_count - 1
+    }
+    None => ()
+  }
+}
+
+///|
+fn Renderer2D::coverage_for(
+  self : Renderer2D,
+  path : Path,
+  xf : Matrix3,
+) -> CachedCoverage? raise @tycho.RhiError {
+  let gen = self.glyph_cache.generation()
+  if gen != self.coverage_generation {
+    self.coverage_cache.clear()
+    self.coverage_count = 0
+    self.coverage_generation = gen
+  }
+  let pid = path.id().to_int()
+  let aq = (xf.a * (16.0 : Float)).to_int()
+  let bq = (xf.b * (16.0 : Float)).to_int()
+  let cq = (xf.c * (16.0 : Float)).to_int()
+  let dq = (xf.d * (16.0 : Float)).to_int()
+  let txq = (xf.tx * (16.0 : Float)).to_int()
+  let tyq = (xf.ty * (16.0 : Float)).to_int()
+  let rule = match path.fill_rule() {
+    FillRule::NonZero => 0
+    FillRule::EvenOdd => 1
+  }
+  let arr = match self.coverage_cache.get(pid) {
+    Some(a) => a
+    None => []
+  }
+  let mut hit : CachedCoverage? = None
+  for e in arr {
+    if e.aq == aq &&
+      e.bq == bq &&
+      e.cq == cq &&
+      e.dq == dq &&
+      e.txq == txq &&
+      e.tyq == tyq &&
+      e.rule == rule {
+      e.last_frame = self.frame_idx
+      hit = Some(e)
+    }
+  }
+  match hit {
+    Some(e) => return Some(e)
+    None => ()
+  }
+  let bmp = match rasterize_coverage(path, xf) {
+    Some(b) => b
+    None => return None
+  }
+  if self.coverage_count >= 128 {
+    self.evict_oldest_coverage()
+  }
+  let (u0, v0, u1, v1) = match self.glyph_cache.alloc_coverage(
+    bmp.width,
+    bmp.height,
+    bmp.pixels,
+  ) {
+    Some(uv) => uv
+    None => return None
+  }
+  let gen2 = self.glyph_cache.generation()
+  if gen2 != self.coverage_generation {
+    self.coverage_cache.clear()
+    self.coverage_count = 0
+    self.coverage_generation = gen2
+  }
+  let e : CachedCoverage = {
+    aq,
+    bq,
+    cq,
+    dq,
+    txq,
+    tyq,
+    rule,
+    u0,
+    v0,
+    u1,
+    v1,
+    x: bmp.origin_x,
+    y: bmp.origin_y,
+    w: bmp.width,
+    h: bmp.height,
+    last_frame: self.frame_idx,
+  }
+  arr.push(e)
+  self.coverage_cache[pid] = arr
+  self.coverage_count = self.coverage_count + 1
+  Some(e)
+}
+
+///|
+// Draw a solid fill through the CPU coverage atlas. Returns false when the
+// path is too large or could not be allocated (caller falls back to MSAA).
+fn Renderer2D::try_draw_coverage(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+  path : Path,
+  paint : Paint,
+) -> Bool raise @tycho.RhiError {
+  if path.is_empty() {
+    return false
+  }
+  let e = match self.coverage_for(path, self.cur_transform) {
+    Some(e) => e
+    None => return false
+  }
+  self.coverage_draws = self.coverage_draws + 1
+  let saved = self.cur_transform
+  self.cur_transform = Matrix3::identity()
+  self.set_blend(cmd, paint.blend_mode)
+  self.emit_prim(
+    cmd,
+    Float::from_int(e.x),
+    Float::from_int(e.y),
+    Float::from_int(e.w),
+    Float::from_int(e.h),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    paint.color,
+    Color::transparent(),
+    e.u0,
+    e.v0,
+    e.u1,
+    e.v1,
+    (0.0 : Float),
+    (-1.5 : Float),
+    (6.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+    (0.0 : Float),
+  )
+  self.cur_transform = saved
+  true
+}
+
+///|
 fn Renderer2D::draw_path_gpu(
   self : Renderer2D,
   cmd : @tycho.CommandBuffer,
@@ -2396,6 +2600,19 @@ fn Renderer2D::queue_path(
   path : Path,
   paint : Paint,
 ) -> Unit raise @tycho.RhiError {
+  // Solid antialiased fills go through the CPU coverage atlas first; MSAA
+  // remains the fallback for large paths, gradients, and filters.
+  let solid_fill = paint.style == PaintStyle::Fill &&
+    (match paint.shader {
+      None => true
+      _ => false
+    })
+  if solid_fill && paint.anti_alias {
+    self.flush_path_batch(cmd)
+    if self.try_draw_coverage(cmd, path, paint) {
+      return
+    }
+  }
   let no_filter = match paint.image_filter {
     None => true
     Some(_) => false
@@ -3413,6 +3630,7 @@ fn Renderer2D::reset_frame_state(
   self.prim_draw_count = 0
   self.prim_total = 0
   self.upload_bytes = 0
+  self.coverage_draws = 0
   self.active_prim_ssbo = self.prim_ssbo
   self.active_prim_slot_base = self.slot_prim_base()
   self.active_prim_chunk = 0

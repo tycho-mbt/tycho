@@ -322,7 +322,10 @@ fn main {
     renderer.render_offscreen(dl, rt, clear_color=@g2d.Color::from_rgba8(14, 18, 30))
     let path_batches = renderer.path_batch_count()
     let st = renderer.stats()
-    let stats_ok = st.draw_calls > 0 && st.upload_bytes > 0 && st.glyph_entries > 0
+    let stats_ok = st.draw_calls > 0 &&
+      st.upload_bytes > 0 &&
+      st.glyph_entries > 0 &&
+      st.coverage_draws > 0
 
     let px = rt.readback()
     if shot != "" {
@@ -571,7 +574,7 @@ fn main {
     dev.destroy()
 
     if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && blend2d_ok && alpha_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
-      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus/Darken/Lighten blend + premultiplied images + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries}), 0 validation errors")
+      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus/Darken/Lighten blend + premultiplied images + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries} coverage=\{st.coverage_draws}), 0 validation errors")
     } else {
       println(
         "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) blend2d=\{blend2d_ok} alpha=\{alpha_ok}(\{apx[ai]},\{apx[ai + 3]}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
