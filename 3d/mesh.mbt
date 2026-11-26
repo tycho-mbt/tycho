@@ -1,9 +1,9 @@
-// GPU residency for `@tgeo.MeshData`.
+// GPU-side range description for `@tgeo.MeshData`.
 //
-// The canonical vertex stream is interleaved position(3) + normal(3) + uv(2) +
-// tangent(4), 48 bytes per vertex, which matches the AOT pipeline's single
-// vertex binding. Tangents are generated on upload when the mesh lacks them,
-// so normal mapping works for every geometry primitive.
+// Every mesh lives in the renderer's shared vertex / index arenas (static batch
+// cache), so a mesh is just a range plus its CPU copy for picking. Drawing only
+// needs `first_index` / `first_vertex`, which lets all batches share one
+// vertex/index binding and one indirect draw call.
 
 ///|
 pub const MESH_VERTEX_FLOATS : Int = 12
@@ -13,11 +13,10 @@ pub const MESH_VERTEX_BYTES : Int = 48
 
 ///|
 pub struct GpuMesh {
-  priv vbuf : @tycho.Buffer
-  priv ibuf : @tycho.Buffer
-  priv index_type : @tycho.IndexType
-  priv index_count : Int
+  priv first_vertex : Int
   priv vertex_count : Int
+  priv first_index : Int
+  priv index_count : Int
   bounds : @tmath.Aabb3
   groups : Array[@tgeo.MeshGroup]
   // CPU copy kept for picking; dropped when an acceleration structure lands.
@@ -30,10 +29,9 @@ fn f_of_int(i : Int) -> Float {
 }
 
 ///|
-pub fn GpuMesh::upload(dev : @tycho.Device, mesh : @tgeo.MeshData) -> GpuMesh raise {
-  if !mesh.has_tangents() {
-    mesh.compute_tangents()
-  }
+/// Interleaved position(3) + normal(3) + uv(2) + tangent(4) floats. Tangents
+/// must already be generated.
+pub fn mesh_vertex_floats(mesh : @tgeo.MeshData) -> FixedArray[Float] {
   let n = mesh.vertex_count()
   let floats = FixedArray::make(n * MESH_VERTEX_FLOATS, (0.0 : Float))
   for i = 0; i < n; i = i + 1 {
@@ -58,38 +56,20 @@ pub fn GpuMesh::upload(dev : @tycho.Device, mesh : @tgeo.MeshData) -> GpuMesh ra
     floats[o + 10] = tg.z
     floats[o + 11] = tg.w
   }
-  let use_u16 = n <= 65536
-  let ic = mesh.index_count()
-  let vbuf = dev.create_buffer_with(
-    if n == 0 { 4 } else { n * MESH_VERTEX_BYTES },
-    @tycho.BufferKind::Vertex,
-    location=@tycho.MemoryLocation::GpuOnly,
-  )
-  if n > 0 {
-    vbuf.upload_floats(floats)
-  }
-  let ibuf = dev.create_buffer_with(
-    if ic == 0 { 4 } else if use_u16 { ic * 2 } else { ic * 4 },
-    @tycho.BufferKind::Index,
-    location=@tycho.MemoryLocation::GpuOnly,
-  )
-  if ic > 0 {
-    if use_u16 {
-      let idx : FixedArray[UInt16] = FixedArray::make(ic, (0 : UInt16))
-      for i = 0; i < ic; i = i + 1 {
-        idx[i] = mesh.indices[i].to_uint16()
-      }
-      ibuf.upload_uint16(idx)
-    } else {
-      ibuf.upload_uint32(mesh.indices)
-    }
-  }
+  floats
+}
+
+///|
+pub fn GpuMesh::range(
+  mesh : @tgeo.MeshData,
+  first_vertex : Int,
+  first_index : Int,
+) -> GpuMesh {
   {
-    vbuf,
-    ibuf,
-    index_type: if use_u16 { @tycho.IndexType::Uint16 } else { @tycho.IndexType::Uint32 },
-    index_count: ic,
-    vertex_count: n,
+    first_vertex,
+    vertex_count: mesh.vertex_count(),
+    first_index,
+    index_count: mesh.index_count(),
     bounds: mesh.bounds(),
     groups: mesh.groups,
     cpu: mesh,
@@ -97,16 +77,13 @@ pub fn GpuMesh::upload(dev : @tycho.Device, mesh : @tgeo.MeshData) -> GpuMesh ra
 }
 
 ///|
-pub fn GpuMesh::bind(self : GpuMesh, cmd : @tycho.CommandBuffer) -> Unit {
-  cmd.bind_vertex(0, self.vbuf)
-  cmd.bind_index(self.ibuf, self.index_type)
+pub fn GpuMesh::first_vertex(self : GpuMesh) -> Int {
+  self.first_vertex
 }
 
 ///|
-pub fn GpuMesh::draw(self : GpuMesh, cmd : @tycho.CommandBuffer) -> Unit {
-  if self.index_count > 0 {
-    cmd.draw_indexed(self.index_count)
-  }
+pub fn GpuMesh::first_index(self : GpuMesh) -> Int {
+  self.first_index
 }
 
 ///|
@@ -128,10 +105,4 @@ pub fn GpuMesh::mesh(self : GpuMesh) -> @tgeo.MeshData {
 ///|
 pub fn GpuMesh::bounds(self : GpuMesh) -> @tmath.Aabb3 {
   self.bounds
-}
-
-///|
-pub fn GpuMesh::destroy(self : GpuMesh) -> Unit {
-  self.vbuf.destroy()
-  self.ibuf.destroy()
 }

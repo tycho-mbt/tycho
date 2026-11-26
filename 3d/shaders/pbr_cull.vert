@@ -18,28 +18,23 @@ layout(binding = 0) uniform FrameUBO {
 struct ObjectGpu {
     mat4 model;
     mat4 normalMat;
-    float c0;
-    float c1;
-    float c2;
-    float radius;
+    vec4 bounds; // xyz local centre, w radius
+    vec4 extra;  // x material index
 };
 layout(std430, binding = 1) readonly buffer ObjectBuf { ObjectGpu objects[]; };
 layout(std430, binding = 8) readonly buffer VisBuf { uint visible[]; };
-
-layout(push_constant) uniform PC {
-    vec4 params; // firstObject, materialIndex, listOffset, unused
-} pc;
 
 layout(location = 0) out vec3 vWorldPos;
 layout(location = 1) out vec3 vNormal;
 layout(location = 2) out vec2 vUV;
 layout(location = 3) out vec4 vTangent;
+layout(location = 4) flat out float vMaterial;
 
 void main() {
-    uint first = uint(pc.params.x + 0.5);
-    uint list_offset = uint(pc.params.z + 0.5);
-    uint inst = visible[list_offset + uint(gl_InstanceIndex)];
-    ObjectGpu o = objects[first + inst];
+    // firstInstance is the batch's list offset; the compute pass stores global
+    // object indices there, so one push-constant-free shader serves every batch.
+    ObjectGpu o = objects[visible[gl_InstanceIndex]];
+    vMaterial = o.extra.x;
     vec4 wp = o.model * vec4(inPos, 1.0);
     vWorldPos = wp.xyz;
     vNormal = mat3(o.normalMat) * inNormal;

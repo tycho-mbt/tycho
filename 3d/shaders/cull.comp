@@ -6,10 +6,8 @@ layout(local_size_x = 64) in;
 struct ObjectGpu {
     mat4 model;
     mat4 normalMat;
-    float c0;
-    float c1;
-    float c2;
-    float radius;
+    vec4 bounds; // xyz local centre, w radius
+    vec4 extra;  // x material index
 };
 layout(std430, binding = 0) readonly buffer Obj { ObjectGpu objects[]; };
 layout(std430, binding = 1) writeonly buffer Vis { uint visible[]; };
@@ -38,10 +36,10 @@ void main() {
         return;
     }
     ObjectGpu o = objects[first + i];
-    vec3 c = (o.model * vec4(o.c0, o.c1, o.c2, 1.0)).xyz;
+    vec3 c = (o.model * vec4(o.bounds.xyz, 1.0)).xyz;
     float scale = max(max(length(o.model[0].xyz), length(o.model[1].xyz)),
                       length(o.model[2].xyz));
-    float r = o.radius * scale;
+    float r = o.bounds.w * scale;
     for (int p = 0; p < 6; ++p) {
         vec4 pl = pc.planes[p];
         if (dot(pl.xyz, c) + pl.w < -r) {
@@ -49,5 +47,6 @@ void main() {
         }
     }
     uint slot = atomicAdd(cmds[cmd_index].instanceCount, 1u);
-    visible[list_offset + slot] = i;
+    // Store the global object index so the vertex shader needs no push constant.
+    visible[list_offset + slot] = first + i;
 }

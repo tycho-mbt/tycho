@@ -38,6 +38,8 @@ pub fn load_gltf_animations(@tycho_geometry.GltfScene, Array[NodeId?]) -> Array[
 
 pub fn load_gltf_with_nodes(Renderer3D, Scene, @tycho_geometry.GltfScene, parent? : NodeId?) -> Array[NodeId?] raise
 
+pub fn mesh_vertex_floats(@tycho_geometry.MeshData) -> FixedArray[Float]
+
 pub fn procedural_environment_cubemap(@tycho.Device, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> @tycho.Texture raise
 
 pub fn ray_mesh_hit(@tycho_math.Ray, @tycho_geometry.MeshData, @tycho_math.Affine3) -> MeshHit?
@@ -125,13 +127,12 @@ pub struct GpuMesh {
   cpu : @tycho_geometry.MeshData
   // private fields
 }
-pub fn GpuMesh::bind(Self, @tycho.CommandBuffer) -> Unit
 pub fn GpuMesh::bounds(Self) -> @tycho_math.Aabb3
-pub fn GpuMesh::destroy(Self) -> Unit
-pub fn GpuMesh::draw(Self, @tycho.CommandBuffer) -> Unit
+pub fn GpuMesh::first_index(Self) -> Int32
+pub fn GpuMesh::first_vertex(Self) -> Int32
 pub fn GpuMesh::index_count(Self) -> Int32
 pub fn GpuMesh::mesh(Self) -> @tycho_geometry.MeshData
-pub fn GpuMesh::upload(@tycho.Device, @tycho_geometry.MeshData) -> Self raise
+pub fn GpuMesh::range(@tycho_geometry.MeshData, Int32, Int32) -> Self
 pub fn GpuMesh::vertex_count(Self) -> Int32
 
 pub(all) struct HdrImage {

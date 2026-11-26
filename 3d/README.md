@@ -45,6 +45,11 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   mip, read back and uploaded via `create_cubemap_mipmapped`); 512^2 with 256
   samples is supported, and PBR samples
   `textureLod(uEnv, R, roughness * maxLod)` with no `pow(2.2)` approximation.
+- Static batch cache: every mesh lives in a shared vertex/index arena, so a
+  draw is just a range. Opaque batches upload one indirect command each and a
+  single `draw_indexed_indirect_count` issues them all (compute culling fills
+  instance counts); the non-bindless fallback keeps per-batch draws because it
+  rebinds material textures.
 - Automatic instancing: visible mesh nodes are grouped by `(mesh, material)`
   and each run is drawn with `draw_indexed(..., instances=n)`. Shaders index
   the object SSBO as `firstObject + gl_InstanceIndex`, so 10k nodes collapse

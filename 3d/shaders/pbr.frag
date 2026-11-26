@@ -41,12 +41,11 @@ layout(binding = 8) uniform sampler2D uAlbedoMap;
 layout(binding = 9) uniform sampler2D uNormalMap;
 #endif
 
-layout(push_constant) uniform PC { vec4 params; } pc;
-
 layout(location = 0) in vec3 vWorldPos;
 layout(location = 1) in vec3 vNormal;
 layout(location = 2) in vec2 vUV;
 layout(location = 3) in vec4 vTangent;
+layout(location = 4) flat in float vMaterial;
 layout(location = 0) out vec4 outHDR;
 
 vec4 sample_albedo_map(MaterialGpu m, vec2 uv) {
@@ -132,7 +131,7 @@ vec3 direct_brdf(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float metal
 }
 
 void main() {
-    MaterialGpu m = materials[int(pc.params.y + 0.5)];
+    MaterialGpu m = materials[int(vMaterial + 0.5)];
     int flags = int(m.params.w + 0.5);
     bool hasAlbedo = (flags & 2) != 0;
     bool hasNormal = (flags & 4) != 0;

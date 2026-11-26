@@ -15,24 +15,15 @@ layout(binding = 0) uniform FrameUBO {
 struct ObjectGpu {
     mat4 model;
     mat4 normalMat;
-    float material;
-    float pad0;
-    float pad1;
-    float pad2;
+    vec4 bounds; // xyz local centre, w radius
+    vec4 extra;  // x material index
 };
 layout(std430, binding = 1) readonly buffer ObjectBuf { ObjectGpu objects[]; };
 
-// Two floats carry the first-object index and the atlas tile; the matrix is
-// 16-byte aligned by the two extra floats, matching the CPU push layout.
-layout(push_constant) uniform PC {
-    float firstObject;
-    float tile;
-    float pad0;
-    float pad1;
-    mat4 lvp;
-} pc;
+layout(push_constant) uniform PC { mat4 lvp; } pc;
 
 void main() {
-    ObjectGpu o = objects[int(pc.firstObject + 0.5) + gl_InstanceIndex];
+    // firstInstance supplies the batch's object-record base.
+    ObjectGpu o = objects[gl_InstanceIndex];
     gl_Position = pc.lvp * o.model * vec4(inPos, 1.0);
 }

@@ -46,9 +46,9 @@ pub fn RendererDesc::with_shadows(self : RendererDesc, on : Bool) -> RendererDes
   { ..self, shadows: on }
 }
 
-const OBJECT_FLOATS : Int = 36
+const OBJECT_FLOATS : Int = 40
 
-const OBJECT_BYTES : Int = 144
+const OBJECT_BYTES : Int = 160
 
 const LIGHT_FLOATS : Int = 36
 
@@ -119,6 +119,12 @@ pub struct Renderer3D {
   priv desc : RendererDesc
   priv msaa : Bool
   priv meshes : Array[GpuMesh]
+  // Shared vertex/index arenas for the static batch cache.
+  priv mut vertex_arena : @tycho.Buffer
+  priv mut index_arena : @tycho.Buffer
+  priv arena_floats : Array[Float]
+  priv arena_indices : Array[UInt]
+  priv draw_count : @tycho.Buffer
   priv materials : Array[MaterialDesc]
   priv object_ring : @pool.FrameRing
   priv light_ring : @pool.FrameRing
@@ -554,6 +560,17 @@ pub fn Renderer3D::new(
   let mut pbr_cull_pipe : @tycho.Pipeline? = None
   let cull_vis : Array[@tycho.Buffer] = []
   let cull_cmds : Array[@tycho.Buffer] = []
+  // Indirect commands drive every solid draw (static batch cache), so these
+  // buffers exist whether or not GPU culling is enabled.
+  for i = 0; i < 2; i = i + 1 {
+    cull_cmds.push(
+      dev.create_buffer_with(
+        desc.max_objects * 20,
+        @tycho.BufferKind::Indirect,
+        location=@tycho.MemoryLocation::CpuToGpu,
+      ),
+    )
+  }
   if desc.gpu_culling && bindless_ok {
     cull_pipe = Some(dev.create_compute_pipeline_auto(spv_cull_comp))
     pbr_cull_pipe = Some(
@@ -579,13 +596,6 @@ pub fn Renderer3D::new(
         dev.create_buffer_with(
           desc.max_objects * 4,
           @tycho.BufferKind::Storage,
-          location=@tycho.MemoryLocation::CpuToGpu,
-        ),
-      )
-      cull_cmds.push(
-        dev.create_buffer_with(
-          desc.max_objects * 20,
-          @tycho.BufferKind::Indirect,
           location=@tycho.MemoryLocation::CpuToGpu,
         ),
       )
@@ -653,6 +663,23 @@ pub fn Renderer3D::new(
     desc,
     msaa: desc.msaa,
     meshes: [],
+    vertex_arena: dev.create_buffer_with(
+      4,
+      @tycho.BufferKind::Vertex,
+      location=@tycho.MemoryLocation::GpuOnly,
+    ),
+    index_arena: dev.create_buffer_with(
+      4,
+      @tycho.BufferKind::Index,
+      location=@tycho.MemoryLocation::GpuOnly,
+    ),
+    arena_floats: [],
+    arena_indices: [],
+    draw_count: dev.create_buffer_with(
+      4,
+      @tycho.BufferKind::Indirect,
+      location=@tycho.MemoryLocation::CpuToGpu,
+    ),
     materials: [],
     object_ring: @pool.FrameRing::new(dev, desc.max_objects * OBJECT_BYTES),
     light_ring: @pool.FrameRing::new(dev, desc.max_lights * LIGHT_BYTES),
@@ -724,9 +751,51 @@ pub fn Renderer3D::new(
 
 ///|
 pub fn Renderer3D::upload_mesh(self : Renderer3D, mesh : @tgeo.MeshData) -> MeshHandle raise {
-  let gpu = GpuMesh::upload(self.dev, mesh)
-  self.meshes.push(gpu)
+  if !mesh.has_tangents() {
+    mesh.compute_tangents()
+  }
+  let floats = mesh_vertex_floats(mesh)
+  let first_vertex = self.arena_floats.length() / MESH_VERTEX_FLOATS
+  for f in floats {
+    self.arena_floats.push(f)
+  }
+  let first_index = self.arena_indices.length()
+  for ix in mesh.indices {
+    self.arena_indices.push(ix)
+  }
+  self.meshes.push(GpuMesh::range(mesh, first_vertex, first_index))
+  self.rebuild_arenas()
   MeshHandle::from_id(self.meshes.length() - 1)
+}
+
+///|
+fn Renderer3D::rebuild_arenas(self : Renderer3D) -> Unit raise {
+  let vf = FixedArray::from_array(self.arena_floats)
+  let ix = FixedArray::from_array(self.arena_indices)
+  self.vertex_arena.destroy()
+  self.index_arena.destroy()
+  self.vertex_arena = self.dev.create_buffer_with(
+    if vf.length() == 0 { 4 } else { vf.length() * 4 },
+    @tycho.BufferKind::Vertex,
+    location=@tycho.MemoryLocation::GpuOnly,
+  )
+  if vf.length() > 0 {
+    self.vertex_arena.upload_floats(vf)
+  }
+  self.index_arena = self.dev.create_buffer_with(
+    if ix.length() == 0 { 4 } else { ix.length() * 4 },
+    @tycho.BufferKind::Index,
+    location=@tycho.MemoryLocation::GpuOnly,
+  )
+  if ix.length() > 0 {
+    self.index_arena.upload_uint32(ix)
+  }
+}
+
+///|
+fn Renderer3D::bind_arenas(self : Renderer3D, cmd : @tycho.CommandBuffer) -> Unit {
+  cmd.bind_vertex(0, self.vertex_arena)
+  cmd.bind_index(self.index_arena, @tycho.IndexType::Uint32)
 }
 
 ///|
@@ -935,6 +1004,10 @@ fn Renderer3D::pack_object(
   self.object_writer.push_float(c.y)
   self.object_writer.push_float(c.z)
   self.object_writer.push_float(b.half_extents().length())
+  self.object_writer.push_float(f_of_int(item.material))
+  self.object_writer.push_float(0.0)
+  self.object_writer.push_float(0.0)
+  self.object_writer.push_float(0.0)
 }
 
 ///|
@@ -992,16 +1065,8 @@ fn spot_shadow_vp(
 ///|
 /// Push constants for `shadow.vert`: two floats (object index, tile) plus the
 /// 16-byte-aligned light matrix, matching the shader's std430 block.
-fn shadow_pc_floats(
-  first : Int,
-  tile : Int,
-  vp : @tmath.Mat4,
-) -> FixedArray[Float] {
+fn shadow_pc_floats(vp : @tmath.Mat4) -> FixedArray[Float] {
   FixedArray::from_array([
-    f_of_int(first),
-    f_of_int(tile),
-    0.0,
-    0.0,
     vp.x_axis.x,
     vp.x_axis.y,
     vp.x_axis.z,
@@ -1277,7 +1342,7 @@ fn Renderer3D::render_frame(
   let targets = self.ensure_targets(w, h)
   let (light_nodes, shadow_dir) = self.collect_lights(scene)
   let frustum = @tmath.Frustum::from_view_proj(vp)
-  let gpu_cull_enabled = match self.cull_pipe {
+  let mut gpu_cull_enabled = match self.cull_pipe {
     Some(_) => self.gpu_culling
     None => false
   }
@@ -1421,14 +1486,23 @@ fn Renderer3D::render_frame(
   let mut cull_cmd_count = 0
   let mut cull_list_count = 0
   if gpu_cull_enabled {
+    let mut total = 0
     for b in solid_batches {
-      if b.count >= 16 && cull_list_count + b.count <= self.desc.max_objects &&
-        cull_cmd_count < self.desc.max_objects {
-        b.cull_cmd = cull_cmd_count
-        b.list_offset = cull_list_count
-        cull_list_count = cull_list_count + b.count
-        cull_cmd_count = cull_cmd_count + 1
-      }
+      total = total + b.count
+    }
+    // The visibility list is sized by max_objects; fall back to the CPU path
+    // for the whole frame if the batch instances do not fit.
+    if total > self.desc.max_objects {
+      gpu_cull_enabled = false
+    }
+  }
+  if gpu_cull_enabled {
+    for i = 0; i < solid_batches.length(); i = i + 1 {
+      let b = solid_batches[i]
+      b.cull_cmd = i
+      b.list_offset = cull_list_count
+      cull_list_count = cull_list_count + b.count
+      cull_cmd_count = cull_cmd_count + 1
     }
   }
   let object_count = records
@@ -1525,21 +1599,32 @@ fn Renderer3D::render_frame(
   self.stats.visible_nodes = solid.length() + transparent.length()
 
   // Shadow pass.
-  // GPU culling prepass: compute writes compacted lists and grows the
-  // indirect instance counts. Dispatches must stay outside a render pass.
-  if gpu_cull_enabled && cull_cmd_count > 0 {
-    let cmds = FixedArray::make(cull_cmd_count * 5, (0 : UInt))
-    for b in solid_batches {
-      if b.cull_cmd >= 0 {
-        let o = b.cull_cmd * 5
-        cmds[o] = self.meshes[b.mesh].index_count().reinterpret_as_uint()
-        cmds[o + 1] = 0
-        cmds[o + 2] = 0
-        cmds[o + 3] = 0
-        cmds[o + 4] = 0
-      }
+  // Static batch cache: every solid batch is one indirect command over the
+  // shared arenas. Culled batches start at instanceCount 0 and are filled by
+  // the compute pass below; CPU-resolved batches are ready as-is.
+  let batch_count = solid_batches.length()
+  if batch_count > 0 {
+    let cmds = FixedArray::make(batch_count * 5, (0 : UInt))
+    for i = 0; i < batch_count; i = i + 1 {
+      let b = solid_batches[i]
+      let mesh = self.meshes[b.mesh]
+      let culled = b.cull_cmd >= 0
+      cmds[i * 5] = mesh.index_count().reinterpret_as_uint()
+      cmds[i * 5 + 1] = if culled { 0 } else { b.count.reinterpret_as_uint() }
+      cmds[i * 5 + 2] = mesh.first_index().reinterpret_as_uint()
+      cmds[i * 5 + 3] = mesh.first_vertex().reinterpret_as_uint()
+      cmds[i * 5 + 4] = (if culled {
+        b.list_offset
+      } else {
+        b.first
+      }).reinterpret_as_uint()
     }
     self.cull_cmds[slot & 1].upload_uint32(cmds)
+    self.draw_count.upload_uint32(
+      FixedArray::make(1, batch_count.reinterpret_as_uint()),
+    )
+  }
+  if gpu_cull_enabled && cull_cmd_count > 0 {
     match self.cull_pipe {
       Some(pipe) => {
         cmd.bind_pipeline(pipe)
@@ -1607,6 +1692,7 @@ fn Renderer3D::render_frame(
     offset=object_offset,
     size=bind_objects_bytes(object_count),
   )
+  self.bind_arenas(cmd)
   let tile_size = self.desc.shadow_map_size
   for st in shadow_tiles {
     let tx = (st.tile % 2) * tile_size
@@ -1618,14 +1704,16 @@ fn Renderer3D::render_frame(
       f_of_int(tile_size),
     )
     cmd.set_scissor(tx, ty, tile_size, tile_size)
+    cmd.push_constants_floats(self.shadow_pipe, shadow_pc_floats(st.vp))
     for b in shadow_batches {
-      cmd.push_constants_floats(
-        self.shadow_pipe,
-        shadow_pc_floats(b.first, st.tile, st.vp),
-      )
       let mesh = self.meshes[b.mesh]
-      mesh.bind(cmd)
-      cmd.draw_indexed(mesh.index_count(), instances=b.count)
+      cmd.draw_indexed_full(
+        mesh.index_count(),
+        b.count,
+        mesh.first_index(),
+        mesh.first_vertex(),
+        b.first,
+      )
       self.stats.shadow_passes = self.stats.shadow_passes + 1
     }
   }
@@ -1672,124 +1760,87 @@ fn Renderer3D::render_frame(
   cmd.bind_texture(self.sky_pipe, 0, self.env_cube, self.env_sampler)
   cmd.draw(3, 1)
   if main_count > 0 {
-    cmd.bind_pipeline(self.pbr_pipe)
-    self.bind_material_heap(cmd, self.pbr_pipe)
+    self.bind_arenas(cmd)
+    let culling = cull_cmd_count > 0
+    let pipe = if culling {
+      match self.pbr_cull_pipe {
+        Some(p) => p
+        None => self.pbr_pipe
+      }
+    } else {
+      self.pbr_pipe
+    }
+    cmd.bind_pipeline(pipe)
+    self.bind_material_heap(cmd, pipe)
     cmd.bind_uniform(
-      self.pbr_pipe,
+      pipe,
       0,
       self.frame_ubo,
       offset=slot * FRAME_SLOT_BYTES,
       size=FRAME_BYTES,
     )
     cmd.bind_storage(
-      self.pbr_pipe,
+      pipe,
       0,
       self.object_ring.buffer(),
       offset=object_offset,
       size=bind_objects_bytes(object_count),
     )
     cmd.bind_storage(
-      self.pbr_pipe,
+      pipe,
       1,
       self.material_ssbo,
       offset=0,
       size=self.desc.max_materials * MATERIAL_BYTES,
     )
     cmd.bind_storage(
-      self.pbr_pipe,
+      pipe,
       2,
       self.light_ring.buffer(),
       offset=light_offset,
       size=bind_lights_bytes(light_count),
     )
-    cmd.bind_texture(self.pbr_pipe, 0, self.shadow_atlas, self.shadow_sampler)
-    cmd.bind_texture(self.pbr_pipe, 1, self.shadow_atlas, self.shadow_sampler)
-    cmd.bind_texture(self.pbr_pipe, 2, self.env_cube, self.env_sampler)
-    cmd.bind_texture(self.pbr_pipe, 3, self.brdf_lut, self.linear_sampler)
-    for b in solid_batches {
-      if b.cull_cmd < 0 {
-        cmd.push_constants_floats(
-          self.pbr_pipe,
-          [f_of_int(b.first), f_of_int(b.material), 0.0, 0.0],
-        )
-        self.bind_material_textures(cmd, self.pbr_pipe, b.material)
+    if culling {
+      cmd.bind_storage(
+        pipe,
+        3,
+        self.cull_vis[slot & 1],
+        offset=0,
+        size=self.desc.max_objects * 4,
+      )
+    }
+    cmd.bind_texture(pipe, 0, self.shadow_atlas, self.shadow_sampler)
+    cmd.bind_texture(pipe, 1, self.shadow_atlas, self.shadow_sampler)
+    cmd.bind_texture(pipe, 2, self.env_cube, self.env_sampler)
+    cmd.bind_texture(pipe, 3, self.brdf_lut, self.linear_sampler)
+    if self.bindless_ok {
+      cmd.draw_indexed_indirect_count(
+        self.cull_cmds[slot & 1],
+        self.draw_count,
+        batch_count,
+      )
+      self.stats.draw_calls = self.stats.draw_calls + 1
+    } else {
+      // The fallback binds albedo/normal per material, which a single
+      // multi-draw cannot express, so it keeps one draw per batch.
+      for b in solid_batches {
+        self.bind_material_textures(cmd, pipe, b.material)
         let mesh = self.meshes[b.mesh]
-        mesh.bind(cmd)
-        cmd.draw_indexed(mesh.index_count(), instances=b.count)
+        cmd.draw_indexed_full(
+          mesh.index_count(),
+          b.count,
+          mesh.first_index(),
+          mesh.first_vertex(),
+          b.first,
+        )
         self.stats.draw_calls = self.stats.draw_calls + 1
-        self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
-        if b.count > 1 {
-          self.stats.instance_batches = self.stats.instance_batches + 1
-        }
       }
     }
-    if cull_cmd_count > 0 {
-      match self.pbr_cull_pipe {
-        Some(pipe) => {
-          cmd.bind_pipeline(pipe)
-          self.bind_material_heap(cmd, pipe)
-          cmd.bind_uniform(
-            pipe,
-            0,
-            self.frame_ubo,
-            offset=slot * FRAME_SLOT_BYTES,
-            size=FRAME_BYTES,
-          )
-          cmd.bind_storage(
-            pipe,
-            0,
-            self.object_ring.buffer(),
-            offset=object_offset,
-            size=bind_objects_bytes(object_count),
-          )
-          cmd.bind_storage(
-            pipe,
-            1,
-            self.material_ssbo,
-            offset=0,
-            size=self.desc.max_materials * MATERIAL_BYTES,
-          )
-          cmd.bind_storage(
-            pipe,
-            2,
-            self.light_ring.buffer(),
-            offset=light_offset,
-            size=bind_lights_bytes(light_count),
-          )
-          cmd.bind_storage(
-            pipe,
-            3,
-            self.cull_vis[slot & 1],
-            offset=0,
-            size=self.desc.max_objects * 4,
-          )
-          cmd.bind_texture(pipe, 0, self.shadow_atlas, self.shadow_sampler)
-          cmd.bind_texture(pipe, 1, self.shadow_atlas, self.shadow_sampler)
-          cmd.bind_texture(pipe, 2, self.env_cube, self.env_sampler)
-          cmd.bind_texture(pipe, 3, self.brdf_lut, self.linear_sampler)
-          for b in solid_batches {
-            if b.cull_cmd >= 0 {
-              cmd.push_constants_floats(
-                pipe,
-                [f_of_int(b.first), f_of_int(b.material), f_of_int(b.list_offset), 0.0],
-              )
-              let mesh = self.meshes[b.mesh]
-              mesh.bind(cmd)
-              cmd.draw_indexed_indirect(
-                self.cull_cmds[slot & 1],
-                1,
-                offset=b.cull_cmd * 20,
-                stride=20,
-              )
-              self.stats.draw_calls = self.stats.draw_calls + 1
-              self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
-              if b.count > 1 {
-                self.stats.instance_batches = self.stats.instance_batches + 1
-              }
-            }
-          }
-        }
-        None => ()
+    for b in solid_batches {
+      let mesh = self.meshes[b.mesh]
+      self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
+      if b.count > 1 {
+        self.stats.instance_batches = self.stats.instance_batches + 1
       }
     }
     if transparent.length() > 0 {
@@ -1828,14 +1879,15 @@ fn Renderer3D::render_frame(
       cmd.bind_texture(self.pbr_blend_pipe, 2, self.env_cube, self.env_sampler)
       cmd.bind_texture(self.pbr_blend_pipe, 3, self.brdf_lut, self.linear_sampler)
       for b in transparent_batches {
-        cmd.push_constants_floats(
-          self.pbr_blend_pipe,
-          [f_of_int(b.first), f_of_int(b.material), 0.0, 0.0],
-        )
         self.bind_material_textures(cmd, self.pbr_blend_pipe, b.material)
         let mesh = self.meshes[b.mesh]
-        mesh.bind(cmd)
-        cmd.draw_indexed(mesh.index_count(), instances=b.count)
+        cmd.draw_indexed_full(
+          mesh.index_count(),
+          b.count,
+          mesh.first_index(),
+          mesh.first_vertex(),
+          b.first,
+        )
         self.stats.draw_calls = self.stats.draw_calls + 1
         self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
       }
@@ -2070,9 +2122,9 @@ pub fn Renderer3D::stats(self : Renderer3D) -> RenderStats3D {
 
 ///|
 pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
-  for m in self.meshes {
-    m.destroy()
-  }
+  self.vertex_arena.destroy()
+  self.index_arena.destroy()
+  self.draw_count.destroy()
   match self.targets {
     Some(t) => Renderer3D::destroy_targets(t)
     None => ()
