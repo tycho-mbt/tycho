@@ -146,6 +146,7 @@ pub struct Renderer3D {
   priv skin_floats : Array[Float]
   priv skin_pipe : @tycho.Pipeline
   priv skin_blend_pipe : @tycho.Pipeline
+  priv shadow_skin_pipe : @tycho.Pipeline
   priv bone_ssbo : @tycho.Buffer
   priv bone_scratch : FixedArray[Float]
   priv mut bone_cursor : Int
@@ -591,6 +592,21 @@ pub fn Renderer3D::new(
       samples=samples,
     ),
   )
+  let shadow_skin_pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_shadow_skin_vert,
+      [],
+      depth_test=true,
+      depth_write=true,
+      depth_compare=@tycho.CompareOp::LessEqual,
+      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      depth_only=true,
+      depth_bias=true,
+      depth_bias_constant=(1.5 : Float),
+      depth_bias_slope=(1.75 : Float),
+      vertex_layouts=skin_layouts,
+    ),
+  )
   let sky_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_skybox_vert,
@@ -802,6 +818,7 @@ pub fn Renderer3D::new(
     env_intensity: 1.0,
     owns_env: true,
     shadow_pipe,
+    shadow_skin_pipe,
     pbr_pipe,
     skin_pipe,
     skin_blend_pipe,
@@ -1668,7 +1685,7 @@ fn Renderer3D::render_frame(
         count: 1,
         cull_cmd: -1,
         list_offset: 0,
-        skinned: false,
+        skinned: self.meshes[item.mesh].skinned(),
       })
     }
     records = records + 1
@@ -1863,6 +1880,16 @@ fn Renderer3D::render_frame(
     }
   }
 
+  let shadow_static : Array[DrawBatch] = []
+  let shadow_skinned : Array[DrawBatch] = []
+  for b in shadow_batches {
+    if b.skinned {
+      shadow_skinned.push(b)
+    } else {
+      shadow_static.push(b)
+    }
+  }
+
   // Single atlas pass: clear once, then each shadow light renders its casters
   // into its own tile through viewport/scissor.
   cmd.begin_render_pass(
@@ -1876,22 +1903,6 @@ fn Renderer3D::render_frame(
       ),
     ),
   )
-  cmd.bind_pipeline(self.shadow_pipe)
-  cmd.bind_uniform(
-    self.shadow_pipe,
-    0,
-    self.frame_ubo,
-    offset=slot * FRAME_SLOT_BYTES,
-    size=FRAME_BYTES,
-  )
-  cmd.bind_storage(
-    self.shadow_pipe,
-    0,
-    self.object_ring.buffer(),
-    offset=object_offset,
-    size=bind_objects_bytes(object_count),
-  )
-  self.bind_arenas(cmd)
   let tile_size = self.desc.shadow_map_size
   for st in shadow_tiles {
     let tx = (st.tile % 2) * tile_size
@@ -1903,17 +1914,72 @@ fn Renderer3D::render_frame(
       f_of_int(tile_size),
     )
     cmd.set_scissor(tx, ty, tile_size, tile_size)
-    cmd.push_constants_floats(self.shadow_pipe, shadow_pc_floats(st.vp))
-    for b in shadow_batches {
-      let mesh = self.meshes[b.mesh]
-      cmd.draw_indexed_full(
-        mesh.index_count(),
-        b.count,
-        mesh.first_index(),
-        mesh.first_vertex(),
-        b.first,
+    if shadow_static.length() > 0 {
+      cmd.bind_pipeline(self.shadow_pipe)
+      cmd.bind_uniform(
+        self.shadow_pipe,
+        0,
+        self.frame_ubo,
+        offset=slot * FRAME_SLOT_BYTES,
+        size=FRAME_BYTES,
       )
-      self.stats.shadow_passes = self.stats.shadow_passes + 1
+      cmd.bind_storage(
+        self.shadow_pipe,
+        0,
+        self.object_ring.buffer(),
+        offset=object_offset,
+        size=bind_objects_bytes(object_count),
+      )
+      self.bind_arenas(cmd)
+      cmd.push_constants_floats(self.shadow_pipe, shadow_pc_floats(st.vp))
+      for b in shadow_static {
+        let mesh = self.meshes[b.mesh]
+        cmd.draw_indexed_full(
+          mesh.index_count(),
+          b.count,
+          mesh.first_index(),
+          mesh.first_vertex(),
+          b.first,
+        )
+        self.stats.shadow_passes = self.stats.shadow_passes + 1
+      }
+    }
+    if shadow_skinned.length() > 0 && self.bone_cursor > 0 {
+      cmd.bind_pipeline(self.shadow_skin_pipe)
+      cmd.bind_uniform(
+        self.shadow_skin_pipe,
+        0,
+        self.frame_ubo,
+        offset=slot * FRAME_SLOT_BYTES,
+        size=FRAME_BYTES,
+      )
+      cmd.bind_storage(
+        self.shadow_skin_pipe,
+        0,
+        self.object_ring.buffer(),
+        offset=object_offset,
+        size=bind_objects_bytes(object_count),
+      )
+      cmd.bind_storage(
+        self.shadow_skin_pipe,
+        1,
+        self.bone_ssbo,
+        offset=0,
+        size=bind_bones_bytes(self.bone_cursor),
+      )
+      self.bind_skin_arenas(cmd)
+      cmd.push_constants_floats(self.shadow_skin_pipe, shadow_pc_floats(st.vp))
+      for b in shadow_skinned {
+        let mesh = self.meshes[b.mesh]
+        cmd.draw_indexed_full(
+          mesh.index_count(),
+          b.count,
+          mesh.first_index(),
+          mesh.first_vertex(),
+          b.first,
+        )
+        self.stats.shadow_passes = self.stats.shadow_passes + 1
+      }
     }
   }
   cmd.end_render_pass()
@@ -2438,6 +2504,7 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   self.pbr_pipe.destroy()
   self.skin_pipe.destroy()
   self.skin_blend_pipe.destroy()
+  self.shadow_skin_pipe.destroy()
   self.shadow_pipe.destroy()
   self.linear_sampler.destroy()
   self.env_sampler.destroy()
@@ -2474,11 +2541,10 @@ pub fn Renderer3D::create_skinned_node(
     name=name,
   )
   scene.set_local_bounds(node, self.mesh_bounds(mesh))
-  // No skinned shadow variant yet: keep the T-pose out of the shadow atlas.
   scene.set_payload(node, NodePayload::Mesh({
     mesh,
     material: mat,
-    cast_shadow: false,
+    cast_shadow: true,
     receive_shadow: true,
   }))
   self.skins.push({
