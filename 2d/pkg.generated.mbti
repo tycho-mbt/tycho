@@ -564,6 +564,7 @@ pub(all) enum TextAlign {
   Left
   Center
   Right
+  Justify
 }
 
 #derive(Eq, @debug.Debug)

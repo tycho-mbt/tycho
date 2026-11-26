@@ -6,6 +6,7 @@ pub(all) enum TextAlign {
   Left
   Center
   Right
+  Justify
 }
 
 ///|
@@ -115,6 +116,27 @@ fn is_cjk(cp : Int) -> Bool {
 }
 
 ///|
+// Kinsoku: closing punctuation may not start a line.
+fn is_no_start(cp : Int) -> Bool {
+  match cp {
+    0x3001 | 0x3002 | 0xFF0C | 0xFF1B | 0xFF1A | 0xFF01 | 0xFF1F |
+    0xFF09 | 0x300B | 0x3009 | 0x300D | 0x3011 | 0x3015 | 0x2026 |
+    0x201D | 0x2019 => true
+    _ => false
+  }
+}
+
+///|
+// Kinsoku: opening punctuation may not end a line.
+fn is_no_end(cp : Int) -> Bool {
+  match cp {
+    0xFF08 | 0x300A | 0x3008 | 0x300C | 0x3010 | 0x3014 | 0x201C |
+    0x2018 => true
+    _ => false
+  }
+}
+
+///|
 pub struct Paragraph {
   priv spans : Array[TextSpan]
   priv pstyle : ParagraphStyle
@@ -202,6 +224,11 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       let face = style_face(sp.style, cp)
       let adv = if is_nl {
         (0.0 : Float)
+      } else if cp == 9 {
+        // Tab: four spaces. A position-dependent tab stop needs line-break
+        // feedback; this keeps the char advance precomputable.
+        face.advance_width(32, sp.style.font_size) * (4.0 : Float) +
+        sp.style.letter_spacing
       } else {
         face.advance_width(cp, sp.style.font_size) + sp.style.letter_spacing
       }
@@ -236,8 +263,13 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       i = i + 1
       continue
     }
-    if c.is_space || is_cjk(c.cp) {
+    let prev_cp = if i > 0 { chars[i - 1].cp } else { -1 }
+    if c.is_space {
       last_break = i
+    } else if is_cjk(c.cp) {
+      if !is_no_start(c.cp) && !is_no_end(prev_cp) {
+        last_break = i
+      }
     }
     if cur_w + c.advance > mw && i > line_start {
       if last_break > line_start {
@@ -320,8 +352,36 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       }
     }
 
+    let is_justify = self.pstyle.align == TextAlign::Justify &&
+      li < limit - 1 &&
+      mw < (1.0e8 : Float) &&
+      end_idx > rs
+    let line_extra = if is_justify {
+      @tmath.max_f((0.0 : Float), mw - line_w)
+    } else {
+      (0.0 : Float)
+    }
+    let mut space_gaps = 0
+    for k = rs; k < end_idx; k = k + 1 {
+      if chars[k].is_space {
+        space_gaps = space_gaps + 1
+      }
+    }
+    let gap_count = if space_gaps > 0 {
+      space_gaps
+    } else if end_idx > rs {
+      end_idx - rs - 1
+    } else {
+      0
+    }
+    let gap_extra = if gap_count > 0 {
+      line_extra / Float::from_int(gap_count)
+    } else {
+      (0.0 : Float)
+    }
     let x_start = match self.pstyle.align {
       TextAlign::Left => (0.0 : Float)
+      TextAlign::Justify => (0.0 : Float)
       TextAlign::Center =>
         if mw < (1.0e8 : Float) { @tmath.max_f((0.0 : Float), (mw - line_w) * (0.5 : Float)) } else { (0.0 : Float) }
       TextAlign::Right =>
@@ -333,6 +393,9 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       let ch = chars[k]
       self.char_x[ch.char_index] = cx
       self.char_line[ch.char_index] = li
+      let add_gap = is_justify &&
+        k < end_idx - 1 &&
+        (if space_gaps > 0 { ch.is_space } else { true })
       if !ch.is_space && !ch.is_newline {
         self.glyphs.push({
           codepoint: ch.cp,
@@ -349,12 +412,12 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
         self.underlines.push((
           cx,
           baseline + (2.0 : Float),
-          ch.advance,
+          ch.advance + (if add_gap { gap_extra } else { (0.0 : Float) }),
           @tmath.max_f((1.0 : Float), ch.style.font_size * (0.07 : Float)),
           ch.style.color,
         ))
       }
-      cx = cx + ch.advance
+      cx = cx + ch.advance + (if add_gap { gap_extra } else { (0.0 : Float) })
     }
     if ell != "" && end_idx > rs {
       let est = chars[end_idx - 1].style
@@ -374,14 +437,15 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
         cx = cx + eadv
       }
     }
-    if line_w > max_w { max_w = line_w }
+    let reported_w = if is_justify { mw } else { line_w }
+    if reported_w > max_w { max_w = reported_w }
     self.lines.push({
       start_index: rs,
       end_index: end_idx,
       y: cur_y,
       height: max_h,
       baseline,
-      width: line_w,
+      width: reported_w,
     })
     cur_y = cur_y + max_h
   }

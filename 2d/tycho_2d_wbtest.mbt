@@ -477,3 +477,30 @@ test "CBDT color glyph parses and emoji fallback prefers color" {
     _ => ()
   }
 }
+
+///|
+test "justify, tab advance and kinsoku helpers" {
+  let p = ParagraphBuilder::new(
+    style=ParagraphStyle::new(align=TextAlign::Justify),
+  )
+    .add_text(
+      "one two three four five six",
+      style=TextStyle::new(font_size=(16.0 : Float)),
+    )
+    .build()
+  p.layout((80.0 : Float))
+  let lines = p.line_metrics()
+  assert_true(lines.length() > 1)
+  assert_true(@tmath.abs_f(lines[0].width - (80.0 : Float)) < (1.0 : Float))
+  assert_true(lines[lines.length() - 1].width < (80.0 : Float))
+  // Tab advances like four spaces.
+  let pt = ParagraphBuilder::new()
+    .add_text("A\tB", style=TextStyle::new(font_size=(16.0 : Float)))
+    .build()
+  pt.layout((1000.0 : Float))
+  let gs = pt.placed_glyphs()
+  assert_eq(gs.length(), 2)
+  assert_true(gs[1].x > gs[0].advance * (3.0 : Float))
+  assert_true(is_no_start(0xFF0C))
+  assert_true(is_no_end(0xFF08))
+}
