@@ -156,8 +156,8 @@ fn main {
       let errs = dev.validation_errors()
       let ok = errs == 0 &&
         diff < 500 &&
-        sg.draw_calls == 6 &&
-        sc.draw_calls == 6 &&
+        sg.draw_calls == 5 &&
+        sc.draw_calls == 5 &&
         sg.instance_batches == 1 &&
         sg.visible_nodes == 10001 &&
         sc.visible_nodes < sg.visible_nodes

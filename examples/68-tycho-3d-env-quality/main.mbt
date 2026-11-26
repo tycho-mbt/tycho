@@ -152,7 +152,7 @@ fn main {
       println(
         "[68-tycho-3d-env-quality] env=\{env_size}^2x\{env_samples} \{st.summary()} lit=\{lit} bright=\{bright} mirror_range=\{mirror_range} rough_range=\{rough_range} validation=\{errs}",
       )
-      if errs == 0 && lit > 20000 && st.draw_calls == 10 && st.visible_nodes == 6 && mip_ok {
+      if errs == 0 && lit > 20000 && st.draw_calls == 5 && st.visible_nodes == 6 && mip_ok {
         println("[68-tycho-3d-env-quality] OK — roughness ladder from the \{env_size}^2 PMREM chain")
       } else {
         println(

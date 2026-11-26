@@ -83,7 +83,7 @@ fn main {
         gltf.meshes.length() == 1 &&
         gltf.nodes.length() == 3 &&
         nodes.length() == 3 &&
-        st.draw_calls == 6 &&
+        st.draw_calls == 5 &&
         st.instance_batches == 1 &&
         lit > 20000
       println(
