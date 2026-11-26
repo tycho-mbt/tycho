@@ -967,3 +967,14 @@ test "avar normalization and HVAR advance" {
     }
   }
 }
+
+///|
+test "MSDF encoding is RGBA and alpha-opaque" {
+  let mask = Bytes::makei(8 * 8, fn(_i) { (255 : Byte) })
+  let (w, h, rgba) = build_msdf(8, 8, mask)
+  assert_true(w > 8 && h > 8)
+  assert_eq(rgba.length(), w * h * 4)
+  let mid = ((h / 2) * w + w / 2) * 4
+  assert_eq(rgba[mid + 3].to_int(), 255)
+  assert_true(rgba[mid].to_int() > rgba[0].to_int())
+}
