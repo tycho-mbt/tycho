@@ -13,7 +13,8 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   analytic sky ray matrix.
 - `Renderer3D`: forward PBR metallic-roughness with linear-space materials,
   directional/point/spot/ambient/hemisphere lights, one directional PCF shadow
-  map, GGX-prefiltered (PMREM) environment IBL, HDR `RGBA16F`, separable
+  map (two cascades: an inner half-radius fit at twice the density plus the
+  full caster union), GGX-prefiltered (PMREM) environment IBL, HDR `RGBA16F`, separable
   bloom, and ACES tonemapping into `RGBA8Srgb`.
 - `procedural_environment_cubemap(size=256, samples=128)`: linear sky baked
   into a full GGX mip chain by a GPU prefilter pass (one draw per face per

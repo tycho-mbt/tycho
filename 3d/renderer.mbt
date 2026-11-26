@@ -9,6 +9,7 @@ pub(all) struct RendererDesc {
   max_materials : Int
   max_textures : Int
   msaa : Bool
+  shadow_cascades : Int
   bloom : Bool
   shadows : Bool
   shadow_map_size : Int
@@ -25,6 +26,7 @@ pub fn RendererDesc::default() -> RendererDesc {
     bloom: true,
     shadows: true,
     shadow_map_size: 1024,
+    shadow_cascades: 2,
   }
 }
 
@@ -40,11 +42,11 @@ const MATERIAL_FLOATS : Int = 16
 
 const MATERIAL_BYTES : Int = 64
 
-const FRAME_FLOATS : Int = 40
+const FRAME_FLOATS : Int = 60
 
-const FRAME_BYTES : Int = 160
+const FRAME_BYTES : Int = 240
 
-const FRAME_SLOT_BYTES : Int = 192
+const FRAME_SLOT_BYTES : Int = 256
 
 const SKY_FLOATS : Int = 20
 
@@ -102,7 +104,7 @@ pub struct Renderer3D {
   priv frame_ubo : @tycho.Buffer
   priv sky_ubo : @tycho.Buffer
   priv material_ssbo : @tycho.Buffer
-  priv shadow_map : @tycho.Texture
+  priv shadow_maps : Array[@tycho.Texture]
   priv shadow_sampler : @tycho.Sampler
   priv env_sampler : @tycho.Sampler
   priv linear_sampler : @tycho.Sampler
@@ -427,6 +429,17 @@ pub fn Renderer3D::new(
     ),
   )
   let env_cube = default_environment_cubemap(dev)
+  let shadow_maps : Array[@tycho.Texture] = []
+  let cascades = if desc.shadow_cascades < 1 { 1 } else { desc.shadow_cascades }
+  for i = 0; i < cascades; i = i + 1 {
+    shadow_maps.push(
+      dev.create_depth_texture_format(
+        desc.shadow_map_size,
+        desc.shadow_map_size,
+        @tycho.TextureFormat::Depth24Stencil8,
+      ),
+    )
+  }
   {
     dev,
     desc,
@@ -450,11 +463,7 @@ pub fn Renderer3D::new(
       @tycho.BufferKind::Storage,
       location=@tycho.MemoryLocation::CpuToGpu,
     ),
-    shadow_map: dev.create_depth_texture_format(
-      desc.shadow_map_size,
-      desc.shadow_map_size,
-      @tycho.TextureFormat::Depth24Stencil8,
-    ),
+    shadow_maps,
     shadow_sampler,
     env_sampler,
     linear_sampler,
@@ -1012,7 +1021,9 @@ fn Renderer3D::render_frame(
       }
     }
   }
-  let mut light_vp = @tmath.Mat4::identity()
+  let mut light_vp0 = @tmath.Mat4::identity()
+  let mut light_vp1 = @tmath.Mat4::identity()
+  let mut cascade_split : Float = 1.0e9
   let mut shadows_enabled = false
   match shadow_dir {
     Some(to_light) =>
@@ -1021,23 +1032,43 @@ fn Renderer3D::render_frame(
           if self.desc.shadows {
             let center = bounds.center()
             let radius = bounds.half_extents().length() + 0.05
-            let half = radius * 1.15 + 0.1
-            let light_eye = center + to_light.scale(radius * 2.0 + 1.0)
             let up = if to_light.y.abs() > 0.99 {
               @tmath.Vec3::unit_z()
             } else {
               @tmath.Vec3::unit_y()
             }
-            let view = @tmath.look_at_rh(light_eye, center, up)
-            let proj = @tmath.orthographic_rh(
-              -half,
-              half,
-              -half,
-              half,
+            // Cascade 0 covers the inner half radius at twice the density;
+            // cascade 1 covers the whole caster union.
+            let r0 = if self.shadow_maps.length() > 1 {
+              radius * 0.5
+            } else {
+              radius
+            }
+            let half0 = r0 * 1.15 + 0.1
+            let eye0 = center + to_light.scale(r0 * 2.0 + 1.0)
+            light_vp0 = @tmath.orthographic_rh(
+              -half0,
+              half0,
+              -half0,
+              half0,
               0.05,
-              radius * 4.0 + 2.0,
-            )
-            light_vp = proj * view
+              r0 * 4.0 + 2.0,
+            ) * @tmath.look_at_rh(eye0, center, up)
+            if self.shadow_maps.length() > 1 {
+              let half1 = radius * 1.15 + 0.1
+              let eye1 = center + to_light.scale(radius * 2.0 + 1.0)
+              light_vp1 = @tmath.orthographic_rh(
+                -half1,
+                half1,
+                -half1,
+                half1,
+                0.05,
+                radius * 4.0 + 2.0,
+              ) * @tmath.look_at_rh(eye1, center, up)
+              cascade_split = (center - eye).length() + r0
+            } else {
+              light_vp1 = light_vp0
+            }
             shadows_enabled = true
           }
         None => ()
@@ -1046,12 +1077,17 @@ fn Renderer3D::render_frame(
   }
   self.frame_writer.reset()
   self.frame_writer.push_mat4(vp)
-  self.frame_writer.push_mat4(light_vp)
+  self.frame_writer.push_mat4(light_vp0)
+  self.frame_writer.push_mat4(light_vp1)
   self.frame_writer.push_vec3_padded(eye)
   self.frame_writer.push_float(f_of_int(light_count))
   self.frame_writer.push_float(1.0 / f_of_int(self.desc.shadow_map_size))
   self.frame_writer.push_float(if shadows_enabled { 1.0 } else { 0.0 })
   self.frame_writer.push_float(self.env_intensity)
+  self.frame_writer.push_float(cascade_split)
+  self.frame_writer.push_float(f_of_int(self.shadow_maps.length()))
+  self.frame_writer.push_float(0.0)
+  self.frame_writer.push_float(0.0)
   self.frame_ubo.upload_floats(
     self.frame_writer.buffer(),
     offset=slot * FRAME_SLOT_BYTES,
@@ -1111,15 +1147,15 @@ fn Renderer3D::render_frame(
   self.stats.visible_nodes = solid.length() + transparent.length()
 
   // Shadow pass.
-  // Always run the shadow pass: it clears the map and transitions it to
+  // Always run one pass per cascade: it clears the map and transitions it to
   // SHADER_READ_ONLY even with no casters, since the PBR pipeline always
-  // binds the shadow map.
-  if shadow_batches.length() >= 0 {
+  // binds both shadow maps.
+  for c = 0; c < self.shadow_maps.length(); c = c + 1 {
     cmd.begin_render_pass(
       [],
       depth=Some(
         @tycho.DepthTargetDesc::new(
-          self.shadow_map,
+          self.shadow_maps[c],
           load_op=@tycho.LoadOp::Clear,
           store_op=@tycho.StoreOp::Store,
           clear_depth=1.0,
@@ -1145,7 +1181,7 @@ fn Renderer3D::render_frame(
     )
     if shadows_enabled {
       for b in shadow_batches {
-        cmd.push_constants_bytes(self.shadow_pipe, pc_bytes(b.first))
+        cmd.push_constants_bytes(self.shadow_pipe, pc2_bytes(b.first, c))
         let mesh = self.meshes[b.mesh]
         mesh.bind(cmd)
         cmd.draw_indexed(mesh.index_count(), instances=b.count)
@@ -1226,8 +1262,14 @@ fn Renderer3D::render_frame(
       offset=light_offset,
       size=light_count * LIGHT_BYTES,
     )
-    cmd.bind_texture(self.pbr_pipe, 0, self.shadow_map, self.shadow_sampler)
-    cmd.bind_texture(self.pbr_pipe, 1, self.env_cube, self.env_sampler)
+    cmd.bind_texture(self.pbr_pipe, 0, self.shadow_maps[0], self.shadow_sampler)
+    cmd.bind_texture(
+      self.pbr_pipe,
+      1,
+      self.shadow_maps[self.shadow_maps.length() - 1],
+      self.shadow_sampler,
+    )
+    cmd.bind_texture(self.pbr_pipe, 2, self.env_cube, self.env_sampler)
     for b in solid_batches {
       cmd.push_constants_bytes(self.pbr_pipe, pc2_bytes(b.first, b.material))
       let mesh = self.meshes[b.mesh]
@@ -1270,8 +1312,14 @@ fn Renderer3D::render_frame(
         offset=light_offset,
         size=light_count * LIGHT_BYTES,
       )
-      cmd.bind_texture(self.pbr_blend_pipe, 0, self.shadow_map, self.shadow_sampler)
-      cmd.bind_texture(self.pbr_blend_pipe, 1, self.env_cube, self.env_sampler)
+      cmd.bind_texture(self.pbr_blend_pipe, 0, self.shadow_maps[0], self.shadow_sampler)
+      cmd.bind_texture(
+        self.pbr_blend_pipe,
+        1,
+        self.shadow_maps[self.shadow_maps.length() - 1],
+        self.shadow_sampler,
+      )
+      cmd.bind_texture(self.pbr_blend_pipe, 2, self.env_cube, self.env_sampler)
       for b in transparent_batches {
         cmd.push_constants_bytes(self.pbr_blend_pipe, pc2_bytes(b.first, b.material))
         let mesh = self.meshes[b.mesh]
@@ -1512,7 +1560,9 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   self.white_tex.destroy()
   self.flat_normal_tex.destroy()
   self.material_sampler.destroy()
-  self.shadow_map.destroy()
+  for m in self.shadow_maps {
+    m.destroy()
+  }
   self.material_ssbo.destroy()
   self.sky_ubo.destroy()
   self.frame_ubo.destroy()

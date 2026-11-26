@@ -5,9 +5,11 @@ layout(location = 2) in vec2 inUV;
 
 layout(binding = 0) uniform FrameUBO {
     mat4 viewProj;
-    mat4 lightVP;
+    mat4 lightVP0;
+    mat4 lightVP1;
     vec4 camPos;
     vec4 params;
+    vec4 cascade;
 } frame;
 
 struct ObjectGpu {
@@ -20,9 +22,10 @@ struct ObjectGpu {
 };
 layout(std430, binding = 1) readonly buffer ObjectBuf { ObjectGpu objects[]; };
 
-layout(push_constant) uniform PC { uint firstObject; } pc;
+layout(push_constant) uniform PC { uint firstObject; uint cascade; } pc;
 
 void main() {
     ObjectGpu o = objects[pc.firstObject + uint(gl_InstanceIndex)];
-    gl_Position = frame.lightVP * o.model * vec4(inPos, 1.0);
+    mat4 lvp = pc.cascade == 0 ? frame.lightVP0 : frame.lightVP1;
+    gl_Position = lvp * o.model * vec4(inPos, 1.0);
 }

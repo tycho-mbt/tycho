@@ -28,6 +28,7 @@ fn main {
       bloom: true,
       shadows: true,
       shadow_map_size: 1024,
+      shadow_cascades: 2,
     }
     let renderer = @t3d.Renderer3D::new(dev, desc=desc)
     let scene = @t3d.Scene::new()

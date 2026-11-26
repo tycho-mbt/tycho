@@ -2,9 +2,11 @@
 #extension GL_EXT_nonuniform_qualifier : require
 layout(binding = 0) uniform FrameUBO {
     mat4 viewProj;
-    mat4 lightVP;
+    mat4 lightVP0;
+    mat4 lightVP1;
     vec4 camPos;
     vec4 params;   // x lightCount, y shadow texel, z shadows, w env intensity
+    vec4 cascade;  // x split distance, y cascade count
 } frame;
 
 struct MaterialGpu {
@@ -23,8 +25,9 @@ struct LightGpu {
 };
 layout(std430, binding = 3) readonly buffer LightBuf { LightGpu lights[]; };
 
-layout(binding = 4) uniform sampler2DShadow uShadow;
-layout(binding = 5) uniform samplerCube uEnv;
+layout(binding = 4) uniform sampler2DShadow uShadow0;
+layout(binding = 5) uniform sampler2DShadow uShadow1;
+layout(binding = 6) uniform samplerCube uEnv;
 layout(set = 1, binding = 0) uniform sampler2D uTextures[];
 
 layout(push_constant) uniform PC { uint firstObject; uint materialIndex; } pc;
@@ -60,8 +63,8 @@ vec3 fresnel_schlick(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-float sample_shadow_pcf(vec3 worldPos, vec3 N, vec3 L) {
-    vec4 lc = frame.lightVP * vec4(worldPos, 1.0);
+float sample_shadow_pcf(sampler2DShadow smap, mat4 lvp, vec3 worldPos, vec3 N, vec3 L) {
+    vec4 lc = lvp * vec4(worldPos, 1.0);
     vec3 lndc = lc.xyz / lc.w;
     vec2 suv = lndc.xy * 0.5 + 0.5;
     float bias = max(0.004 * (1.0 - dot(N, L)), 0.0012);
@@ -70,7 +73,7 @@ float sample_shadow_pcf(vec3 worldPos, vec3 N, vec3 L) {
     float sum = 0.0;
     for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
-            sum += texture(uShadow, vec3(suv + vec2(float(x), float(y)) * texel, sz));
+            sum += texture(smap, vec3(suv + vec2(float(x), float(y)) * texel, sz));
         }
     }
     return sum / 9.0;
@@ -128,7 +131,13 @@ void main() {
         int typeCode = int(l.color.w + 0.5);
         if (typeCode == 0) {
             vec3 L = normalize(l.posDir.xyz);
-            float sh = shadows ? sample_shadow_pcf(vWorldPos, N, L) : 1.0;
+            float sh = 1.0;
+            if (shadows) {
+                float dist = length(vWorldPos - frame.camPos.xyz);
+                sh = dist < frame.cascade.x
+                    ? sample_shadow_pcf(uShadow0, frame.lightVP0, vWorldPos, N, L)
+                    : sample_shadow_pcf(uShadow1, frame.lightVP1, vWorldPos, N, L);
+            }
             lighting += direct_brdf(N, V, L, l.color.rgb * l.params.x, albedo, metallic, roughness) * sh;
         } else if (typeCode == 1 || typeCode == 2) {
             vec3 toLight = l.posDir.xyz - vWorldPos;
