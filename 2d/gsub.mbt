@@ -16,6 +16,7 @@ priv struct GsubData {
   arab_fina : Array[Int]
   arab_rlig : Array[Int]
   deva_features : Map[String, Array[Int]]
+  gdef : GdefData?
 }
 
 ///|
@@ -102,7 +103,11 @@ fn gsub_feature_lookups(
 }
 
 ///|
-fn GsubData::parse(bytes : Bytes, base : Int) -> GsubData? {
+fn GsubData::parse(
+  bytes : Bytes,
+  base : Int,
+  gdef : GdefData?,
+) -> GsubData? {
   if base + 10 > bytes.length() {
     return None
   }
@@ -116,6 +121,7 @@ fn GsubData::parse(bytes : Bytes, base : Int) -> GsubData? {
     arab_fina: [],
     arab_rlig: [],
     deva_features: Map([]),
+    gdef,
   }
   let mut lookups = gsub_feature_lookups(tmp, "latn", "liga")
   if lookups.length() == 0 {
@@ -139,6 +145,7 @@ fn GsubData::parse(bytes : Bytes, base : Int) -> GsubData? {
     arab_fina: gsub_feature_lookups(tmp, "arab", "fina"),
     arab_rlig: gsub_feature_lookups(tmp, "arab", "rlig"),
     deva_features,
+    gdef,
   })
 }
 
@@ -355,11 +362,364 @@ pub fn FontFace::arabic_form_gid(
 }
 
 ///|
-fn gsub_apply_lookup_any(
+fn gsub_lookup_flags(g : GsubData, lookup_off : Int) -> Int {
+  gsub_u16(g.bytes, lookup_off + 2)
+}
+
+///|
+fn gsub_glyph_ignored(g : GsubData, gid : Int, flags : Int) -> Bool {
+  let gdef = match g.gdef {
+    Some(v) => v
+    None => return false
+  }
+  let cls = gdef.glyph_class(gid)
+  if (flags & 0x0002) != 0 && cls == 1 {
+    return true
+  }
+  if (flags & 0x0004) != 0 && cls == 2 {
+    return true
+  }
+  if (flags & 0x0008) != 0 && cls == 3 {
+    return true
+  }
+  if cls == 3 {
+    let attach = (flags >> 8) & 0xFF
+    if attach != 0 && gdef.mark_attach_class(gid) != attach {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn gsub_next_index(
+  g : GsubData,
+  input : Array[(Int, Int)],
+  from : Int,
+  flags : Int,
+) -> Int? {
+  let mut i = from
+  while i < input.length() {
+    if !gsub_glyph_ignored(g, input[i].0, flags) {
+      return Some(i)
+    }
+    i = i + 1
+  }
+  None
+}
+
+///|
+fn gsub_prev_index(
+  g : GsubData,
+  input : Array[(Int, Int)],
+  from : Int,
+  flags : Int,
+) -> Int? {
+  let mut i = from
+  while i >= 0 {
+    if !gsub_glyph_ignored(g, input[i].0, flags) {
+      return Some(i)
+    }
+    i = i - 1
+  }
+  None
+}
+
+///|
+fn gsub_cov_has(g : GsubData, cov : Int, gid : Int) -> Bool {
+  match gsub_coverage_index(g, cov, gid) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn gsub_lig_match(
+  g : GsubData,
+  sub : Int,
+  input : Array[(Int, Int)],
+  pos : Int,
+) -> (Int, Int, Int)? {
+  let b = g.bytes
+  if gsub_u16(b, sub) != 1 || pos >= input.length() {
+    return None
+  }
+  let cov = sub + gsub_u16(b, sub + 2)
+  let set_count = gsub_u16(b, sub + 4)
+  let cov_idx = match gsub_coverage_index(g, cov, input[pos].0) {
+    Some(v) => v
+    None => return None
+  }
+  if cov_idx >= set_count {
+    return None
+  }
+  let set = sub + gsub_u16(b, sub + 6 + cov_idx * 2)
+  let lig_count = gsub_u16(b, set)
+  let mut best_glyph = 0
+  let mut best_match = 0
+  let mut best_src = 0
+  for li = 0; li < lig_count; li = li + 1 {
+    let lig = set + gsub_u16(b, set + 2 + li * 2)
+    let lig_glyph = gsub_u16(b, lig)
+    let comp_count = gsub_u16(b, lig + 2)
+    if comp_count <= 0 || pos + comp_count > input.length() {
+      continue
+    }
+    let mut ok = true
+    for k = 1; k < comp_count; k = k + 1 {
+      if input[pos + k].0 != gsub_u16(b, lig + 4 + (k - 1) * 2) {
+        ok = false
+        break
+      }
+    }
+    if ok && comp_count > best_match {
+      best_glyph = lig_glyph
+      best_match = comp_count
+      let mut src = 0
+      for k = 0; k < comp_count; k = k + 1 {
+        src = src + input[pos + k].1
+      }
+      best_src = src
+    }
+  }
+  if best_match > 0 {
+    Some((best_glyph, best_match, best_src))
+  } else {
+    None
+  }
+}
+
+///|
+fn gsub_apply_lig_lookup_at(
   g : GsubData,
   lookup_off : Int,
   input : Array[(Int, Int)],
+  pos : Int,
 ) -> Array[(Int, Int)] {
+  let b = g.bytes
+  let sub_count = gsub_u16(b, lookup_off + 4)
+  for si = 0; si < sub_count; si = si + 1 {
+    let sub = lookup_off + gsub_u16(b, lookup_off + 6 + si * 2)
+    match gsub_lig_match(g, sub, input, pos) {
+      Some((lig_gid, matched, src)) => {
+        let out : Array[(Int, Int)] = []
+        for k = 0; k < pos; k = k + 1 {
+          out.push(input[k])
+        }
+        out.push((lig_gid, src))
+        for k = pos + matched; k < input.length(); k = k + 1 {
+          out.push(input[k])
+        }
+        return out
+      }
+      None => ()
+    }
+  }
+  input
+}
+
+///|
+fn gsub_apply_nested_at(
+  g : GsubData,
+  lookup_idx : Int,
+  input : Array[(Int, Int)],
+  pos : Int,
+  depth : Int,
+) -> Array[(Int, Int)] {
+  if depth > 8 || pos < 0 || pos >= input.length() {
+    return input
+  }
+  let b = g.bytes
+  let lookup_list = g.base + gsub_u16(b, g.base + 8)
+  let off = lookup_list + gsub_u16(b, lookup_list + 2 + lookup_idx * 2)
+  let typ = gsub_u16(b, off)
+  if typ == 1 {
+    let (gid, comps) = input[pos]
+    let out : Array[(Int, Int)] = []
+    for k = 0; k < input.length(); k = k + 1 {
+      if k == pos {
+        out.push((gsub_apply_single_lookup(g, off, gid), comps))
+      } else {
+        out.push(input[k])
+      }
+    }
+    return out
+  }
+  if typ == 4 {
+    return gsub_apply_lig_lookup_at(g, off, input, pos)
+  }
+  input
+}
+
+///|
+fn gsub_apply_chain3(
+  g : GsubData,
+  lookup_off : Int,
+  sub : Int,
+  input : Array[(Int, Int)],
+  depth : Int,
+) -> Array[(Int, Int)] {
+  let b = g.bytes
+  let flags = gsub_lookup_flags(g, lookup_off)
+  let back_count = gsub_u16(b, sub + 2)
+  let back_cov = sub + 4
+  let input_count_at = back_cov + back_count * 2
+  let input_count = gsub_u16(b, input_count_at)
+  let input_cov = input_count_at + 2
+  let look_count_at = input_cov + input_count * 2
+  let look_count = gsub_u16(b, look_count_at)
+  let look_cov = look_count_at + 2
+  let rec_at = look_cov + look_count * 2
+  let rec_count = gsub_u16(b, rec_at)
+  if input_count <= 0 {
+    return input
+  }
+  let mut cur = input
+  let mut i = 0
+  while i < cur.length() {
+    let positions : Array[Int] = [i]
+    let mut cursor = i
+    let mut ok = gsub_cov_has(g, sub + gsub_u16(b, input_cov), cur[i].0)
+    let mut k = 1
+    while ok && k < input_count {
+      match gsub_next_index(g, cur, cursor + 1, flags) {
+        Some(p) => {
+          if gsub_cov_has(g, sub + gsub_u16(b, input_cov + k * 2), cur[p].0) {
+            positions.push(p)
+            cursor = p
+          } else {
+            ok = false
+          }
+        }
+        None => ok = false
+      }
+      k = k + 1
+    }
+    // Backtrack: immediately preceding non-ignored glyphs.
+    let mut bpos = i
+    let mut bk = 0
+    while ok && bk < back_count {
+      match gsub_prev_index(g, cur, bpos - 1, flags) {
+        Some(p) => {
+          if !gsub_cov_has(g, sub + gsub_u16(b, back_cov + bk * 2), cur[p].0) {
+            ok = false
+          }
+          bpos = p
+        }
+        None => ok = false
+      }
+      bk = bk + 1
+    }
+    // Lookahead: following non-ignored glyphs.
+    let mut lpos = cursor
+    let mut lk = 0
+    while ok && lk < look_count {
+      match gsub_next_index(g, cur, lpos + 1, flags) {
+        Some(p) => {
+          if !gsub_cov_has(g, sub + gsub_u16(b, look_cov + lk * 2), cur[p].0) {
+            ok = false
+          }
+          lpos = p
+        }
+        None => ok = false
+      }
+      lk = lk + 1
+    }
+    if ok {
+      // Apply records from the end so earlier ligatures do not shift indices.
+      let mut r = rec_count
+      while r > 0 {
+        r = r - 1
+        let rec = rec_at + 2 + r * 4
+        let seq = gsub_u16(b, rec)
+        let lookup_idx = gsub_u16(b, rec + 2)
+        if seq < positions.length() {
+          cur = gsub_apply_nested_at(
+            g,
+            lookup_idx,
+            cur,
+            positions[seq],
+            depth + 1,
+          )
+        }
+      }
+    }
+    i = i + 1
+  }
+  cur
+}
+
+///|
+fn gsub_apply_context3(
+  g : GsubData,
+  lookup_off : Int,
+  sub : Int,
+  input : Array[(Int, Int)],
+  depth : Int,
+) -> Array[(Int, Int)] {
+  let b = g.bytes
+  let flags = gsub_lookup_flags(g, lookup_off)
+  let input_count = gsub_u16(b, sub + 2)
+  let input_cov = sub + 4
+  let rec_at = input_cov + input_count * 2
+  let rec_count = gsub_u16(b, rec_at)
+  if input_count <= 0 {
+    return input
+  }
+  let mut cur = input
+  let mut i = 0
+  while i < cur.length() {
+    let positions : Array[Int] = [i]
+    let mut cursor = i
+    let mut ok = gsub_cov_has(g, sub + gsub_u16(b, input_cov), cur[i].0)
+    let mut k = 1
+    while ok && k < input_count {
+      match gsub_next_index(g, cur, cursor + 1, flags) {
+        Some(p) => {
+          if gsub_cov_has(g, sub + gsub_u16(b, input_cov + k * 2), cur[p].0) {
+            positions.push(p)
+            cursor = p
+          } else {
+            ok = false
+          }
+        }
+        None => ok = false
+      }
+      k = k + 1
+    }
+    if ok {
+      let mut r = rec_count
+      while r > 0 {
+        r = r - 1
+        let rec = rec_at + 2 + r * 4
+        let seq = gsub_u16(b, rec)
+        let lookup_idx = gsub_u16(b, rec + 2)
+        if seq < positions.length() {
+          cur = gsub_apply_nested_at(
+            g,
+            lookup_idx,
+            cur,
+            positions[seq],
+            depth + 1,
+          )
+        }
+      }
+    }
+    i = i + 1
+  }
+  cur
+}
+
+///|
+fn gsub_apply_lookup_depth(
+  g : GsubData,
+  lookup_off : Int,
+  input : Array[(Int, Int)],
+  depth : Int,
+) -> Array[(Int, Int)] {
+  if depth > 8 {
+    return input
+  }
   let b = g.bytes
   let typ = gsub_u16(b, lookup_off)
   if typ == 4 {
@@ -373,7 +733,33 @@ fn gsub_apply_lookup_any(
     }
     return out
   }
+  if typ == 5 || typ == 6 {
+    let sub_count = gsub_u16(b, lookup_off + 4)
+    let mut cur = input
+    for si = 0; si < sub_count; si = si + 1 {
+      let sub = lookup_off + gsub_u16(b, lookup_off + 6 + si * 2)
+      match gsub_u16(b, sub) {
+        3 =>
+          if typ == 5 {
+            cur = gsub_apply_context3(g, lookup_off, sub, cur, depth)
+          } else {
+            cur = gsub_apply_chain3(g, lookup_off, sub, cur, depth)
+          }
+        _ => ()
+      }
+    }
+    return cur
+  }
   input
+}
+
+///|
+fn gsub_apply_lookup_any(
+  g : GsubData,
+  lookup_off : Int,
+  input : Array[(Int, Int)],
+) -> Array[(Int, Int)] {
+  gsub_apply_lookup_depth(g, lookup_off, input, 0)
 }
 
 ///|

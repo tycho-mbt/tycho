@@ -18,15 +18,32 @@ CASES = [
     ),
 ]
 
+# M8.5.3 reordering/reph gaps are visible here; not part of the default gate.
+EXTRA_DEVA = [
+    "कर्म",
+    "श्रद्धा",
+    "प्रेम",
+    "हिन्दी",
+    "संस्कृत",
+    "राष्ट्र",
+    "क्षेत्र",
+    "ज्ञान",
+    "द्वार",
+    "स्त्री",
+]
+
 
 def main():
     if len(sys.argv) < 2:
         print("usage: shape_corpus.py <shape-dump.exe>", file=sys.stderr)
         sys.exit(2)
     dump = sys.argv[1]
+    cases = list(CASES)
+    if "--extended" in sys.argv:
+        cases[-1] = (cases[-1][0], cases[-1][1] + EXTRA_DEVA)
     failed = []
     passed = 0
-    for font, texts in CASES:
+    for font, texts in cases:
         if not os.path.exists(font):
             print(f"skip missing font {font}")
             continue

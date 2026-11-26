@@ -64,6 +64,7 @@ priv struct TtfData {
   // GSUB/GPOS tables, -1 when absent.
   gsub_off : Int
   gpos_off : Int
+  gdef_off : Int
   // fvar table, -1 when absent.
   fvar_off : Int
 }
@@ -89,6 +90,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
   let mut kern_off = -1
   let mut gsub_off = -1
   let mut gpos_off = -1
+  let mut gdef_off = -1
   let mut fvar_off = -1
   for i = 0; i < num_tables; i = i + 1 {
     let rec = 12 + i * 16
@@ -105,6 +107,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     else if tag_eq(bytes, rec, "kern") { kern_off = off }
     else if tag_eq(bytes, rec, "GSUB") { gsub_off = off }
     else if tag_eq(bytes, rec, "GPOS") { gpos_off = off }
+    else if tag_eq(bytes, rec, "GDEF") { gdef_off = off }
     else if tag_eq(bytes, rec, "fvar") { fvar_off = off }
   }
   if head_off < 0 || hhea_off < 0 || maxp_off < 0 || hmtx_off < 0 ||
@@ -170,6 +173,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     kern_off,
     gsub_off,
     gpos_off,
+    gdef_off,
     fvar_off,
   })
 }
@@ -905,19 +909,25 @@ pub struct FontFace {
   priv ttf : TtfData?
   priv gsub : GsubData?
   priv gpos : GposData?
+  priv gdef : GdefData?
 }
 
 ///|
 pub fn FontFace::builtin() -> FontFace {
-  { id: 0, ttf: None, gsub: None, gpos: None }
+  { id: 0, ttf: None, gsub: None, gpos: None, gdef: None }
 }
 
 ///|
 pub fn FontFace::from_ttf_bytes(bytes : Bytes) -> FontFace? {
   match parse_ttf(bytes) {
     Some(ttf) => {
+      let gdef = if ttf.gdef_off >= 0 {
+        GdefData::parse(bytes, ttf.gdef_off)
+      } else {
+        None
+      }
       let gsub = if ttf.gsub_off >= 0 {
-        GsubData::parse(bytes, ttf.gsub_off)
+        GsubData::parse(bytes, ttf.gsub_off, gdef)
       } else {
         None
       }
@@ -926,7 +936,7 @@ pub fn FontFace::from_ttf_bytes(bytes : Bytes) -> FontFace? {
       } else {
         None
       }
-      Some({ id: alloc_font_id(), ttf: Some(ttf), gsub, gpos })
+      Some({ id: alloc_font_id(), ttf: Some(ttf), gsub, gpos, gdef })
     }
     None => None
   }

@@ -887,6 +887,28 @@ test "fvar axes and variation-to-synthetic style" {
 }
 
 ///|
+test "GDEF classes drive GSUB lookup flags" {
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) =>
+      match (font.gdef, font.gsub) {
+        (Some(gdef), Some(gsub)) => {
+          let base = font.glyph_id(0x0915)
+          let mark = font.glyph_id(0x093F)
+          assert_eq(gdef.glyph_class(base), 1)
+          assert_eq(gdef.glyph_class(mark), 3)
+          assert_true(gsub_glyph_ignored(gsub, mark, 0x0008))
+          assert_true(!gsub_glyph_ignored(gsub, base, 0x0008))
+        }
+        _ => assert_true(false)
+      }
+    None => ()
+  }
+}
+
+///|
 test "devanagari pre-base matra and conjunct features" {
   let bytes = @tycho.read_file_bytes(
     "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
