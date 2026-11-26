@@ -300,6 +300,13 @@ pub(all) enum Event {
   MouseScroll(Int, Int)
   FocusChanged(Bool)
   TextInput(String)
+  // IME composition: preedit chars arrive one at a time after a clear, then
+  // either commit chars or a cancel. The host feeds these into
+  // TextController::set_preedit/commit_preedit/clear_preedit.
+  ImePreedit(String)
+  ImePreeditClear
+  ImeCommit(String)
+  ImeCancel
 }
 
 ///|
@@ -452,31 +459,47 @@ pub fn poll() -> Unit {
 }
 
 ///|
+fn event_from_code(kind : Int, a : Int, b : Int, c : Int) -> Event {
+  match kind {
+    1 => Event::CloseRequested
+    2 => Event::Resized(a, b)
+    3 => Event::KeyDown(a, b)
+    4 => Event::KeyUp(a, b)
+    5 => Event::MouseMove(a, b)
+    6 => Event::MouseDown(a, b, c)
+    7 => Event::MouseUp(a, b, c)
+    8 => Event::MouseScroll(a, b)
+    9 => Event::FocusChanged(a != 0)
+    10 => {
+      let ch = Int::unsafe_to_char(a)
+      Event::TextInput(ch.to_string())
+    }
+    11 => {
+      let ch = Int::unsafe_to_char(a)
+      Event::ImePreedit(ch.to_string())
+    }
+    12 => Event::ImePreeditClear
+    13 => {
+      let ch = Int::unsafe_to_char(a)
+      Event::ImeCommit(ch.to_string())
+    }
+    14 => Event::ImeCancel
+    _ => Event::CloseRequested
+  }
+}
+
+///|
 pub fn poll_events(win : UInt64) -> Array[Event] {
   win_poll_ffi()
   let out : Array[Event] = []
   let buf : FixedArray[Int32] = FixedArray::make(4, (0 : Int32))
   while win_next_event_ffi(win, buf) != 0 {
-    let kind = buf[0]
-    let a = buf[1].to_int()
-    let b = buf[2].to_int()
-    let c = buf[3].to_int()
-    let ev = match kind {
-      1 => Event::CloseRequested
-      2 => Event::Resized(a, b)
-      3 => Event::KeyDown(a, b)
-      4 => Event::KeyUp(a, b)
-      5 => Event::MouseMove(a, b)
-      6 => Event::MouseDown(a, b, c)
-      7 => Event::MouseUp(a, b, c)
-      8 => Event::MouseScroll(a, b)
-      9 => Event::FocusChanged(a != 0)
-      10 => {
-        let ch = Int::unsafe_to_char(a)
-        Event::TextInput(ch.to_string())
-      }
-      _ => Event::CloseRequested
-    }
+    let ev = event_from_code(
+      buf[0].to_int(),
+      buf[1].to_int(),
+      buf[2].to_int(),
+      buf[3].to_int(),
+    )
     out.push(ev)
   }
   out

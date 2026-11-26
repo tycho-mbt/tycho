@@ -45,6 +45,15 @@ static struct {
   int (*XNextEvent)(Display *, XEvent *);
   KeySym (*XLookupKeysym)(XKeyEvent *, int);
   int (*XLookupString)(XKeyEvent *, char *, int, KeySym *, void *);
+  int (*Xutf8LookupString)(void *, XKeyEvent *, char *, int, KeySym *, int *);
+  void *(*XOpenIM)(Display *, void *, char *, char *);
+  int (*XCloseIM)(void *);
+  void *(*XCreateIC)(void *, ...);
+  void (*XDestroyIC)(void *);
+  int (*XSetICValues)(void *, ...);
+  void (*XSetICFocus)(void *);
+  void (*XUnsetICFocus)(void *);
+  int (*XFilterEvent)(XEvent *, Window);
   Cursor (*XCreateFontCursor)(Display *, unsigned int);
   int (*XWarpPointer)(Display *, Window, Window, int, int, unsigned int,
                       unsigned int, int, int);
@@ -157,6 +166,15 @@ static int tycho_x11_load(void) {
   XLOAD(XNextEvent);
   XLOAD(XLookupKeysym);
   XLOAD(XLookupString);
+  XLOAD(Xutf8LookupString);
+  XLOAD(XOpenIM);
+  XLOAD(XCloseIM);
+  XLOAD(XCreateIC);
+  XLOAD(XDestroyIC);
+  XLOAD(XSetICValues);
+  XLOAD(XSetICFocus);
+  XLOAD(XUnsetICFocus);
+  XLOAD(XFilterEvent);
   XLOAD(XCreateFontCursor);
   XLOAD(XWarpPointer);
   XLOAD(XCreateBitmapFromData);
@@ -205,6 +223,8 @@ typedef struct TychoWindow {
   double mouse_y;
   uint32_t mouse_buttons;
   Cursor shape_cursors[6];
+  void *xim;
+  void *xic;
   TychoEvent events[TYCHO_MAX_EVENTS];
   int ev_head;
   int ev_tail;
@@ -255,6 +275,69 @@ static void push_event(TychoWindow *tw, int32_t kind, int32_t a, int32_t b, int3
   tw->ev_tail = (tw->ev_tail + 1) % TYCHO_MAX_EVENTS;
   tw->ev_count++;
 }
+
+static void push_utf8_codepoints(TychoWindow *tw, int32_t kind, const char *s, int len) {
+  if (!s) return;
+  int i = 0;
+  while (i < len && s[i]) {
+    unsigned char c = (unsigned char)s[i];
+    uint32_t cp = 0;
+    int n = 1;
+    if (c < 0x80) {
+      cp = c;
+    } else if ((c & 0xE0) == 0xC0 && i + 1 < len) {
+      cp = ((uint32_t)(c & 0x1F) << 6) | ((unsigned char)s[i + 1] & 0x3F);
+      n = 2;
+    } else if ((c & 0xF0) == 0xE0 && i + 2 < len) {
+      cp = ((uint32_t)(c & 0x0F) << 12) | (((unsigned char)s[i + 1] & 0x3F) << 6) |
+           ((unsigned char)s[i + 2] & 0x3F);
+      n = 3;
+    } else if ((c & 0xF8) == 0xF0 && i + 3 < len) {
+      cp = ((uint32_t)(c & 0x07) << 18) | (((unsigned char)s[i + 1] & 0x3F) << 12) |
+           (((unsigned char)s[i + 2] & 0x3F) << 6) | ((unsigned char)s[i + 3] & 0x3F);
+      n = 4;
+    }
+    push_event(tw, kind, (int32_t)cp, 0, 0);
+    i += n;
+  }
+}
+
+static void push_xtext(TychoWindow *tw, int32_t kind, XIMText *text) {
+  if (!text) return;
+  if (!text->encoding_is_wchar && text->string.multi_byte) {
+    push_utf8_codepoints(tw, kind, text->string.multi_byte,
+                         (int)strlen(text->string.multi_byte));
+  } else if (text->encoding_is_wchar && text->string.wide_char) {
+    for (int i = 0; i < (int)text->length; i++) {
+      push_event(tw, kind, (int32_t)text->string.wide_char[i], 0, 0);
+    }
+  }
+}
+
+
+static void x11_ime_commit_key(TychoWindow *tw, XKeyEvent *ke) {
+  if (!tw || !tw->xic || !X11.Xutf8LookupString) return;
+  if (ke->state & (ControlMask | Mod1Mask)) return;
+  char tbuf[64];
+  KeySym tks = 0;
+  int status = 0;
+  int tlen = X11.Xutf8LookupString(tw->xic, ke, tbuf, (int)sizeof(tbuf) - 1,
+                                   &tks, &status);
+  if (tlen > 0) {
+    tbuf[tlen] = 0;
+    push_utf8_codepoints(tw, 13, tbuf, tlen);
+  }
+}
+
+static void x11_ime_preedit(XIC ic, XPointer client, XPointer call) {
+  (void)ic;
+  TychoWindow *tw = (TychoWindow *)client;
+  XIMPreeditDrawCallbackStruct *d = (XIMPreeditDrawCallbackStruct *)call;
+  if (!tw) return;
+  push_event(tw, 12, 0, 0, 0);
+  if (d && d->text) push_xtext(tw, 11, d->text);
+}
+
 
 int tycho_x11_connect(void) {
   if (g_dpy) return 1;
@@ -329,6 +412,20 @@ uint64_t tycho_x11_create(int32_t w, int32_t h, const char *title) {
   tw->width = w;
   tw->height = h;
   tw->focused = 1;
+  if (X11.XOpenIM && X11.XCreateIC && X11.XSetICValues) {
+    tw->xim = X11.XOpenIM(g_dpy, NULL, NULL, NULL);
+    if (tw->xim) {
+      tw->xic = X11.XCreateIC(
+          tw->xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
+          XNClientWindow, win, XNFocusWindow, win, NULL);
+      if (tw->xic) {
+        XIMCallback pre;
+        pre.client_data = (XPointer)tw;
+        pre.callback = (XIMProc)x11_ime_preedit;
+        X11.XSetICValues(tw->xic, XNPreeditDrawCallback, &pre, NULL);
+      }
+    }
+  }
   register_window(tw);
   return (uint64_t)(uintptr_t)tw;
 }
@@ -337,6 +434,14 @@ void tycho_x11_destroy(uint64_t p) {
   TychoWindow *tw = (TychoWindow *)(uintptr_t)p;
   if (!tw) return;
   unregister_window(tw);
+  if (tw->xic && X11.XDestroyIC) {
+    X11.XDestroyIC(tw->xic);
+    tw->xic = NULL;
+  }
+  if (tw->xim && X11.XCloseIM) {
+    X11.XCloseIM(tw->xim);
+    tw->xim = NULL;
+  }
   if (tw->dpy) {
     if (tw->cursor_mode == 2) {
       X11.XUngrabPointer(tw->dpy, CurrentTime);
@@ -430,6 +535,10 @@ void tycho_x11_poll(void) {
     X11.XNextEvent(g_dpy, &ev);
     TychoWindow *tw = find_window(ev.xany.window);
     if (!tw) continue;
+    if (tw->xic && X11.XFilterEvent && X11.XFilterEvent(&ev, tw->win)) {
+      if (ev.type == KeyPress) x11_ime_commit_key(tw, &ev.xkey);
+      continue;
+    }
     switch (ev.type) {
       case ClientMessage:
         if (ev.xclient.message_type == tw->wm_protocols) {
@@ -462,8 +571,12 @@ void tycho_x11_poll(void) {
       case KeyPress: {
         KeySym ks = X11.XLookupKeysym(&ev.xkey, 0);
         push_event(tw, 3, (int32_t)ks, (int32_t)ev.xkey.state, 0);
-        // Emit TextInput for printable characters when Ctrl/Alt are not held.
-        if (X11.XLookupString && !(ev.xkey.state & (ControlMask | Mod1Mask))) {
+        // XIM commit goes through Xutf8LookupString; without an IC fall back to
+        // the plain keysym path.
+        if (tw->xic) {
+          x11_ime_commit_key(tw, &ev.xkey);
+        } else if (X11.XLookupString &&
+                   !(ev.xkey.state & (ControlMask | Mod1Mask))) {
           char tbuf[16];
           KeySym tks = 0;
           int tlen = X11.XLookupString(&ev.xkey, tbuf, (int)sizeof(tbuf) - 1, &tks, NULL);
@@ -531,10 +644,12 @@ void tycho_x11_poll(void) {
       }
       case FocusIn:
         tw->focused = 1;
+        if (tw->xic && X11.XSetICFocus) X11.XSetICFocus(tw->xic);
         push_event(tw, 9, 1, 0, 0);
         break;
       case FocusOut:
         tw->focused = 0;
+        if (tw->xic && X11.XUnsetICFocus) X11.XUnsetICFocus(tw->xic);
         push_event(tw, 9, 0, 0, 0);
         break;
       default:

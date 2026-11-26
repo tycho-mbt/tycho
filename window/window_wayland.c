@@ -500,8 +500,11 @@ static void kb_key(void *d, struct wl_proxy *kb, uint32_t serial, uint32_t time,
   // state: 0 = released, 1 = pressed (2 = repeated, wl_keyboard v10+).
   wl_push_event(g_keyboard_focus, state ? 3 : 4, (int32_t)ks, (int32_t)g_xmods, 0);
   if (state && !(g_xmods & 4u) && !(g_xmods & 8u)) {
-    // Emit printable ASCII/Latin-1 codepoint as TextInput (kind 10)
-    if (ks >= 0x20 && ks <= 0x7e) {
+    // Unicode keysyms (0x01000000 + codepoint) are already composed by the
+    // compositor's keymap; expose them as IME commits. ASCII uses TextInput.
+    if (ks >= 0x01000100 && ks <= 0x0110FFFF) {
+      wl_push_event(g_keyboard_focus, 13, (int32_t)(ks - 0x01000000), 0, 0);
+    } else if (ks >= 0x20 && ks <= 0x7e) {
       wl_push_event(g_keyboard_focus, 10, (int32_t)ks, 0, 0);
     }
   }

@@ -227,6 +227,10 @@ pub(all) enum Event {
   MouseScroll(Int32, Int32)
   FocusChanged(Bool)
   TextInput(String)
+  ImePreedit(String)
+  ImePreeditClear
+  ImeCommit(String)
+  ImeCancel
 }
 
 pub(all) enum Platform {
