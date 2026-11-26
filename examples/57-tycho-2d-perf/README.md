@@ -20,9 +20,16 @@ moon build --target native 57-tycho-2d-perf
 ./_build/native/debug/build/laplaceliu/tycho_vulkan_examples/57-tycho-2d-perf/57-tycho-2d-perf.exe
 ```
 
+## Screenshot
+
+![57-tycho-2d-perf screenshot](./screenshot.png)
+
+> Runs headless by default. Pass `--window` for interactive display or
+> `--screenshot <path>` to capture PNG.
+
 Sample output on NVIDIA:
 
 ```json
-{"draws":23,"path_passes":30,"prims":5861,"uploads":1649600,"glyphs":20,"atlas_images":0}
+{"draws":23,"path_passes":30,"prims":5861,"uploads":1649600,"glyphs":20,"atlas_images":0,"atlas_resets":0,"atlas_overflows":0,"coverage_draws":0,"coverage_entries":0}
 [57-tycho-2d-perf] OK — 5861 prims, 23 draws, 30 path passes, 1649600 upload bytes, 0 validation errors
 ```

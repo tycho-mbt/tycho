@@ -1,6 +1,7 @@
 // Text stress test: ~8,000 glyphs across 40 fractional sizes per script,
 // Latin (DejaVu Sans) and CJK (Droid Sans Fallback). Verifies that the enlarged
 // glyph atlas plus LRU compaction never falls back to a full cache reset.
+// Headless assertions by default; --window for live preview, --screenshot <path> for PNG.
 
 ///|
 fn load_font(path : String) -> @g2d.FontFace {
@@ -17,8 +18,14 @@ fn load_font(path : String) -> @g2d.FontFace {
 ///|
 fn main {
   try {
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
-      @tycho.DeviceDesc::new("56-tycho-2d-text-stress", validation=true, headless=true),
+      @tycho.DeviceDesc::new(
+        "56-tycho-2d-text-stress",
+        validation=true,
+        headless=!show_win,
+      ),
     )
     let font_en = load_font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
     let font_zh = load_font("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf")
@@ -74,6 +81,10 @@ fn main {
     let renderer = @g2d.Renderer2D::new(dev)
     let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
     renderer.render_offscreen(dl, rt, clear_color=@g2d.Color::from_rgba8(16, 20, 30))
+    if shot != "" {
+      let px = rt.readback()
+      let _ = @tycho.save_png(shot, w, h, px)
+    }
     let st = renderer.stats()
     println(
       "{\"glyphs\":\{st.glyph_entries},\"resets\":\{st.atlas_resets},\"overflows\":\{st.atlas_overflows},\"prims\":\{st.prims}}",
@@ -93,6 +104,37 @@ fn main {
         "[56-tycho-2d-text-stress] FAIL — glyphs=\{st.glyph_entries} resets=\{st.atlas_resets} overflows=\{st.atlas_overflows} prims=\{st.prims} errs=\{errs}",
       )
     }
+    if show_win {
+      let cc = @g2d.Color::from_rgba8(16, 20, 30)
+      let sc = dev.create_swapchain_desc(
+        @tycho.SwapchainDesc::new(
+          "56-tycho-2d-text-stress",
+          w,
+          h,
+          depth=true,
+          depth_format=@tycho.TextureFormat::Depth24Stencil8,
+          clear_color=cc.to_clear_color(),
+        ),
+      )
+      while !sc.should_close() {
+        let mut quit = false
+        for ev in sc.poll_events() {
+          match ev {
+            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
+            _ => ()
+          }
+        }
+        if quit { break }
+        sc.sync_size()
+        renderer.render_swapchain(
+          sc,
+          dl,
+          clear_color=@g2d.Color::from_rgba8(16, 20, 30),
+        )
+      }
+      sc.destroy()
+    }
+
     rt.destroy()
     renderer.destroy()
     dev.destroy()

@@ -19,9 +19,16 @@ moon build --target native 59-tycho-2d-emoji
 ./_build/native/debug/build/laplaceliu/tycho_vulkan_examples/59-tycho-2d-emoji/59-tycho-2d-emoji.exe
 ```
 
+## Screenshot
+
+![59-tycho-2d-emoji screenshot](./screenshot.png)
+
+> Runs headless by default. Pass `--window` for interactive display or
+> `--screenshot <path>` to capture PNG.
+
 Sample output:
 
 ```json
-{"bitmap":true,"yellow_pixels":1591,"glyphs":4}
-[59-tycho-2d-emoji] OK — fallback Latin/CJK/CBDT emoji, yellow_pixels=1591, 0 validation errors
+{"bitmap":true,"yellow_pixels":2825,"glyphs":4}
+[59-tycho-2d-emoji] OK — fallback Latin/CJK/CBDT emoji, yellow_pixels=2825, 0 validation errors
 ```

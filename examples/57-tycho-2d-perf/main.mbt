@@ -1,12 +1,19 @@
 // Tycho 2D performance harness: 1080p scene with 5,000 SDF primitives,
 // ~1,000 glyphs, 200 anti-aliased cubic paths and 20 frosted-glass panels.
 // Prints per-frame statistics as JSON and asserts that batching is active.
+// --window for live preview, --screenshot <path> for PNG.
 
 ///|
 fn main {
   try {
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
-      @tycho.DeviceDesc::new("57-tycho-2d-perf", validation=true, headless=true),
+      @tycho.DeviceDesc::new(
+        "57-tycho-2d-perf",
+        validation=true,
+        headless=!show_win,
+      ),
     )
     let font_bytes = @tycho.read_file_bytes("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
     let font = if font_bytes.length() > 0 {
@@ -115,6 +122,10 @@ fn main {
     let renderer = @g2d.Renderer2D::new(dev)
     let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
     renderer.render_offscreen(dl, rt, clear_color=@g2d.Color::from_rgba8(18, 22, 34))
+    if shot != "" {
+      let px = rt.readback()
+      let _ = @tycho.save_png(shot, w, h, px)
+    }
     let st = renderer.stats()
     println(st.to_json())
     let errs = dev.validation_errors()
@@ -135,6 +146,37 @@ fn main {
         "[57-tycho-2d-perf] FAIL — draws=\{st.draw_calls} passes=\{st.path_passes} prims=\{st.prims} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries} errs=\{errs}",
       )
     }
+    if show_win {
+      let cc = @g2d.Color::from_rgba8(18, 22, 34)
+      let sc = dev.create_swapchain_desc(
+        @tycho.SwapchainDesc::new(
+          "57-tycho-2d-perf",
+          w,
+          h,
+          depth=true,
+          depth_format=@tycho.TextureFormat::Depth24Stencil8,
+          clear_color=cc.to_clear_color(),
+        ),
+      )
+      while !sc.should_close() {
+        let mut quit = false
+        for ev in sc.poll_events() {
+          match ev {
+            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
+            _ => ()
+          }
+        }
+        if quit { break }
+        sc.sync_size()
+        renderer.render_swapchain(
+          sc,
+          dl,
+          clear_color=@g2d.Color::from_rgba8(18, 22, 34),
+        )
+      }
+      sc.destroy()
+    }
+
     rt.destroy()
     renderer.destroy()
     dev.destroy()

@@ -3,7 +3,7 @@
 // Renders 300 procedural icon paths twice: once through the CPU coverage
 // atlas and once through the per-path MSAA fallback, then compares the two
 // images with windowed SSIM. Also asserts that coverage removes per-path
-// render passes.
+// render passes. --window for live preview, --screenshot <path> for PNG.
 
 const PI58 : Float = 3.141592653589793
 
@@ -117,8 +117,14 @@ fn windowed_ssim(
 ///|
 fn main {
   try {
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
     let dev = @tycho.Device::new_desc(
-      @tycho.DeviceDesc::new("58-tycho-2d-svg-icons", validation=true, headless=true),
+      @tycho.DeviceDesc::new(
+        "58-tycho-2d-svg-icons",
+        validation=true,
+        headless=!show_win,
+      ),
     )
     let w = 1920
     let h = 1080
@@ -144,6 +150,9 @@ fn main {
     renderer.render_offscreen(dl, rt, clear_color=bg)
     let cov_stats = renderer.stats()
     let cov_px = rt.readback()
+    if shot != "" {
+      let _ = @tycho.save_png(shot, w, h, cov_px)
+    }
 
     renderer.set_coverage_enabled(false)
     renderer.render_offscreen(dl, rt, clear_color=bg)
@@ -189,6 +198,33 @@ fn main {
         "[58-tycho-2d-svg-icons] FAIL — ssim=\{score} cov_draws=\{cov_stats.coverage_draws} cov_passes=\{cov_stats.path_passes} msaa_passes=\{msaa_stats.path_passes} zoom=\{zoom_stats.coverage_draws} errs=\{errs}",
       )
     }
+    if show_win {
+      renderer.set_coverage_enabled(true)
+      let sc = dev.create_swapchain_desc(
+        @tycho.SwapchainDesc::new(
+          "58-tycho-2d-svg-icons",
+          w,
+          h,
+          depth=true,
+          depth_format=@tycho.TextureFormat::Depth24Stencil8,
+          clear_color=bg.to_clear_color(),
+        ),
+      )
+      while !sc.should_close() {
+        let mut quit = false
+        for ev in sc.poll_events() {
+          match ev {
+            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
+            _ => ()
+          }
+        }
+        if quit { break }
+        sc.sync_size()
+        renderer.render_swapchain(sc, dl, clear_color=bg)
+      }
+      sc.destroy()
+    }
+
     rt.destroy()
     renderer.destroy()
     dev.destroy()

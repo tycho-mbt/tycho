@@ -17,9 +17,16 @@ moon build --target native 58-tycho-2d-svg-icons
 ./_build/native/debug/build/laplaceliu/tycho_vulkan_examples/58-tycho-2d-svg-icons/58-tycho-2d-svg-icons.exe
 ```
 
+## Screenshot
+
+![58-tycho-2d-svg-icons screenshot](./screenshot.png)
+
+> Runs headless by default. Pass `--window` for interactive display or
+> `--screenshot <path>` to capture PNG.
+
 Sample output on NVIDIA:
 
 ```json
-{"ssim":0.9979281441423402,"coverage_draws":300,"coverage_passes":0,"msaa_passes":40,"coverage_draw_calls":2,"msaa_draw_calls":1}
-[58-tycho-2d-svg-icons] OK — SSIM=0.9979, coverage 300 icons / 0 passes, MSAA 40 passes, 0 validation errors
+{"ssim":0.9944478052586458,"coverage_draws":3000,"coverage_passes":0,"msaa_passes":400,"coverage_draw_calls":2,"msaa_draw_calls":1}
+[58-tycho-2d-svg-icons] OK — SSIM=0.9944, coverage 3000 icons / 0 passes, MSAA 400 passes, 0 validation errors
 ```
