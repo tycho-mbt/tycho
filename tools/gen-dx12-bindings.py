@@ -21,7 +21,26 @@ OUT_C = ROOT / "dx12" / "dispatch_generated.c"
 OUT_MBT = ROOT / "dx12" / "dispatch_generated.mbt"
 
 # Typedefs that name a pointer even though the spelling has no `*`.
-POINTER_TYPEDEFS = {"REFIID", "REFGUID", "LPCWSTR", "LPCSTR", "LPVOID"}
+POINTER_TYPEDEFS = {
+    "REFIID",
+    "REFGUID",
+    "REFCLSID",
+    "LPCWSTR",
+    "LPWSTR",
+    "LPCSTR",
+    "LPSTR",
+    "LPVOID",
+    "LPCVOID",
+    "BSTR",
+    "GUID",
+    "PFN_DESTRUCTION_CALLBACK",
+    # Win32 handles are pointers; classifying them as integers would trip C4047
+    # when a method returns one.
+    "HANDLE",
+    "HWND",
+    "HINSTANCE",
+    "HMODULE",
+}
 # 32-bit scalar spellings (enums fall through to this bucket as well).
 SCALAR32 = {
     "int",
@@ -43,6 +62,8 @@ SCALAR32 = {
     "INT8",
     "INT16",
     "INT32",
+    # DXGI spells its bitmask as a UINT typedef.
+    "DXGI_USAGE",
 }
 # 64-bit scalar spellings / pointer-sized handles.
 SCALAR64 = {
@@ -52,9 +73,6 @@ SCALAR64 = {
     "SIZE_T",
     "UINT_PTR",
     "INT_PTR",
-    "HANDLE",
-    "HWND",
-    "HINSTANCE",
 }
 KEYWORDS = {"self", "fn", "let", "match", "type", "test", "if", "else", "return", "while", "for"}
 
@@ -89,6 +107,10 @@ def parse_manifest() -> tuple[list[dict], dict[str, str]]:
     return interfaces, kinds
 
 
+class UnknownType(Exception):
+    pass
+
+
 def classify(ctype: str, kinds: dict[str, str]) -> str:
     if "*" in ctype or ctype.strip() in POINTER_TYPEDEFS:
         return "ptr"
@@ -99,9 +121,17 @@ def classify(ctype: str, kinds: dict[str, str]) -> str:
         return "double"
     if base in SCALAR64:
         return "u64"
+    if base in SCALAR32:
+        return "u32"
     if kinds.get(base) in ("struct", "union"):
         return "struct"
-    return "u32"
+    # An enum needs no special case beyond its 32-bit width.
+    if kinds.get(base) == "enum":
+        return "u32"
+    # Guessing here would silently truncate a pointer on 64-bit hosts, so the
+    # generator refuses instead. Add the spelling to the sets above (or to the
+    # manifest as a `kind` line) when a new header introduces it.
+    raise UnknownType(ctype.strip())
 
 
 def snake(name: str) -> str:
@@ -110,7 +140,13 @@ def snake(name: str) -> str:
 
 
 def iface_prefix(name: str) -> str:
-    return snake(name.removeprefix("ID3D12").removeprefix("IDXGI"))
+    # Namespaced by API: ID3D12Object and IDXGIObject would otherwise both
+    # become `object` and collide.
+    if name.startswith("ID3D12"):
+        return "d3d12_" + snake(name[len("ID3D12") :])
+    if name.startswith("IDXGI"):
+        return "dxgi_" + snake(name[len("IDXGI") :])
+    return snake(name)
 
 
 C_ARG_TYPE = {
@@ -159,6 +195,22 @@ def c_arg(ctype: str, kind: str, index: int) -> str:
     return arg
 
 
+def lint_types(interfaces: list[dict], kinds: dict[str, str]) -> list[str]:
+    """Every spelling must be known: no silent 32-bit truncation."""
+    problems: list[str] = []
+    for iface in interfaces:
+        for method in iface["methods"]:
+            rets = [] if method["ret"].strip() == "void" else [method["ret"]]
+            for ctype in rets + [p[0] for p in method["params"]]:
+                try:
+                    classify(ctype, kinds)
+                except UnknownType as exc:
+                    problems.append(
+                        f"{iface['name']}::{method['name']} unknown type {exc}"
+                    )
+    return problems
+
+
 def emit_c(interfaces: list[dict], kinds: dict[str, str]) -> str:
     windows: list[str] = []
     stubs: list[str] = []
@@ -177,7 +229,13 @@ def emit_c(interfaces: list[dict], kinds: dict[str, str]) -> str:
                 + [c_arg(ctype, kind, index) for index, ((ctype, _), kind) in enumerate(zip(method["params"], kinds_list))]
             )
             call = f"(({name} *)(uintptr_t)self)->lpVtbl->{method['name']}({forwarded})"
-            body = f"  {call};" if ret_c == "void" else f"  return {call};"
+            if ret_c == "void":
+                body = f"  {call};"
+            elif ret_c == "void *":
+                # `const T *` returns would otherwise trip C4090 (dropped const).
+                body = f"  return (void *)(uintptr_t){call};"
+            else:
+                body = f"  return {call};"
             windows.append(f"{header} {{\n{body}\n}}\n")
             stub_body = ["  (void)self;"] + [f"  (void)a{i};" for i in range(len(kinds_list))]
             if ret_c != "void":
@@ -200,6 +258,7 @@ def emit_c(interfaces: list[dict], kinds: dict[str, str]) -> str:
         "#define NOMINMAX",
         "#include <windows.h>",
         "#include <d3d12.h>",
+        "#include <dxgi1_6.h>",
         "",
     ]
     lines.extend(windows)
@@ -247,6 +306,16 @@ def emit_mbt(interfaces: list[dict], kinds: dict[str, str]) -> str:
 def main() -> int:
     check_only = "--check" in sys.argv[1:]
     interfaces, kinds = parse_manifest()
+    problems = lint_types(interfaces, kinds)
+    if problems:
+        for problem in problems[:40]:
+            print("ERROR: " + problem, file=sys.stderr)
+        print(
+            f"ERROR: {len(problems)} unknown type spelling(s); extend the"
+            " knowledge sets in tools/gen-dx12-bindings.py",
+            file=sys.stderr,
+        )
+        return 1
     c_text = emit_c(interfaces, kinds)
     mbt_text = emit_mbt(interfaces, kinds)
     methods = sum(len(i["methods"]) for i in interfaces)

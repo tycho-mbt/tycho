@@ -6,1471 +6,8260 @@
 // dx12.mbt sits on top of these.
 
 ///|
-pub extern "c" fn dx_object_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Object_GetPrivateData"
+pub extern "c" fn dx_d3d12_object_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Object_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_object_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Object_SetPrivateData"
+pub extern "c" fn dx_d3d12_object_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Object_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_object_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Object_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_object_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Object_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_object_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Object_SetName"
+pub extern "c" fn dx_d3d12_object_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Object_SetName"
 
 ///|
-pub extern "c" fn dx_root_signature_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12RootSignature_GetPrivateData"
+pub extern "c" fn dx_d3d12_device_child_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12DeviceChild_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_root_signature_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12RootSignature_SetPrivateData"
+pub extern "c" fn dx_d3d12_device_child_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12DeviceChild_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_root_signature_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12RootSignature_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_device_child_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12DeviceChild_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_root_signature_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12RootSignature_SetName"
+pub extern "c" fn dx_d3d12_device_child_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12DeviceChild_SetName"
 
 ///|
-pub extern "c" fn dx_root_signature_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12RootSignature_GetDevice"
+pub extern "c" fn dx_d3d12_device_child_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12DeviceChild_GetDevice"
 
 ///|
-pub extern "c" fn dx_resource_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource_GetPrivateData"
+pub extern "c" fn dx_d3d12_root_signature_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12RootSignature_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_resource_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource_SetPrivateData"
+pub extern "c" fn dx_d3d12_root_signature_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12RootSignature_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_resource_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_root_signature_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12RootSignature_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_resource_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Resource_SetName"
+pub extern "c" fn dx_d3d12_root_signature_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12RootSignature_SetName"
 
 ///|
-pub extern "c" fn dx_resource_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Resource_GetDevice"
+pub extern "c" fn dx_d3d12_root_signature_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12RootSignature_GetDevice"
 
 ///|
-pub extern "c" fn dx_resource_map(obj : UInt64, subresource : Int, p_read_range : UInt64, pp_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource_Map"
+pub extern "c" fn dx_d3d12_root_signature_deserializer_get_root_signature_desc(obj : UInt64) -> UInt64 = "tycho_dx12_ID3D12RootSignatureDeserializer_GetRootSignatureDesc"
 
 ///|
-pub extern "c" fn dx_resource_unmap(obj : UInt64, subresource : Int, p_written_range : UInt64) -> Unit = "tycho_dx12_ID3D12Resource_Unmap"
+pub extern "c" fn dx_d3d12_versioned_root_signature_deserializer_get_root_signature_desc_at_version(obj : UInt64, convert_to_version : Int, pp_desc : UInt64) -> Int = "tycho_dx12_ID3D12VersionedRootSignatureDeserializer_GetRootSignatureDescAtVersion"
 
 ///|
-pub extern "c" fn dx_resource_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Resource_GetDesc"
+pub extern "c" fn dx_d3d12_versioned_root_signature_deserializer_get_unconverted_root_signature_desc(obj : UInt64) -> UInt64 = "tycho_dx12_ID3D12VersionedRootSignatureDeserializer_GetUnconvertedRootSignatureDesc"
 
 ///|
-pub extern "c" fn dx_resource_get_gpu_virtual_address(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12Resource_GetGPUVirtualAddress"
+pub extern "c" fn dx_d3d12_pageable_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Pageable_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_resource_write_to_subresource(obj : UInt64, dst_subresource : Int, p_dst_box : UInt64, p_src_data : UInt64, src_row_pitch : Int, src_depth_pitch : Int) -> Int = "tycho_dx12_ID3D12Resource_WriteToSubresource"
+pub extern "c" fn dx_d3d12_pageable_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Pageable_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_resource_read_from_subresource(obj : UInt64, p_dst_data : UInt64, dst_row_pitch : Int, dst_depth_pitch : Int, src_subresource : Int, p_src_box : UInt64) -> Int = "tycho_dx12_ID3D12Resource_ReadFromSubresource"
+pub extern "c" fn dx_d3d12_pageable_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Pageable_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_resource_get_heap_properties(obj : UInt64, p_heap_properties : UInt64, p_heap_flags : UInt64) -> Int = "tycho_dx12_ID3D12Resource_GetHeapProperties"
+pub extern "c" fn dx_d3d12_pageable_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Pageable_SetName"
 
 ///|
-pub extern "c" fn dx_command_allocator_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_GetPrivateData"
+pub extern "c" fn dx_d3d12_pageable_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Pageable_GetDevice"
 
 ///|
-pub extern "c" fn dx_command_allocator_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_SetPrivateData"
+pub extern "c" fn dx_d3d12_heap_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Heap_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_command_allocator_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_heap_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Heap_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_command_allocator_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_SetName"
+pub extern "c" fn dx_d3d12_heap_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Heap_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_command_allocator_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_GetDevice"
+pub extern "c" fn dx_d3d12_heap_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Heap_SetName"
 
 ///|
-pub extern "c" fn dx_command_allocator_reset(obj : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_Reset"
+pub extern "c" fn dx_d3d12_heap_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Heap_GetDevice"
 
 ///|
-pub extern "c" fn dx_fence_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence_GetPrivateData"
+pub extern "c" fn dx_d3d12_heap_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Heap_GetDesc"
 
 ///|
-pub extern "c" fn dx_fence_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence_SetPrivateData"
+pub extern "c" fn dx_d3d12_resource_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_fence_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_resource_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_fence_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Fence_SetName"
+pub extern "c" fn dx_d3d12_resource_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_fence_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Fence_GetDevice"
+pub extern "c" fn dx_d3d12_resource_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Resource_SetName"
 
 ///|
-pub extern "c" fn dx_fence_get_completed_value(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12Fence_GetCompletedValue"
+pub extern "c" fn dx_d3d12_resource_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Resource_GetDevice"
 
 ///|
-pub extern "c" fn dx_fence_set_event_on_completion(obj : UInt64, value : Int64, h_event : Int64) -> Int = "tycho_dx12_ID3D12Fence_SetEventOnCompletion"
+pub extern "c" fn dx_d3d12_resource_map(obj : UInt64, subresource : Int, p_read_range : UInt64, pp_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource_Map"
 
 ///|
-pub extern "c" fn dx_fence_signal(obj : UInt64, value : Int64) -> Int = "tycho_dx12_ID3D12Fence_Signal"
+pub extern "c" fn dx_d3d12_resource_unmap(obj : UInt64, subresource : Int, p_written_range : UInt64) -> Unit = "tycho_dx12_ID3D12Resource_Unmap"
 
 ///|
-pub extern "c" fn dx_fence1_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_GetPrivateData"
+pub extern "c" fn dx_d3d12_resource_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Resource_GetDesc"
 
 ///|
-pub extern "c" fn dx_fence1_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_SetPrivateData"
+pub extern "c" fn dx_d3d12_resource_get_gpu_virtual_address(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12Resource_GetGPUVirtualAddress"
 
 ///|
-pub extern "c" fn dx_fence1_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_resource_write_to_subresource(obj : UInt64, dst_subresource : Int, p_dst_box : UInt64, p_src_data : UInt64, src_row_pitch : Int, src_depth_pitch : Int) -> Int = "tycho_dx12_ID3D12Resource_WriteToSubresource"
 
 ///|
-pub extern "c" fn dx_fence1_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_SetName"
+pub extern "c" fn dx_d3d12_resource_read_from_subresource(obj : UInt64, p_dst_data : UInt64, dst_row_pitch : Int, dst_depth_pitch : Int, src_subresource : Int, p_src_box : UInt64) -> Int = "tycho_dx12_ID3D12Resource_ReadFromSubresource"
 
 ///|
-pub extern "c" fn dx_fence1_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_GetDevice"
+pub extern "c" fn dx_d3d12_resource_get_heap_properties(obj : UInt64, p_heap_properties : UInt64, p_heap_flags : UInt64) -> Int = "tycho_dx12_ID3D12Resource_GetHeapProperties"
 
 ///|
-pub extern "c" fn dx_fence1_get_completed_value(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12Fence1_GetCompletedValue"
+pub extern "c" fn dx_d3d12_command_allocator_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_fence1_set_event_on_completion(obj : UInt64, value : Int64, h_event : Int64) -> Int = "tycho_dx12_ID3D12Fence1_SetEventOnCompletion"
+pub extern "c" fn dx_d3d12_command_allocator_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_fence1_signal(obj : UInt64, value : Int64) -> Int = "tycho_dx12_ID3D12Fence1_Signal"
+pub extern "c" fn dx_d3d12_command_allocator_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_fence1_get_creation_flags(obj : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_GetCreationFlags"
+pub extern "c" fn dx_d3d12_command_allocator_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_SetName"
 
 ///|
-pub extern "c" fn dx_pipeline_state_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_GetPrivateData"
+pub extern "c" fn dx_d3d12_command_allocator_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_GetDevice"
 
 ///|
-pub extern "c" fn dx_pipeline_state_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_SetPrivateData"
+pub extern "c" fn dx_d3d12_command_allocator_reset(obj : UInt64) -> Int = "tycho_dx12_ID3D12CommandAllocator_Reset"
 
 ///|
-pub extern "c" fn dx_pipeline_state_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_fence_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_pipeline_state_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_SetName"
+pub extern "c" fn dx_d3d12_fence_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_pipeline_state_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_GetDevice"
+pub extern "c" fn dx_d3d12_fence_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_pipeline_state_get_cached_blob(obj : UInt64, pp_blob : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_GetCachedBlob"
+pub extern "c" fn dx_d3d12_fence_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Fence_SetName"
 
 ///|
-pub extern "c" fn dx_descriptor_heap_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12DescriptorHeap_GetPrivateData"
+pub extern "c" fn dx_d3d12_fence_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Fence_GetDevice"
 
 ///|
-pub extern "c" fn dx_descriptor_heap_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12DescriptorHeap_SetPrivateData"
+pub extern "c" fn dx_d3d12_fence_get_completed_value(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12Fence_GetCompletedValue"
 
 ///|
-pub extern "c" fn dx_descriptor_heap_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12DescriptorHeap_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_fence_set_event_on_completion(obj : UInt64, value : Int64, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Fence_SetEventOnCompletion"
 
 ///|
-pub extern "c" fn dx_descriptor_heap_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12DescriptorHeap_SetName"
+pub extern "c" fn dx_d3d12_fence_signal(obj : UInt64, value : Int64) -> Int = "tycho_dx12_ID3D12Fence_Signal"
 
 ///|
-pub extern "c" fn dx_descriptor_heap_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12DescriptorHeap_GetDevice"
+pub extern "c" fn dx_d3d12_fence1_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_descriptor_heap_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12DescriptorHeap_GetDesc"
+pub extern "c" fn dx_d3d12_fence1_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_descriptor_heap_get_cpu_descriptor_handle_for_heap_start(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart"
+pub extern "c" fn dx_d3d12_fence1_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_descriptor_heap_get_gpu_descriptor_handle_for_heap_start(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12DescriptorHeap_GetGPUDescriptorHandleForHeapStart"
+pub extern "c" fn dx_d3d12_fence1_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_SetName"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_GetPrivateData"
+pub extern "c" fn dx_d3d12_fence1_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_GetDevice"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_SetPrivateData"
+pub extern "c" fn dx_d3d12_fence1_get_completed_value(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12Fence1_GetCompletedValue"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_fence1_set_event_on_completion(obj : UInt64, value : Int64, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_SetEventOnCompletion"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_SetName"
+pub extern "c" fn dx_d3d12_fence1_signal(obj : UInt64, value : Int64) -> Int = "tycho_dx12_ID3D12Fence1_Signal"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_GetDevice"
+pub extern "c" fn dx_d3d12_fence1_get_creation_flags(obj : UInt64) -> Int = "tycho_dx12_ID3D12Fence1_GetCreationFlags"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_GetType"
+pub extern "c" fn dx_d3d12_pipeline_state_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_Close"
+pub extern "c" fn dx_d3d12_pipeline_state_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_Reset"
+pub extern "c" fn dx_d3d12_pipeline_state_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ClearState"
+pub extern "c" fn dx_d3d12_pipeline_state_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_SetName"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_DrawInstanced"
+pub extern "c" fn dx_d3d12_pipeline_state_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_GetDevice"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_DrawIndexedInstanced"
+pub extern "c" fn dx_d3d12_pipeline_state_get_cached_blob(obj : UInt64, pp_blob : UInt64) -> Int = "tycho_dx12_ID3D12PipelineState_GetCachedBlob"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_Dispatch"
+pub extern "c" fn dx_d3d12_descriptor_heap_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12DescriptorHeap_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_CopyBufferRegion"
+pub extern "c" fn dx_d3d12_descriptor_heap_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12DescriptorHeap_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_CopyTextureRegion"
+pub extern "c" fn dx_d3d12_descriptor_heap_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12DescriptorHeap_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_CopyResource"
+pub extern "c" fn dx_d3d12_descriptor_heap_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12DescriptorHeap_SetName"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_CopyTiles"
+pub extern "c" fn dx_d3d12_descriptor_heap_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12DescriptorHeap_GetDevice"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ResolveSubresource"
+pub extern "c" fn dx_d3d12_descriptor_heap_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12DescriptorHeap_GetDesc"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_IASetPrimitiveTopology"
+pub extern "c" fn dx_d3d12_descriptor_heap_get_cpu_descriptor_handle_for_heap_start(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_RSSetViewports"
+pub extern "c" fn dx_d3d12_descriptor_heap_get_gpu_descriptor_handle_for_heap_start(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12DescriptorHeap_GetGPUDescriptorHandleForHeapStart"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_RSSetScissorRects"
+pub extern "c" fn dx_d3d12_query_heap_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12QueryHeap_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_OMSetBlendFactor"
+pub extern "c" fn dx_d3d12_query_heap_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12QueryHeap_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_OMSetStencilRef"
+pub extern "c" fn dx_d3d12_query_heap_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12QueryHeap_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetPipelineState"
+pub extern "c" fn dx_d3d12_query_heap_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12QueryHeap_SetName"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ResourceBarrier"
+pub extern "c" fn dx_d3d12_query_heap_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12QueryHeap_GetDevice"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ExecuteBundle"
+pub extern "c" fn dx_d3d12_command_signature_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandSignature_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetDescriptorHeaps"
+pub extern "c" fn dx_d3d12_command_signature_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandSignature_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRootSignature"
+pub extern "c" fn dx_d3d12_command_signature_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandSignature_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRootSignature"
+pub extern "c" fn dx_d3d12_command_signature_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12CommandSignature_SetName"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRootDescriptorTable"
+pub extern "c" fn dx_d3d12_command_signature_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12CommandSignature_GetDevice"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable"
+pub extern "c" fn dx_d3d12_command_list_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandList_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRoot32BitConstant"
+pub extern "c" fn dx_d3d12_command_list_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandList_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRoot32BitConstant"
+pub extern "c" fn dx_d3d12_command_list_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandList_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRoot32BitConstants"
+pub extern "c" fn dx_d3d12_command_list_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12CommandList_SetName"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRoot32BitConstants"
+pub extern "c" fn dx_d3d12_command_list_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12CommandList_GetDevice"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRootConstantBufferView"
+pub extern "c" fn dx_d3d12_command_list_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12CommandList_GetType"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRootConstantBufferView"
+pub extern "c" fn dx_d3d12_graphics_command_list_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRootShaderResourceView"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRootShaderResourceView"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRootUnorderedAccessView"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_SetName"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRootUnorderedAccessView"
+pub extern "c" fn dx_d3d12_graphics_command_list_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_GetDevice"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_IASetIndexBuffer"
+pub extern "c" fn dx_d3d12_graphics_command_list_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_GetType"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_IASetVertexBuffers"
+pub extern "c" fn dx_d3d12_graphics_command_list_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_Close"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SOSetTargets"
+pub extern "c" fn dx_d3d12_graphics_command_list_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList_Reset"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_OMSetRenderTargets"
+pub extern "c" fn dx_d3d12_graphics_command_list_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ClearState"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ClearDepthStencilView"
+pub extern "c" fn dx_d3d12_graphics_command_list_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_DrawInstanced"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ClearRenderTargetView"
+pub extern "c" fn dx_d3d12_graphics_command_list_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_DrawIndexedInstanced"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ClearUnorderedAccessViewUint"
+pub extern "c" fn dx_d3d12_graphics_command_list_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_Dispatch"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ClearUnorderedAccessViewFloat"
+pub extern "c" fn dx_d3d12_graphics_command_list_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_CopyBufferRegion"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_DiscardResource"
+pub extern "c" fn dx_d3d12_graphics_command_list_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_CopyTextureRegion"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_BeginQuery"
+pub extern "c" fn dx_d3d12_graphics_command_list_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_CopyResource"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_EndQuery"
+pub extern "c" fn dx_d3d12_graphics_command_list_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_CopyTiles"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ResolveQueryData"
+pub extern "c" fn dx_d3d12_graphics_command_list_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ResolveSubresource"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetPredication"
+pub extern "c" fn dx_d3d12_graphics_command_list_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_IASetPrimitiveTopology"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetMarker"
+pub extern "c" fn dx_d3d12_graphics_command_list_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_RSSetViewports"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_BeginEvent"
+pub extern "c" fn dx_d3d12_graphics_command_list_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_RSSetScissorRects"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_EndEvent"
+pub extern "c" fn dx_d3d12_graphics_command_list_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_OMSetBlendFactor"
 
 ///|
-pub extern "c" fn dx_graphics_command_list_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ExecuteIndirect"
+pub extern "c" fn dx_d3d12_graphics_command_list_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_OMSetStencilRef"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_GetPrivateData"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetPipelineState"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_SetPrivateData"
+pub extern "c" fn dx_d3d12_graphics_command_list_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ResourceBarrier"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_graphics_command_list_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ExecuteBundle"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_SetName"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetDescriptorHeaps"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_GetDevice"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRootSignature"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_GetType"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRootSignature"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_Close"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRootDescriptorTable"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_Reset"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ClearState"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRoot32BitConstant"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_DrawInstanced"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRoot32BitConstant"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_DrawIndexedInstanced"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRoot32BitConstants"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_Dispatch"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRoot32BitConstants"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_CopyBufferRegion"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRootConstantBufferView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_CopyTextureRegion"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRootConstantBufferView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_CopyResource"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRootShaderResourceView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_CopyTiles"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRootShaderResourceView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ResolveSubresource"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetComputeRootUnorderedAccessView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_IASetPrimitiveTopology"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetGraphicsRootUnorderedAccessView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_RSSetViewports"
+pub extern "c" fn dx_d3d12_graphics_command_list_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_IASetIndexBuffer"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_RSSetScissorRects"
+pub extern "c" fn dx_d3d12_graphics_command_list_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_IASetVertexBuffers"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_OMSetBlendFactor"
+pub extern "c" fn dx_d3d12_graphics_command_list_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SOSetTargets"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_OMSetStencilRef"
+pub extern "c" fn dx_d3d12_graphics_command_list_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_OMSetRenderTargets"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetPipelineState"
+pub extern "c" fn dx_d3d12_graphics_command_list_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ClearDepthStencilView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ResourceBarrier"
+pub extern "c" fn dx_d3d12_graphics_command_list_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ClearRenderTargetView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ExecuteBundle"
+pub extern "c" fn dx_d3d12_graphics_command_list_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ClearUnorderedAccessViewUint"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetDescriptorHeaps"
+pub extern "c" fn dx_d3d12_graphics_command_list_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ClearUnorderedAccessViewFloat"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRootSignature"
+pub extern "c" fn dx_d3d12_graphics_command_list_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_DiscardResource"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRootSignature"
+pub extern "c" fn dx_d3d12_graphics_command_list_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_BeginQuery"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRootDescriptorTable"
+pub extern "c" fn dx_d3d12_graphics_command_list_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_EndQuery"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRootDescriptorTable"
+pub extern "c" fn dx_d3d12_graphics_command_list_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ResolveQueryData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRoot32BitConstant"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetPredication"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRoot32BitConstant"
+pub extern "c" fn dx_d3d12_graphics_command_list_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_SetMarker"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRoot32BitConstants"
+pub extern "c" fn dx_d3d12_graphics_command_list_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_BeginEvent"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRoot32BitConstants"
+pub extern "c" fn dx_d3d12_graphics_command_list_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_EndEvent"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRootConstantBufferView"
+pub extern "c" fn dx_d3d12_graphics_command_list_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList_ExecuteIndirect"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRootConstantBufferView"
+pub extern "c" fn dx_d3d12_graphics_command_list1_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRootShaderResourceView"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRootShaderResourceView"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRootUnorderedAccessView"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_SetName"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRootUnorderedAccessView"
+pub extern "c" fn dx_d3d12_graphics_command_list1_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_GetDevice"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_IASetIndexBuffer"
+pub extern "c" fn dx_d3d12_graphics_command_list1_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_GetType"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_IASetVertexBuffers"
+pub extern "c" fn dx_d3d12_graphics_command_list1_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_Close"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SOSetTargets"
+pub extern "c" fn dx_d3d12_graphics_command_list1_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList1_Reset"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_OMSetRenderTargets"
+pub extern "c" fn dx_d3d12_graphics_command_list1_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ClearState"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ClearDepthStencilView"
+pub extern "c" fn dx_d3d12_graphics_command_list1_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_DrawInstanced"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ClearRenderTargetView"
+pub extern "c" fn dx_d3d12_graphics_command_list1_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_DrawIndexedInstanced"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ClearUnorderedAccessViewUint"
+pub extern "c" fn dx_d3d12_graphics_command_list1_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_Dispatch"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ClearUnorderedAccessViewFloat"
+pub extern "c" fn dx_d3d12_graphics_command_list1_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_CopyBufferRegion"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_DiscardResource"
+pub extern "c" fn dx_d3d12_graphics_command_list1_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_CopyTextureRegion"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_BeginQuery"
+pub extern "c" fn dx_d3d12_graphics_command_list1_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_CopyResource"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_EndQuery"
+pub extern "c" fn dx_d3d12_graphics_command_list1_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_CopyTiles"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ResolveQueryData"
+pub extern "c" fn dx_d3d12_graphics_command_list1_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ResolveSubresource"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetPredication"
+pub extern "c" fn dx_d3d12_graphics_command_list1_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_IASetPrimitiveTopology"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetMarker"
+pub extern "c" fn dx_d3d12_graphics_command_list1_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_RSSetViewports"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_BeginEvent"
+pub extern "c" fn dx_d3d12_graphics_command_list1_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_RSSetScissorRects"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_EndEvent"
+pub extern "c" fn dx_d3d12_graphics_command_list1_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_OMSetBlendFactor"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ExecuteIndirect"
+pub extern "c" fn dx_d3d12_graphics_command_list1_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_OMSetStencilRef"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_AtomicCopyBufferUINT"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetPipelineState"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_AtomicCopyBufferUINT64"
+pub extern "c" fn dx_d3d12_graphics_command_list1_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ResourceBarrier"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_OMSetDepthBounds"
+pub extern "c" fn dx_d3d12_graphics_command_list1_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ExecuteBundle"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetSamplePositions"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetDescriptorHeaps"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ResolveSubresourceRegion"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRootSignature"
 
 ///|
-pub extern "c" fn dx_graphics_command_list1_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetViewInstanceMask"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRootSignature"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_GetPrivateData"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRootDescriptorTable"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_SetPrivateData"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRootDescriptorTable"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRoot32BitConstant"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_SetName"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRoot32BitConstant"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_GetDevice"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRoot32BitConstants"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_GetType"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRoot32BitConstants"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_Close"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRootConstantBufferView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_Reset"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRootConstantBufferView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ClearState"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRootShaderResourceView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_DrawInstanced"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRootShaderResourceView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_DrawIndexedInstanced"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetComputeRootUnorderedAccessView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_Dispatch"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetGraphicsRootUnorderedAccessView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_CopyBufferRegion"
+pub extern "c" fn dx_d3d12_graphics_command_list1_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_IASetIndexBuffer"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_CopyTextureRegion"
+pub extern "c" fn dx_d3d12_graphics_command_list1_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_IASetVertexBuffers"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_CopyResource"
+pub extern "c" fn dx_d3d12_graphics_command_list1_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SOSetTargets"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_CopyTiles"
+pub extern "c" fn dx_d3d12_graphics_command_list1_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_OMSetRenderTargets"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ResolveSubresource"
+pub extern "c" fn dx_d3d12_graphics_command_list1_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ClearDepthStencilView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_IASetPrimitiveTopology"
+pub extern "c" fn dx_d3d12_graphics_command_list1_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ClearRenderTargetView"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_RSSetViewports"
+pub extern "c" fn dx_d3d12_graphics_command_list1_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ClearUnorderedAccessViewUint"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_RSSetScissorRects"
+pub extern "c" fn dx_d3d12_graphics_command_list1_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ClearUnorderedAccessViewFloat"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_OMSetBlendFactor"
+pub extern "c" fn dx_d3d12_graphics_command_list1_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_DiscardResource"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_OMSetStencilRef"
+pub extern "c" fn dx_d3d12_graphics_command_list1_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_BeginQuery"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetPipelineState"
+pub extern "c" fn dx_d3d12_graphics_command_list1_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_EndQuery"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ResourceBarrier"
+pub extern "c" fn dx_d3d12_graphics_command_list1_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ResolveQueryData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ExecuteBundle"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetPredication"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetDescriptorHeaps"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetMarker"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRootSignature"
+pub extern "c" fn dx_d3d12_graphics_command_list1_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_BeginEvent"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRootSignature"
+pub extern "c" fn dx_d3d12_graphics_command_list1_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_EndEvent"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRootDescriptorTable"
+pub extern "c" fn dx_d3d12_graphics_command_list1_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ExecuteIndirect"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRootDescriptorTable"
+pub extern "c" fn dx_d3d12_graphics_command_list1_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_AtomicCopyBufferUINT"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRoot32BitConstant"
+pub extern "c" fn dx_d3d12_graphics_command_list1_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_AtomicCopyBufferUINT64"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRoot32BitConstant"
+pub extern "c" fn dx_d3d12_graphics_command_list1_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_OMSetDepthBounds"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRoot32BitConstants"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetSamplePositions"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRoot32BitConstants"
+pub extern "c" fn dx_d3d12_graphics_command_list1_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_ResolveSubresourceRegion"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRootConstantBufferView"
+pub extern "c" fn dx_d3d12_graphics_command_list1_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList1_SetViewInstanceMask"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRootConstantBufferView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRootShaderResourceView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRootShaderResourceView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRootUnorderedAccessView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_SetName"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRootUnorderedAccessView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_GetDevice"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_IASetIndexBuffer"
+pub extern "c" fn dx_d3d12_graphics_command_list2_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_GetType"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_IASetVertexBuffers"
+pub extern "c" fn dx_d3d12_graphics_command_list2_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_Close"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SOSetTargets"
+pub extern "c" fn dx_d3d12_graphics_command_list2_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList2_Reset"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_OMSetRenderTargets"
+pub extern "c" fn dx_d3d12_graphics_command_list2_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ClearState"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ClearDepthStencilView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_DrawInstanced"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ClearRenderTargetView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_DrawIndexedInstanced"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ClearUnorderedAccessViewUint"
+pub extern "c" fn dx_d3d12_graphics_command_list2_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_Dispatch"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ClearUnorderedAccessViewFloat"
+pub extern "c" fn dx_d3d12_graphics_command_list2_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_CopyBufferRegion"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_DiscardResource"
+pub extern "c" fn dx_d3d12_graphics_command_list2_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_CopyTextureRegion"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_BeginQuery"
+pub extern "c" fn dx_d3d12_graphics_command_list2_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_CopyResource"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_EndQuery"
+pub extern "c" fn dx_d3d12_graphics_command_list2_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_CopyTiles"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ResolveQueryData"
+pub extern "c" fn dx_d3d12_graphics_command_list2_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ResolveSubresource"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetPredication"
+pub extern "c" fn dx_d3d12_graphics_command_list2_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_IASetPrimitiveTopology"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetMarker"
+pub extern "c" fn dx_d3d12_graphics_command_list2_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_RSSetViewports"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_BeginEvent"
+pub extern "c" fn dx_d3d12_graphics_command_list2_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_RSSetScissorRects"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_EndEvent"
+pub extern "c" fn dx_d3d12_graphics_command_list2_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_OMSetBlendFactor"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ExecuteIndirect"
+pub extern "c" fn dx_d3d12_graphics_command_list2_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_OMSetStencilRef"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_AtomicCopyBufferUINT"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetPipelineState"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_AtomicCopyBufferUINT64"
+pub extern "c" fn dx_d3d12_graphics_command_list2_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ResourceBarrier"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_OMSetDepthBounds"
+pub extern "c" fn dx_d3d12_graphics_command_list2_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ExecuteBundle"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetSamplePositions"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetDescriptorHeaps"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ResolveSubresourceRegion"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRootSignature"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetViewInstanceMask"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRootSignature"
 
 ///|
-pub extern "c" fn dx_graphics_command_list2_write_buffer_immediate(obj : UInt64, count : Int, p_params : UInt64, p_modes : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_WriteBufferImmediate"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRootDescriptorTable"
 
 ///|
-pub extern "c" fn dx_command_queue_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_GetPrivateData"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRootDescriptorTable"
 
 ///|
-pub extern "c" fn dx_command_queue_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_SetPrivateData"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRoot32BitConstant"
 
 ///|
-pub extern "c" fn dx_command_queue_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRoot32BitConstant"
 
 ///|
-pub extern "c" fn dx_command_queue_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_SetName"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRoot32BitConstants"
 
 ///|
-pub extern "c" fn dx_command_queue_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_GetDevice"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRoot32BitConstants"
 
 ///|
-pub extern "c" fn dx_command_queue_update_tile_mappings(obj : UInt64, p_resource : UInt64, num_resource_regions : Int, p_resource_region_start_coordinates : UInt64, p_resource_region_sizes : UInt64, p_heap : UInt64, num_ranges : Int, p_range_flags : UInt64, p_heap_range_start_offsets : UInt64, p_range_tile_counts : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12CommandQueue_UpdateTileMappings"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRootConstantBufferView"
 
 ///|
-pub extern "c" fn dx_command_queue_copy_tile_mappings(obj : UInt64, p_dst_resource : UInt64, p_dst_region_start_coordinate : UInt64, p_src_resource : UInt64, p_src_region_start_coordinate : UInt64, p_region_size : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12CommandQueue_CopyTileMappings"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRootConstantBufferView"
 
 ///|
-pub extern "c" fn dx_command_queue_execute_command_lists(obj : UInt64, num_command_lists : Int, pp_command_lists : UInt64) -> Unit = "tycho_dx12_ID3D12CommandQueue_ExecuteCommandLists"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRootShaderResourceView"
 
 ///|
-pub extern "c" fn dx_command_queue_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12CommandQueue_SetMarker"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRootShaderResourceView"
 
 ///|
-pub extern "c" fn dx_command_queue_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12CommandQueue_BeginEvent"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetComputeRootUnorderedAccessView"
 
 ///|
-pub extern "c" fn dx_command_queue_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12CommandQueue_EndEvent"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetGraphicsRootUnorderedAccessView"
 
 ///|
-pub extern "c" fn dx_command_queue_signal(obj : UInt64, p_fence : UInt64, value : Int64) -> Int = "tycho_dx12_ID3D12CommandQueue_Signal"
+pub extern "c" fn dx_d3d12_graphics_command_list2_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_IASetIndexBuffer"
 
 ///|
-pub extern "c" fn dx_command_queue_wait(obj : UInt64, p_fence : UInt64, value : Int64) -> Int = "tycho_dx12_ID3D12CommandQueue_Wait"
+pub extern "c" fn dx_d3d12_graphics_command_list2_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_IASetVertexBuffers"
 
 ///|
-pub extern "c" fn dx_command_queue_get_timestamp_frequency(obj : UInt64, p_frequency : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_GetTimestampFrequency"
+pub extern "c" fn dx_d3d12_graphics_command_list2_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SOSetTargets"
 
 ///|
-pub extern "c" fn dx_command_queue_get_clock_calibration(obj : UInt64, p_gpu_timestamp : UInt64, p_cpu_timestamp : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_GetClockCalibration"
+pub extern "c" fn dx_d3d12_graphics_command_list2_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_OMSetRenderTargets"
 
 ///|
-pub extern "c" fn dx_command_queue_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12CommandQueue_GetDesc"
+pub extern "c" fn dx_d3d12_graphics_command_list2_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ClearDepthStencilView"
 
 ///|
-pub extern "c" fn dx_device_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device_GetPrivateData"
+pub extern "c" fn dx_d3d12_graphics_command_list2_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ClearRenderTargetView"
 
 ///|
-pub extern "c" fn dx_device_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device_SetPrivateData"
+pub extern "c" fn dx_d3d12_graphics_command_list2_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ClearUnorderedAccessViewUint"
 
 ///|
-pub extern "c" fn dx_device_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_graphics_command_list2_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ClearUnorderedAccessViewFloat"
 
 ///|
-pub extern "c" fn dx_device_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device_SetName"
+pub extern "c" fn dx_d3d12_graphics_command_list2_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_DiscardResource"
 
 ///|
-pub extern "c" fn dx_device_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device_GetNodeCount"
+pub extern "c" fn dx_d3d12_graphics_command_list2_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_BeginQuery"
 
 ///|
-pub extern "c" fn dx_device_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateCommandQueue"
+pub extern "c" fn dx_d3d12_graphics_command_list2_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_EndQuery"
 
 ///|
-pub extern "c" fn dx_device_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateCommandAllocator"
+pub extern "c" fn dx_d3d12_graphics_command_list2_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ResolveQueryData"
 
 ///|
-pub extern "c" fn dx_device_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateGraphicsPipelineState"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetPredication"
 
 ///|
-pub extern "c" fn dx_device_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateComputePipelineState"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetMarker"
 
 ///|
-pub extern "c" fn dx_device_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateCommandList"
+pub extern "c" fn dx_d3d12_graphics_command_list2_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_BeginEvent"
 
 ///|
-pub extern "c" fn dx_device_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device_CheckFeatureSupport"
+pub extern "c" fn dx_d3d12_graphics_command_list2_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_EndEvent"
 
 ///|
-pub extern "c" fn dx_device_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateDescriptorHeap"
+pub extern "c" fn dx_d3d12_graphics_command_list2_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ExecuteIndirect"
 
 ///|
-pub extern "c" fn dx_device_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device_GetDescriptorHandleIncrementSize"
+pub extern "c" fn dx_d3d12_graphics_command_list2_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_AtomicCopyBufferUINT"
 
 ///|
-pub extern "c" fn dx_device_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateRootSignature"
+pub extern "c" fn dx_d3d12_graphics_command_list2_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_AtomicCopyBufferUINT64"
 
 ///|
-pub extern "c" fn dx_device_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateConstantBufferView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_OMSetDepthBounds"
 
 ///|
-pub extern "c" fn dx_device_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateShaderResourceView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetSamplePositions"
 
 ///|
-pub extern "c" fn dx_device_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateUnorderedAccessView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_ResolveSubresourceRegion"
 
 ///|
-pub extern "c" fn dx_device_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateRenderTargetView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_SetViewInstanceMask"
 
 ///|
-pub extern "c" fn dx_device_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateDepthStencilView"
+pub extern "c" fn dx_d3d12_graphics_command_list2_write_buffer_immediate(obj : UInt64, count : Int, p_params : UInt64, p_modes : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList2_WriteBufferImmediate"
 
 ///|
-pub extern "c" fn dx_device_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateSampler"
+pub extern "c" fn dx_d3d12_command_queue_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_device_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device_CopyDescriptors"
+pub extern "c" fn dx_d3d12_command_queue_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_device_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device_CopyDescriptorsSimple"
+pub extern "c" fn dx_d3d12_command_queue_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_device_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device_GetResourceAllocationInfo"
+pub extern "c" fn dx_d3d12_command_queue_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_SetName"
 
 ///|
-pub extern "c" fn dx_device_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device_GetCustomHeapProperties"
+pub extern "c" fn dx_d3d12_command_queue_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_GetDevice"
 
 ///|
-pub extern "c" fn dx_device_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateCommittedResource"
+pub extern "c" fn dx_d3d12_command_queue_update_tile_mappings(obj : UInt64, p_resource : UInt64, num_resource_regions : Int, p_resource_region_start_coordinates : UInt64, p_resource_region_sizes : UInt64, p_heap : UInt64, num_ranges : Int, p_range_flags : UInt64, p_heap_range_start_offsets : UInt64, p_range_tile_counts : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12CommandQueue_UpdateTileMappings"
 
 ///|
-pub extern "c" fn dx_device_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateHeap"
+pub extern "c" fn dx_d3d12_command_queue_copy_tile_mappings(obj : UInt64, p_dst_resource : UInt64, p_dst_region_start_coordinate : UInt64, p_src_resource : UInt64, p_src_region_start_coordinate : UInt64, p_region_size : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12CommandQueue_CopyTileMappings"
 
 ///|
-pub extern "c" fn dx_device_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreatePlacedResource"
+pub extern "c" fn dx_d3d12_command_queue_execute_command_lists(obj : UInt64, num_command_lists : Int, pp_command_lists : UInt64) -> Unit = "tycho_dx12_ID3D12CommandQueue_ExecuteCommandLists"
 
 ///|
-pub extern "c" fn dx_device_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateReservedResource"
+pub extern "c" fn dx_d3d12_command_queue_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12CommandQueue_SetMarker"
 
 ///|
-pub extern "c" fn dx_device_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateSharedHandle"
+pub extern "c" fn dx_d3d12_command_queue_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12CommandQueue_BeginEvent"
 
 ///|
-pub extern "c" fn dx_device_open_shared_handle(obj : UInt64, nt_handle : Int64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device_OpenSharedHandle"
+pub extern "c" fn dx_d3d12_command_queue_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12CommandQueue_EndEvent"
 
 ///|
-pub extern "c" fn dx_device_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device_OpenSharedHandleByName"
+pub extern "c" fn dx_d3d12_command_queue_signal(obj : UInt64, p_fence : UInt64, value : Int64) -> Int = "tycho_dx12_ID3D12CommandQueue_Signal"
 
 ///|
-pub extern "c" fn dx_device_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device_MakeResident"
+pub extern "c" fn dx_d3d12_command_queue_wait(obj : UInt64, p_fence : UInt64, value : Int64) -> Int = "tycho_dx12_ID3D12CommandQueue_Wait"
 
 ///|
-pub extern "c" fn dx_device_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device_Evict"
+pub extern "c" fn dx_d3d12_command_queue_get_timestamp_frequency(obj : UInt64, p_frequency : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_GetTimestampFrequency"
 
 ///|
-pub extern "c" fn dx_device_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateFence"
+pub extern "c" fn dx_d3d12_command_queue_get_clock_calibration(obj : UInt64, p_gpu_timestamp : UInt64, p_cpu_timestamp : UInt64) -> Int = "tycho_dx12_ID3D12CommandQueue_GetClockCalibration"
 
 ///|
-pub extern "c" fn dx_device_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device_GetDeviceRemovedReason"
+pub extern "c" fn dx_d3d12_command_queue_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12CommandQueue_GetDesc"
 
 ///|
-pub extern "c" fn dx_device_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device_GetCopyableFootprints"
+pub extern "c" fn dx_d3d12_device_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_device_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateQueryHeap"
+pub extern "c" fn dx_d3d12_device_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_device_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device_SetStablePowerState"
+pub extern "c" fn dx_d3d12_device_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_device_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateCommandSignature"
+pub extern "c" fn dx_d3d12_device_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device_SetName"
 
 ///|
-pub extern "c" fn dx_device_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device_GetResourceTiling"
+pub extern "c" fn dx_d3d12_device_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device_GetNodeCount"
 
 ///|
-pub extern "c" fn dx_device_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device_GetAdapterLuid"
+pub extern "c" fn dx_d3d12_device_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateCommandQueue"
 
 ///|
-pub extern "c" fn dx_device1_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device1_GetPrivateData"
+pub extern "c" fn dx_d3d12_device_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateCommandAllocator"
 
 ///|
-pub extern "c" fn dx_device1_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device1_SetPrivateData"
+pub extern "c" fn dx_d3d12_device_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateGraphicsPipelineState"
 
 ///|
-pub extern "c" fn dx_device1_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device1_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_device_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateComputePipelineState"
 
 ///|
-pub extern "c" fn dx_device1_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device1_SetName"
+pub extern "c" fn dx_d3d12_device_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateCommandList"
 
 ///|
-pub extern "c" fn dx_device1_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device1_GetNodeCount"
+pub extern "c" fn dx_d3d12_device_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device_CheckFeatureSupport"
 
 ///|
-pub extern "c" fn dx_device1_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateCommandQueue"
+pub extern "c" fn dx_d3d12_device_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateDescriptorHeap"
 
 ///|
-pub extern "c" fn dx_device1_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateCommandAllocator"
+pub extern "c" fn dx_d3d12_device_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device_GetDescriptorHandleIncrementSize"
 
 ///|
-pub extern "c" fn dx_device1_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateGraphicsPipelineState"
+pub extern "c" fn dx_d3d12_device_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateRootSignature"
 
 ///|
-pub extern "c" fn dx_device1_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateComputePipelineState"
+pub extern "c" fn dx_d3d12_device_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateConstantBufferView"
 
 ///|
-pub extern "c" fn dx_device1_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateCommandList"
+pub extern "c" fn dx_d3d12_device_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateShaderResourceView"
 
 ///|
-pub extern "c" fn dx_device1_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device1_CheckFeatureSupport"
+pub extern "c" fn dx_d3d12_device_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateUnorderedAccessView"
 
 ///|
-pub extern "c" fn dx_device1_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateDescriptorHeap"
+pub extern "c" fn dx_d3d12_device_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateRenderTargetView"
 
 ///|
-pub extern "c" fn dx_device1_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device1_GetDescriptorHandleIncrementSize"
+pub extern "c" fn dx_d3d12_device_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateDepthStencilView"
 
 ///|
-pub extern "c" fn dx_device1_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateRootSignature"
+pub extern "c" fn dx_d3d12_device_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device_CreateSampler"
 
 ///|
-pub extern "c" fn dx_device1_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateConstantBufferView"
+pub extern "c" fn dx_d3d12_device_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device_CopyDescriptors"
 
 ///|
-pub extern "c" fn dx_device1_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateShaderResourceView"
+pub extern "c" fn dx_d3d12_device_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device_CopyDescriptorsSimple"
 
 ///|
-pub extern "c" fn dx_device1_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateUnorderedAccessView"
+pub extern "c" fn dx_d3d12_device_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device_GetResourceAllocationInfo"
 
 ///|
-pub extern "c" fn dx_device1_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateRenderTargetView"
+pub extern "c" fn dx_d3d12_device_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device_GetCustomHeapProperties"
 
 ///|
-pub extern "c" fn dx_device1_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateDepthStencilView"
+pub extern "c" fn dx_d3d12_device_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateCommittedResource"
 
 ///|
-pub extern "c" fn dx_device1_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateSampler"
+pub extern "c" fn dx_d3d12_device_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateHeap"
 
 ///|
-pub extern "c" fn dx_device1_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device1_CopyDescriptors"
+pub extern "c" fn dx_d3d12_device_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreatePlacedResource"
 
 ///|
-pub extern "c" fn dx_device1_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device1_CopyDescriptorsSimple"
+pub extern "c" fn dx_d3d12_device_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateReservedResource"
 
 ///|
-pub extern "c" fn dx_device1_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device1_GetResourceAllocationInfo"
+pub extern "c" fn dx_d3d12_device_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateSharedHandle"
 
 ///|
-pub extern "c" fn dx_device1_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device1_GetCustomHeapProperties"
+pub extern "c" fn dx_d3d12_device_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device_OpenSharedHandle"
 
 ///|
-pub extern "c" fn dx_device1_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateCommittedResource"
+pub extern "c" fn dx_d3d12_device_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device_OpenSharedHandleByName"
 
 ///|
-pub extern "c" fn dx_device1_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateHeap"
+pub extern "c" fn dx_d3d12_device_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device_MakeResident"
 
 ///|
-pub extern "c" fn dx_device1_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreatePlacedResource"
+pub extern "c" fn dx_d3d12_device_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device_Evict"
 
 ///|
-pub extern "c" fn dx_device1_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateReservedResource"
+pub extern "c" fn dx_d3d12_device_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateFence"
 
 ///|
-pub extern "c" fn dx_device1_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateSharedHandle"
+pub extern "c" fn dx_d3d12_device_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device_GetDeviceRemovedReason"
 
 ///|
-pub extern "c" fn dx_device1_open_shared_handle(obj : UInt64, nt_handle : Int64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device1_OpenSharedHandle"
+pub extern "c" fn dx_d3d12_device_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device_GetCopyableFootprints"
 
 ///|
-pub extern "c" fn dx_device1_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device1_OpenSharedHandleByName"
+pub extern "c" fn dx_d3d12_device_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateQueryHeap"
 
 ///|
-pub extern "c" fn dx_device1_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device1_MakeResident"
+pub extern "c" fn dx_d3d12_device_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device_SetStablePowerState"
 
 ///|
-pub extern "c" fn dx_device1_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device1_Evict"
+pub extern "c" fn dx_d3d12_device_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device_CreateCommandSignature"
 
 ///|
-pub extern "c" fn dx_device1_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateFence"
+pub extern "c" fn dx_d3d12_device_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device_GetResourceTiling"
 
 ///|
-pub extern "c" fn dx_device1_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device1_GetDeviceRemovedReason"
+pub extern "c" fn dx_d3d12_device_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device_GetAdapterLuid"
 
 ///|
-pub extern "c" fn dx_device1_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_GetCopyableFootprints"
+pub extern "c" fn dx_d3d12_pipeline_library_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_device1_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateQueryHeap"
+pub extern "c" fn dx_d3d12_pipeline_library_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_device1_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device1_SetStablePowerState"
+pub extern "c" fn dx_d3d12_pipeline_library_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_device1_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateCommandSignature"
+pub extern "c" fn dx_d3d12_pipeline_library_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary_SetName"
 
 ///|
-pub extern "c" fn dx_device1_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_GetResourceTiling"
+pub extern "c" fn dx_d3d12_pipeline_library_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary_GetDevice"
 
 ///|
-pub extern "c" fn dx_device1_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device1_GetAdapterLuid"
+pub extern "c" fn dx_d3d12_pipeline_library_store_pipeline(obj : UInt64, p_name : UInt64, p_pipeline : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary_StorePipeline"
 
 ///|
-pub extern "c" fn dx_device1_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreatePipelineLibrary"
+pub extern "c" fn dx_d3d12_pipeline_library_load_graphics_pipeline(obj : UInt64, p_name : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary_LoadGraphicsPipeline"
 
 ///|
-pub extern "c" fn dx_device1_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : Int64) -> Int = "tycho_dx12_ID3D12Device1_SetEventOnMultipleFenceCompletion"
+pub extern "c" fn dx_d3d12_pipeline_library_load_compute_pipeline(obj : UInt64, p_name : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary_LoadComputePipeline"
 
 ///|
-pub extern "c" fn dx_device1_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device1_SetResidencyPriority"
+pub extern "c" fn dx_d3d12_pipeline_library_get_serialized_size(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12PipelineLibrary_GetSerializedSize"
 
 ///|
-pub extern "c" fn dx_device2_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device2_GetPrivateData"
+pub extern "c" fn dx_d3d12_pipeline_library_serialize(obj : UInt64, p_data : UInt64, data_size_in_bytes : Int64) -> Int = "tycho_dx12_ID3D12PipelineLibrary_Serialize"
 
 ///|
-pub extern "c" fn dx_device2_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device2_SetPrivateData"
+pub extern "c" fn dx_d3d12_pipeline_library1_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary1_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_device2_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device2_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_pipeline_library1_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary1_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_device2_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device2_SetName"
+pub extern "c" fn dx_d3d12_pipeline_library1_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary1_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_device2_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device2_GetNodeCount"
+pub extern "c" fn dx_d3d12_pipeline_library1_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary1_SetName"
 
 ///|
-pub extern "c" fn dx_device2_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateCommandQueue"
+pub extern "c" fn dx_d3d12_pipeline_library1_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary1_GetDevice"
 
 ///|
-pub extern "c" fn dx_device2_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateCommandAllocator"
+pub extern "c" fn dx_d3d12_pipeline_library1_store_pipeline(obj : UInt64, p_name : UInt64, p_pipeline : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary1_StorePipeline"
 
 ///|
-pub extern "c" fn dx_device2_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateGraphicsPipelineState"
+pub extern "c" fn dx_d3d12_pipeline_library1_load_graphics_pipeline(obj : UInt64, p_name : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary1_LoadGraphicsPipeline"
 
 ///|
-pub extern "c" fn dx_device2_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateComputePipelineState"
+pub extern "c" fn dx_d3d12_pipeline_library1_load_compute_pipeline(obj : UInt64, p_name : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary1_LoadComputePipeline"
 
 ///|
-pub extern "c" fn dx_device2_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateCommandList"
+pub extern "c" fn dx_d3d12_pipeline_library1_get_serialized_size(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12PipelineLibrary1_GetSerializedSize"
 
 ///|
-pub extern "c" fn dx_device2_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device2_CheckFeatureSupport"
+pub extern "c" fn dx_d3d12_pipeline_library1_serialize(obj : UInt64, p_data : UInt64, data_size_in_bytes : Int64) -> Int = "tycho_dx12_ID3D12PipelineLibrary1_Serialize"
 
 ///|
-pub extern "c" fn dx_device2_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateDescriptorHeap"
+pub extern "c" fn dx_d3d12_pipeline_library1_load_pipeline(obj : UInt64, p_name : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12PipelineLibrary1_LoadPipeline"
 
 ///|
-pub extern "c" fn dx_device2_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device2_GetDescriptorHandleIncrementSize"
+pub extern "c" fn dx_d3d12_device1_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device1_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_device2_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateRootSignature"
+pub extern "c" fn dx_d3d12_device1_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device1_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_device2_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateConstantBufferView"
+pub extern "c" fn dx_d3d12_device1_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device1_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_device2_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateShaderResourceView"
+pub extern "c" fn dx_d3d12_device1_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device1_SetName"
 
 ///|
-pub extern "c" fn dx_device2_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateUnorderedAccessView"
+pub extern "c" fn dx_d3d12_device1_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device1_GetNodeCount"
 
 ///|
-pub extern "c" fn dx_device2_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateRenderTargetView"
+pub extern "c" fn dx_d3d12_device1_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateCommandQueue"
 
 ///|
-pub extern "c" fn dx_device2_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateDepthStencilView"
+pub extern "c" fn dx_d3d12_device1_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateCommandAllocator"
 
 ///|
-pub extern "c" fn dx_device2_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateSampler"
+pub extern "c" fn dx_d3d12_device1_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateGraphicsPipelineState"
 
 ///|
-pub extern "c" fn dx_device2_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device2_CopyDescriptors"
+pub extern "c" fn dx_d3d12_device1_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateComputePipelineState"
 
 ///|
-pub extern "c" fn dx_device2_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device2_CopyDescriptorsSimple"
+pub extern "c" fn dx_d3d12_device1_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateCommandList"
 
 ///|
-pub extern "c" fn dx_device2_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device2_GetResourceAllocationInfo"
+pub extern "c" fn dx_d3d12_device1_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device1_CheckFeatureSupport"
 
 ///|
-pub extern "c" fn dx_device2_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device2_GetCustomHeapProperties"
+pub extern "c" fn dx_d3d12_device1_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateDescriptorHeap"
 
 ///|
-pub extern "c" fn dx_device2_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateCommittedResource"
+pub extern "c" fn dx_d3d12_device1_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device1_GetDescriptorHandleIncrementSize"
 
 ///|
-pub extern "c" fn dx_device2_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateHeap"
+pub extern "c" fn dx_d3d12_device1_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateRootSignature"
 
 ///|
-pub extern "c" fn dx_device2_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreatePlacedResource"
+pub extern "c" fn dx_d3d12_device1_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateConstantBufferView"
 
 ///|
-pub extern "c" fn dx_device2_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateReservedResource"
+pub extern "c" fn dx_d3d12_device1_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateShaderResourceView"
 
 ///|
-pub extern "c" fn dx_device2_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateSharedHandle"
+pub extern "c" fn dx_d3d12_device1_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateUnorderedAccessView"
 
 ///|
-pub extern "c" fn dx_device2_open_shared_handle(obj : UInt64, nt_handle : Int64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device2_OpenSharedHandle"
+pub extern "c" fn dx_d3d12_device1_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateRenderTargetView"
 
 ///|
-pub extern "c" fn dx_device2_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device2_OpenSharedHandleByName"
+pub extern "c" fn dx_d3d12_device1_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateDepthStencilView"
 
 ///|
-pub extern "c" fn dx_device2_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device2_MakeResident"
+pub extern "c" fn dx_d3d12_device1_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_CreateSampler"
 
 ///|
-pub extern "c" fn dx_device2_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device2_Evict"
+pub extern "c" fn dx_d3d12_device1_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device1_CopyDescriptors"
 
 ///|
-pub extern "c" fn dx_device2_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateFence"
+pub extern "c" fn dx_d3d12_device1_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device1_CopyDescriptorsSimple"
 
 ///|
-pub extern "c" fn dx_device2_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device2_GetDeviceRemovedReason"
+pub extern "c" fn dx_d3d12_device1_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device1_GetResourceAllocationInfo"
 
 ///|
-pub extern "c" fn dx_device2_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_GetCopyableFootprints"
+pub extern "c" fn dx_d3d12_device1_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device1_GetCustomHeapProperties"
 
 ///|
-pub extern "c" fn dx_device2_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateQueryHeap"
+pub extern "c" fn dx_d3d12_device1_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateCommittedResource"
 
 ///|
-pub extern "c" fn dx_device2_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device2_SetStablePowerState"
+pub extern "c" fn dx_d3d12_device1_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateHeap"
 
 ///|
-pub extern "c" fn dx_device2_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateCommandSignature"
+pub extern "c" fn dx_d3d12_device1_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreatePlacedResource"
 
 ///|
-pub extern "c" fn dx_device2_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_GetResourceTiling"
+pub extern "c" fn dx_d3d12_device1_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateReservedResource"
 
 ///|
-pub extern "c" fn dx_device2_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device2_GetAdapterLuid"
+pub extern "c" fn dx_d3d12_device1_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateSharedHandle"
 
 ///|
-pub extern "c" fn dx_device2_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreatePipelineLibrary"
+pub extern "c" fn dx_d3d12_device1_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device1_OpenSharedHandle"
 
 ///|
-pub extern "c" fn dx_device2_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : Int64) -> Int = "tycho_dx12_ID3D12Device2_SetEventOnMultipleFenceCompletion"
+pub extern "c" fn dx_d3d12_device1_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device1_OpenSharedHandleByName"
 
 ///|
-pub extern "c" fn dx_device2_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device2_SetResidencyPriority"
+pub extern "c" fn dx_d3d12_device1_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device1_MakeResident"
 
 ///|
-pub extern "c" fn dx_device2_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreatePipelineState"
+pub extern "c" fn dx_d3d12_device1_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device1_Evict"
 
 ///|
-pub extern "c" fn dx_device3_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device3_GetPrivateData"
+pub extern "c" fn dx_d3d12_device1_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateFence"
 
 ///|
-pub extern "c" fn dx_device3_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device3_SetPrivateData"
+pub extern "c" fn dx_d3d12_device1_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device1_GetDeviceRemovedReason"
 
 ///|
-pub extern "c" fn dx_device3_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device3_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_device1_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_GetCopyableFootprints"
 
 ///|
-pub extern "c" fn dx_device3_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device3_SetName"
+pub extern "c" fn dx_d3d12_device1_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateQueryHeap"
 
 ///|
-pub extern "c" fn dx_device3_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device3_GetNodeCount"
+pub extern "c" fn dx_d3d12_device1_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device1_SetStablePowerState"
 
 ///|
-pub extern "c" fn dx_device3_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateCommandQueue"
+pub extern "c" fn dx_d3d12_device1_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreateCommandSignature"
 
 ///|
-pub extern "c" fn dx_device3_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateCommandAllocator"
+pub extern "c" fn dx_d3d12_device1_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device1_GetResourceTiling"
 
 ///|
-pub extern "c" fn dx_device3_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateGraphicsPipelineState"
+pub extern "c" fn dx_d3d12_device1_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device1_GetAdapterLuid"
 
 ///|
-pub extern "c" fn dx_device3_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateComputePipelineState"
+pub extern "c" fn dx_d3d12_device1_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device1_CreatePipelineLibrary"
 
 ///|
-pub extern "c" fn dx_device3_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateCommandList"
+pub extern "c" fn dx_d3d12_device1_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device1_SetEventOnMultipleFenceCompletion"
 
 ///|
-pub extern "c" fn dx_device3_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device3_CheckFeatureSupport"
+pub extern "c" fn dx_d3d12_device1_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device1_SetResidencyPriority"
 
 ///|
-pub extern "c" fn dx_device3_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateDescriptorHeap"
+pub extern "c" fn dx_d3d12_device2_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device2_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_device3_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device3_GetDescriptorHandleIncrementSize"
+pub extern "c" fn dx_d3d12_device2_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device2_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_device3_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateRootSignature"
+pub extern "c" fn dx_d3d12_device2_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device2_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_device3_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateConstantBufferView"
+pub extern "c" fn dx_d3d12_device2_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device2_SetName"
 
 ///|
-pub extern "c" fn dx_device3_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateShaderResourceView"
+pub extern "c" fn dx_d3d12_device2_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device2_GetNodeCount"
 
 ///|
-pub extern "c" fn dx_device3_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateUnorderedAccessView"
+pub extern "c" fn dx_d3d12_device2_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateCommandQueue"
 
 ///|
-pub extern "c" fn dx_device3_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateRenderTargetView"
+pub extern "c" fn dx_d3d12_device2_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateCommandAllocator"
 
 ///|
-pub extern "c" fn dx_device3_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateDepthStencilView"
+pub extern "c" fn dx_d3d12_device2_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateGraphicsPipelineState"
 
 ///|
-pub extern "c" fn dx_device3_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateSampler"
+pub extern "c" fn dx_d3d12_device2_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateComputePipelineState"
 
 ///|
-pub extern "c" fn dx_device3_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device3_CopyDescriptors"
+pub extern "c" fn dx_d3d12_device2_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateCommandList"
 
 ///|
-pub extern "c" fn dx_device3_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device3_CopyDescriptorsSimple"
+pub extern "c" fn dx_d3d12_device2_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device2_CheckFeatureSupport"
 
 ///|
-pub extern "c" fn dx_device3_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device3_GetResourceAllocationInfo"
+pub extern "c" fn dx_d3d12_device2_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateDescriptorHeap"
 
 ///|
-pub extern "c" fn dx_device3_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device3_GetCustomHeapProperties"
+pub extern "c" fn dx_d3d12_device2_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device2_GetDescriptorHandleIncrementSize"
 
 ///|
-pub extern "c" fn dx_device3_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateCommittedResource"
+pub extern "c" fn dx_d3d12_device2_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateRootSignature"
 
 ///|
-pub extern "c" fn dx_device3_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateHeap"
+pub extern "c" fn dx_d3d12_device2_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateConstantBufferView"
 
 ///|
-pub extern "c" fn dx_device3_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreatePlacedResource"
+pub extern "c" fn dx_d3d12_device2_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateShaderResourceView"
 
 ///|
-pub extern "c" fn dx_device3_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateReservedResource"
+pub extern "c" fn dx_d3d12_device2_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateUnorderedAccessView"
 
 ///|
-pub extern "c" fn dx_device3_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateSharedHandle"
+pub extern "c" fn dx_d3d12_device2_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateRenderTargetView"
 
 ///|
-pub extern "c" fn dx_device3_open_shared_handle(obj : UInt64, nt_handle : Int64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device3_OpenSharedHandle"
+pub extern "c" fn dx_d3d12_device2_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateDepthStencilView"
 
 ///|
-pub extern "c" fn dx_device3_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device3_OpenSharedHandleByName"
+pub extern "c" fn dx_d3d12_device2_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_CreateSampler"
 
 ///|
-pub extern "c" fn dx_device3_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device3_MakeResident"
+pub extern "c" fn dx_d3d12_device2_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device2_CopyDescriptors"
 
 ///|
-pub extern "c" fn dx_device3_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device3_Evict"
+pub extern "c" fn dx_d3d12_device2_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device2_CopyDescriptorsSimple"
 
 ///|
-pub extern "c" fn dx_device3_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateFence"
+pub extern "c" fn dx_d3d12_device2_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device2_GetResourceAllocationInfo"
 
 ///|
-pub extern "c" fn dx_device3_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device3_GetDeviceRemovedReason"
+pub extern "c" fn dx_d3d12_device2_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device2_GetCustomHeapProperties"
 
 ///|
-pub extern "c" fn dx_device3_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_GetCopyableFootprints"
+pub extern "c" fn dx_d3d12_device2_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateCommittedResource"
 
 ///|
-pub extern "c" fn dx_device3_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateQueryHeap"
+pub extern "c" fn dx_d3d12_device2_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateHeap"
 
 ///|
-pub extern "c" fn dx_device3_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device3_SetStablePowerState"
+pub extern "c" fn dx_d3d12_device2_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreatePlacedResource"
 
 ///|
-pub extern "c" fn dx_device3_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateCommandSignature"
+pub extern "c" fn dx_d3d12_device2_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateReservedResource"
 
 ///|
-pub extern "c" fn dx_device3_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_GetResourceTiling"
+pub extern "c" fn dx_d3d12_device2_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateSharedHandle"
 
 ///|
-pub extern "c" fn dx_device3_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device3_GetAdapterLuid"
+pub extern "c" fn dx_d3d12_device2_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device2_OpenSharedHandle"
 
 ///|
-pub extern "c" fn dx_device3_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreatePipelineLibrary"
+pub extern "c" fn dx_d3d12_device2_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device2_OpenSharedHandleByName"
 
 ///|
-pub extern "c" fn dx_device3_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : Int64) -> Int = "tycho_dx12_ID3D12Device3_SetEventOnMultipleFenceCompletion"
+pub extern "c" fn dx_d3d12_device2_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device2_MakeResident"
 
 ///|
-pub extern "c" fn dx_device3_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device3_SetResidencyPriority"
+pub extern "c" fn dx_d3d12_device2_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device2_Evict"
 
 ///|
-pub extern "c" fn dx_device3_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreatePipelineState"
+pub extern "c" fn dx_d3d12_device2_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateFence"
 
 ///|
-pub extern "c" fn dx_device3_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device3_OpenExistingHeapFromAddress"
+pub extern "c" fn dx_d3d12_device2_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device2_GetDeviceRemovedReason"
 
 ///|
-pub extern "c" fn dx_device3_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : Int64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device3_OpenExistingHeapFromFileMapping"
+pub extern "c" fn dx_d3d12_device2_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_GetCopyableFootprints"
 
 ///|
-pub extern "c" fn dx_device3_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device3_EnqueueMakeResident"
+pub extern "c" fn dx_d3d12_device2_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateQueryHeap"
 
 ///|
-pub extern "c" fn dx_device4_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device4_GetPrivateData"
+pub extern "c" fn dx_d3d12_device2_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device2_SetStablePowerState"
 
 ///|
-pub extern "c" fn dx_device4_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device4_SetPrivateData"
+pub extern "c" fn dx_d3d12_device2_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreateCommandSignature"
 
 ///|
-pub extern "c" fn dx_device4_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device4_SetPrivateDataInterface"
+pub extern "c" fn dx_d3d12_device2_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device2_GetResourceTiling"
 
 ///|
-pub extern "c" fn dx_device4_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device4_SetName"
+pub extern "c" fn dx_d3d12_device2_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device2_GetAdapterLuid"
 
 ///|
-pub extern "c" fn dx_device4_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device4_GetNodeCount"
+pub extern "c" fn dx_d3d12_device2_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreatePipelineLibrary"
 
 ///|
-pub extern "c" fn dx_device4_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommandQueue"
+pub extern "c" fn dx_d3d12_device2_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device2_SetEventOnMultipleFenceCompletion"
 
 ///|
-pub extern "c" fn dx_device4_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommandAllocator"
+pub extern "c" fn dx_d3d12_device2_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device2_SetResidencyPriority"
 
 ///|
-pub extern "c" fn dx_device4_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateGraphicsPipelineState"
+pub extern "c" fn dx_d3d12_device2_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device2_CreatePipelineState"
 
 ///|
-pub extern "c" fn dx_device4_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateComputePipelineState"
+pub extern "c" fn dx_d3d12_device3_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device3_GetPrivateData"
 
 ///|
-pub extern "c" fn dx_device4_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommandList"
+pub extern "c" fn dx_d3d12_device3_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device3_SetPrivateData"
 
 ///|
-pub extern "c" fn dx_device4_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device4_CheckFeatureSupport"
+pub extern "c" fn dx_d3d12_device3_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device3_SetPrivateDataInterface"
 
 ///|
-pub extern "c" fn dx_device4_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateDescriptorHeap"
+pub extern "c" fn dx_d3d12_device3_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device3_SetName"
 
 ///|
-pub extern "c" fn dx_device4_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device4_GetDescriptorHandleIncrementSize"
+pub extern "c" fn dx_d3d12_device3_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device3_GetNodeCount"
 
 ///|
-pub extern "c" fn dx_device4_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateRootSignature"
+pub extern "c" fn dx_d3d12_device3_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateCommandQueue"
 
 ///|
-pub extern "c" fn dx_device4_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateConstantBufferView"
+pub extern "c" fn dx_d3d12_device3_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateCommandAllocator"
 
 ///|
-pub extern "c" fn dx_device4_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateShaderResourceView"
+pub extern "c" fn dx_d3d12_device3_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateGraphicsPipelineState"
 
 ///|
-pub extern "c" fn dx_device4_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateUnorderedAccessView"
+pub extern "c" fn dx_d3d12_device3_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateComputePipelineState"
 
 ///|
-pub extern "c" fn dx_device4_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateRenderTargetView"
+pub extern "c" fn dx_d3d12_device3_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateCommandList"
 
 ///|
-pub extern "c" fn dx_device4_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateDepthStencilView"
+pub extern "c" fn dx_d3d12_device3_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device3_CheckFeatureSupport"
 
 ///|
-pub extern "c" fn dx_device4_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateSampler"
+pub extern "c" fn dx_d3d12_device3_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateDescriptorHeap"
 
 ///|
-pub extern "c" fn dx_device4_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device4_CopyDescriptors"
+pub extern "c" fn dx_d3d12_device3_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device3_GetDescriptorHandleIncrementSize"
 
 ///|
-pub extern "c" fn dx_device4_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device4_CopyDescriptorsSimple"
+pub extern "c" fn dx_d3d12_device3_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateRootSignature"
 
 ///|
-pub extern "c" fn dx_device4_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device4_GetResourceAllocationInfo"
+pub extern "c" fn dx_d3d12_device3_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateConstantBufferView"
 
 ///|
-pub extern "c" fn dx_device4_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device4_GetCustomHeapProperties"
+pub extern "c" fn dx_d3d12_device3_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateShaderResourceView"
 
 ///|
-pub extern "c" fn dx_device4_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommittedResource"
+pub extern "c" fn dx_d3d12_device3_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateUnorderedAccessView"
 
 ///|
-pub extern "c" fn dx_device4_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateHeap"
+pub extern "c" fn dx_d3d12_device3_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateRenderTargetView"
 
 ///|
-pub extern "c" fn dx_device4_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreatePlacedResource"
+pub extern "c" fn dx_d3d12_device3_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateDepthStencilView"
 
 ///|
-pub extern "c" fn dx_device4_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateReservedResource"
+pub extern "c" fn dx_d3d12_device3_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_CreateSampler"
 
 ///|
-pub extern "c" fn dx_device4_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateSharedHandle"
+pub extern "c" fn dx_d3d12_device3_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device3_CopyDescriptors"
 
 ///|
-pub extern "c" fn dx_device4_open_shared_handle(obj : UInt64, nt_handle : Int64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device4_OpenSharedHandle"
+pub extern "c" fn dx_d3d12_device3_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device3_CopyDescriptorsSimple"
 
 ///|
-pub extern "c" fn dx_device4_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device4_OpenSharedHandleByName"
+pub extern "c" fn dx_d3d12_device3_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device3_GetResourceAllocationInfo"
 
 ///|
-pub extern "c" fn dx_device4_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device4_MakeResident"
+pub extern "c" fn dx_d3d12_device3_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device3_GetCustomHeapProperties"
 
 ///|
-pub extern "c" fn dx_device4_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device4_Evict"
+pub extern "c" fn dx_d3d12_device3_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateCommittedResource"
 
 ///|
-pub extern "c" fn dx_device4_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateFence"
+pub extern "c" fn dx_d3d12_device3_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateHeap"
 
 ///|
-pub extern "c" fn dx_device4_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device4_GetDeviceRemovedReason"
+pub extern "c" fn dx_d3d12_device3_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreatePlacedResource"
 
 ///|
-pub extern "c" fn dx_device4_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_GetCopyableFootprints"
+pub extern "c" fn dx_d3d12_device3_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateReservedResource"
 
 ///|
-pub extern "c" fn dx_device4_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateQueryHeap"
+pub extern "c" fn dx_d3d12_device3_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateSharedHandle"
 
 ///|
-pub extern "c" fn dx_device4_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device4_SetStablePowerState"
+pub extern "c" fn dx_d3d12_device3_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device3_OpenSharedHandle"
 
 ///|
-pub extern "c" fn dx_device4_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommandSignature"
+pub extern "c" fn dx_d3d12_device3_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device3_OpenSharedHandleByName"
 
 ///|
-pub extern "c" fn dx_device4_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_GetResourceTiling"
+pub extern "c" fn dx_d3d12_device3_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device3_MakeResident"
 
 ///|
-pub extern "c" fn dx_device4_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device4_GetAdapterLuid"
+pub extern "c" fn dx_d3d12_device3_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device3_Evict"
 
 ///|
-pub extern "c" fn dx_device4_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreatePipelineLibrary"
+pub extern "c" fn dx_d3d12_device3_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateFence"
 
 ///|
-pub extern "c" fn dx_device4_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : Int64) -> Int = "tycho_dx12_ID3D12Device4_SetEventOnMultipleFenceCompletion"
+pub extern "c" fn dx_d3d12_device3_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device3_GetDeviceRemovedReason"
 
 ///|
-pub extern "c" fn dx_device4_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device4_SetResidencyPriority"
+pub extern "c" fn dx_d3d12_device3_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_GetCopyableFootprints"
 
 ///|
-pub extern "c" fn dx_device4_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreatePipelineState"
+pub extern "c" fn dx_d3d12_device3_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateQueryHeap"
 
 ///|
-pub extern "c" fn dx_device4_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_OpenExistingHeapFromAddress"
+pub extern "c" fn dx_d3d12_device3_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device3_SetStablePowerState"
 
 ///|
-pub extern "c" fn dx_device4_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : Int64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_OpenExistingHeapFromFileMapping"
+pub extern "c" fn dx_d3d12_device3_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreateCommandSignature"
 
 ///|
-pub extern "c" fn dx_device4_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device4_EnqueueMakeResident"
+pub extern "c" fn dx_d3d12_device3_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device3_GetResourceTiling"
 
 ///|
-pub extern "c" fn dx_device4_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommandList1"
+pub extern "c" fn dx_d3d12_device3_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device3_GetAdapterLuid"
 
 ///|
-pub extern "c" fn dx_device4_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateProtectedResourceSession"
+pub extern "c" fn dx_d3d12_device3_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreatePipelineLibrary"
 
 ///|
-pub extern "c" fn dx_device4_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommittedResource1"
+pub extern "c" fn dx_d3d12_device3_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device3_SetEventOnMultipleFenceCompletion"
 
 ///|
-pub extern "c" fn dx_device4_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateHeap1"
+pub extern "c" fn dx_d3d12_device3_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device3_SetResidencyPriority"
 
 ///|
-pub extern "c" fn dx_device4_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateReservedResource1"
+pub extern "c" fn dx_d3d12_device3_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device3_CreatePipelineState"
 
 ///|
-pub extern "c" fn dx_device4_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device4_GetResourceAllocationInfo1"
+pub extern "c" fn dx_d3d12_device3_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device3_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device3_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device3_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device3_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device3_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_protected_session_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedSession_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_protected_session_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedSession_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_protected_session_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedSession_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_protected_session_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedSession_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_protected_session_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedSession_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_protected_session_get_status_fence(obj : UInt64, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedSession_GetStatusFence"
+
+///|
+pub extern "c" fn dx_d3d12_protected_session_get_session_status(obj : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedSession_GetSessionStatus"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session_get_status_fence(obj : UInt64, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession_GetStatusFence"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session_get_session_status(obj : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession_GetSessionStatus"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12ProtectedResourceSession_GetDesc"
+
+///|
+pub extern "c" fn dx_d3d12_device4_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device4_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device4_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device4_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device4_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device4_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device4_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device4_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device4_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device4_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device4_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device4_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device4_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device4_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device4_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device4_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device4_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device4_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device4_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device4_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device4_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device4_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device4_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device4_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device4_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device4_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device4_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device4_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device4_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device4_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device4_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device4_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device4_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device4_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device4_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device4_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device4_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device4_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device4_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device4_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device4_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device4_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device4_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device4_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device4_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device4_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device4_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device4_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device4_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device4_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device4_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_lifetime_owner_lifetime_state_updated(obj : UInt64, new_state : Int) -> Unit = "tycho_dx12_ID3D12LifetimeOwner_LifetimeStateUpdated"
+
+///|
+pub extern "c" fn dx_d3d12_swap_chain_assistant_get_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12SwapChainAssistant_GetLUID"
+
+///|
+pub extern "c" fn dx_d3d12_swap_chain_assistant_get_swap_chain_object(obj : UInt64, riid : UInt64, ppv : UInt64) -> Int = "tycho_dx12_ID3D12SwapChainAssistant_GetSwapChainObject"
+
+///|
+pub extern "c" fn dx_d3d12_swap_chain_assistant_get_current_resource_and_command_queue(obj : UInt64, riid_resource : UInt64, ppv_resource : UInt64, riid_queue : UInt64, ppv_queue : UInt64) -> Int = "tycho_dx12_ID3D12SwapChainAssistant_GetCurrentResourceAndCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_swap_chain_assistant_insert_implicit_sync(obj : UInt64) -> Int = "tycho_dx12_ID3D12SwapChainAssistant_InsertImplicitSync"
+
+///|
+pub extern "c" fn dx_d3d12_lifetime_tracker_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12LifetimeTracker_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_lifetime_tracker_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12LifetimeTracker_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_lifetime_tracker_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12LifetimeTracker_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_lifetime_tracker_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12LifetimeTracker_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_lifetime_tracker_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12LifetimeTracker_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_lifetime_tracker_destroy_owned_object(obj : UInt64, p_object : UInt64) -> Int = "tycho_dx12_ID3D12LifetimeTracker_DestroyOwnedObject"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12StateObject_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12StateObject_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12StateObject_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12StateObject_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12StateObject_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_properties_get_shader_identifier(obj : UInt64, p_export_name : UInt64) -> UInt64 = "tycho_dx12_ID3D12StateObjectProperties_GetShaderIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_properties_get_shader_stack_size(obj : UInt64, p_export_name : UInt64) -> Int64 = "tycho_dx12_ID3D12StateObjectProperties_GetShaderStackSize"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_properties_get_pipeline_stack_size(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12StateObjectProperties_GetPipelineStackSize"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_properties_set_pipeline_stack_size(obj : UInt64, pipeline_stack_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12StateObjectProperties_SetPipelineStackSize"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_properties1_get_shader_identifier(obj : UInt64, p_export_name : UInt64) -> UInt64 = "tycho_dx12_ID3D12StateObjectProperties1_GetShaderIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_properties1_get_shader_stack_size(obj : UInt64, p_export_name : UInt64) -> Int64 = "tycho_dx12_ID3D12StateObjectProperties1_GetShaderStackSize"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_properties1_get_pipeline_stack_size(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12StateObjectProperties1_GetPipelineStackSize"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_properties1_set_pipeline_stack_size(obj : UInt64, pipeline_stack_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12StateObjectProperties1_SetPipelineStackSize"
+
+///|
+pub extern "c" fn dx_d3d12_state_object_properties1_get_program_identifier(obj : UInt64, ret_val : UInt64, p_program_name : UInt64) -> UInt64 = "tycho_dx12_ID3D12StateObjectProperties1_GetProgramIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_num_work_graphs(obj : UInt64) -> Int = "tycho_dx12_ID3D12WorkGraphProperties_GetNumWorkGraphs"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_program_name(obj : UInt64, work_graph_index : Int) -> UInt64 = "tycho_dx12_ID3D12WorkGraphProperties_GetProgramName"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_work_graph_index(obj : UInt64, p_program_name : UInt64) -> Int = "tycho_dx12_ID3D12WorkGraphProperties_GetWorkGraphIndex"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_num_nodes(obj : UInt64, work_graph_index : Int) -> Int = "tycho_dx12_ID3D12WorkGraphProperties_GetNumNodes"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_node_id(obj : UInt64, ret_val : UInt64, work_graph_index : Int, node_index : Int) -> UInt64 = "tycho_dx12_ID3D12WorkGraphProperties_GetNodeID"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_node_index(obj : UInt64, work_graph_index : Int, node_id : UInt64) -> Int = "tycho_dx12_ID3D12WorkGraphProperties_GetNodeIndex"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_node_local_root_arguments_table_index(obj : UInt64, work_graph_index : Int, node_index : Int) -> Int = "tycho_dx12_ID3D12WorkGraphProperties_GetNodeLocalRootArgumentsTableIndex"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_num_entrypoints(obj : UInt64, work_graph_index : Int) -> Int = "tycho_dx12_ID3D12WorkGraphProperties_GetNumEntrypoints"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_entrypoint_id(obj : UInt64, ret_val : UInt64, work_graph_index : Int, entrypoint_index : Int) -> UInt64 = "tycho_dx12_ID3D12WorkGraphProperties_GetEntrypointID"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_entrypoint_index(obj : UInt64, work_graph_index : Int, node_id : UInt64) -> Int = "tycho_dx12_ID3D12WorkGraphProperties_GetEntrypointIndex"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_entrypoint_record_size_in_bytes(obj : UInt64, work_graph_index : Int, entrypoint_index : Int) -> Int = "tycho_dx12_ID3D12WorkGraphProperties_GetEntrypointRecordSizeInBytes"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_work_graph_memory_requirements(obj : UInt64, work_graph_index : Int, p_work_graph_memory_requirements : UInt64) -> Unit = "tycho_dx12_ID3D12WorkGraphProperties_GetWorkGraphMemoryRequirements"
+
+///|
+pub extern "c" fn dx_d3d12_work_graph_properties_get_entrypoint_record_alignment_in_bytes(obj : UInt64, work_graph_index : Int, entrypoint_index : Int) -> Int = "tycho_dx12_ID3D12WorkGraphProperties_GetEntrypointRecordAlignmentInBytes"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device5_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device5_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device5_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device5_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device5_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device5_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device5_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device5_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device5_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device5_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device5_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device5_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device5_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device5_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device5_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device5_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device5_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device5_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device5_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device5_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device5_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device5_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device5_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device5_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device5_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device5_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device5_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device5_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device5_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device5_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device5_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device5_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device5_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device5_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device5_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device5_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device5_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device5_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device5_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device5_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device5_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device5_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device5_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device5_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device5_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device5_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device5_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device5_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_lifetime_tracker(obj : UInt64, p_owner : UInt64, riid : UInt64, ppv_tracker : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateLifetimeTracker"
+
+///|
+pub extern "c" fn dx_d3d12_device5_remove_device(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Device5_RemoveDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device5_enumerate_meta_commands(obj : UInt64, p_num_meta_commands : UInt64, p_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device5_EnumerateMetaCommands"
+
+///|
+pub extern "c" fn dx_d3d12_device5_enumerate_meta_command_parameters(obj : UInt64, command_id : UInt64, stage : Int, p_total_structure_size_in_bytes : UInt64, p_parameter_count : UInt64, p_parameter_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device5_EnumerateMetaCommandParameters"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_meta_command(obj : UInt64, command_id : UInt64, node_mask : Int, p_creation_parameters_data : UInt64, creation_parameters_data_size_in_bytes : Int64, riid : UInt64, pp_meta_command : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_device5_create_state_object(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CreateStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device5_get_raytracing_acceleration_structure_prebuild_info(obj : UInt64, p_desc : UInt64, p_info : UInt64) -> Unit = "tycho_dx12_ID3D12Device5_GetRaytracingAccelerationStructurePrebuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device5_check_driver_matching_identifier(obj : UInt64, serialized_data_type : Int, p_identifier_to_check : UInt64) -> Int = "tycho_dx12_ID3D12Device5_CheckDriverMatchingIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings_set_auto_breadcrumbs_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings_SetAutoBreadcrumbsEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings_set_page_fault_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings_SetPageFaultEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings_set_watson_dump_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings_SetWatsonDumpEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings1_set_auto_breadcrumbs_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings1_SetAutoBreadcrumbsEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings1_set_page_fault_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings1_SetPageFaultEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings1_set_watson_dump_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings1_SetWatsonDumpEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings1_set_breadcrumb_context_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings1_SetBreadcrumbContextEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings2_set_auto_breadcrumbs_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings2_SetAutoBreadcrumbsEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings2_set_page_fault_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings2_SetPageFaultEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings2_set_watson_dump_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings2_SetWatsonDumpEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings2_set_breadcrumb_context_enablement(obj : UInt64, enablement : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings2_SetBreadcrumbContextEnablement"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_settings2_use_markers_only_auto_breadcrumbs(obj : UInt64, markers_only : Int) -> Unit = "tycho_dx12_ID3D12DeviceRemovedExtendedDataSettings2_UseMarkersOnlyAutoBreadcrumbs"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_get_auto_breadcrumbs_output(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData_GetAutoBreadcrumbsOutput"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data_get_page_fault_allocation_output(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData_GetPageFaultAllocationOutput"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data1_get_auto_breadcrumbs_output(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData1_GetAutoBreadcrumbsOutput"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data1_get_page_fault_allocation_output(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData1_GetPageFaultAllocationOutput"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data1_get_auto_breadcrumbs_output1(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData1_GetAutoBreadcrumbsOutput1"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data1_get_page_fault_allocation_output1(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData1_GetPageFaultAllocationOutput1"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data2_get_auto_breadcrumbs_output(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData2_GetAutoBreadcrumbsOutput"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data2_get_page_fault_allocation_output(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData2_GetPageFaultAllocationOutput"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data2_get_auto_breadcrumbs_output1(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData2_GetAutoBreadcrumbsOutput1"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data2_get_page_fault_allocation_output1(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData2_GetPageFaultAllocationOutput1"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data2_get_page_fault_allocation_output2(obj : UInt64, p_output : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData2_GetPageFaultAllocationOutput2"
+
+///|
+pub extern "c" fn dx_d3d12_device_removed_extended_data2_get_device_state(obj : UInt64) -> Int = "tycho_dx12_ID3D12DeviceRemovedExtendedData2_GetDeviceState"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device6_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device6_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device6_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device6_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device6_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device6_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device6_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device6_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device6_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device6_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device6_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device6_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device6_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device6_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device6_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device6_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device6_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device6_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device6_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device6_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device6_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device6_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device6_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device6_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device6_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device6_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device6_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device6_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device6_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device6_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device6_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device6_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device6_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device6_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device6_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device6_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device6_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device6_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device6_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device6_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device6_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device6_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device6_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device6_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device6_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device6_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device6_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device6_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_lifetime_tracker(obj : UInt64, p_owner : UInt64, riid : UInt64, ppv_tracker : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateLifetimeTracker"
+
+///|
+pub extern "c" fn dx_d3d12_device6_remove_device(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Device6_RemoveDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device6_enumerate_meta_commands(obj : UInt64, p_num_meta_commands : UInt64, p_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device6_EnumerateMetaCommands"
+
+///|
+pub extern "c" fn dx_d3d12_device6_enumerate_meta_command_parameters(obj : UInt64, command_id : UInt64, stage : Int, p_total_structure_size_in_bytes : UInt64, p_parameter_count : UInt64, p_parameter_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device6_EnumerateMetaCommandParameters"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_meta_command(obj : UInt64, command_id : UInt64, node_mask : Int, p_creation_parameters_data : UInt64, creation_parameters_data_size_in_bytes : Int64, riid : UInt64, pp_meta_command : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_device6_create_state_object(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CreateStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device6_get_raytracing_acceleration_structure_prebuild_info(obj : UInt64, p_desc : UInt64, p_info : UInt64) -> Unit = "tycho_dx12_ID3D12Device6_GetRaytracingAccelerationStructurePrebuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device6_check_driver_matching_identifier(obj : UInt64, serialized_data_type : Int, p_identifier_to_check : UInt64) -> Int = "tycho_dx12_ID3D12Device6_CheckDriverMatchingIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_device6_set_background_processing_mode(obj : UInt64, mode : Int, measurements_action : Int, h_event_to_signal_upon_completion : UInt64, pb_further_measurements_desired : UInt64) -> Int = "tycho_dx12_ID3D12Device6_SetBackgroundProcessingMode"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session1_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession1_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session1_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession1_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session1_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession1_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session1_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession1_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session1_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession1_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session1_get_status_fence(obj : UInt64, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession1_GetStatusFence"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session1_get_session_status(obj : UInt64) -> Int = "tycho_dx12_ID3D12ProtectedResourceSession1_GetSessionStatus"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session1_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12ProtectedResourceSession1_GetDesc"
+
+///|
+pub extern "c" fn dx_d3d12_protected_resource_session1_get_desc1(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12ProtectedResourceSession1_GetDesc1"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device7_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device7_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device7_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device7_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device7_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device7_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device7_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device7_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device7_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device7_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device7_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device7_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device7_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device7_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device7_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device7_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device7_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device7_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device7_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device7_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device7_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device7_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device7_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device7_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device7_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device7_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device7_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device7_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device7_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device7_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device7_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device7_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device7_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device7_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device7_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device7_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device7_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device7_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device7_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device7_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device7_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device7_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device7_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device7_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device7_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device7_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device7_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device7_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_lifetime_tracker(obj : UInt64, p_owner : UInt64, riid : UInt64, ppv_tracker : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateLifetimeTracker"
+
+///|
+pub extern "c" fn dx_d3d12_device7_remove_device(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Device7_RemoveDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device7_enumerate_meta_commands(obj : UInt64, p_num_meta_commands : UInt64, p_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device7_EnumerateMetaCommands"
+
+///|
+pub extern "c" fn dx_d3d12_device7_enumerate_meta_command_parameters(obj : UInt64, command_id : UInt64, stage : Int, p_total_structure_size_in_bytes : UInt64, p_parameter_count : UInt64, p_parameter_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device7_EnumerateMetaCommandParameters"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_meta_command(obj : UInt64, command_id : UInt64, node_mask : Int, p_creation_parameters_data : UInt64, creation_parameters_data_size_in_bytes : Int64, riid : UInt64, pp_meta_command : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_state_object(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device7_get_raytracing_acceleration_structure_prebuild_info(obj : UInt64, p_desc : UInt64, p_info : UInt64) -> Unit = "tycho_dx12_ID3D12Device7_GetRaytracingAccelerationStructurePrebuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device7_check_driver_matching_identifier(obj : UInt64, serialized_data_type : Int, p_identifier_to_check : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CheckDriverMatchingIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_device7_set_background_processing_mode(obj : UInt64, mode : Int, measurements_action : Int, h_event_to_signal_upon_completion : UInt64, pb_further_measurements_desired : UInt64) -> Int = "tycho_dx12_ID3D12Device7_SetBackgroundProcessingMode"
+
+///|
+pub extern "c" fn dx_d3d12_device7_add_to_state_object(obj : UInt64, p_addition : UInt64, p_state_object_to_grow_from : UInt64, riid : UInt64, pp_new_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device7_AddToStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device7_create_protected_resource_session1(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device7_CreateProtectedResourceSession1"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device8_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device8_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device8_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device8_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device8_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device8_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device8_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device8_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device8_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device8_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device8_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device8_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device8_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device8_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device8_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device8_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device8_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device8_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device8_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device8_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device8_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device8_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device8_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device8_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device8_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device8_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device8_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device8_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device8_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device8_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device8_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device8_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device8_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device8_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device8_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device8_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device8_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device8_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device8_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device8_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_lifetime_tracker(obj : UInt64, p_owner : UInt64, riid : UInt64, ppv_tracker : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateLifetimeTracker"
+
+///|
+pub extern "c" fn dx_d3d12_device8_remove_device(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_RemoveDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device8_enumerate_meta_commands(obj : UInt64, p_num_meta_commands : UInt64, p_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device8_EnumerateMetaCommands"
+
+///|
+pub extern "c" fn dx_d3d12_device8_enumerate_meta_command_parameters(obj : UInt64, command_id : UInt64, stage : Int, p_total_structure_size_in_bytes : UInt64, p_parameter_count : UInt64, p_parameter_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device8_EnumerateMetaCommandParameters"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_meta_command(obj : UInt64, command_id : UInt64, node_mask : Int, p_creation_parameters_data : UInt64, creation_parameters_data_size_in_bytes : Int64, riid : UInt64, pp_meta_command : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_state_object(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_raytracing_acceleration_structure_prebuild_info(obj : UInt64, p_desc : UInt64, p_info : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_GetRaytracingAccelerationStructurePrebuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device8_check_driver_matching_identifier(obj : UInt64, serialized_data_type : Int, p_identifier_to_check : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CheckDriverMatchingIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_device8_set_background_processing_mode(obj : UInt64, mode : Int, measurements_action : Int, h_event_to_signal_upon_completion : UInt64, pb_further_measurements_desired : UInt64) -> Int = "tycho_dx12_ID3D12Device8_SetBackgroundProcessingMode"
+
+///|
+pub extern "c" fn dx_d3d12_device8_add_to_state_object(obj : UInt64, p_addition : UInt64, p_state_object_to_grow_from : UInt64, riid : UInt64, pp_new_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device8_AddToStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_protected_resource_session1(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateProtectedResourceSession1"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_resource_allocation_info2(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device8_GetResourceAllocationInfo2"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_committed_resource2(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreateCommittedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_placed_resource1(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device8_CreatePlacedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device8_create_sampler_feedback_unordered_access_view(obj : UInt64, p_targeted_resource : UInt64, p_feedback_resource : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_CreateSamplerFeedbackUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device8_get_copyable_footprints1(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device8_GetCopyableFootprints1"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource1_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource1_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource1_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Resource1_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Resource1_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_map(obj : UInt64, subresource : Int, p_read_range : UInt64, pp_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource1_Map"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_unmap(obj : UInt64, subresource : Int, p_written_range : UInt64) -> Unit = "tycho_dx12_ID3D12Resource1_Unmap"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Resource1_GetDesc"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_get_gpu_virtual_address(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12Resource1_GetGPUVirtualAddress"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_write_to_subresource(obj : UInt64, dst_subresource : Int, p_dst_box : UInt64, p_src_data : UInt64, src_row_pitch : Int, src_depth_pitch : Int) -> Int = "tycho_dx12_ID3D12Resource1_WriteToSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_read_from_subresource(obj : UInt64, p_dst_data : UInt64, dst_row_pitch : Int, dst_depth_pitch : Int, src_subresource : Int, p_src_box : UInt64) -> Int = "tycho_dx12_ID3D12Resource1_ReadFromSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_get_heap_properties(obj : UInt64, p_heap_properties : UInt64, p_heap_flags : UInt64) -> Int = "tycho_dx12_ID3D12Resource1_GetHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_resource1_get_protected_resource_session(obj : UInt64, riid : UInt64, pp_protected_session : UInt64) -> Int = "tycho_dx12_ID3D12Resource1_GetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource2_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource2_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource2_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Resource2_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Resource2_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_map(obj : UInt64, subresource : Int, p_read_range : UInt64, pp_data : UInt64) -> Int = "tycho_dx12_ID3D12Resource2_Map"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_unmap(obj : UInt64, subresource : Int, p_written_range : UInt64) -> Unit = "tycho_dx12_ID3D12Resource2_Unmap"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Resource2_GetDesc"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_get_gpu_virtual_address(obj : UInt64) -> Int64 = "tycho_dx12_ID3D12Resource2_GetGPUVirtualAddress"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_write_to_subresource(obj : UInt64, dst_subresource : Int, p_dst_box : UInt64, p_src_data : UInt64, src_row_pitch : Int, src_depth_pitch : Int) -> Int = "tycho_dx12_ID3D12Resource2_WriteToSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_read_from_subresource(obj : UInt64, p_dst_data : UInt64, dst_row_pitch : Int, dst_depth_pitch : Int, src_subresource : Int, p_src_box : UInt64) -> Int = "tycho_dx12_ID3D12Resource2_ReadFromSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_get_heap_properties(obj : UInt64, p_heap_properties : UInt64, p_heap_flags : UInt64) -> Int = "tycho_dx12_ID3D12Resource2_GetHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_get_protected_resource_session(obj : UInt64, riid : UInt64, pp_protected_session : UInt64) -> Int = "tycho_dx12_ID3D12Resource2_GetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_resource2_get_desc1(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Resource2_GetDesc1"
+
+///|
+pub extern "c" fn dx_d3d12_heap1_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Heap1_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_heap1_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Heap1_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_heap1_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Heap1_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_heap1_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Heap1_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_heap1_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12Heap1_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_heap1_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Heap1_GetDesc"
+
+///|
+pub extern "c" fn dx_d3d12_heap1_get_protected_resource_session(obj : UInt64, riid : UInt64, pp_protected_session : UInt64) -> Int = "tycho_dx12_ID3D12Heap1_GetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList3_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList3_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList3_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList3_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList3_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList3_GetType"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList3_Close"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList3_Reset"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ClearState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_DrawInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_DrawIndexedInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_Dispatch"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_CopyBufferRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_CopyTextureRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_CopyResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_CopyTiles"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ResolveSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_IASetPrimitiveTopology"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_RSSetViewports"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_RSSetScissorRects"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_OMSetBlendFactor"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_OMSetStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ResourceBarrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ExecuteBundle"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetDescriptorHeaps"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetComputeRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetGraphicsRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetComputeRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetGraphicsRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetComputeRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetGraphicsRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetComputeRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetGraphicsRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetComputeRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetGraphicsRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetComputeRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetGraphicsRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetComputeRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetGraphicsRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_IASetIndexBuffer"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_IASetVertexBuffers"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SOSetTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_OMSetRenderTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ClearDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ClearRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ClearUnorderedAccessViewUint"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ClearUnorderedAccessViewFloat"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_DiscardResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_BeginQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_EndQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ResolveQueryData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetPredication"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetMarker"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_BeginEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_EndEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ExecuteIndirect"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_AtomicCopyBufferUINT"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_AtomicCopyBufferUINT64"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_OMSetDepthBounds"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetSamplePositions"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_ResolveSubresourceRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetViewInstanceMask"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_write_buffer_immediate(obj : UInt64, count : Int, p_params : UInt64, p_modes : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_WriteBufferImmediate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list3_set_protected_resource_session(obj : UInt64, p_protected_resource_session : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList3_SetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_meta_command_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12MetaCommand_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_meta_command_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12MetaCommand_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_meta_command_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12MetaCommand_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_meta_command_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12MetaCommand_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_meta_command_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12MetaCommand_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_meta_command_get_required_parameter_resource_size(obj : UInt64, stage : Int, parameter_index : Int) -> Int64 = "tycho_dx12_ID3D12MetaCommand_GetRequiredParameterResourceSize"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList4_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList4_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList4_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList4_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList4_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList4_GetType"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList4_Close"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList4_Reset"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ClearState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_DrawInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_DrawIndexedInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_Dispatch"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_CopyBufferRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_CopyTextureRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_CopyResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_CopyTiles"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ResolveSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_IASetPrimitiveTopology"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_RSSetViewports"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_RSSetScissorRects"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_OMSetBlendFactor"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_OMSetStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ResourceBarrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ExecuteBundle"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetDescriptorHeaps"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetComputeRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetGraphicsRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetComputeRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetGraphicsRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetComputeRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetGraphicsRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetComputeRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetGraphicsRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetComputeRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetGraphicsRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetComputeRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetGraphicsRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetComputeRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetGraphicsRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_IASetIndexBuffer"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_IASetVertexBuffers"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SOSetTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_OMSetRenderTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ClearDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ClearRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ClearUnorderedAccessViewUint"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ClearUnorderedAccessViewFloat"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_DiscardResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_BeginQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_EndQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ResolveQueryData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetPredication"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetMarker"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_BeginEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_EndEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ExecuteIndirect"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_AtomicCopyBufferUINT"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_AtomicCopyBufferUINT64"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_OMSetDepthBounds"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetSamplePositions"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ResolveSubresourceRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetViewInstanceMask"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_write_buffer_immediate(obj : UInt64, count : Int, p_params : UInt64, p_modes : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_WriteBufferImmediate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_protected_resource_session(obj : UInt64, p_protected_resource_session : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_begin_render_pass(obj : UInt64, num_render_targets : Int, p_render_targets : UInt64, p_depth_stencil : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_BeginRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_end_render_pass(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_EndRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_initialize_meta_command(obj : UInt64, p_meta_command : UInt64, p_initialization_parameters_data : UInt64, initialization_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_InitializeMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_execute_meta_command(obj : UInt64, p_meta_command : UInt64, p_execution_parameters_data : UInt64, execution_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_ExecuteMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_build_raytracing_acceleration_structure(obj : UInt64, p_desc : UInt64, num_postbuild_info_descs : Int, p_postbuild_info_descs : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_BuildRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_emit_raytracing_acceleration_structure_postbuild_info(obj : UInt64, p_desc : UInt64, num_source_acceleration_structures : Int, p_source_acceleration_structure_data : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_EmitRaytracingAccelerationStructurePostbuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_copy_raytracing_acceleration_structure(obj : UInt64, dest_acceleration_structure_data : Int64, source_acceleration_structure_data : Int64, mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_CopyRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_set_pipeline_state1(obj : UInt64, p_state_object : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_SetPipelineState1"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list4_dispatch_rays(obj : UInt64, p_desc : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList4_DispatchRays"
+
+///|
+pub extern "c" fn dx_d3d12_shader_cache_session_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ShaderCacheSession_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_shader_cache_session_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ShaderCacheSession_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_shader_cache_session_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12ShaderCacheSession_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_shader_cache_session_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12ShaderCacheSession_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_shader_cache_session_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12ShaderCacheSession_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_shader_cache_session_find_value(obj : UInt64, p_key : UInt64, key_size : Int, p_value : UInt64, p_value_size : UInt64) -> Int = "tycho_dx12_ID3D12ShaderCacheSession_FindValue"
+
+///|
+pub extern "c" fn dx_d3d12_shader_cache_session_store_value(obj : UInt64, p_key : UInt64, key_size : Int, p_value : UInt64, value_size : Int) -> Int = "tycho_dx12_ID3D12ShaderCacheSession_StoreValue"
+
+///|
+pub extern "c" fn dx_d3d12_shader_cache_session_set_delete_on_destroy(obj : UInt64) -> Unit = "tycho_dx12_ID3D12ShaderCacheSession_SetDeleteOnDestroy"
+
+///|
+pub extern "c" fn dx_d3d12_shader_cache_session_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12ShaderCacheSession_GetDesc"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device9_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device9_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device9_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device9_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device9_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device9_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device9_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device9_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device9_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device9_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device9_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device9_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device9_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device9_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device9_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device9_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device9_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device9_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device9_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device9_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device9_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device9_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device9_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device9_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device9_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device9_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device9_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device9_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device9_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device9_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device9_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device9_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device9_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device9_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device9_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device9_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device9_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device9_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device9_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device9_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_lifetime_tracker(obj : UInt64, p_owner : UInt64, riid : UInt64, ppv_tracker : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateLifetimeTracker"
+
+///|
+pub extern "c" fn dx_d3d12_device9_remove_device(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_RemoveDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device9_enumerate_meta_commands(obj : UInt64, p_num_meta_commands : UInt64, p_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device9_EnumerateMetaCommands"
+
+///|
+pub extern "c" fn dx_d3d12_device9_enumerate_meta_command_parameters(obj : UInt64, command_id : UInt64, stage : Int, p_total_structure_size_in_bytes : UInt64, p_parameter_count : UInt64, p_parameter_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device9_EnumerateMetaCommandParameters"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_meta_command(obj : UInt64, command_id : UInt64, node_mask : Int, p_creation_parameters_data : UInt64, creation_parameters_data_size_in_bytes : Int64, riid : UInt64, pp_meta_command : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_state_object(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_raytracing_acceleration_structure_prebuild_info(obj : UInt64, p_desc : UInt64, p_info : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_GetRaytracingAccelerationStructurePrebuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device9_check_driver_matching_identifier(obj : UInt64, serialized_data_type : Int, p_identifier_to_check : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CheckDriverMatchingIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_device9_set_background_processing_mode(obj : UInt64, mode : Int, measurements_action : Int, h_event_to_signal_upon_completion : UInt64, pb_further_measurements_desired : UInt64) -> Int = "tycho_dx12_ID3D12Device9_SetBackgroundProcessingMode"
+
+///|
+pub extern "c" fn dx_d3d12_device9_add_to_state_object(obj : UInt64, p_addition : UInt64, p_state_object_to_grow_from : UInt64, riid : UInt64, pp_new_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device9_AddToStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_protected_resource_session1(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateProtectedResourceSession1"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_resource_allocation_info2(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device9_GetResourceAllocationInfo2"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_committed_resource2(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateCommittedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_placed_resource1(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreatePlacedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_sampler_feedback_unordered_access_view(obj : UInt64, p_targeted_resource : UInt64, p_feedback_resource : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_CreateSamplerFeedbackUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device9_get_copyable_footprints1(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device9_GetCopyableFootprints1"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_shader_cache_session(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_session : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateShaderCacheSession"
+
+///|
+pub extern "c" fn dx_d3d12_device9_shader_cache_control(obj : UInt64, kinds : Int, control : Int) -> Int = "tycho_dx12_ID3D12Device9_ShaderCacheControl"
+
+///|
+pub extern "c" fn dx_d3d12_device9_create_command_queue1(obj : UInt64, p_desc : UInt64, creator_id : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device9_CreateCommandQueue1"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device10_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device10_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device10_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device10_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device10_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device10_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device10_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device10_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device10_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device10_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device10_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device10_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device10_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device10_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device10_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device10_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device10_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device10_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device10_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device10_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device10_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device10_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device10_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device10_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device10_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device10_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device10_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device10_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device10_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device10_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device10_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device10_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device10_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device10_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device10_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device10_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device10_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device10_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device10_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device10_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_lifetime_tracker(obj : UInt64, p_owner : UInt64, riid : UInt64, ppv_tracker : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateLifetimeTracker"
+
+///|
+pub extern "c" fn dx_d3d12_device10_remove_device(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_RemoveDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device10_enumerate_meta_commands(obj : UInt64, p_num_meta_commands : UInt64, p_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device10_EnumerateMetaCommands"
+
+///|
+pub extern "c" fn dx_d3d12_device10_enumerate_meta_command_parameters(obj : UInt64, command_id : UInt64, stage : Int, p_total_structure_size_in_bytes : UInt64, p_parameter_count : UInt64, p_parameter_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device10_EnumerateMetaCommandParameters"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_meta_command(obj : UInt64, command_id : UInt64, node_mask : Int, p_creation_parameters_data : UInt64, creation_parameters_data_size_in_bytes : Int64, riid : UInt64, pp_meta_command : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_state_object(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_raytracing_acceleration_structure_prebuild_info(obj : UInt64, p_desc : UInt64, p_info : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_GetRaytracingAccelerationStructurePrebuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device10_check_driver_matching_identifier(obj : UInt64, serialized_data_type : Int, p_identifier_to_check : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CheckDriverMatchingIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_device10_set_background_processing_mode(obj : UInt64, mode : Int, measurements_action : Int, h_event_to_signal_upon_completion : UInt64, pb_further_measurements_desired : UInt64) -> Int = "tycho_dx12_ID3D12Device10_SetBackgroundProcessingMode"
+
+///|
+pub extern "c" fn dx_d3d12_device10_add_to_state_object(obj : UInt64, p_addition : UInt64, p_state_object_to_grow_from : UInt64, riid : UInt64, pp_new_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device10_AddToStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_protected_resource_session1(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateProtectedResourceSession1"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_resource_allocation_info2(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device10_GetResourceAllocationInfo2"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_committed_resource2(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateCommittedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_placed_resource1(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreatePlacedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_sampler_feedback_unordered_access_view(obj : UInt64, p_targeted_resource : UInt64, p_feedback_resource : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_CreateSamplerFeedbackUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device10_get_copyable_footprints1(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device10_GetCopyableFootprints1"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_shader_cache_session(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_session : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateShaderCacheSession"
+
+///|
+pub extern "c" fn dx_d3d12_device10_shader_cache_control(obj : UInt64, kinds : Int, control : Int) -> Int = "tycho_dx12_ID3D12Device10_ShaderCacheControl"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_command_queue1(obj : UInt64, p_desc : UInt64, creator_id : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateCommandQueue1"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_committed_resource3(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateCommittedResource3"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_placed_resource2(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreatePlacedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device10_create_reserved_resource2(obj : UInt64, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device10_CreateReservedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device11_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device11_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device11_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device11_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device11_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device11_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device11_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device11_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device11_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device11_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device11_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device11_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device11_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device11_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device11_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device11_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device11_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device11_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device11_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device11_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device11_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device11_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device11_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device11_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device11_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device11_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device11_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device11_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device11_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device11_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device11_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device11_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device11_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device11_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device11_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device11_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device11_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device11_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device11_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device11_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_lifetime_tracker(obj : UInt64, p_owner : UInt64, riid : UInt64, ppv_tracker : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateLifetimeTracker"
+
+///|
+pub extern "c" fn dx_d3d12_device11_remove_device(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_RemoveDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device11_enumerate_meta_commands(obj : UInt64, p_num_meta_commands : UInt64, p_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device11_EnumerateMetaCommands"
+
+///|
+pub extern "c" fn dx_d3d12_device11_enumerate_meta_command_parameters(obj : UInt64, command_id : UInt64, stage : Int, p_total_structure_size_in_bytes : UInt64, p_parameter_count : UInt64, p_parameter_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device11_EnumerateMetaCommandParameters"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_meta_command(obj : UInt64, command_id : UInt64, node_mask : Int, p_creation_parameters_data : UInt64, creation_parameters_data_size_in_bytes : Int64, riid : UInt64, pp_meta_command : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_state_object(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_raytracing_acceleration_structure_prebuild_info(obj : UInt64, p_desc : UInt64, p_info : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_GetRaytracingAccelerationStructurePrebuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device11_check_driver_matching_identifier(obj : UInt64, serialized_data_type : Int, p_identifier_to_check : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CheckDriverMatchingIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_device11_set_background_processing_mode(obj : UInt64, mode : Int, measurements_action : Int, h_event_to_signal_upon_completion : UInt64, pb_further_measurements_desired : UInt64) -> Int = "tycho_dx12_ID3D12Device11_SetBackgroundProcessingMode"
+
+///|
+pub extern "c" fn dx_d3d12_device11_add_to_state_object(obj : UInt64, p_addition : UInt64, p_state_object_to_grow_from : UInt64, riid : UInt64, pp_new_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device11_AddToStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_protected_resource_session1(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateProtectedResourceSession1"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_resource_allocation_info2(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device11_GetResourceAllocationInfo2"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_committed_resource2(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateCommittedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_placed_resource1(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreatePlacedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_sampler_feedback_unordered_access_view(obj : UInt64, p_targeted_resource : UInt64, p_feedback_resource : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_CreateSamplerFeedbackUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device11_get_copyable_footprints1(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_GetCopyableFootprints1"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_shader_cache_session(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_session : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateShaderCacheSession"
+
+///|
+pub extern "c" fn dx_d3d12_device11_shader_cache_control(obj : UInt64, kinds : Int, control : Int) -> Int = "tycho_dx12_ID3D12Device11_ShaderCacheControl"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_command_queue1(obj : UInt64, p_desc : UInt64, creator_id : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateCommandQueue1"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_committed_resource3(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateCommittedResource3"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_placed_resource2(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreatePlacedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_reserved_resource2(obj : UInt64, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device11_CreateReservedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device11_create_sampler2(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device11_CreateSampler2"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device12_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device12_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device12_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device12_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device12_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device12_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device12_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device12_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device12_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device12_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device12_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device12_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device12_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device12_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device12_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device12_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device12_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device12_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device12_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device12_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device12_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device12_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device12_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device12_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device12_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device12_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device12_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device12_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device12_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device12_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device12_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device12_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device12_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device12_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device12_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device12_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device12_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device12_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device12_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device12_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_lifetime_tracker(obj : UInt64, p_owner : UInt64, riid : UInt64, ppv_tracker : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateLifetimeTracker"
+
+///|
+pub extern "c" fn dx_d3d12_device12_remove_device(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_RemoveDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device12_enumerate_meta_commands(obj : UInt64, p_num_meta_commands : UInt64, p_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device12_EnumerateMetaCommands"
+
+///|
+pub extern "c" fn dx_d3d12_device12_enumerate_meta_command_parameters(obj : UInt64, command_id : UInt64, stage : Int, p_total_structure_size_in_bytes : UInt64, p_parameter_count : UInt64, p_parameter_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device12_EnumerateMetaCommandParameters"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_meta_command(obj : UInt64, command_id : UInt64, node_mask : Int, p_creation_parameters_data : UInt64, creation_parameters_data_size_in_bytes : Int64, riid : UInt64, pp_meta_command : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_state_object(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_raytracing_acceleration_structure_prebuild_info(obj : UInt64, p_desc : UInt64, p_info : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_GetRaytracingAccelerationStructurePrebuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device12_check_driver_matching_identifier(obj : UInt64, serialized_data_type : Int, p_identifier_to_check : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CheckDriverMatchingIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_device12_set_background_processing_mode(obj : UInt64, mode : Int, measurements_action : Int, h_event_to_signal_upon_completion : UInt64, pb_further_measurements_desired : UInt64) -> Int = "tycho_dx12_ID3D12Device12_SetBackgroundProcessingMode"
+
+///|
+pub extern "c" fn dx_d3d12_device12_add_to_state_object(obj : UInt64, p_addition : UInt64, p_state_object_to_grow_from : UInt64, riid : UInt64, pp_new_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device12_AddToStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_protected_resource_session1(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateProtectedResourceSession1"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_resource_allocation_info2(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device12_GetResourceAllocationInfo2"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_committed_resource2(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateCommittedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_placed_resource1(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreatePlacedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_sampler_feedback_unordered_access_view(obj : UInt64, p_targeted_resource : UInt64, p_feedback_resource : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_CreateSamplerFeedbackUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_copyable_footprints1(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_GetCopyableFootprints1"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_shader_cache_session(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_session : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateShaderCacheSession"
+
+///|
+pub extern "c" fn dx_d3d12_device12_shader_cache_control(obj : UInt64, kinds : Int, control : Int) -> Int = "tycho_dx12_ID3D12Device12_ShaderCacheControl"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_command_queue1(obj : UInt64, p_desc : UInt64, creator_id : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateCommandQueue1"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_committed_resource3(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateCommittedResource3"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_placed_resource2(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreatePlacedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_reserved_resource2(obj : UInt64, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device12_CreateReservedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device12_create_sampler2(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device12_CreateSampler2"
+
+///|
+pub extern "c" fn dx_d3d12_device12_get_resource_allocation_info3(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_num_castable_formats : UInt64, pp_castable_formats : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device12_GetResourceAllocationInfo3"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device13_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device13_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device13_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device13_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device13_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device13_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device13_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device13_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device13_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device13_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device13_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device13_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device13_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device13_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device13_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device13_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device13_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device13_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device13_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device13_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device13_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device13_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device13_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device13_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device13_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device13_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device13_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device13_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device13_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device13_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device13_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device13_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device13_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device13_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device13_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device13_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device13_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device13_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device13_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device13_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_lifetime_tracker(obj : UInt64, p_owner : UInt64, riid : UInt64, ppv_tracker : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateLifetimeTracker"
+
+///|
+pub extern "c" fn dx_d3d12_device13_remove_device(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_RemoveDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device13_enumerate_meta_commands(obj : UInt64, p_num_meta_commands : UInt64, p_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device13_EnumerateMetaCommands"
+
+///|
+pub extern "c" fn dx_d3d12_device13_enumerate_meta_command_parameters(obj : UInt64, command_id : UInt64, stage : Int, p_total_structure_size_in_bytes : UInt64, p_parameter_count : UInt64, p_parameter_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device13_EnumerateMetaCommandParameters"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_meta_command(obj : UInt64, command_id : UInt64, node_mask : Int, p_creation_parameters_data : UInt64, creation_parameters_data_size_in_bytes : Int64, riid : UInt64, pp_meta_command : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_state_object(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_raytracing_acceleration_structure_prebuild_info(obj : UInt64, p_desc : UInt64, p_info : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_GetRaytracingAccelerationStructurePrebuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device13_check_driver_matching_identifier(obj : UInt64, serialized_data_type : Int, p_identifier_to_check : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CheckDriverMatchingIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_device13_set_background_processing_mode(obj : UInt64, mode : Int, measurements_action : Int, h_event_to_signal_upon_completion : UInt64, pb_further_measurements_desired : UInt64) -> Int = "tycho_dx12_ID3D12Device13_SetBackgroundProcessingMode"
+
+///|
+pub extern "c" fn dx_d3d12_device13_add_to_state_object(obj : UInt64, p_addition : UInt64, p_state_object_to_grow_from : UInt64, riid : UInt64, pp_new_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device13_AddToStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_protected_resource_session1(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateProtectedResourceSession1"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_resource_allocation_info2(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device13_GetResourceAllocationInfo2"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_committed_resource2(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateCommittedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_placed_resource1(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreatePlacedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_sampler_feedback_unordered_access_view(obj : UInt64, p_targeted_resource : UInt64, p_feedback_resource : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_CreateSamplerFeedbackUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_copyable_footprints1(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_GetCopyableFootprints1"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_shader_cache_session(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_session : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateShaderCacheSession"
+
+///|
+pub extern "c" fn dx_d3d12_device13_shader_cache_control(obj : UInt64, kinds : Int, control : Int) -> Int = "tycho_dx12_ID3D12Device13_ShaderCacheControl"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_command_queue1(obj : UInt64, p_desc : UInt64, creator_id : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateCommandQueue1"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_committed_resource3(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateCommittedResource3"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_placed_resource2(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreatePlacedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_reserved_resource2(obj : UInt64, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device13_CreateReservedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device13_create_sampler2(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device13_CreateSampler2"
+
+///|
+pub extern "c" fn dx_d3d12_device13_get_resource_allocation_info3(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_num_castable_formats : UInt64, pp_castable_formats : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device13_GetResourceAllocationInfo3"
+
+///|
+pub extern "c" fn dx_d3d12_device13_open_existing_heap_from_address1(obj : UInt64, p_address : UInt64, size : Int64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device13_OpenExistingHeapFromAddress1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device14_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device14_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device14_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_device14_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12Device14_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device14_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12Device14_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_node_count(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device14_GetNodeCount"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_command_queue(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateCommandQueue"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_command_allocator(obj : UInt64, a0 : Int, riid : UInt64, pp_command_allocator : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateCommandAllocator"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_graphics_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateGraphicsPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_compute_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateComputePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_command_list(obj : UInt64, node_mask : Int, a1 : Int, p_command_allocator : UInt64, p_initial_state : UInt64, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateCommandList"
+
+///|
+pub extern "c" fn dx_d3d12_device14_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_ID3D12Device14_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_descriptor_heap(obj : UInt64, p_descriptor_heap_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateDescriptorHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_descriptor_handle_increment_size(obj : UInt64, descriptor_heap_type : Int) -> Int = "tycho_dx12_ID3D12Device14_GetDescriptorHandleIncrementSize"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_root_signature(obj : UInt64, node_mask : Int, p_blob_with_root_signature : UInt64, blob_length_in_bytes : Int64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_constant_buffer_view(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_CreateConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_shader_resource_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_CreateShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_unordered_access_view(obj : UInt64, p_resource : UInt64, p_counter_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_CreateUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_render_target_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_CreateRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_depth_stencil_view(obj : UInt64, p_resource : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_CreateDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_sampler(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_CreateSampler"
+
+///|
+pub extern "c" fn dx_d3d12_device14_copy_descriptors(obj : UInt64, num_dest_descriptor_ranges : Int, p_dest_descriptor_range_starts : UInt64, p_dest_descriptor_range_sizes : UInt64, num_src_descriptor_ranges : Int, p_src_descriptor_range_starts : UInt64, p_src_descriptor_range_sizes : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device14_CopyDescriptors"
+
+///|
+pub extern "c" fn dx_d3d12_device14_copy_descriptors_simple(obj : UInt64, num_descriptors : Int, dest_descriptor_range_start : UInt64, src_descriptor_range_start : UInt64, descriptor_heaps_type : Int) -> Unit = "tycho_dx12_ID3D12Device14_CopyDescriptorsSimple"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_resource_allocation_info(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device14_GetResourceAllocationInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_custom_heap_properties(obj : UInt64, ret_val : UInt64, node_mask : Int, heap_type : Int) -> UInt64 = "tycho_dx12_ID3D12Device14_GetCustomHeapProperties"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_committed_resource(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateCommittedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_placed_resource(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreatePlacedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_reserved_resource(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateReservedResource"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_shared_handle(obj : UInt64, p_object : UInt64, p_attributes : UInt64, access : Int, name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device14_open_shared_handle(obj : UInt64, nt_handle : UInt64, riid : UInt64, ppv_obj : UInt64) -> Int = "tycho_dx12_ID3D12Device14_OpenSharedHandle"
+
+///|
+pub extern "c" fn dx_d3d12_device14_open_shared_handle_by_name(obj : UInt64, name : UInt64, access : Int, p_nt_handle : UInt64) -> Int = "tycho_dx12_ID3D12Device14_OpenSharedHandleByName"
+
+///|
+pub extern "c" fn dx_d3d12_device14_make_resident(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device14_MakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device14_evict(obj : UInt64, num_objects : Int, pp_objects : UInt64) -> Int = "tycho_dx12_ID3D12Device14_Evict"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_fence(obj : UInt64, initial_value : Int64, flags : Int, riid : UInt64, pp_fence : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateFence"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_device_removed_reason(obj : UInt64) -> Int = "tycho_dx12_ID3D12Device14_GetDeviceRemovedReason"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_copyable_footprints(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_GetCopyableFootprints"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_query_heap(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateQueryHeap"
+
+///|
+pub extern "c" fn dx_d3d12_device14_set_stable_power_state(obj : UInt64, enable : Int) -> Int = "tycho_dx12_ID3D12Device14_SetStablePowerState"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_command_signature(obj : UInt64, p_desc : UInt64, p_root_signature : UInt64, riid : UInt64, ppv_command_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateCommandSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_resource_tiling(obj : UInt64, p_tiled_resource : UInt64, p_num_tiles_for_entire_resource : UInt64, p_packed_mip_desc : UInt64, p_standard_tile_shape_for_non_packed_mips : UInt64, p_num_subresource_tilings : UInt64, first_subresource_tiling_to_get : Int, p_subresource_tilings_for_non_packed_mips : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_GetResourceTiling"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_adapter_luid(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device14_GetAdapterLuid"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_pipeline_library(obj : UInt64, p_library_blob : UInt64, blob_length : Int64, riid : UInt64, pp_pipeline_library : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreatePipelineLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_device14_set_event_on_multiple_fence_completion(obj : UInt64, pp_fences : UInt64, p_fence_values : UInt64, num_fences : Int, flags : Int, h_event : UInt64) -> Int = "tycho_dx12_ID3D12Device14_SetEventOnMultipleFenceCompletion"
+
+///|
+pub extern "c" fn dx_d3d12_device14_set_residency_priority(obj : UInt64, num_objects : Int, pp_objects : UInt64, p_priorities : UInt64) -> Int = "tycho_dx12_ID3D12Device14_SetResidencyPriority"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_pipeline_state(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_pipeline_state : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreatePipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_device14_open_existing_heap_from_address(obj : UInt64, p_address : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device14_OpenExistingHeapFromAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device14_open_existing_heap_from_file_mapping(obj : UInt64, h_file_mapping : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device14_OpenExistingHeapFromFileMapping"
+
+///|
+pub extern "c" fn dx_d3d12_device14_enqueue_make_resident(obj : UInt64, flags : Int, num_objects : Int, pp_objects : UInt64, p_fence_to_signal : UInt64, fence_value_to_signal : Int64) -> Int = "tycho_dx12_ID3D12Device14_EnqueueMakeResident"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_command_list1(obj : UInt64, node_mask : Int, a1 : Int, flags : Int, riid : UInt64, pp_command_list : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateCommandList1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_protected_resource_session(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_committed_resource1(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateCommittedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_heap1(obj : UInt64, p_desc : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateHeap1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_reserved_resource1(obj : UInt64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateReservedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_resource_allocation_info1(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device14_GetResourceAllocationInfo1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_lifetime_tracker(obj : UInt64, p_owner : UInt64, riid : UInt64, ppv_tracker : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateLifetimeTracker"
+
+///|
+pub extern "c" fn dx_d3d12_device14_remove_device(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_RemoveDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device14_enumerate_meta_commands(obj : UInt64, p_num_meta_commands : UInt64, p_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device14_EnumerateMetaCommands"
+
+///|
+pub extern "c" fn dx_d3d12_device14_enumerate_meta_command_parameters(obj : UInt64, command_id : UInt64, stage : Int, p_total_structure_size_in_bytes : UInt64, p_parameter_count : UInt64, p_parameter_descs : UInt64) -> Int = "tycho_dx12_ID3D12Device14_EnumerateMetaCommandParameters"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_meta_command(obj : UInt64, command_id : UInt64, node_mask : Int, p_creation_parameters_data : UInt64, creation_parameters_data_size_in_bytes : Int64, riid : UInt64, pp_meta_command : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_state_object(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_raytracing_acceleration_structure_prebuild_info(obj : UInt64, p_desc : UInt64, p_info : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_GetRaytracingAccelerationStructurePrebuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_device14_check_driver_matching_identifier(obj : UInt64, serialized_data_type : Int, p_identifier_to_check : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CheckDriverMatchingIdentifier"
+
+///|
+pub extern "c" fn dx_d3d12_device14_set_background_processing_mode(obj : UInt64, mode : Int, measurements_action : Int, h_event_to_signal_upon_completion : UInt64, pb_further_measurements_desired : UInt64) -> Int = "tycho_dx12_ID3D12Device14_SetBackgroundProcessingMode"
+
+///|
+pub extern "c" fn dx_d3d12_device14_add_to_state_object(obj : UInt64, p_addition : UInt64, p_state_object_to_grow_from : UInt64, riid : UInt64, pp_new_state_object : UInt64) -> Int = "tycho_dx12_ID3D12Device14_AddToStateObject"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_protected_resource_session1(obj : UInt64, p_desc : UInt64, riid : UInt64, pp_session : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateProtectedResourceSession1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_resource_allocation_info2(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device14_GetResourceAllocationInfo2"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_committed_resource2(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_resource_state : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateCommittedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_placed_resource1(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_state : Int, p_optimized_clear_value : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreatePlacedResource1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_sampler_feedback_unordered_access_view(obj : UInt64, p_targeted_resource : UInt64, p_feedback_resource : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_CreateSamplerFeedbackUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_copyable_footprints1(obj : UInt64, p_resource_desc : UInt64, first_subresource : Int, num_subresources : Int, base_offset : Int64, p_layouts : UInt64, p_num_rows : UInt64, p_row_size_in_bytes : UInt64, p_total_bytes : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_GetCopyableFootprints1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_shader_cache_session(obj : UInt64, p_desc : UInt64, riid : UInt64, ppv_session : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateShaderCacheSession"
+
+///|
+pub extern "c" fn dx_d3d12_device14_shader_cache_control(obj : UInt64, kinds : Int, control : Int) -> Int = "tycho_dx12_ID3D12Device14_ShaderCacheControl"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_command_queue1(obj : UInt64, p_desc : UInt64, creator_id : UInt64, riid : UInt64, pp_command_queue : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateCommandQueue1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_committed_resource3(obj : UInt64, p_heap_properties : UInt64, heap_flags : Int, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid_resource : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateCommittedResource3"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_placed_resource2(obj : UInt64, p_heap : UInt64, heap_offset : Int64, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreatePlacedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_reserved_resource2(obj : UInt64, p_desc : UInt64, initial_layout : Int, p_optimized_clear_value : UInt64, p_protected_session : UInt64, num_castable_formats : Int, p_castable_formats : UInt64, riid : UInt64, ppv_resource : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateReservedResource2"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_sampler2(obj : UInt64, p_desc : UInt64, dest_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12Device14_CreateSampler2"
+
+///|
+pub extern "c" fn dx_d3d12_device14_get_resource_allocation_info3(obj : UInt64, ret_val : UInt64, visible_mask : Int, num_resource_descs : Int, p_resource_descs : UInt64, p_num_castable_formats : UInt64, pp_castable_formats : UInt64, p_resource_allocation_info1 : UInt64) -> UInt64 = "tycho_dx12_ID3D12Device14_GetResourceAllocationInfo3"
+
+///|
+pub extern "c" fn dx_d3d12_device14_open_existing_heap_from_address1(obj : UInt64, p_address : UInt64, size : Int64, riid : UInt64, ppv_heap : UInt64) -> Int = "tycho_dx12_ID3D12Device14_OpenExistingHeapFromAddress1"
+
+///|
+pub extern "c" fn dx_d3d12_device14_create_root_signature_from_subobject_in_library(obj : UInt64, node_mask : Int, p_library_blob : UInt64, blob_length_in_bytes : Int64, subobject_name : UInt64, riid : UInt64, ppv_root_signature : UInt64) -> Int = "tycho_dx12_ID3D12Device14_CreateRootSignatureFromSubobjectInLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_virtualization_guest_device_share_with_host(obj : UInt64, p_object : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_ID3D12VirtualizationGuestDevice_ShareWithHost"
+
+///|
+pub extern "c" fn dx_d3d12_virtualization_guest_device_create_fence_fd(obj : UInt64, p_fence : UInt64, fence_value : Int64, p_fence_fd : UInt64) -> Int = "tycho_dx12_ID3D12VirtualizationGuestDevice_CreateFenceFd"
+
+///|
+pub extern "c" fn dx_d3d12_tools_enable_shader_instrumentation(obj : UInt64, b_enable : Int) -> Unit = "tycho_dx12_ID3D12Tools_EnableShaderInstrumentation"
+
+///|
+pub extern "c" fn dx_d3d12_tools_shader_instrumentation_enabled(obj : UInt64) -> Int = "tycho_dx12_ID3D12Tools_ShaderInstrumentationEnabled"
+
+///|
+pub extern "c" fn dx_d3d12_tools1_enable_shader_instrumentation(obj : UInt64, b_enable : Int) -> Unit = "tycho_dx12_ID3D12Tools1_EnableShaderInstrumentation"
+
+///|
+pub extern "c" fn dx_d3d12_tools1_shader_instrumentation_enabled(obj : UInt64) -> Int = "tycho_dx12_ID3D12Tools1_ShaderInstrumentationEnabled"
+
+///|
+pub extern "c" fn dx_d3d12_tools1_reserve_gpuva_ranges_at_create(obj : UInt64, p_ranges : UInt64, ui_num_ranges : Int) -> Int = "tycho_dx12_ID3D12Tools1_ReserveGPUVARangesAtCreate"
+
+///|
+pub extern "c" fn dx_d3d12_tools1_clear_reserved_gpuva_ranges_list(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Tools1_ClearReservedGPUVARangesList"
+
+///|
+pub extern "c" fn dx_d3d12_tools2_enable_shader_instrumentation(obj : UInt64, b_enable : Int) -> Unit = "tycho_dx12_ID3D12Tools2_EnableShaderInstrumentation"
+
+///|
+pub extern "c" fn dx_d3d12_tools2_shader_instrumentation_enabled(obj : UInt64) -> Int = "tycho_dx12_ID3D12Tools2_ShaderInstrumentationEnabled"
+
+///|
+pub extern "c" fn dx_d3d12_tools2_reserve_gpuva_ranges_at_create(obj : UInt64, p_ranges : UInt64, ui_num_ranges : Int) -> Int = "tycho_dx12_ID3D12Tools2_ReserveGPUVARangesAtCreate"
+
+///|
+pub extern "c" fn dx_d3d12_tools2_clear_reserved_gpuva_ranges_list(obj : UInt64) -> Unit = "tycho_dx12_ID3D12Tools2_ClearReservedGPUVARangesList"
+
+///|
+pub extern "c" fn dx_d3d12_tools2_set_application_specific_driver_state(obj : UInt64, p_adapter : UInt64, p_blob : UInt64) -> Int = "tycho_dx12_ID3D12Tools2_SetApplicationSpecificDriverState"
+
+///|
+pub extern "c" fn dx_d3d12_pageable_tools_get_allocation(obj : UInt64, p_allocation : UInt64) -> Int = "tycho_dx12_ID3D12PageableTools_GetAllocation"
+
+///|
+pub extern "c" fn dx_d3d12_device_tools_set_next_allocation_address(obj : UInt64, next_allocation_virtual_address : Int64) -> Unit = "tycho_dx12_ID3D12DeviceTools_SetNextAllocationAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device_tools1_set_next_allocation_address(obj : UInt64, next_allocation_virtual_address : Int64) -> Unit = "tycho_dx12_ID3D12DeviceTools1_SetNextAllocationAddress"
+
+///|
+pub extern "c" fn dx_d3d12_device_tools1_get_application_specific_driver_state(obj : UInt64, pp_blob : UInt64) -> Int = "tycho_dx12_ID3D12DeviceTools1_GetApplicationSpecificDriverState"
+
+///|
+pub extern "c" fn dx_d3d12_device_tools1_get_application_specific_driver_blob_status(obj : UInt64) -> Int = "tycho_dx12_ID3D12DeviceTools1_GetApplicationSpecificDriverBlobStatus"
+
+///|
+pub extern "c" fn dx_d3d12_sdk_configuration_set_sdk_version(obj : UInt64, sdk_version : Int, sdk_path : UInt64) -> Int = "tycho_dx12_ID3D12SDKConfiguration_SetSDKVersion"
+
+///|
+pub extern "c" fn dx_d3d12_sdk_configuration1_set_sdk_version(obj : UInt64, sdk_version : Int, sdk_path : UInt64) -> Int = "tycho_dx12_ID3D12SDKConfiguration1_SetSDKVersion"
+
+///|
+pub extern "c" fn dx_d3d12_sdk_configuration1_create_device_factory(obj : UInt64, sdk_version : Int, sdk_path : UInt64, riid : UInt64, ppv_factory : UInt64) -> Int = "tycho_dx12_ID3D12SDKConfiguration1_CreateDeviceFactory"
+
+///|
+pub extern "c" fn dx_d3d12_sdk_configuration1_free_unused_sd_ks(obj : UInt64) -> Unit = "tycho_dx12_ID3D12SDKConfiguration1_FreeUnusedSDKs"
+
+///|
+pub extern "c" fn dx_d3d12_device_factory_initialize_from_global_state(obj : UInt64) -> Int = "tycho_dx12_ID3D12DeviceFactory_InitializeFromGlobalState"
+
+///|
+pub extern "c" fn dx_d3d12_device_factory_apply_to_global_state(obj : UInt64) -> Int = "tycho_dx12_ID3D12DeviceFactory_ApplyToGlobalState"
+
+///|
+pub extern "c" fn dx_d3d12_device_factory_set_flags(obj : UInt64, flags : Int) -> Int = "tycho_dx12_ID3D12DeviceFactory_SetFlags"
+
+///|
+pub extern "c" fn dx_d3d12_device_factory_get_flags(obj : UInt64) -> Int = "tycho_dx12_ID3D12DeviceFactory_GetFlags"
+
+///|
+pub extern "c" fn dx_d3d12_device_factory_get_configuration_interface(obj : UInt64, clsid : UInt64, iid : UInt64, ppv : UInt64) -> Int = "tycho_dx12_ID3D12DeviceFactory_GetConfigurationInterface"
+
+///|
+pub extern "c" fn dx_d3d12_device_factory_enable_experimental_features(obj : UInt64, num_features : Int, p_ii_ds : UInt64, p_configuration_structs : UInt64, p_configuration_struct_sizes : UInt64) -> Int = "tycho_dx12_ID3D12DeviceFactory_EnableExperimentalFeatures"
+
+///|
+pub extern "c" fn dx_d3d12_device_factory_create_device(obj : UInt64, adapter : UInt64, feature_level : Int, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12DeviceFactory_CreateDevice"
+
+///|
+pub extern "c" fn dx_d3d12_device_configuration_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12DeviceConfiguration_GetDesc"
+
+///|
+pub extern "c" fn dx_d3d12_device_configuration_get_enabled_experimental_features(obj : UInt64, p_guids : UInt64, num_guids : Int) -> Int = "tycho_dx12_ID3D12DeviceConfiguration_GetEnabledExperimentalFeatures"
+
+///|
+pub extern "c" fn dx_d3d12_device_configuration_serialize_versioned_root_signature(obj : UInt64, p_desc : UInt64, pp_result : UInt64, pp_error : UInt64) -> Int = "tycho_dx12_ID3D12DeviceConfiguration_SerializeVersionedRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device_configuration_create_versioned_root_signature_deserializer(obj : UInt64, p_blob : UInt64, size : Int64, riid : UInt64, ppv_deserializer : UInt64) -> Int = "tycho_dx12_ID3D12DeviceConfiguration_CreateVersionedRootSignatureDeserializer"
+
+///|
+pub extern "c" fn dx_d3d12_device_configuration1_get_desc(obj : UInt64, ret_val : UInt64) -> UInt64 = "tycho_dx12_ID3D12DeviceConfiguration1_GetDesc"
+
+///|
+pub extern "c" fn dx_d3d12_device_configuration1_get_enabled_experimental_features(obj : UInt64, p_guids : UInt64, num_guids : Int) -> Int = "tycho_dx12_ID3D12DeviceConfiguration1_GetEnabledExperimentalFeatures"
+
+///|
+pub extern "c" fn dx_d3d12_device_configuration1_serialize_versioned_root_signature(obj : UInt64, p_desc : UInt64, pp_result : UInt64, pp_error : UInt64) -> Int = "tycho_dx12_ID3D12DeviceConfiguration1_SerializeVersionedRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_device_configuration1_create_versioned_root_signature_deserializer(obj : UInt64, p_blob : UInt64, size : Int64, riid : UInt64, ppv_deserializer : UInt64) -> Int = "tycho_dx12_ID3D12DeviceConfiguration1_CreateVersionedRootSignatureDeserializer"
+
+///|
+pub extern "c" fn dx_d3d12_device_configuration1_create_versioned_root_signature_deserializer_from_subobject_in_library(obj : UInt64, p_library_blob : UInt64, size : Int64, root_signature_subobject_name : UInt64, riid : UInt64, ppv_deserializer : UInt64) -> Int = "tycho_dx12_ID3D12DeviceConfiguration1_CreateVersionedRootSignatureDeserializerFromSubobjectInLibrary"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList5_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList5_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList5_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList5_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList5_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList5_GetType"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList5_Close"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList5_Reset"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ClearState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_DrawInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_DrawIndexedInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_Dispatch"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_CopyBufferRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_CopyTextureRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_CopyResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_CopyTiles"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ResolveSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_IASetPrimitiveTopology"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_RSSetViewports"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_RSSetScissorRects"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_OMSetBlendFactor"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_OMSetStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ResourceBarrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ExecuteBundle"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetDescriptorHeaps"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetComputeRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetGraphicsRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetComputeRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetGraphicsRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetComputeRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetGraphicsRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetComputeRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetGraphicsRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetComputeRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetGraphicsRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetComputeRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetGraphicsRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetComputeRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetGraphicsRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_IASetIndexBuffer"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_IASetVertexBuffers"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SOSetTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_OMSetRenderTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ClearDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ClearRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ClearUnorderedAccessViewUint"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ClearUnorderedAccessViewFloat"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_DiscardResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_BeginQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_EndQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ResolveQueryData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetPredication"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetMarker"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_BeginEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_EndEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ExecuteIndirect"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_AtomicCopyBufferUINT"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_AtomicCopyBufferUINT64"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_OMSetDepthBounds"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetSamplePositions"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ResolveSubresourceRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetViewInstanceMask"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_write_buffer_immediate(obj : UInt64, count : Int, p_params : UInt64, p_modes : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_WriteBufferImmediate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_protected_resource_session(obj : UInt64, p_protected_resource_session : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_begin_render_pass(obj : UInt64, num_render_targets : Int, p_render_targets : UInt64, p_depth_stencil : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_BeginRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_end_render_pass(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_EndRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_initialize_meta_command(obj : UInt64, p_meta_command : UInt64, p_initialization_parameters_data : UInt64, initialization_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_InitializeMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_execute_meta_command(obj : UInt64, p_meta_command : UInt64, p_execution_parameters_data : UInt64, execution_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_ExecuteMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_build_raytracing_acceleration_structure(obj : UInt64, p_desc : UInt64, num_postbuild_info_descs : Int, p_postbuild_info_descs : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_BuildRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_emit_raytracing_acceleration_structure_postbuild_info(obj : UInt64, p_desc : UInt64, num_source_acceleration_structures : Int, p_source_acceleration_structure_data : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_EmitRaytracingAccelerationStructurePostbuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_copy_raytracing_acceleration_structure(obj : UInt64, dest_acceleration_structure_data : Int64, source_acceleration_structure_data : Int64, mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_CopyRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_set_pipeline_state1(obj : UInt64, p_state_object : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_SetPipelineState1"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_dispatch_rays(obj : UInt64, p_desc : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_DispatchRays"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_rs_set_shading_rate(obj : UInt64, base_shading_rate : Int, combiners : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_RSSetShadingRate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list5_rs_set_shading_rate_image(obj : UInt64, shading_rate_image : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList5_RSSetShadingRateImage"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList6_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList6_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList6_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList6_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList6_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList6_GetType"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList6_Close"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList6_Reset"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ClearState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_DrawInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_DrawIndexedInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_Dispatch"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_CopyBufferRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_CopyTextureRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_CopyResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_CopyTiles"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ResolveSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_IASetPrimitiveTopology"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_RSSetViewports"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_RSSetScissorRects"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_OMSetBlendFactor"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_OMSetStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ResourceBarrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ExecuteBundle"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetDescriptorHeaps"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetComputeRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetGraphicsRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetComputeRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetGraphicsRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetComputeRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetGraphicsRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetComputeRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetGraphicsRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetComputeRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetGraphicsRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetComputeRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetGraphicsRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetComputeRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetGraphicsRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_IASetIndexBuffer"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_IASetVertexBuffers"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SOSetTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_OMSetRenderTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ClearDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ClearRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ClearUnorderedAccessViewUint"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ClearUnorderedAccessViewFloat"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_DiscardResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_BeginQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_EndQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ResolveQueryData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetPredication"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetMarker"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_BeginEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_EndEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ExecuteIndirect"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_AtomicCopyBufferUINT"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_AtomicCopyBufferUINT64"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_OMSetDepthBounds"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetSamplePositions"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ResolveSubresourceRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetViewInstanceMask"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_write_buffer_immediate(obj : UInt64, count : Int, p_params : UInt64, p_modes : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_WriteBufferImmediate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_protected_resource_session(obj : UInt64, p_protected_resource_session : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_begin_render_pass(obj : UInt64, num_render_targets : Int, p_render_targets : UInt64, p_depth_stencil : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_BeginRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_end_render_pass(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_EndRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_initialize_meta_command(obj : UInt64, p_meta_command : UInt64, p_initialization_parameters_data : UInt64, initialization_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_InitializeMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_execute_meta_command(obj : UInt64, p_meta_command : UInt64, p_execution_parameters_data : UInt64, execution_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_ExecuteMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_build_raytracing_acceleration_structure(obj : UInt64, p_desc : UInt64, num_postbuild_info_descs : Int, p_postbuild_info_descs : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_BuildRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_emit_raytracing_acceleration_structure_postbuild_info(obj : UInt64, p_desc : UInt64, num_source_acceleration_structures : Int, p_source_acceleration_structure_data : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_EmitRaytracingAccelerationStructurePostbuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_copy_raytracing_acceleration_structure(obj : UInt64, dest_acceleration_structure_data : Int64, source_acceleration_structure_data : Int64, mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_CopyRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_set_pipeline_state1(obj : UInt64, p_state_object : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_SetPipelineState1"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_dispatch_rays(obj : UInt64, p_desc : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_DispatchRays"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_rs_set_shading_rate(obj : UInt64, base_shading_rate : Int, combiners : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_RSSetShadingRate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_rs_set_shading_rate_image(obj : UInt64, shading_rate_image : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_RSSetShadingRateImage"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list6_dispatch_mesh(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList6_DispatchMesh"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList7_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList7_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList7_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList7_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList7_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList7_GetType"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList7_Close"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList7_Reset"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ClearState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_DrawInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_DrawIndexedInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_Dispatch"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_CopyBufferRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_CopyTextureRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_CopyResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_CopyTiles"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ResolveSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_IASetPrimitiveTopology"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_RSSetViewports"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_RSSetScissorRects"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_OMSetBlendFactor"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_OMSetStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ResourceBarrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ExecuteBundle"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetDescriptorHeaps"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetComputeRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetGraphicsRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetComputeRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetGraphicsRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetComputeRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetGraphicsRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetComputeRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetGraphicsRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetComputeRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetGraphicsRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetComputeRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetGraphicsRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetComputeRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetGraphicsRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_IASetIndexBuffer"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_IASetVertexBuffers"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SOSetTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_OMSetRenderTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ClearDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ClearRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ClearUnorderedAccessViewUint"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ClearUnorderedAccessViewFloat"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_DiscardResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_BeginQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_EndQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ResolveQueryData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetPredication"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetMarker"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_BeginEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_EndEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ExecuteIndirect"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_AtomicCopyBufferUINT"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_AtomicCopyBufferUINT64"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_OMSetDepthBounds"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetSamplePositions"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ResolveSubresourceRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetViewInstanceMask"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_write_buffer_immediate(obj : UInt64, count : Int, p_params : UInt64, p_modes : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_WriteBufferImmediate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_protected_resource_session(obj : UInt64, p_protected_resource_session : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_begin_render_pass(obj : UInt64, num_render_targets : Int, p_render_targets : UInt64, p_depth_stencil : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_BeginRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_end_render_pass(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_EndRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_initialize_meta_command(obj : UInt64, p_meta_command : UInt64, p_initialization_parameters_data : UInt64, initialization_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_InitializeMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_execute_meta_command(obj : UInt64, p_meta_command : UInt64, p_execution_parameters_data : UInt64, execution_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_ExecuteMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_build_raytracing_acceleration_structure(obj : UInt64, p_desc : UInt64, num_postbuild_info_descs : Int, p_postbuild_info_descs : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_BuildRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_emit_raytracing_acceleration_structure_postbuild_info(obj : UInt64, p_desc : UInt64, num_source_acceleration_structures : Int, p_source_acceleration_structure_data : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_EmitRaytracingAccelerationStructurePostbuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_copy_raytracing_acceleration_structure(obj : UInt64, dest_acceleration_structure_data : Int64, source_acceleration_structure_data : Int64, mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_CopyRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_set_pipeline_state1(obj : UInt64, p_state_object : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_SetPipelineState1"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_dispatch_rays(obj : UInt64, p_desc : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_DispatchRays"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_rs_set_shading_rate(obj : UInt64, base_shading_rate : Int, combiners : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_RSSetShadingRate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_rs_set_shading_rate_image(obj : UInt64, shading_rate_image : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_RSSetShadingRateImage"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_dispatch_mesh(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_DispatchMesh"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list7_barrier(obj : UInt64, num_barrier_groups : Int, p_barrier_groups : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList7_Barrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList8_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList8_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList8_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList8_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList8_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList8_GetType"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList8_Close"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList8_Reset"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ClearState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_DrawInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_DrawIndexedInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_Dispatch"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_CopyBufferRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_CopyTextureRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_CopyResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_CopyTiles"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ResolveSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_IASetPrimitiveTopology"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_RSSetViewports"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_RSSetScissorRects"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_OMSetBlendFactor"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_OMSetStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ResourceBarrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ExecuteBundle"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetDescriptorHeaps"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetComputeRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetGraphicsRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetComputeRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetGraphicsRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetComputeRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetGraphicsRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetComputeRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetGraphicsRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetComputeRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetGraphicsRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetComputeRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetGraphicsRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetComputeRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetGraphicsRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_IASetIndexBuffer"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_IASetVertexBuffers"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SOSetTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_OMSetRenderTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ClearDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ClearRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ClearUnorderedAccessViewUint"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ClearUnorderedAccessViewFloat"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_DiscardResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_BeginQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_EndQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ResolveQueryData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetPredication"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetMarker"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_BeginEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_EndEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ExecuteIndirect"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_AtomicCopyBufferUINT"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_AtomicCopyBufferUINT64"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_OMSetDepthBounds"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetSamplePositions"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ResolveSubresourceRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetViewInstanceMask"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_write_buffer_immediate(obj : UInt64, count : Int, p_params : UInt64, p_modes : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_WriteBufferImmediate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_protected_resource_session(obj : UInt64, p_protected_resource_session : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_begin_render_pass(obj : UInt64, num_render_targets : Int, p_render_targets : UInt64, p_depth_stencil : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_BeginRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_end_render_pass(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_EndRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_initialize_meta_command(obj : UInt64, p_meta_command : UInt64, p_initialization_parameters_data : UInt64, initialization_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_InitializeMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_execute_meta_command(obj : UInt64, p_meta_command : UInt64, p_execution_parameters_data : UInt64, execution_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_ExecuteMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_build_raytracing_acceleration_structure(obj : UInt64, p_desc : UInt64, num_postbuild_info_descs : Int, p_postbuild_info_descs : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_BuildRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_emit_raytracing_acceleration_structure_postbuild_info(obj : UInt64, p_desc : UInt64, num_source_acceleration_structures : Int, p_source_acceleration_structure_data : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_EmitRaytracingAccelerationStructurePostbuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_copy_raytracing_acceleration_structure(obj : UInt64, dest_acceleration_structure_data : Int64, source_acceleration_structure_data : Int64, mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_CopyRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_set_pipeline_state1(obj : UInt64, p_state_object : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_SetPipelineState1"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_dispatch_rays(obj : UInt64, p_desc : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_DispatchRays"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_rs_set_shading_rate(obj : UInt64, base_shading_rate : Int, combiners : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_RSSetShadingRate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_rs_set_shading_rate_image(obj : UInt64, shading_rate_image : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_RSSetShadingRateImage"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_dispatch_mesh(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_DispatchMesh"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_barrier(obj : UInt64, num_barrier_groups : Int, p_barrier_groups : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_Barrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list8_om_set_front_and_back_stencil_ref(obj : UInt64, front_stencil_ref : Int, back_stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList8_OMSetFrontAndBackStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList9_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList9_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList9_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList9_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList9_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList9_GetType"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList9_Close"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList9_Reset"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ClearState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_DrawInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_DrawIndexedInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_Dispatch"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_CopyBufferRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_CopyTextureRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_CopyResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_CopyTiles"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ResolveSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_IASetPrimitiveTopology"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_RSSetViewports"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_RSSetScissorRects"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_OMSetBlendFactor"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_OMSetStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ResourceBarrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ExecuteBundle"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetDescriptorHeaps"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetComputeRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetGraphicsRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetComputeRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetGraphicsRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetComputeRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetGraphicsRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetComputeRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetGraphicsRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetComputeRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetGraphicsRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetComputeRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetGraphicsRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetComputeRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetGraphicsRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_IASetIndexBuffer"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_IASetVertexBuffers"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SOSetTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_OMSetRenderTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ClearDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ClearRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ClearUnorderedAccessViewUint"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ClearUnorderedAccessViewFloat"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_DiscardResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_BeginQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_EndQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ResolveQueryData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetPredication"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetMarker"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_BeginEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_EndEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ExecuteIndirect"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_AtomicCopyBufferUINT"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_AtomicCopyBufferUINT64"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_OMSetDepthBounds"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetSamplePositions"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ResolveSubresourceRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetViewInstanceMask"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_write_buffer_immediate(obj : UInt64, count : Int, p_params : UInt64, p_modes : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_WriteBufferImmediate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_protected_resource_session(obj : UInt64, p_protected_resource_session : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_begin_render_pass(obj : UInt64, num_render_targets : Int, p_render_targets : UInt64, p_depth_stencil : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_BeginRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_end_render_pass(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_EndRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_initialize_meta_command(obj : UInt64, p_meta_command : UInt64, p_initialization_parameters_data : UInt64, initialization_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_InitializeMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_execute_meta_command(obj : UInt64, p_meta_command : UInt64, p_execution_parameters_data : UInt64, execution_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_ExecuteMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_build_raytracing_acceleration_structure(obj : UInt64, p_desc : UInt64, num_postbuild_info_descs : Int, p_postbuild_info_descs : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_BuildRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_emit_raytracing_acceleration_structure_postbuild_info(obj : UInt64, p_desc : UInt64, num_source_acceleration_structures : Int, p_source_acceleration_structure_data : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_EmitRaytracingAccelerationStructurePostbuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_copy_raytracing_acceleration_structure(obj : UInt64, dest_acceleration_structure_data : Int64, source_acceleration_structure_data : Int64, mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_CopyRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_set_pipeline_state1(obj : UInt64, p_state_object : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_SetPipelineState1"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_dispatch_rays(obj : UInt64, p_desc : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_DispatchRays"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_rs_set_shading_rate(obj : UInt64, base_shading_rate : Int, combiners : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_RSSetShadingRate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_rs_set_shading_rate_image(obj : UInt64, shading_rate_image : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_RSSetShadingRateImage"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_dispatch_mesh(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_DispatchMesh"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_barrier(obj : UInt64, num_barrier_groups : Int, p_barrier_groups : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_Barrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_om_set_front_and_back_stencil_ref(obj : UInt64, front_stencil_ref : Int, back_stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_OMSetFrontAndBackStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_rs_set_depth_bias(obj : UInt64, depth_bias : Float, depth_bias_clamp : Float, slope_scaled_depth_bias : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_RSSetDepthBias"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list9_ia_set_index_buffer_strip_cut_value(obj : UInt64, ib_strip_cut_value : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList9_IASetIndexBufferStripCutValue"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_get_private_data(obj : UInt64, guid : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList10_GetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_private_data(obj : UInt64, guid : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList10_SetPrivateData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_private_data_interface(obj : UInt64, guid : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList10_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_name(obj : UInt64, name : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList10_SetName"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_get_device(obj : UInt64, riid : UInt64, ppv_device : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList10_GetDevice"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_get_type(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList10_GetType"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_close(obj : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList10_Close"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_reset(obj : UInt64, p_allocator : UInt64, p_initial_state : UInt64) -> Int = "tycho_dx12_ID3D12GraphicsCommandList10_Reset"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_clear_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ClearState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_draw_instanced(obj : UInt64, vertex_count_per_instance : Int, instance_count : Int, start_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_DrawInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_draw_indexed_instanced(obj : UInt64, index_count_per_instance : Int, instance_count : Int, start_index_location : Int, base_vertex_location : Int, start_instance_location : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_DrawIndexedInstanced"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_dispatch(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_Dispatch"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_copy_buffer_region(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, num_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_CopyBufferRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_copy_texture_region(obj : UInt64, p_dst : UInt64, dst_x : Int, dst_y : Int, dst_z : Int, p_src : UInt64, p_src_box : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_CopyTextureRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_copy_resource(obj : UInt64, p_dst_resource : UInt64, p_src_resource : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_CopyResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_copy_tiles(obj : UInt64, p_tiled_resource : UInt64, p_tile_region_start_coordinate : UInt64, p_tile_region_size : UInt64, p_buffer : UInt64, buffer_start_offset_in_bytes : Int64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_CopyTiles"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_resolve_subresource(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, p_src_resource : UInt64, src_subresource : Int, format : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ResolveSubresource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_ia_set_primitive_topology(obj : UInt64, primitive_topology : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_IASetPrimitiveTopology"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_rs_set_viewports(obj : UInt64, num_viewports : Int, p_viewports : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_RSSetViewports"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_rs_set_scissor_rects(obj : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_RSSetScissorRects"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_om_set_blend_factor(obj : UInt64, blend_factor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_OMSetBlendFactor"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_om_set_stencil_ref(obj : UInt64, stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_OMSetStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_pipeline_state(obj : UInt64, p_pipeline_state : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetPipelineState"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_resource_barrier(obj : UInt64, num_barriers : Int, p_barriers : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ResourceBarrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_execute_bundle(obj : UInt64, p_command_list : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ExecuteBundle"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_descriptor_heaps(obj : UInt64, num_descriptor_heaps : Int, pp_descriptor_heaps : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetDescriptorHeaps"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_compute_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetComputeRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_graphics_root_signature(obj : UInt64, p_root_signature : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetGraphicsRootSignature"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_compute_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetComputeRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_graphics_root_descriptor_table(obj : UInt64, root_parameter_index : Int, base_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetGraphicsRootDescriptorTable"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_compute_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetComputeRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_graphics_root32_bit_constant(obj : UInt64, root_parameter_index : Int, src_data : Int, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetGraphicsRoot32BitConstant"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_compute_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetComputeRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_graphics_root32_bit_constants(obj : UInt64, root_parameter_index : Int, num32_bit_values_to_set : Int, p_src_data : UInt64, dest_offset_in32_bit_values : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetGraphicsRoot32BitConstants"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_compute_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetComputeRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_graphics_root_constant_buffer_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetGraphicsRootConstantBufferView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_compute_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetComputeRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_graphics_root_shader_resource_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetGraphicsRootShaderResourceView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_compute_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetComputeRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_graphics_root_unordered_access_view(obj : UInt64, root_parameter_index : Int, buffer_location : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetGraphicsRootUnorderedAccessView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_ia_set_index_buffer(obj : UInt64, p_view : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_IASetIndexBuffer"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_ia_set_vertex_buffers(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_IASetVertexBuffers"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_so_set_targets(obj : UInt64, start_slot : Int, num_views : Int, p_views : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SOSetTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_om_set_render_targets(obj : UInt64, num_render_target_descriptors : Int, p_render_target_descriptors : UInt64, r_ts_single_handle_to_descriptor_range : Int, p_depth_stencil_descriptor : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_OMSetRenderTargets"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_clear_depth_stencil_view(obj : UInt64, depth_stencil_view : UInt64, clear_flags : Int, depth : Float, stencil : Int, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ClearDepthStencilView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_clear_render_target_view(obj : UInt64, render_target_view : UInt64, color_rgba : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ClearRenderTargetView"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_clear_unordered_access_view_uint(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ClearUnorderedAccessViewUint"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_clear_unordered_access_view_float(obj : UInt64, view_gpu_handle_in_current_heap : UInt64, view_cpu_handle : UInt64, p_resource : UInt64, values : UInt64, num_rects : Int, p_rects : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ClearUnorderedAccessViewFloat"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_discard_resource(obj : UInt64, p_resource : UInt64, p_region : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_DiscardResource"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_begin_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_BeginQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_end_query(obj : UInt64, p_query_heap : UInt64, a1 : Int, index : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_EndQuery"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_resolve_query_data(obj : UInt64, p_query_heap : UInt64, a1 : Int, start_index : Int, num_queries : Int, p_destination_buffer : UInt64, aligned_destination_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ResolveQueryData"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_predication(obj : UInt64, p_buffer : UInt64, aligned_buffer_offset : Int64, operation : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetPredication"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_marker(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetMarker"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_begin_event(obj : UInt64, metadata : Int, p_data : UInt64, size : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_BeginEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_end_event(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_EndEvent"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_execute_indirect(obj : UInt64, p_command_signature : UInt64, max_command_count : Int, p_argument_buffer : UInt64, argument_buffer_offset : Int64, p_count_buffer : UInt64, count_buffer_offset : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ExecuteIndirect"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_atomic_copy_buffer_uint(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_AtomicCopyBufferUINT"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_atomic_copy_buffer_uint64(obj : UInt64, p_dst_buffer : UInt64, dst_offset : Int64, p_src_buffer : UInt64, src_offset : Int64, dependencies : Int, pp_dependent_resources : UInt64, p_dependent_subresource_ranges : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_AtomicCopyBufferUINT64"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_om_set_depth_bounds(obj : UInt64, min : Float, max : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_OMSetDepthBounds"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_sample_positions(obj : UInt64, num_samples_per_pixel : Int, num_pixels : Int, p_sample_positions : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetSamplePositions"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_resolve_subresource_region(obj : UInt64, p_dst_resource : UInt64, dst_subresource : Int, dst_x : Int, dst_y : Int, p_src_resource : UInt64, src_subresource : Int, p_src_rect : UInt64, format : Int, resolve_mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ResolveSubresourceRegion"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_view_instance_mask(obj : UInt64, mask : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetViewInstanceMask"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_write_buffer_immediate(obj : UInt64, count : Int, p_params : UInt64, p_modes : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_WriteBufferImmediate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_protected_resource_session(obj : UInt64, p_protected_resource_session : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetProtectedResourceSession"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_begin_render_pass(obj : UInt64, num_render_targets : Int, p_render_targets : UInt64, p_depth_stencil : UInt64, flags : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_BeginRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_end_render_pass(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_EndRenderPass"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_initialize_meta_command(obj : UInt64, p_meta_command : UInt64, p_initialization_parameters_data : UInt64, initialization_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_InitializeMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_execute_meta_command(obj : UInt64, p_meta_command : UInt64, p_execution_parameters_data : UInt64, execution_parameters_data_size_in_bytes : Int64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_ExecuteMetaCommand"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_build_raytracing_acceleration_structure(obj : UInt64, p_desc : UInt64, num_postbuild_info_descs : Int, p_postbuild_info_descs : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_BuildRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_emit_raytracing_acceleration_structure_postbuild_info(obj : UInt64, p_desc : UInt64, num_source_acceleration_structures : Int, p_source_acceleration_structure_data : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_EmitRaytracingAccelerationStructurePostbuildInfo"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_copy_raytracing_acceleration_structure(obj : UInt64, dest_acceleration_structure_data : Int64, source_acceleration_structure_data : Int64, mode : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_CopyRaytracingAccelerationStructure"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_pipeline_state1(obj : UInt64, p_state_object : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetPipelineState1"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_dispatch_rays(obj : UInt64, p_desc : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_DispatchRays"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_rs_set_shading_rate(obj : UInt64, base_shading_rate : Int, combiners : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_RSSetShadingRate"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_rs_set_shading_rate_image(obj : UInt64, shading_rate_image : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_RSSetShadingRateImage"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_dispatch_mesh(obj : UInt64, thread_group_count_x : Int, thread_group_count_y : Int, thread_group_count_z : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_DispatchMesh"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_barrier(obj : UInt64, num_barrier_groups : Int, p_barrier_groups : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_Barrier"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_om_set_front_and_back_stencil_ref(obj : UInt64, front_stencil_ref : Int, back_stencil_ref : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_OMSetFrontAndBackStencilRef"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_rs_set_depth_bias(obj : UInt64, depth_bias : Float, depth_bias_clamp : Float, slope_scaled_depth_bias : Float) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_RSSetDepthBias"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_ia_set_index_buffer_strip_cut_value(obj : UInt64, ib_strip_cut_value : Int) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_IASetIndexBufferStripCutValue"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_set_program(obj : UInt64, p_desc : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_SetProgram"
+
+///|
+pub extern "c" fn dx_d3d12_graphics_command_list10_dispatch_graph(obj : UInt64, p_desc : UInt64) -> Unit = "tycho_dx12_ID3D12GraphicsCommandList10_DispatchGraph"
+
+///|
+pub extern "c" fn dx_d3d12_dsr_device_factory_create_dsr_device(obj : UInt64, p_d3_d12_device : UInt64, node_mask : Int, riid : UInt64, ppv_dsr_device : UInt64) -> Int = "tycho_dx12_ID3D12DSRDeviceFactory_CreateDSRDevice"
+
+///|
+pub extern "c" fn dx_d3d12_gbv_diagnostics_get_gbv_entire_subresource_states_data(obj : UInt64, p_resource : UInt64, p_data : UInt64, data_size : Int) -> Int = "tycho_dx12_ID3D12GBVDiagnostics_GetGBVEntireSubresourceStatesData"
+
+///|
+pub extern "c" fn dx_d3d12_gbv_diagnostics_get_gbv_subresource_state(obj : UInt64, p_resource : UInt64, subresource : Int, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GBVDiagnostics_GetGBVSubresourceState"
+
+///|
+pub extern "c" fn dx_d3d12_gbv_diagnostics_get_gbv_resource_uniform_state(obj : UInt64, p_resource : UInt64, p_data : UInt64) -> Int = "tycho_dx12_ID3D12GBVDiagnostics_GetGBVResourceUniformState"
+
+///|
+pub extern "c" fn dx_d3d12_gbv_diagnostics_get_gbv_resource_info(obj : UInt64, p_resource : UInt64, p_resource_desc : UInt64, p_resource_hash : UInt64, p_subresource_states_byte_offset : UInt64) -> Int = "tycho_dx12_ID3D12GBVDiagnostics_GetGBVResourceInfo"
+
+///|
+pub extern "c" fn dx_d3d12_gbv_diagnostics_gbv_reserved0(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GBVDiagnostics_GBVReserved0"
+
+///|
+pub extern "c" fn dx_d3d12_gbv_diagnostics_gbv_reserved1(obj : UInt64) -> Unit = "tycho_dx12_ID3D12GBVDiagnostics_GBVReserved1"
+
+///|
+pub extern "c" fn dx_id3_d10_blob_get_buffer_pointer(obj : UInt64) -> UInt64 = "tycho_dx12_ID3D10Blob_GetBufferPointer"
+
+///|
+pub extern "c" fn dx_id3_d10_blob_get_buffer_size(obj : UInt64) -> Int64 = "tycho_dx12_ID3D10Blob_GetBufferSize"
+
+///|
+pub extern "c" fn dx_id3_d_destruction_notifier_register_destruction_callback(obj : UInt64, callback_fn : UInt64, p_data : UInt64, p_callback_id : UInt64) -> Int = "tycho_dx12_ID3DDestructionNotifier_RegisterDestructionCallback"
+
+///|
+pub extern "c" fn dx_id3_d_destruction_notifier_unregister_destruction_callback(obj : UInt64, callback_id : Int) -> Int = "tycho_dx12_ID3DDestructionNotifier_UnregisterDestructionCallback"
+
+///|
+pub extern "c" fn dx_dxgi_object_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIObject_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_object_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIObject_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_object_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIObject_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_object_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIObject_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_device_sub_object_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDeviceSubObject_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device_sub_object_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIDeviceSubObject_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_device_sub_object_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDeviceSubObject_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device_sub_object_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIDeviceSubObject_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_device_sub_object_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGIDeviceSubObject_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_resource_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIResource_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_resource_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIResource_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_resource_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIResource_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_resource_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIResource_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_resource_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGIResource_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_resource_get_shared_handle(obj : UInt64, p_shared_handle : UInt64) -> Int = "tycho_dx12_IDXGIResource_GetSharedHandle"
+
+///|
+pub extern "c" fn dx_dxgi_resource_get_usage(obj : UInt64, p_usage : UInt64) -> Int = "tycho_dx12_IDXGIResource_GetUsage"
+
+///|
+pub extern "c" fn dx_dxgi_resource_set_eviction_priority(obj : UInt64, eviction_priority : Int) -> Int = "tycho_dx12_IDXGIResource_SetEvictionPriority"
+
+///|
+pub extern "c" fn dx_dxgi_resource_get_eviction_priority(obj : UInt64, p_eviction_priority : UInt64) -> Int = "tycho_dx12_IDXGIResource_GetEvictionPriority"
+
+///|
+pub extern "c" fn dx_dxgi_keyed_mutex_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIKeyedMutex_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_keyed_mutex_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIKeyedMutex_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_keyed_mutex_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIKeyedMutex_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_keyed_mutex_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIKeyedMutex_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_keyed_mutex_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGIKeyedMutex_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_keyed_mutex_acquire_sync(obj : UInt64, key : Int64, dw_milliseconds : Int) -> Int = "tycho_dx12_IDXGIKeyedMutex_AcquireSync"
+
+///|
+pub extern "c" fn dx_dxgi_keyed_mutex_release_sync(obj : UInt64, key : Int64) -> Int = "tycho_dx12_IDXGIKeyedMutex_ReleaseSync"
+
+///|
+pub extern "c" fn dx_dxgi_surface_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGISurface_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_surface_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGISurface_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_surface_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGISurface_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_surface_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGISurface_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_surface_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGISurface_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_surface_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISurface_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_surface_map(obj : UInt64, p_locked_rect : UInt64, map_flags : Int) -> Int = "tycho_dx12_IDXGISurface_Map"
+
+///|
+pub extern "c" fn dx_dxgi_surface_unmap(obj : UInt64) -> Int = "tycho_dx12_IDXGISurface_Unmap"
+
+///|
+pub extern "c" fn dx_dxgi_surface1_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGISurface1_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_surface1_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGISurface1_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_surface1_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGISurface1_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_surface1_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGISurface1_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_surface1_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGISurface1_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_surface1_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISurface1_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_surface1_map(obj : UInt64, p_locked_rect : UInt64, map_flags : Int) -> Int = "tycho_dx12_IDXGISurface1_Map"
+
+///|
+pub extern "c" fn dx_dxgi_surface1_unmap(obj : UInt64) -> Int = "tycho_dx12_IDXGISurface1_Unmap"
+
+///|
+pub extern "c" fn dx_dxgi_surface1_get_dc(obj : UInt64, discard : Int, phdc : UInt64) -> Int = "tycho_dx12_IDXGISurface1_GetDC"
+
+///|
+pub extern "c" fn dx_dxgi_surface1_release_dc(obj : UInt64, p_dirty_rect : UInt64) -> Int = "tycho_dx12_IDXGISurface1_ReleaseDC"
+
+///|
+pub extern "c" fn dx_dxgi_adapter_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIAdapter_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_adapter_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIAdapter_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_adapter_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIAdapter_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_adapter_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIAdapter_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_adapter_enum_outputs(obj : UInt64, output : Int, pp_output : UInt64) -> Int = "tycho_dx12_IDXGIAdapter_EnumOutputs"
+
+///|
+pub extern "c" fn dx_dxgi_adapter_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_adapter_check_interface_support(obj : UInt64, interface_name : UInt64, p_umd_version : UInt64) -> Int = "tycho_dx12_IDXGIAdapter_CheckInterfaceSupport"
+
+///|
+pub extern "c" fn dx_dxgi_output_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIOutput_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_output_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIOutput_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_output_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_output_get_display_mode_list(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput_GetDisplayModeList"
+
+///|
+pub extern "c" fn dx_dxgi_output_find_closest_matching_mode(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput_FindClosestMatchingMode"
+
+///|
+pub extern "c" fn dx_dxgi_output_wait_for_v_blank(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput_WaitForVBlank"
+
+///|
+pub extern "c" fn dx_dxgi_output_take_ownership(obj : UInt64, p_device : UInt64, exclusive : Int) -> Int = "tycho_dx12_IDXGIOutput_TakeOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output_release_ownership(obj : UInt64) -> Unit = "tycho_dx12_IDXGIOutput_ReleaseOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output_get_gamma_control_capabilities(obj : UInt64, p_gamma_caps : UInt64) -> Int = "tycho_dx12_IDXGIOutput_GetGammaControlCapabilities"
+
+///|
+pub extern "c" fn dx_dxgi_output_set_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput_SetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output_get_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput_GetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output_set_display_surface(obj : UInt64, p_scanout_surface : UInt64) -> Int = "tycho_dx12_IDXGIOutput_SetDisplaySurface"
+
+///|
+pub extern "c" fn dx_dxgi_output_get_display_surface_data(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput_GetDisplaySurfaceData"
+
+///|
+pub extern "c" fn dx_dxgi_output_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGIOutput_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_present(obj : UInt64, sync_interval : Int, flags : Int) -> Int = "tycho_dx12_IDXGISwapChain_Present"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_get_buffer(obj : UInt64, buffer : Int, riid : UInt64, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_GetBuffer"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_set_fullscreen_state(obj : UInt64, fullscreen : Int, p_target : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_SetFullscreenState"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_get_fullscreen_state(obj : UInt64, p_fullscreen : UInt64, pp_target : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_GetFullscreenState"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_resize_buffers(obj : UInt64, buffer_count : Int, width : Int, height : Int, new_format : Int, swap_chain_flags : Int) -> Int = "tycho_dx12_IDXGISwapChain_ResizeBuffers"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_resize_target(obj : UInt64, p_new_target_parameters : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_ResizeTarget"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_get_containing_output(obj : UInt64, pp_output : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_GetContainingOutput"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_get_last_present_count(obj : UInt64, p_last_present_count : UInt64) -> Int = "tycho_dx12_IDXGISwapChain_GetLastPresentCount"
+
+///|
+pub extern "c" fn dx_dxgi_factory_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIFactory_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_factory_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIFactory_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_factory_enum_adapters(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory_EnumAdapters"
+
+///|
+pub extern "c" fn dx_dxgi_factory_make_window_association(obj : UInt64, window_handle : UInt64, flags : Int) -> Int = "tycho_dx12_IDXGIFactory_MakeWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory_get_window_association(obj : UInt64, p_window_handle : UInt64) -> Int = "tycho_dx12_IDXGIFactory_GetWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory_CreateSwapChain"
+
+///|
+pub extern "c" fn dx_dxgi_factory_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory_CreateSoftwareAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_device_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIDevice_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_device_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIDevice_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_device_get_adapter(obj : UInt64, p_adapter : UInt64) -> Int = "tycho_dx12_IDXGIDevice_GetAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_device_create_surface(obj : UInt64, p_desc : UInt64, num_surfaces : Int, usage : Int, p_shared_resource : UInt64, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGIDevice_CreateSurface"
+
+///|
+pub extern "c" fn dx_dxgi_device_query_resource_residency(obj : UInt64, pp_resources : UInt64, p_residency_status : UInt64, num_resources : Int) -> Int = "tycho_dx12_IDXGIDevice_QueryResourceResidency"
+
+///|
+pub extern "c" fn dx_dxgi_device_set_gpu_thread_priority(obj : UInt64, priority : Int) -> Int = "tycho_dx12_IDXGIDevice_SetGPUThreadPriority"
+
+///|
+pub extern "c" fn dx_dxgi_device_get_gpu_thread_priority(obj : UInt64, p_priority : UInt64) -> Int = "tycho_dx12_IDXGIDevice_GetGPUThreadPriority"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_enum_adapters(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_EnumAdapters"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_make_window_association(obj : UInt64, window_handle : UInt64, flags : Int) -> Int = "tycho_dx12_IDXGIFactory1_MakeWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_get_window_association(obj : UInt64, p_window_handle : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_GetWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_CreateSwapChain"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_CreateSoftwareAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_EnumAdapters1"
+
+///|
+pub extern "c" fn dx_dxgi_factory1_is_current(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory1_IsCurrent"
+
+///|
+pub extern "c" fn dx_dxgi_adapter1_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIAdapter1_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_adapter1_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIAdapter1_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_adapter1_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIAdapter1_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_adapter1_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIAdapter1_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_adapter1_enum_outputs(obj : UInt64, output : Int, pp_output : UInt64) -> Int = "tycho_dx12_IDXGIAdapter1_EnumOutputs"
+
+///|
+pub extern "c" fn dx_dxgi_adapter1_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter1_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_adapter1_check_interface_support(obj : UInt64, interface_name : UInt64, p_umd_version : UInt64) -> Int = "tycho_dx12_IDXGIAdapter1_CheckInterfaceSupport"
+
+///|
+pub extern "c" fn dx_dxgi_adapter1_get_desc1(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter1_GetDesc1"
+
+///|
+pub extern "c" fn dx_dxgi_device1_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice1_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device1_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIDevice1_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_device1_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice1_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device1_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIDevice1_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_device1_get_adapter(obj : UInt64, p_adapter : UInt64) -> Int = "tycho_dx12_IDXGIDevice1_GetAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_device1_create_surface(obj : UInt64, p_desc : UInt64, num_surfaces : Int, usage : Int, p_shared_resource : UInt64, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGIDevice1_CreateSurface"
+
+///|
+pub extern "c" fn dx_dxgi_device1_query_resource_residency(obj : UInt64, pp_resources : UInt64, p_residency_status : UInt64, num_resources : Int) -> Int = "tycho_dx12_IDXGIDevice1_QueryResourceResidency"
+
+///|
+pub extern "c" fn dx_dxgi_device1_set_gpu_thread_priority(obj : UInt64, priority : Int) -> Int = "tycho_dx12_IDXGIDevice1_SetGPUThreadPriority"
+
+///|
+pub extern "c" fn dx_dxgi_device1_get_gpu_thread_priority(obj : UInt64, p_priority : UInt64) -> Int = "tycho_dx12_IDXGIDevice1_GetGPUThreadPriority"
+
+///|
+pub extern "c" fn dx_dxgi_device1_set_maximum_frame_latency(obj : UInt64, max_latency : Int) -> Int = "tycho_dx12_IDXGIDevice1_SetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_device1_get_maximum_frame_latency(obj : UInt64, p_max_latency : UInt64) -> Int = "tycho_dx12_IDXGIDevice1_GetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_display_control_is_stereo_enabled(obj : UInt64) -> Int = "tycho_dx12_IDXGIDisplayControl_IsStereoEnabled"
+
+///|
+pub extern "c" fn dx_dxgi_display_control_set_stereo_enabled(obj : UInt64, enabled : Int) -> Unit = "tycho_dx12_IDXGIDisplayControl_SetStereoEnabled"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_get_desc(obj : UInt64, p_desc : UInt64) -> Unit = "tycho_dx12_IDXGIOutputDuplication_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_acquire_next_frame(obj : UInt64, timeout_in_milliseconds : Int, p_frame_info : UInt64, pp_desktop_resource : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_AcquireNextFrame"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_get_frame_dirty_rects(obj : UInt64, dirty_rects_buffer_size : Int, p_dirty_rects_buffer : UInt64, p_dirty_rects_buffer_size_required : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_GetFrameDirtyRects"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_get_frame_move_rects(obj : UInt64, move_rects_buffer_size : Int, p_move_rect_buffer : UInt64, p_move_rects_buffer_size_required : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_GetFrameMoveRects"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_get_frame_pointer_shape(obj : UInt64, pointer_shape_buffer_size : Int, p_pointer_shape_buffer : UInt64, p_pointer_shape_buffer_size_required : UInt64, p_pointer_shape_info : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_GetFramePointerShape"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_map_desktop_surface(obj : UInt64, p_locked_rect : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_MapDesktopSurface"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_un_map_desktop_surface(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_UnMapDesktopSurface"
+
+///|
+pub extern "c" fn dx_dxgi_output_duplication_release_frame(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutputDuplication_ReleaseFrame"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGISurface2_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGISurface2_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGISurface2_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGISurface2_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGISurface2_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISurface2_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_map(obj : UInt64, p_locked_rect : UInt64, map_flags : Int) -> Int = "tycho_dx12_IDXGISurface2_Map"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_unmap(obj : UInt64) -> Int = "tycho_dx12_IDXGISurface2_Unmap"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_get_dc(obj : UInt64, discard : Int, phdc : UInt64) -> Int = "tycho_dx12_IDXGISurface2_GetDC"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_release_dc(obj : UInt64, p_dirty_rect : UInt64) -> Int = "tycho_dx12_IDXGISurface2_ReleaseDC"
+
+///|
+pub extern "c" fn dx_dxgi_surface2_get_resource(obj : UInt64, riid : UInt64, pp_parent_resource : UInt64, p_subresource_index : UInt64) -> Int = "tycho_dx12_IDXGISurface2_GetResource"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIResource1_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIResource1_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIResource1_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIResource1_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGIResource1_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_get_shared_handle(obj : UInt64, p_shared_handle : UInt64) -> Int = "tycho_dx12_IDXGIResource1_GetSharedHandle"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_get_usage(obj : UInt64, p_usage : UInt64) -> Int = "tycho_dx12_IDXGIResource1_GetUsage"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_set_eviction_priority(obj : UInt64, eviction_priority : Int) -> Int = "tycho_dx12_IDXGIResource1_SetEvictionPriority"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_get_eviction_priority(obj : UInt64, p_eviction_priority : UInt64) -> Int = "tycho_dx12_IDXGIResource1_GetEvictionPriority"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_create_subresource_surface(obj : UInt64, index : Int, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGIResource1_CreateSubresourceSurface"
+
+///|
+pub extern "c" fn dx_dxgi_resource1_create_shared_handle(obj : UInt64, p_attributes : UInt64, dw_access : Int, lp_name : UInt64, p_handle : UInt64) -> Int = "tycho_dx12_IDXGIResource1_CreateSharedHandle"
+
+///|
+pub extern "c" fn dx_dxgi_device2_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice2_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device2_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIDevice2_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_device2_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice2_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device2_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIDevice2_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_device2_get_adapter(obj : UInt64, p_adapter : UInt64) -> Int = "tycho_dx12_IDXGIDevice2_GetAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_device2_create_surface(obj : UInt64, p_desc : UInt64, num_surfaces : Int, usage : Int, p_shared_resource : UInt64, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGIDevice2_CreateSurface"
+
+///|
+pub extern "c" fn dx_dxgi_device2_query_resource_residency(obj : UInt64, pp_resources : UInt64, p_residency_status : UInt64, num_resources : Int) -> Int = "tycho_dx12_IDXGIDevice2_QueryResourceResidency"
+
+///|
+pub extern "c" fn dx_dxgi_device2_set_gpu_thread_priority(obj : UInt64, priority : Int) -> Int = "tycho_dx12_IDXGIDevice2_SetGPUThreadPriority"
+
+///|
+pub extern "c" fn dx_dxgi_device2_get_gpu_thread_priority(obj : UInt64, p_priority : UInt64) -> Int = "tycho_dx12_IDXGIDevice2_GetGPUThreadPriority"
+
+///|
+pub extern "c" fn dx_dxgi_device2_set_maximum_frame_latency(obj : UInt64, max_latency : Int) -> Int = "tycho_dx12_IDXGIDevice2_SetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_device2_get_maximum_frame_latency(obj : UInt64, p_max_latency : UInt64) -> Int = "tycho_dx12_IDXGIDevice2_GetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_device2_offer_resources(obj : UInt64, num_resources : Int, pp_resources : UInt64, priority : Int) -> Int = "tycho_dx12_IDXGIDevice2_OfferResources"
+
+///|
+pub extern "c" fn dx_dxgi_device2_reclaim_resources(obj : UInt64, num_resources : Int, pp_resources : UInt64, p_discarded : UInt64) -> Int = "tycho_dx12_IDXGIDevice2_ReclaimResources"
+
+///|
+pub extern "c" fn dx_dxgi_device2_enqueue_set_event(obj : UInt64, h_event : UInt64) -> Int = "tycho_dx12_IDXGIDevice2_EnqueueSetEvent"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_present(obj : UInt64, sync_interval : Int, flags : Int) -> Int = "tycho_dx12_IDXGISwapChain1_Present"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_buffer(obj : UInt64, buffer : Int, riid : UInt64, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetBuffer"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_set_fullscreen_state(obj : UInt64, fullscreen : Int, p_target : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_SetFullscreenState"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_fullscreen_state(obj : UInt64, p_fullscreen : UInt64, pp_target : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetFullscreenState"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_resize_buffers(obj : UInt64, buffer_count : Int, width : Int, height : Int, new_format : Int, swap_chain_flags : Int) -> Int = "tycho_dx12_IDXGISwapChain1_ResizeBuffers"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_resize_target(obj : UInt64, p_new_target_parameters : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_ResizeTarget"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_containing_output(obj : UInt64, pp_output : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetContainingOutput"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_last_present_count(obj : UInt64, p_last_present_count : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetLastPresentCount"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_desc1(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetDesc1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_fullscreen_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetFullscreenDesc"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_hwnd(obj : UInt64, p_hwnd : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetHwnd"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_core_window(obj : UInt64, refiid : UInt64, pp_unk : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetCoreWindow"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_present1(obj : UInt64, sync_interval : Int, present_flags : Int, p_present_parameters : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_Present1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_is_temporary_mono_supported(obj : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_IsTemporaryMonoSupported"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_restrict_to_output(obj : UInt64, pp_restrict_to_output : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetRestrictToOutput"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_set_background_color(obj : UInt64, p_color : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_SetBackgroundColor"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_background_color(obj : UInt64, p_color : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetBackgroundColor"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_set_rotation(obj : UInt64, rotation : Int) -> Int = "tycho_dx12_IDXGISwapChain1_SetRotation"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain1_get_rotation(obj : UInt64, p_rotation : UInt64) -> Int = "tycho_dx12_IDXGISwapChain1_GetRotation"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_enum_adapters(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_EnumAdapters"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_make_window_association(obj : UInt64, window_handle : UInt64, flags : Int) -> Int = "tycho_dx12_IDXGIFactory2_MakeWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_get_window_association(obj : UInt64, p_window_handle : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_GetWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_CreateSwapChain"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_CreateSoftwareAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_EnumAdapters1"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_is_current(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_IsCurrent"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_is_windowed_stereo_enabled(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_IsWindowedStereoEnabled"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_create_swap_chain_for_hwnd(obj : UInt64, p_device : UInt64, h_wnd : UInt64, p_desc : UInt64, p_fullscreen_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_CreateSwapChainForHwnd"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_create_swap_chain_for_core_window(obj : UInt64, p_device : UInt64, p_window : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_CreateSwapChainForCoreWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_get_shared_resource_adapter_luid(obj : UInt64, h_resource : UInt64, p_luid : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_GetSharedResourceAdapterLuid"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_register_stereo_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_RegisterStereoStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_register_stereo_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_RegisterStereoStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_unregister_stereo_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory2_UnregisterStereoStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_register_occlusion_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_RegisterOcclusionStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_register_occlusion_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_RegisterOcclusionStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_unregister_occlusion_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory2_UnregisterOcclusionStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory2_create_swap_chain_for_composition(obj : UInt64, p_device : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory2_CreateSwapChainForComposition"
+
+///|
+pub extern "c" fn dx_dxgi_adapter2_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIAdapter2_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_adapter2_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIAdapter2_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_adapter2_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIAdapter2_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_adapter2_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIAdapter2_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_adapter2_enum_outputs(obj : UInt64, output : Int, pp_output : UInt64) -> Int = "tycho_dx12_IDXGIAdapter2_EnumOutputs"
+
+///|
+pub extern "c" fn dx_dxgi_adapter2_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter2_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_adapter2_check_interface_support(obj : UInt64, interface_name : UInt64, p_umd_version : UInt64) -> Int = "tycho_dx12_IDXGIAdapter2_CheckInterfaceSupport"
+
+///|
+pub extern "c" fn dx_dxgi_adapter2_get_desc1(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter2_GetDesc1"
+
+///|
+pub extern "c" fn dx_dxgi_adapter2_get_desc2(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter2_GetDesc2"
+
+///|
+pub extern "c" fn dx_dxgi_output1_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output1_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_output1_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output1_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_output1_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_output1_get_display_mode_list(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_GetDisplayModeList"
+
+///|
+pub extern "c" fn dx_dxgi_output1_find_closest_matching_mode(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_FindClosestMatchingMode"
+
+///|
+pub extern "c" fn dx_dxgi_output1_wait_for_v_blank(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_WaitForVBlank"
+
+///|
+pub extern "c" fn dx_dxgi_output1_take_ownership(obj : UInt64, p_device : UInt64, exclusive : Int) -> Int = "tycho_dx12_IDXGIOutput1_TakeOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output1_release_ownership(obj : UInt64) -> Unit = "tycho_dx12_IDXGIOutput1_ReleaseOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output1_get_gamma_control_capabilities(obj : UInt64, p_gamma_caps : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_GetGammaControlCapabilities"
+
+///|
+pub extern "c" fn dx_dxgi_output1_set_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_SetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output1_get_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_GetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output1_set_display_surface(obj : UInt64, p_scanout_surface : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_SetDisplaySurface"
+
+///|
+pub extern "c" fn dx_dxgi_output1_get_display_surface_data(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_GetDisplaySurfaceData"
+
+///|
+pub extern "c" fn dx_dxgi_output1_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_output1_get_display_mode_list1(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_GetDisplayModeList1"
+
+///|
+pub extern "c" fn dx_dxgi_output1_find_closest_matching_mode1(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_FindClosestMatchingMode1"
+
+///|
+pub extern "c" fn dx_dxgi_output1_get_display_surface_data1(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_GetDisplaySurfaceData1"
+
+///|
+pub extern "c" fn dx_dxgi_output1_duplicate_output(obj : UInt64, p_device : UInt64, pp_output_duplication : UInt64) -> Int = "tycho_dx12_IDXGIOutput1_DuplicateOutput"
+
+///|
+pub extern "c" fn dx_dxgi_device3_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice3_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device3_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIDevice3_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_device3_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice3_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device3_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIDevice3_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_device3_get_adapter(obj : UInt64, p_adapter : UInt64) -> Int = "tycho_dx12_IDXGIDevice3_GetAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_device3_create_surface(obj : UInt64, p_desc : UInt64, num_surfaces : Int, usage : Int, p_shared_resource : UInt64, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGIDevice3_CreateSurface"
+
+///|
+pub extern "c" fn dx_dxgi_device3_query_resource_residency(obj : UInt64, pp_resources : UInt64, p_residency_status : UInt64, num_resources : Int) -> Int = "tycho_dx12_IDXGIDevice3_QueryResourceResidency"
+
+///|
+pub extern "c" fn dx_dxgi_device3_set_gpu_thread_priority(obj : UInt64, priority : Int) -> Int = "tycho_dx12_IDXGIDevice3_SetGPUThreadPriority"
+
+///|
+pub extern "c" fn dx_dxgi_device3_get_gpu_thread_priority(obj : UInt64, p_priority : UInt64) -> Int = "tycho_dx12_IDXGIDevice3_GetGPUThreadPriority"
+
+///|
+pub extern "c" fn dx_dxgi_device3_set_maximum_frame_latency(obj : UInt64, max_latency : Int) -> Int = "tycho_dx12_IDXGIDevice3_SetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_device3_get_maximum_frame_latency(obj : UInt64, p_max_latency : UInt64) -> Int = "tycho_dx12_IDXGIDevice3_GetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_device3_offer_resources(obj : UInt64, num_resources : Int, pp_resources : UInt64, priority : Int) -> Int = "tycho_dx12_IDXGIDevice3_OfferResources"
+
+///|
+pub extern "c" fn dx_dxgi_device3_reclaim_resources(obj : UInt64, num_resources : Int, pp_resources : UInt64, p_discarded : UInt64) -> Int = "tycho_dx12_IDXGIDevice3_ReclaimResources"
+
+///|
+pub extern "c" fn dx_dxgi_device3_enqueue_set_event(obj : UInt64, h_event : UInt64) -> Int = "tycho_dx12_IDXGIDevice3_EnqueueSetEvent"
+
+///|
+pub extern "c" fn dx_dxgi_device3_trim(obj : UInt64) -> Unit = "tycho_dx12_IDXGIDevice3_Trim"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_present(obj : UInt64, sync_interval : Int, flags : Int) -> Int = "tycho_dx12_IDXGISwapChain2_Present"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_buffer(obj : UInt64, buffer : Int, riid : UInt64, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetBuffer"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_set_fullscreen_state(obj : UInt64, fullscreen : Int, p_target : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_SetFullscreenState"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_fullscreen_state(obj : UInt64, p_fullscreen : UInt64, pp_target : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetFullscreenState"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_resize_buffers(obj : UInt64, buffer_count : Int, width : Int, height : Int, new_format : Int, swap_chain_flags : Int) -> Int = "tycho_dx12_IDXGISwapChain2_ResizeBuffers"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_resize_target(obj : UInt64, p_new_target_parameters : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_ResizeTarget"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_containing_output(obj : UInt64, pp_output : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetContainingOutput"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_last_present_count(obj : UInt64, p_last_present_count : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetLastPresentCount"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_desc1(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetDesc1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_fullscreen_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetFullscreenDesc"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_hwnd(obj : UInt64, p_hwnd : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetHwnd"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_core_window(obj : UInt64, refiid : UInt64, pp_unk : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetCoreWindow"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_present1(obj : UInt64, sync_interval : Int, present_flags : Int, p_present_parameters : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_Present1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_is_temporary_mono_supported(obj : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_IsTemporaryMonoSupported"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_restrict_to_output(obj : UInt64, pp_restrict_to_output : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetRestrictToOutput"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_set_background_color(obj : UInt64, p_color : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_SetBackgroundColor"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_background_color(obj : UInt64, p_color : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetBackgroundColor"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_set_rotation(obj : UInt64, rotation : Int) -> Int = "tycho_dx12_IDXGISwapChain2_SetRotation"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_rotation(obj : UInt64, p_rotation : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetRotation"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_set_source_size(obj : UInt64, width : Int, height : Int) -> Int = "tycho_dx12_IDXGISwapChain2_SetSourceSize"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_source_size(obj : UInt64, p_width : UInt64, p_height : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetSourceSize"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_set_maximum_frame_latency(obj : UInt64, max_latency : Int) -> Int = "tycho_dx12_IDXGISwapChain2_SetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_maximum_frame_latency(obj : UInt64, p_max_latency : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_frame_latency_waitable_object(obj : UInt64) -> UInt64 = "tycho_dx12_IDXGISwapChain2_GetFrameLatencyWaitableObject"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_set_matrix_transform(obj : UInt64, p_matrix : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_SetMatrixTransform"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain2_get_matrix_transform(obj : UInt64, p_matrix : UInt64) -> Int = "tycho_dx12_IDXGISwapChain2_GetMatrixTransform"
+
+///|
+pub extern "c" fn dx_dxgi_output2_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output2_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_output2_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output2_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_output2_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_output2_get_display_mode_list(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_GetDisplayModeList"
+
+///|
+pub extern "c" fn dx_dxgi_output2_find_closest_matching_mode(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_FindClosestMatchingMode"
+
+///|
+pub extern "c" fn dx_dxgi_output2_wait_for_v_blank(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_WaitForVBlank"
+
+///|
+pub extern "c" fn dx_dxgi_output2_take_ownership(obj : UInt64, p_device : UInt64, exclusive : Int) -> Int = "tycho_dx12_IDXGIOutput2_TakeOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output2_release_ownership(obj : UInt64) -> Unit = "tycho_dx12_IDXGIOutput2_ReleaseOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output2_get_gamma_control_capabilities(obj : UInt64, p_gamma_caps : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_GetGammaControlCapabilities"
+
+///|
+pub extern "c" fn dx_dxgi_output2_set_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_SetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output2_get_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_GetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output2_set_display_surface(obj : UInt64, p_scanout_surface : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_SetDisplaySurface"
+
+///|
+pub extern "c" fn dx_dxgi_output2_get_display_surface_data(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_GetDisplaySurfaceData"
+
+///|
+pub extern "c" fn dx_dxgi_output2_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_output2_get_display_mode_list1(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_GetDisplayModeList1"
+
+///|
+pub extern "c" fn dx_dxgi_output2_find_closest_matching_mode1(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_FindClosestMatchingMode1"
+
+///|
+pub extern "c" fn dx_dxgi_output2_get_display_surface_data1(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_GetDisplaySurfaceData1"
+
+///|
+pub extern "c" fn dx_dxgi_output2_duplicate_output(obj : UInt64, p_device : UInt64, pp_output_duplication : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_DuplicateOutput"
+
+///|
+pub extern "c" fn dx_dxgi_output2_supports_overlays(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput2_SupportsOverlays"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_enum_adapters(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_EnumAdapters"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_make_window_association(obj : UInt64, window_handle : UInt64, flags : Int) -> Int = "tycho_dx12_IDXGIFactory3_MakeWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_get_window_association(obj : UInt64, p_window_handle : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_GetWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_CreateSwapChain"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_CreateSoftwareAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_EnumAdapters1"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_is_current(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_IsCurrent"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_is_windowed_stereo_enabled(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_IsWindowedStereoEnabled"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_create_swap_chain_for_hwnd(obj : UInt64, p_device : UInt64, h_wnd : UInt64, p_desc : UInt64, p_fullscreen_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_CreateSwapChainForHwnd"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_create_swap_chain_for_core_window(obj : UInt64, p_device : UInt64, p_window : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_CreateSwapChainForCoreWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_get_shared_resource_adapter_luid(obj : UInt64, h_resource : UInt64, p_luid : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_GetSharedResourceAdapterLuid"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_register_stereo_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_RegisterStereoStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_register_stereo_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_RegisterStereoStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_unregister_stereo_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory3_UnregisterStereoStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_register_occlusion_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_RegisterOcclusionStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_register_occlusion_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_RegisterOcclusionStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_unregister_occlusion_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory3_UnregisterOcclusionStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_create_swap_chain_for_composition(obj : UInt64, p_device : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_CreateSwapChainForComposition"
+
+///|
+pub extern "c" fn dx_dxgi_factory3_get_creation_flags(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory3_GetCreationFlags"
+
+///|
+pub extern "c" fn dx_dxgi_decode_swap_chain_present_buffer(obj : UInt64, buffer_to_present : Int, sync_interval : Int, flags : Int) -> Int = "tycho_dx12_IDXGIDecodeSwapChain_PresentBuffer"
+
+///|
+pub extern "c" fn dx_dxgi_decode_swap_chain_set_source_rect(obj : UInt64, p_rect : UInt64) -> Int = "tycho_dx12_IDXGIDecodeSwapChain_SetSourceRect"
+
+///|
+pub extern "c" fn dx_dxgi_decode_swap_chain_set_target_rect(obj : UInt64, p_rect : UInt64) -> Int = "tycho_dx12_IDXGIDecodeSwapChain_SetTargetRect"
+
+///|
+pub extern "c" fn dx_dxgi_decode_swap_chain_set_dest_size(obj : UInt64, width : Int, height : Int) -> Int = "tycho_dx12_IDXGIDecodeSwapChain_SetDestSize"
+
+///|
+pub extern "c" fn dx_dxgi_decode_swap_chain_get_source_rect(obj : UInt64, p_rect : UInt64) -> Int = "tycho_dx12_IDXGIDecodeSwapChain_GetSourceRect"
+
+///|
+pub extern "c" fn dx_dxgi_decode_swap_chain_get_target_rect(obj : UInt64, p_rect : UInt64) -> Int = "tycho_dx12_IDXGIDecodeSwapChain_GetTargetRect"
+
+///|
+pub extern "c" fn dx_dxgi_decode_swap_chain_get_dest_size(obj : UInt64, p_width : UInt64, p_height : UInt64) -> Int = "tycho_dx12_IDXGIDecodeSwapChain_GetDestSize"
+
+///|
+pub extern "c" fn dx_dxgi_decode_swap_chain_set_color_space(obj : UInt64, color_space : Int) -> Int = "tycho_dx12_IDXGIDecodeSwapChain_SetColorSpace"
+
+///|
+pub extern "c" fn dx_dxgi_decode_swap_chain_get_color_space(obj : UInt64) -> Int = "tycho_dx12_IDXGIDecodeSwapChain_GetColorSpace"
+
+///|
+pub extern "c" fn dx_dxgi_factory_media_create_swap_chain_for_composition_surface_handle(obj : UInt64, p_device : UInt64, h_surface : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactoryMedia_CreateSwapChainForCompositionSurfaceHandle"
+
+///|
+pub extern "c" fn dx_dxgi_factory_media_create_decode_swap_chain_for_composition_surface_handle(obj : UInt64, p_device : UInt64, h_surface : UInt64, p_desc : UInt64, p_yuv_decode_buffers : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactoryMedia_CreateDecodeSwapChainForCompositionSurfaceHandle"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_media_get_frame_statistics_media(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGISwapChainMedia_GetFrameStatisticsMedia"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_media_set_present_duration(obj : UInt64, duration : Int) -> Int = "tycho_dx12_IDXGISwapChainMedia_SetPresentDuration"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain_media_check_present_duration_support(obj : UInt64, desired_present_duration : Int, p_closest_smaller_present_duration : UInt64, p_closest_larger_present_duration : UInt64) -> Int = "tycho_dx12_IDXGISwapChainMedia_CheckPresentDurationSupport"
+
+///|
+pub extern "c" fn dx_dxgi_output3_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output3_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_output3_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output3_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_output3_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_output3_get_display_mode_list(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_GetDisplayModeList"
+
+///|
+pub extern "c" fn dx_dxgi_output3_find_closest_matching_mode(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_FindClosestMatchingMode"
+
+///|
+pub extern "c" fn dx_dxgi_output3_wait_for_v_blank(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_WaitForVBlank"
+
+///|
+pub extern "c" fn dx_dxgi_output3_take_ownership(obj : UInt64, p_device : UInt64, exclusive : Int) -> Int = "tycho_dx12_IDXGIOutput3_TakeOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output3_release_ownership(obj : UInt64) -> Unit = "tycho_dx12_IDXGIOutput3_ReleaseOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output3_get_gamma_control_capabilities(obj : UInt64, p_gamma_caps : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_GetGammaControlCapabilities"
+
+///|
+pub extern "c" fn dx_dxgi_output3_set_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_SetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output3_get_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_GetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output3_set_display_surface(obj : UInt64, p_scanout_surface : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_SetDisplaySurface"
+
+///|
+pub extern "c" fn dx_dxgi_output3_get_display_surface_data(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_GetDisplaySurfaceData"
+
+///|
+pub extern "c" fn dx_dxgi_output3_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_output3_get_display_mode_list1(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_GetDisplayModeList1"
+
+///|
+pub extern "c" fn dx_dxgi_output3_find_closest_matching_mode1(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_FindClosestMatchingMode1"
+
+///|
+pub extern "c" fn dx_dxgi_output3_get_display_surface_data1(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_GetDisplaySurfaceData1"
+
+///|
+pub extern "c" fn dx_dxgi_output3_duplicate_output(obj : UInt64, p_device : UInt64, pp_output_duplication : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_DuplicateOutput"
+
+///|
+pub extern "c" fn dx_dxgi_output3_supports_overlays(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_SupportsOverlays"
+
+///|
+pub extern "c" fn dx_dxgi_output3_check_overlay_support(obj : UInt64, enum_format : Int, p_concerned_device : UInt64, p_flags : UInt64) -> Int = "tycho_dx12_IDXGIOutput3_CheckOverlaySupport"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_present(obj : UInt64, sync_interval : Int, flags : Int) -> Int = "tycho_dx12_IDXGISwapChain3_Present"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_buffer(obj : UInt64, buffer : Int, riid : UInt64, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetBuffer"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_set_fullscreen_state(obj : UInt64, fullscreen : Int, p_target : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_SetFullscreenState"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_fullscreen_state(obj : UInt64, p_fullscreen : UInt64, pp_target : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetFullscreenState"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_resize_buffers(obj : UInt64, buffer_count : Int, width : Int, height : Int, new_format : Int, swap_chain_flags : Int) -> Int = "tycho_dx12_IDXGISwapChain3_ResizeBuffers"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_resize_target(obj : UInt64, p_new_target_parameters : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_ResizeTarget"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_containing_output(obj : UInt64, pp_output : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetContainingOutput"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_last_present_count(obj : UInt64, p_last_present_count : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetLastPresentCount"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_desc1(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetDesc1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_fullscreen_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetFullscreenDesc"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_hwnd(obj : UInt64, p_hwnd : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetHwnd"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_core_window(obj : UInt64, refiid : UInt64, pp_unk : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetCoreWindow"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_present1(obj : UInt64, sync_interval : Int, present_flags : Int, p_present_parameters : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_Present1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_is_temporary_mono_supported(obj : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_IsTemporaryMonoSupported"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_restrict_to_output(obj : UInt64, pp_restrict_to_output : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetRestrictToOutput"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_set_background_color(obj : UInt64, p_color : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_SetBackgroundColor"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_background_color(obj : UInt64, p_color : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetBackgroundColor"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_set_rotation(obj : UInt64, rotation : Int) -> Int = "tycho_dx12_IDXGISwapChain3_SetRotation"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_rotation(obj : UInt64, p_rotation : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetRotation"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_set_source_size(obj : UInt64, width : Int, height : Int) -> Int = "tycho_dx12_IDXGISwapChain3_SetSourceSize"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_source_size(obj : UInt64, p_width : UInt64, p_height : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetSourceSize"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_set_maximum_frame_latency(obj : UInt64, max_latency : Int) -> Int = "tycho_dx12_IDXGISwapChain3_SetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_maximum_frame_latency(obj : UInt64, p_max_latency : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_frame_latency_waitable_object(obj : UInt64) -> UInt64 = "tycho_dx12_IDXGISwapChain3_GetFrameLatencyWaitableObject"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_set_matrix_transform(obj : UInt64, p_matrix : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_SetMatrixTransform"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_matrix_transform(obj : UInt64, p_matrix : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetMatrixTransform"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_get_current_back_buffer_index(obj : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_GetCurrentBackBufferIndex"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_check_color_space_support(obj : UInt64, color_space : Int, p_color_space_support : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_CheckColorSpaceSupport"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_set_color_space1(obj : UInt64, color_space : Int) -> Int = "tycho_dx12_IDXGISwapChain3_SetColorSpace1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain3_resize_buffers1(obj : UInt64, buffer_count : Int, width : Int, height : Int, format : Int, swap_chain_flags : Int, p_creation_node_mask : UInt64, pp_present_queue : UInt64) -> Int = "tycho_dx12_IDXGISwapChain3_ResizeBuffers1"
+
+///|
+pub extern "c" fn dx_dxgi_output4_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output4_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_output4_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output4_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_output4_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_output4_get_display_mode_list(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_GetDisplayModeList"
+
+///|
+pub extern "c" fn dx_dxgi_output4_find_closest_matching_mode(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_FindClosestMatchingMode"
+
+///|
+pub extern "c" fn dx_dxgi_output4_wait_for_v_blank(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_WaitForVBlank"
+
+///|
+pub extern "c" fn dx_dxgi_output4_take_ownership(obj : UInt64, p_device : UInt64, exclusive : Int) -> Int = "tycho_dx12_IDXGIOutput4_TakeOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output4_release_ownership(obj : UInt64) -> Unit = "tycho_dx12_IDXGIOutput4_ReleaseOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output4_get_gamma_control_capabilities(obj : UInt64, p_gamma_caps : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_GetGammaControlCapabilities"
+
+///|
+pub extern "c" fn dx_dxgi_output4_set_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_SetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output4_get_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_GetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output4_set_display_surface(obj : UInt64, p_scanout_surface : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_SetDisplaySurface"
+
+///|
+pub extern "c" fn dx_dxgi_output4_get_display_surface_data(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_GetDisplaySurfaceData"
+
+///|
+pub extern "c" fn dx_dxgi_output4_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_output4_get_display_mode_list1(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_GetDisplayModeList1"
+
+///|
+pub extern "c" fn dx_dxgi_output4_find_closest_matching_mode1(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_FindClosestMatchingMode1"
+
+///|
+pub extern "c" fn dx_dxgi_output4_get_display_surface_data1(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_GetDisplaySurfaceData1"
+
+///|
+pub extern "c" fn dx_dxgi_output4_duplicate_output(obj : UInt64, p_device : UInt64, pp_output_duplication : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_DuplicateOutput"
+
+///|
+pub extern "c" fn dx_dxgi_output4_supports_overlays(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_SupportsOverlays"
+
+///|
+pub extern "c" fn dx_dxgi_output4_check_overlay_support(obj : UInt64, enum_format : Int, p_concerned_device : UInt64, p_flags : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_CheckOverlaySupport"
+
+///|
+pub extern "c" fn dx_dxgi_output4_check_overlay_color_space_support(obj : UInt64, format : Int, color_space : Int, p_concerned_device : UInt64, p_flags : UInt64) -> Int = "tycho_dx12_IDXGIOutput4_CheckOverlayColorSpaceSupport"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_enum_adapters(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_EnumAdapters"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_make_window_association(obj : UInt64, window_handle : UInt64, flags : Int) -> Int = "tycho_dx12_IDXGIFactory4_MakeWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_get_window_association(obj : UInt64, p_window_handle : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_GetWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_CreateSwapChain"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_CreateSoftwareAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_EnumAdapters1"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_is_current(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_IsCurrent"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_is_windowed_stereo_enabled(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_IsWindowedStereoEnabled"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_create_swap_chain_for_hwnd(obj : UInt64, p_device : UInt64, h_wnd : UInt64, p_desc : UInt64, p_fullscreen_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_CreateSwapChainForHwnd"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_create_swap_chain_for_core_window(obj : UInt64, p_device : UInt64, p_window : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_CreateSwapChainForCoreWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_get_shared_resource_adapter_luid(obj : UInt64, h_resource : UInt64, p_luid : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_GetSharedResourceAdapterLuid"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_register_stereo_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_RegisterStereoStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_register_stereo_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_RegisterStereoStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_unregister_stereo_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory4_UnregisterStereoStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_register_occlusion_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_RegisterOcclusionStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_register_occlusion_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_RegisterOcclusionStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_unregister_occlusion_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory4_UnregisterOcclusionStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_create_swap_chain_for_composition(obj : UInt64, p_device : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_CreateSwapChainForComposition"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_get_creation_flags(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_GetCreationFlags"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_enum_adapter_by_luid(obj : UInt64, adapter_luid : UInt64, riid : UInt64, ppv_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_EnumAdapterByLuid"
+
+///|
+pub extern "c" fn dx_dxgi_factory4_enum_warp_adapter(obj : UInt64, riid : UInt64, ppv_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory4_EnumWarpAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_enum_outputs(obj : UInt64, output : Int, pp_output : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_EnumOutputs"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_check_interface_support(obj : UInt64, interface_name : UInt64, p_umd_version : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_CheckInterfaceSupport"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_get_desc1(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_GetDesc1"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_get_desc2(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_GetDesc2"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_register_hardware_content_protection_teardown_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_RegisterHardwareContentProtectionTeardownStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_unregister_hardware_content_protection_teardown_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIAdapter3_UnregisterHardwareContentProtectionTeardownStatus"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_query_video_memory_info(obj : UInt64, node_index : Int, memory_segment_group : Int, p_video_memory_info : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_QueryVideoMemoryInfo"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_set_video_memory_reservation(obj : UInt64, node_index : Int, memory_segment_group : Int, reservation : Int64) -> Int = "tycho_dx12_IDXGIAdapter3_SetVideoMemoryReservation"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_register_video_memory_budget_change_notification_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIAdapter3_RegisterVideoMemoryBudgetChangeNotificationEvent"
+
+///|
+pub extern "c" fn dx_dxgi_adapter3_unregister_video_memory_budget_change_notification(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIAdapter3_UnregisterVideoMemoryBudgetChangeNotification"
+
+///|
+pub extern "c" fn dx_dxgi_output5_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output5_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_output5_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output5_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_output5_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_output5_get_display_mode_list(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_GetDisplayModeList"
+
+///|
+pub extern "c" fn dx_dxgi_output5_find_closest_matching_mode(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_FindClosestMatchingMode"
+
+///|
+pub extern "c" fn dx_dxgi_output5_wait_for_v_blank(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_WaitForVBlank"
+
+///|
+pub extern "c" fn dx_dxgi_output5_take_ownership(obj : UInt64, p_device : UInt64, exclusive : Int) -> Int = "tycho_dx12_IDXGIOutput5_TakeOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output5_release_ownership(obj : UInt64) -> Unit = "tycho_dx12_IDXGIOutput5_ReleaseOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output5_get_gamma_control_capabilities(obj : UInt64, p_gamma_caps : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_GetGammaControlCapabilities"
+
+///|
+pub extern "c" fn dx_dxgi_output5_set_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_SetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output5_get_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_GetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output5_set_display_surface(obj : UInt64, p_scanout_surface : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_SetDisplaySurface"
+
+///|
+pub extern "c" fn dx_dxgi_output5_get_display_surface_data(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_GetDisplaySurfaceData"
+
+///|
+pub extern "c" fn dx_dxgi_output5_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_output5_get_display_mode_list1(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_GetDisplayModeList1"
+
+///|
+pub extern "c" fn dx_dxgi_output5_find_closest_matching_mode1(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_FindClosestMatchingMode1"
+
+///|
+pub extern "c" fn dx_dxgi_output5_get_display_surface_data1(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_GetDisplaySurfaceData1"
+
+///|
+pub extern "c" fn dx_dxgi_output5_duplicate_output(obj : UInt64, p_device : UInt64, pp_output_duplication : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_DuplicateOutput"
+
+///|
+pub extern "c" fn dx_dxgi_output5_supports_overlays(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_SupportsOverlays"
+
+///|
+pub extern "c" fn dx_dxgi_output5_check_overlay_support(obj : UInt64, enum_format : Int, p_concerned_device : UInt64, p_flags : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_CheckOverlaySupport"
+
+///|
+pub extern "c" fn dx_dxgi_output5_check_overlay_color_space_support(obj : UInt64, format : Int, color_space : Int, p_concerned_device : UInt64, p_flags : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_CheckOverlayColorSpaceSupport"
+
+///|
+pub extern "c" fn dx_dxgi_output5_duplicate_output1(obj : UInt64, p_device : UInt64, flags : Int, supported_formats_count : Int, p_supported_formats : UInt64, pp_output_duplication : UInt64) -> Int = "tycho_dx12_IDXGIOutput5_DuplicateOutput1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_device(obj : UInt64, riid : UInt64, pp_device : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetDevice"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_present(obj : UInt64, sync_interval : Int, flags : Int) -> Int = "tycho_dx12_IDXGISwapChain4_Present"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_buffer(obj : UInt64, buffer : Int, riid : UInt64, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetBuffer"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_set_fullscreen_state(obj : UInt64, fullscreen : Int, p_target : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_SetFullscreenState"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_fullscreen_state(obj : UInt64, p_fullscreen : UInt64, pp_target : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetFullscreenState"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_resize_buffers(obj : UInt64, buffer_count : Int, width : Int, height : Int, new_format : Int, swap_chain_flags : Int) -> Int = "tycho_dx12_IDXGISwapChain4_ResizeBuffers"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_resize_target(obj : UInt64, p_new_target_parameters : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_ResizeTarget"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_containing_output(obj : UInt64, pp_output : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetContainingOutput"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_last_present_count(obj : UInt64, p_last_present_count : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetLastPresentCount"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_desc1(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetDesc1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_fullscreen_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetFullscreenDesc"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_hwnd(obj : UInt64, p_hwnd : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetHwnd"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_core_window(obj : UInt64, refiid : UInt64, pp_unk : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetCoreWindow"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_present1(obj : UInt64, sync_interval : Int, present_flags : Int, p_present_parameters : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_Present1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_is_temporary_mono_supported(obj : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_IsTemporaryMonoSupported"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_restrict_to_output(obj : UInt64, pp_restrict_to_output : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetRestrictToOutput"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_set_background_color(obj : UInt64, p_color : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_SetBackgroundColor"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_background_color(obj : UInt64, p_color : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetBackgroundColor"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_set_rotation(obj : UInt64, rotation : Int) -> Int = "tycho_dx12_IDXGISwapChain4_SetRotation"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_rotation(obj : UInt64, p_rotation : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetRotation"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_set_source_size(obj : UInt64, width : Int, height : Int) -> Int = "tycho_dx12_IDXGISwapChain4_SetSourceSize"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_source_size(obj : UInt64, p_width : UInt64, p_height : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetSourceSize"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_set_maximum_frame_latency(obj : UInt64, max_latency : Int) -> Int = "tycho_dx12_IDXGISwapChain4_SetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_maximum_frame_latency(obj : UInt64, p_max_latency : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_frame_latency_waitable_object(obj : UInt64) -> UInt64 = "tycho_dx12_IDXGISwapChain4_GetFrameLatencyWaitableObject"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_set_matrix_transform(obj : UInt64, p_matrix : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_SetMatrixTransform"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_matrix_transform(obj : UInt64, p_matrix : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetMatrixTransform"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_get_current_back_buffer_index(obj : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_GetCurrentBackBufferIndex"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_check_color_space_support(obj : UInt64, color_space : Int, p_color_space_support : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_CheckColorSpaceSupport"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_set_color_space1(obj : UInt64, color_space : Int) -> Int = "tycho_dx12_IDXGISwapChain4_SetColorSpace1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_resize_buffers1(obj : UInt64, buffer_count : Int, width : Int, height : Int, format : Int, swap_chain_flags : Int, p_creation_node_mask : UInt64, pp_present_queue : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_ResizeBuffers1"
+
+///|
+pub extern "c" fn dx_dxgi_swap_chain4_set_hdr_meta_data(obj : UInt64, a0 : Int, size : Int, p_meta_data : UInt64) -> Int = "tycho_dx12_IDXGISwapChain4_SetHDRMetaData"
+
+///|
+pub extern "c" fn dx_dxgi_device4_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device4_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_device4_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_device4_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_device4_get_adapter(obj : UInt64, p_adapter : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_GetAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_device4_create_surface(obj : UInt64, p_desc : UInt64, num_surfaces : Int, usage : Int, p_shared_resource : UInt64, pp_surface : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_CreateSurface"
+
+///|
+pub extern "c" fn dx_dxgi_device4_query_resource_residency(obj : UInt64, pp_resources : UInt64, p_residency_status : UInt64, num_resources : Int) -> Int = "tycho_dx12_IDXGIDevice4_QueryResourceResidency"
+
+///|
+pub extern "c" fn dx_dxgi_device4_set_gpu_thread_priority(obj : UInt64, priority : Int) -> Int = "tycho_dx12_IDXGIDevice4_SetGPUThreadPriority"
+
+///|
+pub extern "c" fn dx_dxgi_device4_get_gpu_thread_priority(obj : UInt64, p_priority : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_GetGPUThreadPriority"
+
+///|
+pub extern "c" fn dx_dxgi_device4_set_maximum_frame_latency(obj : UInt64, max_latency : Int) -> Int = "tycho_dx12_IDXGIDevice4_SetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_device4_get_maximum_frame_latency(obj : UInt64, p_max_latency : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_GetMaximumFrameLatency"
+
+///|
+pub extern "c" fn dx_dxgi_device4_offer_resources(obj : UInt64, num_resources : Int, pp_resources : UInt64, priority : Int) -> Int = "tycho_dx12_IDXGIDevice4_OfferResources"
+
+///|
+pub extern "c" fn dx_dxgi_device4_reclaim_resources(obj : UInt64, num_resources : Int, pp_resources : UInt64, p_discarded : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_ReclaimResources"
+
+///|
+pub extern "c" fn dx_dxgi_device4_enqueue_set_event(obj : UInt64, h_event : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_EnqueueSetEvent"
+
+///|
+pub extern "c" fn dx_dxgi_device4_trim(obj : UInt64) -> Unit = "tycho_dx12_IDXGIDevice4_Trim"
+
+///|
+pub extern "c" fn dx_dxgi_device4_offer_resources1(obj : UInt64, num_resources : Int, pp_resources : UInt64, priority : Int, flags : Int) -> Int = "tycho_dx12_IDXGIDevice4_OfferResources1"
+
+///|
+pub extern "c" fn dx_dxgi_device4_reclaim_resources1(obj : UInt64, num_resources : Int, pp_resources : UInt64, p_results : UInt64) -> Int = "tycho_dx12_IDXGIDevice4_ReclaimResources1"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_enum_adapters(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_EnumAdapters"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_make_window_association(obj : UInt64, window_handle : UInt64, flags : Int) -> Int = "tycho_dx12_IDXGIFactory5_MakeWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_get_window_association(obj : UInt64, p_window_handle : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_GetWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_CreateSwapChain"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_CreateSoftwareAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_EnumAdapters1"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_is_current(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_IsCurrent"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_is_windowed_stereo_enabled(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_IsWindowedStereoEnabled"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_create_swap_chain_for_hwnd(obj : UInt64, p_device : UInt64, h_wnd : UInt64, p_desc : UInt64, p_fullscreen_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_CreateSwapChainForHwnd"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_create_swap_chain_for_core_window(obj : UInt64, p_device : UInt64, p_window : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_CreateSwapChainForCoreWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_get_shared_resource_adapter_luid(obj : UInt64, h_resource : UInt64, p_luid : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_GetSharedResourceAdapterLuid"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_register_stereo_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_RegisterStereoStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_register_stereo_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_RegisterStereoStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_unregister_stereo_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory5_UnregisterStereoStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_register_occlusion_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_RegisterOcclusionStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_register_occlusion_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_RegisterOcclusionStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_unregister_occlusion_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory5_UnregisterOcclusionStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_create_swap_chain_for_composition(obj : UInt64, p_device : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_CreateSwapChainForComposition"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_get_creation_flags(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_GetCreationFlags"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_enum_adapter_by_luid(obj : UInt64, adapter_luid : UInt64, riid : UInt64, ppv_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_EnumAdapterByLuid"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_enum_warp_adapter(obj : UInt64, riid : UInt64, ppv_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory5_EnumWarpAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_factory5_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_IDXGIFactory5_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_enum_outputs(obj : UInt64, output : Int, pp_output : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_EnumOutputs"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_check_interface_support(obj : UInt64, interface_name : UInt64, p_umd_version : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_CheckInterfaceSupport"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_get_desc1(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_GetDesc1"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_get_desc2(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_GetDesc2"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_register_hardware_content_protection_teardown_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_RegisterHardwareContentProtectionTeardownStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_unregister_hardware_content_protection_teardown_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIAdapter4_UnregisterHardwareContentProtectionTeardownStatus"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_query_video_memory_info(obj : UInt64, node_index : Int, memory_segment_group : Int, p_video_memory_info : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_QueryVideoMemoryInfo"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_set_video_memory_reservation(obj : UInt64, node_index : Int, memory_segment_group : Int, reservation : Int64) -> Int = "tycho_dx12_IDXGIAdapter4_SetVideoMemoryReservation"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_register_video_memory_budget_change_notification_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_RegisterVideoMemoryBudgetChangeNotificationEvent"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_unregister_video_memory_budget_change_notification(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIAdapter4_UnregisterVideoMemoryBudgetChangeNotification"
+
+///|
+pub extern "c" fn dx_dxgi_adapter4_get_desc3(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIAdapter4_GetDesc3"
+
+///|
+pub extern "c" fn dx_dxgi_output6_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output6_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_desc(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetDesc"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_display_mode_list(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetDisplayModeList"
+
+///|
+pub extern "c" fn dx_dxgi_output6_find_closest_matching_mode(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_FindClosestMatchingMode"
+
+///|
+pub extern "c" fn dx_dxgi_output6_wait_for_v_blank(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_WaitForVBlank"
+
+///|
+pub extern "c" fn dx_dxgi_output6_take_ownership(obj : UInt64, p_device : UInt64, exclusive : Int) -> Int = "tycho_dx12_IDXGIOutput6_TakeOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output6_release_ownership(obj : UInt64) -> Unit = "tycho_dx12_IDXGIOutput6_ReleaseOwnership"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_gamma_control_capabilities(obj : UInt64, p_gamma_caps : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetGammaControlCapabilities"
+
+///|
+pub extern "c" fn dx_dxgi_output6_set_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_SetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_gamma_control(obj : UInt64, p_array : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetGammaControl"
+
+///|
+pub extern "c" fn dx_dxgi_output6_set_display_surface(obj : UInt64, p_scanout_surface : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_SetDisplaySurface"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_display_surface_data(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetDisplaySurfaceData"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_frame_statistics(obj : UInt64, p_stats : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetFrameStatistics"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_display_mode_list1(obj : UInt64, enum_format : Int, flags : Int, p_num_modes : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetDisplayModeList1"
+
+///|
+pub extern "c" fn dx_dxgi_output6_find_closest_matching_mode1(obj : UInt64, p_mode_to_match : UInt64, p_closest_match : UInt64, p_concerned_device : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_FindClosestMatchingMode1"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_display_surface_data1(obj : UInt64, p_destination : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetDisplaySurfaceData1"
+
+///|
+pub extern "c" fn dx_dxgi_output6_duplicate_output(obj : UInt64, p_device : UInt64, pp_output_duplication : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_DuplicateOutput"
+
+///|
+pub extern "c" fn dx_dxgi_output6_supports_overlays(obj : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_SupportsOverlays"
+
+///|
+pub extern "c" fn dx_dxgi_output6_check_overlay_support(obj : UInt64, enum_format : Int, p_concerned_device : UInt64, p_flags : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_CheckOverlaySupport"
+
+///|
+pub extern "c" fn dx_dxgi_output6_check_overlay_color_space_support(obj : UInt64, format : Int, color_space : Int, p_concerned_device : UInt64, p_flags : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_CheckOverlayColorSpaceSupport"
+
+///|
+pub extern "c" fn dx_dxgi_output6_duplicate_output1(obj : UInt64, p_device : UInt64, flags : Int, supported_formats_count : Int, p_supported_formats : UInt64, pp_output_duplication : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_DuplicateOutput1"
+
+///|
+pub extern "c" fn dx_dxgi_output6_get_desc1(obj : UInt64, p_desc : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_GetDesc1"
+
+///|
+pub extern "c" fn dx_dxgi_output6_check_hardware_composition_support(obj : UInt64, p_flags : UInt64) -> Int = "tycho_dx12_IDXGIOutput6_CheckHardwareCompositionSupport"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_enum_adapters(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_EnumAdapters"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_make_window_association(obj : UInt64, window_handle : UInt64, flags : Int) -> Int = "tycho_dx12_IDXGIFactory6_MakeWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_get_window_association(obj : UInt64, p_window_handle : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_GetWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_CreateSwapChain"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_CreateSoftwareAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_EnumAdapters1"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_is_current(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_IsCurrent"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_is_windowed_stereo_enabled(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_IsWindowedStereoEnabled"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_create_swap_chain_for_hwnd(obj : UInt64, p_device : UInt64, h_wnd : UInt64, p_desc : UInt64, p_fullscreen_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_CreateSwapChainForHwnd"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_create_swap_chain_for_core_window(obj : UInt64, p_device : UInt64, p_window : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_CreateSwapChainForCoreWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_get_shared_resource_adapter_luid(obj : UInt64, h_resource : UInt64, p_luid : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_GetSharedResourceAdapterLuid"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_register_stereo_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_RegisterStereoStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_register_stereo_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_RegisterStereoStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_unregister_stereo_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory6_UnregisterStereoStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_register_occlusion_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_RegisterOcclusionStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_register_occlusion_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_RegisterOcclusionStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_unregister_occlusion_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory6_UnregisterOcclusionStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_create_swap_chain_for_composition(obj : UInt64, p_device : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_CreateSwapChainForComposition"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_get_creation_flags(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_GetCreationFlags"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_enum_adapter_by_luid(obj : UInt64, adapter_luid : UInt64, riid : UInt64, ppv_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_EnumAdapterByLuid"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_enum_warp_adapter(obj : UInt64, riid : UInt64, ppv_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_EnumWarpAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_IDXGIFactory6_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_dxgi_factory6_enum_adapter_by_gpu_preference(obj : UInt64, adapter : Int, gpu_preference : Int, riid : UInt64, ppv_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory6_EnumAdapterByGpuPreference"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_set_private_data(obj : UInt64, name : UInt64, data_size : Int, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_SetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_set_private_data_interface(obj : UInt64, name : UInt64, p_unknown : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_SetPrivateDataInterface"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_get_private_data(obj : UInt64, name : UInt64, p_data_size : UInt64, p_data : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_GetPrivateData"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_get_parent(obj : UInt64, riid : UInt64, pp_parent : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_GetParent"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_enum_adapters(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_EnumAdapters"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_make_window_association(obj : UInt64, window_handle : UInt64, flags : Int) -> Int = "tycho_dx12_IDXGIFactory7_MakeWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_get_window_association(obj : UInt64, p_window_handle : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_GetWindowAssociation"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_create_swap_chain(obj : UInt64, p_device : UInt64, p_desc : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_CreateSwapChain"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_create_software_adapter(obj : UInt64, module : UInt64, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_CreateSoftwareAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_enum_adapters1(obj : UInt64, adapter : Int, pp_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_EnumAdapters1"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_is_current(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_IsCurrent"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_is_windowed_stereo_enabled(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_IsWindowedStereoEnabled"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_create_swap_chain_for_hwnd(obj : UInt64, p_device : UInt64, h_wnd : UInt64, p_desc : UInt64, p_fullscreen_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_CreateSwapChainForHwnd"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_create_swap_chain_for_core_window(obj : UInt64, p_device : UInt64, p_window : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_CreateSwapChainForCoreWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_get_shared_resource_adapter_luid(obj : UInt64, h_resource : UInt64, p_luid : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_GetSharedResourceAdapterLuid"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_register_stereo_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_RegisterStereoStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_register_stereo_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_RegisterStereoStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_unregister_stereo_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory7_UnregisterStereoStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_register_occlusion_status_window(obj : UInt64, window_handle : UInt64, w_msg : Int, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_RegisterOcclusionStatusWindow"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_register_occlusion_status_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_RegisterOcclusionStatusEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_unregister_occlusion_status(obj : UInt64, dw_cookie : Int) -> Unit = "tycho_dx12_IDXGIFactory7_UnregisterOcclusionStatus"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_create_swap_chain_for_composition(obj : UInt64, p_device : UInt64, p_desc : UInt64, p_restrict_to_output : UInt64, pp_swap_chain : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_CreateSwapChainForComposition"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_get_creation_flags(obj : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_GetCreationFlags"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_enum_adapter_by_luid(obj : UInt64, adapter_luid : UInt64, riid : UInt64, ppv_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_EnumAdapterByLuid"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_enum_warp_adapter(obj : UInt64, riid : UInt64, ppv_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_EnumWarpAdapter"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_check_feature_support(obj : UInt64, feature : Int, p_feature_support_data : UInt64, feature_support_data_size : Int) -> Int = "tycho_dx12_IDXGIFactory7_CheckFeatureSupport"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_enum_adapter_by_gpu_preference(obj : UInt64, adapter : Int, gpu_preference : Int, riid : UInt64, ppv_adapter : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_EnumAdapterByGpuPreference"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_register_adapters_changed_event(obj : UInt64, h_event : UInt64, pdw_cookie : UInt64) -> Int = "tycho_dx12_IDXGIFactory7_RegisterAdaptersChangedEvent"
+
+///|
+pub extern "c" fn dx_dxgi_factory7_unregister_adapters_changed_event(obj : UInt64, dw_cookie : Int) -> Int = "tycho_dx12_IDXGIFactory7_UnregisterAdaptersChangedEvent"

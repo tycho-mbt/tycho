@@ -13,11 +13,11 @@ test "generated dispatch reaches a device" {
   }
   // ID3D12Device::GetNodeCount through the generated thunk. `raw()` is the COM
   // object; `handle()` would be the wrapper struct.
-  let nodes = dx_device_get_node_count(device.raw())
+  let nodes = dx_d3d12_device_get_node_count(device.raw())
   assert_true(nodes >= 1)
   // ID3D12Device::CheckFeatureSupport with the struct-by-pointer ABI.
   let data = FixedArray::make(4, (0 : Int32))
-  let hr = dx_device_check_feature_support(
+  let hr = dx_d3d12_device_check_feature_support(
     device.raw(),
     1, // D3D12_FEATURE_ARCHITECTURE
     int32_ptr(data),

@@ -16,15 +16,18 @@ import pathlib
 import re
 import sys
 
-DEFAULT_HEADER = pathlib.Path(
-    "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um/d3d12.h"
+SDK = pathlib.Path("C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0")
+DEFAULT_HEADERS = (
+    [SDK / "um" / "d3d12.h", SDK / "um" / "d3dcommon.h"]
+    + sorted((SDK / "shared").glob("dxgi*.h"))
 )
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "dx12" / "registry" / "d3d12-abi.txt"
 
-# Interfaces the M1a/M1b binding exposes. Extending this list is the only thing
-# needed to widen the generated surface.
+# Retained for reference: the curated M1a/M1b set this binding started from. The
+# generator now emits every interface found in the headers (see --all, which is
+# the default), so this list is only documentation of the original scope.
 ALLOW = [
     "ID3D12Object",
     "ID3D12Device",
@@ -53,12 +56,16 @@ METHOD_HEAD = re.compile(
 )
 XFGVIRT = re.compile(r"^\s*DECLSPEC_XFGVIRT\((?P<owner>[^,]+),\s*(?P<name>\w+)\)")
 SAL = re.compile(r"^_[A-Za-z0-9_]+_")
+# Midl-generated headers annotate parameters as `/* [annotation] */ _In_ T name`;
+# the `*` inside that comment would otherwise classify the parameter as a pointer.
+BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+LINE_COMMENT = re.compile(r"//[^\n]*")
 
 
 def strip_sal(text: str) -> str:
-    """Drop leading SAL annotations, including nested ones like
+    """Drop comments and leading SAL annotations, including nested ones like
     `_Outptr_opt_result_bytebuffer_(_Inexpressible_("Dependent on resource"))`."""
-    text = text.strip()
+    text = LINE_COMMENT.sub(" ", BLOCK_COMMENT.sub(" ", text)).strip()
     while True:
         m = SAL.match(text)
         if not m:
@@ -163,7 +170,7 @@ def parse_interface(header: list[str], start: int) -> tuple[str, list[dict], int
                 i += 1
                 continue
             name = xfx.group("name")
-            ret = head.group("ret").strip()
+            ret = BLOCK_COMMENT.sub(" ", head.group("ret")).strip()
             i += 1
             blob = ""
             while i < len(header):
@@ -209,7 +216,23 @@ def collect_kinds(text: str) -> dict[str, str]:
                 break
             i += 1
         del start
+    # Bare tags: `enum D3D_PRIMITIVE_TOPOLOGY { ... };` (d3dcommon.h style).
+    for match in re.finditer(r"(?:^|\n)\s*(enum|struct|union)\s+(\w+)\s*\n?\s*\{", text):
+        kinds.setdefault(match.group(2), match.group(1))
     return kinds
+
+
+def resolve_aliases(kinds: dict[str, str], text: str) -> None:
+    """`typedef Existing New;` inherits the original kind (chains included)."""
+    aliases = re.findall(r"typedef\s+(\w+)\s+(\w+)\s*;", text)
+    for _ in range(6):
+        changed = False
+        for src, dst in aliases:
+            if dst not in kinds and src in kinds:
+                kinds[dst] = kinds[src]
+                changed = True
+        if not changed:
+            break
 
 
 def referenced_types(interfaces: list[tuple[str, list[dict]]]) -> set[str]:
@@ -255,21 +278,31 @@ def render(interfaces: list[tuple[str, list[dict]]], kinds: dict[str, str]) -> s
 
 def main() -> int:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    dump_all = "--all" in sys.argv[1:]
-    header_path = pathlib.Path(args[0]) if args else DEFAULT_HEADER
-    raw = header_path.read_text(encoding="utf-8", errors="replace")
-    header = raw.splitlines()
-    kinds = collect_kinds(raw)
+    headers = [pathlib.Path(a) for a in args] if args else DEFAULT_HEADERS
     interfaces = []
-    i = 0
-    while i < len(header):
-        match = re.match(r"\s*typedef struct (\w+)Vtbl\s*$", header[i])
-        if not match:
-            i += 1
+    kinds: dict[str, str] = {}
+    seen: set[str] = set()
+    all_text: list[str] = []
+    for header_path in headers:
+        if not header_path.is_file():
+            print(f"WARNING: missing header {header_path}", file=sys.stderr)
             continue
-        iface, methods, i = parse_interface(header, i)
-        if dump_all or iface in ALLOW:
+        raw = header_path.read_text(encoding="utf-8", errors="replace")
+        all_text.append(raw)
+        header = raw.splitlines()
+        kinds.update(collect_kinds(raw))
+        i = 0
+        while i < len(header):
+            match = re.match(r"\s*typedef struct (\w+)Vtbl\s*$", header[i])
+            if not match:
+                i += 1
+                continue
+            iface, methods, i = parse_interface(header, i)
+            if iface in seen:
+                continue
+            seen.add(iface)
             interfaces.append((iface, methods))
+    resolve_aliases(kinds, "\n".join(all_text))
     if not interfaces:
         print("ERROR: no interfaces matched", file=sys.stderr)
         return 1

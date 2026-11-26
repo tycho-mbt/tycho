@@ -29,14 +29,22 @@ Capability queries: `Device::shader_model`, `Device::mesh_tier`, `Device::raytra
 
 ## Code generation
 
-`registry/d3d12-abi.txt` is the committed COM ABI manifest, distilled once from `d3d12.h` with
-`tools/dump-d3d12-abi.py` (the only step that needs the Windows SDK). Regenerating the dispatch
-layer needs nothing but Python:
+`registry/d3d12-abi.txt` is the committed COM ABI manifest, distilled once from `d3d12.h`,
+`d3dcommon.h` and `dxgi*.h` with `tools/dump-d3d12-abi.py` (the only step that needs the Windows
+SDK). It covers **the whole surface**: 125 interfaces / 2753 methods, i.e. every `ID3D12*` and
+`IDXGI*` interface in those headers. Regenerating the dispatch layer needs nothing but Python:
 
 ```bash
 python tools/gen-dx12-bindings.py          # writes dispatch_generated.{c,mbt}
 python tools/gen-dx12-bindings.py --check  # drift gate, wired into ./check-generated.sh
+python tools/dx12-coverage.py --check      # 100% gate: header surface vs manifest
 ```
+
+`gen-dx12-bindings.py` refuses to guess a type: every parameter and return spelling must be in its
+scalar/pointer knowledge sets or be recorded as a `kind` in the manifest. A header bump that
+introduces an unknown spelling fails with the exact `Interface::Method` instead of silently
+truncating a pointer to 32 bits, and `dx12-coverage.py` reports any interface or method the
+manifest is missing.
 
 Environment: `TYCHO_DX12_WARP=1` forces the WARP software adapter (the DX12 counterpart of
 `TYCHO_VULKAN_LIB`); `TYCHO_D3D12_LIB` / `TYCHO_DXGI_LIB` override the DLL paths.

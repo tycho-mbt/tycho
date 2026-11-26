@@ -47,3 +47,14 @@ else
   fi
   exit 1
 fi
+
+# DX12 surface completeness. Needs the Windows SDK headers, so it only runs where
+# they exist; the manifest and the dispatch layer themselves are committed.
+if [ -f "/c/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um/d3d12.h" ] ||
+  [ -f "/mnt/c/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um/d3d12.h" ]; then
+  if command -v python3 >/dev/null 2>&1; then
+    python3 tools/dx12-coverage.py --check || exit 1
+  fi
+else
+  echo "note: Windows SDK headers not found, skipping the DX12 completeness check" >&2
+fi
