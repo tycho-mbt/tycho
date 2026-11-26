@@ -121,9 +121,9 @@ priv struct VkPipelineState {
   compute : Bool
   stencil_ref : UInt32?
   cur_uniforms : FixedArray[(VkBufferState, Int, Int)?]
-  cur_textures : FixedArray[(Texture, Sampler)?]
+  cur_textures : FixedArray[(VkTextureState, VkSamplerState)?]
   cur_storage : FixedArray[(VkBufferState, Int, Int)?]
-  cur_storage_images : FixedArray[Texture?]
+  cur_storage_images : FixedArray[VkTextureState?]
   cur_accel : FixedArray[AccelStruct?]
 }
 
@@ -199,9 +199,9 @@ priv struct VkCmdState {
   frame_idx : Int
   frame_gen : UInt64
   pending_uniforms : Array[(VkPipelineState, Int, VkBufferState, Int, Int)]
-  pending_textures : Array[(VkPipelineState, Int, Texture, Sampler)]
+  pending_textures : Array[(VkPipelineState, Int, VkTextureState, VkSamplerState)]
   pending_storage : Array[(VkPipelineState, Int, VkBufferState, Int, Int)]
-  pending_storage_images : Array[(VkPipelineState, Int, Texture)]
+  pending_storage_images : Array[(VkPipelineState, Int, VkTextureState)]
   pending_accel : Array[(VkPipelineState, Int, AccelStruct)]
   mut bound : VkPipelineState?
   mut active_render_targets : Array[RenderTargetDesc]
@@ -4078,8 +4078,8 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
     if slot >= 0 && slot < ps.texture_slots {
       let same = match ps.cur_textures[slot] {
         Some((ptex, psamp)) =>
-          ptex.inner.image.as_ptr() == tex.inner.image.as_ptr() &&
-          psamp.inner.sampler.as_ptr() == samp.inner.sampler.as_ptr()
+          ptex.image.as_ptr() == tex.image.as_ptr() &&
+          psamp.sampler.as_ptr() == samp.sampler.as_ptr()
         None => false
       }
       if !same {
@@ -4112,7 +4112,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
     let ps = p
     if slot >= 0 && slot < ps.storage_image_slots {
       let same = match ps.cur_storage_images[slot] {
-        Some(ptex) => ptex.inner.image.as_ptr() == tex.inner.image.as_ptr()
+        Some(ptex) => ptex.image.as_ptr() == tex.image.as_ptr()
         None => false
       }
       if !same {
@@ -4197,8 +4197,8 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
                   c.device,
                   set_handle,
                   ps.texture_bindings[i],
-                  tex.inner,
-                  samp.inner,
+                  tex,
+                  samp,
                 )
               None => ()
             }
@@ -4225,7 +4225,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
                   c.device,
                   set_handle,
                   ps.storage_image_bindings[i],
-                  tex.inner,
+                  tex,
                 )
               None => ()
             }
@@ -4391,7 +4391,7 @@ fn vk_cmd_begin_render_pass(
   }
   let d = c.device
   for rt in colors {
-    let ts = rt.texture.inner
+    let ts = rt.texture.vk()
     cmd_image_barrier2(
       d,
       c.cmd,
@@ -4408,7 +4408,7 @@ fn vk_cmd_begin_render_pass(
     ts.layout = @vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     match rt.resolve_texture {
       Some(rtex) => {
-        let rts = rtex.inner
+        let rts = rtex.vk()
         cmd_image_barrier2(
           d,
           c.cmd,
@@ -4429,7 +4429,7 @@ fn vk_cmd_begin_render_pass(
   }
   match depth {
     Some(dt) => {
-      let ds = dt.texture.inner
+      let ds = dt.texture.vk()
       cmd_image_barrier2(
         d,
         c.cmd,
@@ -4451,10 +4451,10 @@ fn vk_cmd_begin_render_pass(
   }
 
   let (w, h) = if colors.length() > 0 {
-    (colors[0].texture.inner.width, colors[0].texture.inner.height)
+    (colors[0].texture.width(), colors[0].texture.height())
   } else {
     match depth {
-      Some(dt) => (dt.texture.inner.width, dt.texture.inner.height)
+      Some(dt) => (dt.texture.width(), dt.texture.height())
       None => (1, 1)
     }
   }
@@ -4468,7 +4468,7 @@ fn vk_cmd_begin_render_pass(
       rt.clear_color.b,
       rt.clear_color.a,
     )
-    catts.set_imageView_at(i, rt.texture.inner.view)
+    catts.set_imageView_at(i, rt.texture.vk().view)
     catts.set_imageLayout_at(i, @vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
     catts.set_loadOp_at(i, vk_load_op(rt.load_op))
     catts.set_storeOp_at(i, vk_store_op(rt.store_op))
@@ -4476,7 +4476,7 @@ fn vk_cmd_begin_render_pass(
     match rt.resolve_texture {
       Some(rtex) => {
         catts.set_resolveMode_at(i, @vk.VK_RESOLVE_MODE_AVERAGE_BIT)
-        catts.set_resolveImageView_at(i, rtex.inner.view)
+        catts.set_resolveImageView_at(i, rtex.vk().view)
         catts.set_resolveImageLayout_at(
           i,
           @vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -4502,14 +4502,14 @@ fn vk_cmd_begin_render_pass(
   match depth {
     Some(dt) => {
       cv.set_depth_stencil(dt.clear_depth, dt.clear_stencil.reinterpret_as_uint())
-      datt.set_imageView(dt.texture.inner.attachment_view)
+      datt.set_imageView(dt.texture.vk().attachment_view)
       datt.set_imageLayout(@vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       datt.set_loadOp(vk_load_op(dt.load_op))
       datt.set_storeOp(vk_store_op(dt.store_op))
       datt.set_clearValue(cv)
       ri.set_pDepthAttachment(datt)
-      if dt.texture.inner.format == TextureFormat::Depth24Stencil8 {
-        satt.set_imageView(dt.texture.inner.attachment_view)
+      if dt.texture.vk().format == TextureFormat::Depth24Stencil8 {
+        satt.set_imageView(dt.texture.vk().attachment_view)
         satt.set_imageLayout(@vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
         satt.set_loadOp(vk_load_op(dt.stencil_load_op))
         satt.set_storeOp(vk_store_op(dt.stencil_store_op))
@@ -4535,11 +4535,11 @@ fn vk_cmd_begin_render_pass(
 }
 
 ///|
-fn vk_cmd_end_render_pass(c : VkCmdState) -> Unit {
+fn vk_cmd_end_render_pass(c : VkCmdState) -> Unit raise RhiError {
   let d = c.device
   (d.dfn.vkCmdEndRendering)(c.cmd)
   for rt in c.active_render_targets {
-    let ts = rt.texture.inner
+    let ts = rt.texture.vk()
     if ts.samples == SampleCount::X1 {
       cmd_image_barrier2(
         d,
@@ -4559,7 +4559,7 @@ fn vk_cmd_end_render_pass(c : VkCmdState) -> Unit {
     }
     match rt.resolve_texture {
       Some(rtex) => {
-        let rts = rtex.inner
+        let rts = rtex.vk()
         cmd_image_barrier2(
           d,
           c.cmd,
@@ -4582,7 +4582,7 @@ fn vk_cmd_end_render_pass(c : VkCmdState) -> Unit {
   match c.active_depth_target {
     Some(dt) =>
       if dt.store_op == StoreOp::Store {
-        let ds = dt.texture.inner
+        let ds = dt.texture.vk()
         cmd_image_barrier2(
           d,
           c.cmd,

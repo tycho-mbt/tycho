@@ -90,7 +90,13 @@ extern "c" fn cmd_copy_to_readback_ffi(cmds : UInt64, tex : UInt64, rb : UInt64)
 extern "c" fn commands_execute_wait_ffi(dev : UInt64, cmds : UInt64) -> Int32 = "tycho_dx12_commands_execute_wait"
 
 #borrow(vs, ps)
-extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int) -> UInt64 = "tycho_dx12_pipeline_create"
+extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int, depth_enable : Int, depth_write : Int) -> UInt64 = "tycho_dx12_pipeline_create"
+
+extern "c" fn depth_create_ffi(dev : UInt64, width : Int, height : Int) -> UInt64 = "tycho_dx12_depth_create"
+
+extern "c" fn cmd_set_depth_ffi(cmds : UInt64, tex : UInt64) -> Int32 = "tycho_dx12_cmd_set_depth"
+
+extern "c" fn cmd_clear_depth_ffi(cmds : UInt64, tex : UInt64, depth : Float) -> Int32 = "tycho_dx12_cmd_clear_depth"
 
 extern "c" fn pipeline_destroy_ffi(pipe : UInt64) = "tycho_dx12_pipeline_destroy"
 
@@ -230,6 +236,8 @@ pub fn Pipeline::create(
   ps_bytes : Int,
   cbv_count? : Int = 0,
   flip_y? : Bool = false,
+  depth? : Bool = false,
+  depth_write? : Bool = true,
 ) -> Pipeline? {
   let handle = pipeline_create_ffi(
     device.handle,
@@ -239,6 +247,8 @@ pub fn Pipeline::create(
     ps_bytes,
     cbv_count,
     if flip_y { 1 } else { 0 },
+    if depth { 1 } else { 0 },
+    if depth_write { 1 } else { 0 },
   )
   if handle == (0 : UInt64) {
     None
@@ -274,6 +284,26 @@ pub fn Texture::create(device : Device, width : Int, height : Int) -> Texture? {
 }
 
 ///|
+///|
+/// A depth buffer (`D32_FLOAT`) with its own DSV. Bind it with
+/// `CommandList::set_depth` before clearing or drawing.
+pub fn Texture::create_depth(device : Device, width : Int, height : Int) -> Texture? {
+  let handle = depth_create_ffi(device.handle, width, height)
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn Texture::is_depth(self : Texture) -> Bool {
+  match self.state() {
+    Some(DepthWrite) => true
+    _ => false
+  }
+}
+
 pub fn Texture::handle(self : Texture) -> UInt64 {
   self.handle
 }
@@ -368,6 +398,7 @@ pub(all) enum ResourceState {
   Present
   ShaderResource
   UnorderedAccess
+  DepthWrite
 }
 
 ///|
@@ -380,6 +411,7 @@ fn ResourceState::code(self : ResourceState) -> Int {
     Present => 4
     ShaderResource => 5
     UnorderedAccess => 6
+    DepthWrite => 7
   }
 }
 
@@ -393,6 +425,7 @@ fn ResourceState::from_code(code : Int) -> ResourceState? {
     4 => Some(Present)
     5 => Some(ShaderResource)
     6 => Some(UnorderedAccess)
+    7 => Some(DepthWrite)
     _ => None
   }
 }
@@ -510,6 +543,19 @@ pub fn CommandList::copy_to_readback(self : CommandList, tex : Texture, rb : Rea
 }
 
 ///|
+///|
+/// Binds the depth attachment used by the next draws (and by `clear_depth`).
+/// Passing the depth texture here is what makes `draw` emit a DSV.
+pub fn CommandList::set_depth(self : CommandList, tex : Texture) -> Bool {
+  cmd_set_depth_ffi(self.handle, tex.handle) != 0
+}
+
+///|
+/// Clears the bound depth attachment; requires `ResourceState::DepthWrite`.
+pub fn CommandList::clear_depth(self : CommandList, tex : Texture, depth? : Float = 1.0) -> Bool {
+  cmd_clear_depth_ffi(self.handle, tex.handle, depth) != 0
+}
+
 pub fn CommandList::execute_wait(self : CommandList, device : Device) -> Bool {
   commands_execute_wait_ffi(device.handle, self.handle) != 0
 }

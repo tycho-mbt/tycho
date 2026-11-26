@@ -46,10 +46,15 @@ priv struct Dx12SwapchainState {
 }
 
 ///|
+/// A recording in progress. `target` is set by `dx12_begin_frame_commands`
+/// (swapchain back buffer, borrowed and destroyed with the wrapper) or by
+/// `dx12_begin_render_pass` (offscreen texture, owned by the caller).
 priv struct Dx12CommandState {
+  device : @dx12.Device
   commands : @dx12.CommandList
-  target : @dx12.Texture
+  mut target : @dx12.Texture?
   clear : ClearColor
+  owned_target : Bool
 }
 
 ///|
@@ -140,23 +145,27 @@ fn dx12_swapchain_readback(state : Dx12SwapchainState) -> FixedArray[Byte] {
 
 ///|
 fn dx12_pipeline_create(
-  state : Dx12SwapchainState,
+  device : @dx12.Device,
   vert : FixedArray[UInt32],
   frag : FixedArray[UInt32],
   uniform_slots : Int,
+  depth : Bool,
+  depth_write : Bool,
 ) -> Dx12PipelineState raise RhiError {
   // Root CBVs cost nothing to declare, so uniform slots are supported directly;
   // `flip_y` pins the Vulkan clip-space/winding convention (docs/original-design
   // /03-dx12.md §6.1 item 2) so one shader source renders identically on both
   // backends.
   match @dx12.Pipeline::create(
-    state.device,
+    device,
     vert,
     vert.length() * 4,
     frag,
     frag.length() * 4,
     cbv_count=uniform_slots,
     flip_y=true,
+    depth=depth,
+    depth_write=depth_write,
   ) {
     Some(p) => { pipe: p, uniform_slots, }
     None => raise RhiError::PipelineFailed("DX12 CreateGraphicsPipelineState failed")
@@ -221,7 +230,13 @@ fn dx12_begin_frame_commands(state : Dx12SwapchainState) -> Dx12CommandState rai
     target.destroy()
     raise RhiError::CommandFailed("DX12 begin frame failed")
   }
-  { commands: state.commands, target: target, clear: state.clear }
+  {
+    device: state.device,
+    commands: state.commands,
+    target: Some(target),
+    clear: state.clear,
+    owned_target: true,
+  }
 }
 
 ///|
@@ -245,7 +260,12 @@ fn dx12_begin_swapchain_pass(
         Some(c) => c
         None => cmd.clear
       }
-      let _ = cmd.commands.clear(cmd.target, color.r, color.g, color.b, color.a)
+      match cmd.target {
+        Some(target) => {
+          let _ = cmd.commands.clear(target, color.r, color.g, color.b, color.a)
+        }
+        None => ()
+      }
     }
   }
 }
@@ -274,13 +294,23 @@ fn dx12_capabilities(state : Dx12DeviceState) -> DeviceCapabilities {
 ///|
 fn dx12_end_frame(state : Dx12SwapchainState, cmd : Dx12CommandState) -> Unit raise RhiError {
   let mut ok = true
-  if state.enable_readback {
-    ok = ok && cmd.commands.transition(cmd.target, @dx12.ResourceState::CopySource)
-    ok = ok && cmd.commands.copy_to_readback(cmd.target, state.readback)
+  match cmd.target {
+    Some(target) => {
+      if state.enable_readback {
+        ok = ok && cmd.commands.transition(target, @dx12.ResourceState::CopySource)
+        ok = ok && cmd.commands.copy_to_readback(target, state.readback)
+      }
+      ok = ok && cmd.commands.transition(target, @dx12.ResourceState::Present)
+    }
+    None => ok = false
   }
-  ok = ok && cmd.commands.transition(cmd.target, @dx12.ResourceState::Present)
   ok = ok && cmd.commands.execute_wait(state.device)
-  cmd.target.destroy()
+  match cmd.target {
+    Some(target) => if cmd.owned_target {
+      target.destroy()
+    }
+    None => ()
+  }
   if !ok {
     raise RhiError::CommandFailed("DX12 end frame failed")
   }
@@ -300,5 +330,205 @@ fn dx12_draw(cmd : Dx12CommandState, vertices : Int, instances : Int) -> Unit {
   // Vertex/instance offsets are not part of the DX12 slice yet; the RHI draw
   // calls without offsets are the ones the gates exercise. `flip_y` matches the
   // viewport convention pinned in dx12_pipeline_create.
-  let _ = cmd.commands.draw(cmd.target, vertices, instances=instances, flip_y=true)
+  match cmd.target {
+    Some(target) => {
+      let _ = cmd.commands.draw(target, vertices, instances=instances, flip_y=true)
+    }
+    None => ()
+  }
+}
+
+///|
+fn dx12_render_target_create(
+  state : Dx12DeviceState,
+  width : Int,
+  height : Int,
+) -> Dx12TextureState raise RhiError {
+  match @dx12.Texture::create(state.device, width, height) {
+    Some(tex) =>
+      {
+        device: state.device,
+        tex: tex,
+        width: width,
+        height: height,
+        format: TextureFormat::RGBA8,
+        is_depth: false,
+      }
+    None => raise RhiError::AllocationFailed("DX12 render target")
+  }
+}
+
+///|
+fn dx12_depth_create(
+  state : Dx12DeviceState,
+  width : Int,
+  height : Int,
+) -> Dx12TextureState raise RhiError {
+  match @dx12.Texture::create_depth(state.device, width, height) {
+    Some(tex) =>
+      {
+        device: state.device,
+        tex: tex,
+        width: width,
+        height: height,
+        format: TextureFormat::Depth32F,
+        is_depth: true,
+      }
+    None => raise RhiError::AllocationFailed("DX12 depth target")
+  }
+}
+
+///|
+/// Synchronous readback: a throwaway command list copies the texture into a fresh
+/// READBACK buffer, waits for the queue, then repacks the padded rows.
+fn dx12_texture_readback(state : Dx12TextureState) -> FixedArray[Byte] raise RhiError {
+  if state.is_depth {
+    raise RhiError::BackendUnsupported("depth readback is not implemented on DX12")
+  }
+  let device = state.device
+  let cmd = match @dx12.CommandList::create(device) {
+    Some(c) => c
+    None => raise RhiError::CommandFailed("DX12 readback command list")
+  }
+  let readback = match @dx12.Readback::create(device, state.width, state.height) {
+    Some(r) => r
+    None => {
+      cmd.destroy()
+      raise RhiError::AllocationFailed("DX12 readback buffer")
+    }
+  }
+  let mut ok = cmd.begin()
+  ok = ok && cmd.transition(state.tex, @dx12.ResourceState::CopySource)
+  ok = ok && cmd.copy_to_readback(state.tex, readback)
+  ok = ok && cmd.execute_wait(device)
+  let bytes = readback.bytes()
+  let px = FixedArray::makei(bytes.length(), fn(i) { bytes[i] })
+  cmd.destroy()
+  readback.destroy()
+  if !ok {
+    raise RhiError::CommandFailed("DX12 readback failed")
+  }
+  px
+}
+
+///|
+fn dx12_commands_create(state : Dx12DeviceState) -> Dx12CommandState raise RhiError {
+  let cmd = match @dx12.CommandList::create(state.device) {
+    Some(c) => c
+    None => raise RhiError::CommandFailed("DX12 command list")
+  }
+  if !cmd.begin() {
+    cmd.destroy()
+    raise RhiError::CommandFailed("DX12 command list begin")
+  }
+  {
+    device: state.device,
+    commands: cmd,
+    target: None,
+    clear: ClearColor::black(),
+    owned_target: false,
+  }
+}
+
+///|
+fn dx12_commands_finish(cmd : Dx12CommandState) -> Unit raise RhiError {
+  let ok = cmd.commands.execute_wait(cmd.device)
+  cmd.commands.destroy()
+  if !ok {
+    raise RhiError::CommandFailed("DX12 command submission failed")
+  }
+}
+
+///|
+fn dx12_begin_render_pass(
+  cmd : Dx12CommandState,
+  colors : Array[RenderTargetDesc],
+  depth : DepthTargetDesc?,
+) -> Unit raise RhiError {
+  if colors.length() != 1 {
+    raise RhiError::BackendUnsupported(
+      "the DX12 backend renders to exactly one colour target so far",
+    )
+  }
+  let color = colors[0]
+  let target = match color.texture.backend {
+    Dx12Texture(state) => state
+    VkTexture(_) => raise RhiError::InvalidArgument("Vulkan texture in a DX12 render pass")
+  }
+  let mut ok = cmd.commands.transition(target.tex, @dx12.ResourceState::RenderTarget)
+  cmd.target = Some(target.tex)
+  match color.load_op {
+    LoadOp::Clear =>
+      ok = ok &&
+        cmd.commands.clear(target.tex, color.clear_color.r, color.clear_color.g, color.clear_color.b, color.clear_color.a)
+    _ => ()
+  }
+  match depth {
+    Some(desc) => {
+      let depth_state = match desc.texture.backend {
+        Dx12Texture(state) => state
+        VkTexture(_) =>
+          raise RhiError::InvalidArgument("Vulkan texture in a DX12 depth attachment")
+      }
+      ok = ok && cmd.commands.transition(depth_state.tex, @dx12.ResourceState::DepthWrite)
+      ok = ok && cmd.commands.set_depth(depth_state.tex)
+      match desc.load_op {
+        LoadOp::Clear =>
+          ok = ok && cmd.commands.clear_depth(depth_state.tex, depth=desc.clear_depth)
+        _ => ()
+      }
+    }
+    None => ()
+  }
+  if !ok {
+    raise RhiError::CommandFailed("DX12 begin render pass failed")
+  }
+}
+
+///|
+fn dx12_end_render_pass(cmd : Dx12CommandState) -> Unit {
+  // Leave the colour target readable: `Texture::readback` expects a copy source.
+  match cmd.target {
+    Some(target) => {
+      let _ = cmd.commands.transition(target, @dx12.ResourceState::CopySource)
+    }
+    None => ()
+  }
+  cmd.target = None
+}
+
+///|
+/// Pipeline for the offscreen path: no swapchain is involved, so everything comes
+/// from `PipelineDesc`. Only uniform slots, RGBA8, Depth32F and a single sample
+/// are implemented so far; the rest is rejected instead of silently ignored.
+fn dx12_pipeline_create_from_desc(
+  state : Dx12DeviceState,
+  desc : PipelineDesc,
+) -> Dx12PipelineState raise RhiError {
+  if desc.texture_slots > 0 ||
+    desc.storage_slots > 0 ||
+    desc.storage_image_slots > 0 ||
+    desc.accel_slots > 0 {
+    raise RhiError::BackendUnsupported(
+      "the DX12 backend implements uniform slots only (texture/storage/accel slots need a descriptor heap)",
+    )
+  }
+  if desc.push_constant_size > 0 {
+    raise RhiError::BackendUnsupported(
+      "push constants are not implemented on the DX12 backend yet",
+    )
+  }
+  let has_depth = match desc.depth_format {
+    Some(_) => true
+    None => false
+  }
+  let depth = desc.depth_test && has_depth
+  dx12_pipeline_create(
+    state.device,
+    desc.vert,
+    desc.frag,
+    desc.uniform_slots,
+    depth,
+    desc.depth_write,
+  )
 }

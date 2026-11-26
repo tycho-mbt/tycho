@@ -177,3 +177,4 @@ if dev.capabilities().supports_ray_query {
 | `75-dx12-present` | Direct3D 12 DXGI flip-model swapchain on a Win32 window: back-buffer rendering, `Present`, `ResizeBuffers`, resource-state tracking |
 | `76-rhi-dx12-triangle` | The unified RHI on the DX12 backend (`BackendKind::Dx12`): same façade as `08-rhi-triangle`, DXIL pipeline, windowed present + readback |
 | `77-dx12-uniform` | Uniform slot on DX12 via a root CBV, from one Slang source compiled to both SPIR-V and DXIL; negative-viewport clip-space convention |
+| `78-dx12-depth` | Headless DX12: offscreen RGBA8 target + `Depth32F` depth test, readback, depth-order independence asserted |

@@ -91,8 +91,35 @@ pub struct Buffer {
 }
 
 ///|
+priv enum TextureBackend {
+  VkTexture(VkTextureState)
+  Dx12Texture(Dx12TextureState)
+}
+
+///|
+priv struct Dx12TextureState {
+  device : @dx12.Device
+  tex : @dx12.Texture
+  width : Int
+  height : Int
+  format : TextureFormat
+  is_depth : Bool
+}
+
+///|
 pub struct Texture {
-  priv inner : VkTextureState
+  priv backend : TextureBackend
+}
+
+///|
+fn Texture::vk(self : Texture) -> VkTextureState raise RhiError {
+  match self.backend {
+    VkTexture(state) => state
+    Dx12Texture(_) =>
+      raise RhiError::BackendUnsupported(
+        "this texture operation is not implemented on the DX12 backend",
+      )
+  }
 }
 
 ///|
@@ -144,10 +171,6 @@ fn Buffer::dx12(self : Buffer) -> Dx12BufferState? {
 
 // Vulkan-only handles: they are only ever produced by the Vulkan backend, so the
 // accessors below cannot fail.
-
-fn Texture::vk(self : Texture) -> VkTextureState {
-  self.inner
-}
 
 fn Sampler::vk(self : Sampler) -> VkSamplerState {
   self.inner
@@ -494,7 +517,11 @@ pub fn CommandBuffer::blit_to_swapchain(
   match self.backend {
     VkCommands(state) =>
       match swapchain.backend {
-        VkSwapchain(sc) => vk_cmd_blit_to_swapchain(state, src.inner, sc)
+        VkSwapchain(sc) =>
+          match src.backend {
+            VkTexture(texture) => vk_cmd_blit_to_swapchain(state, texture, sc)
+            Dx12Texture(_) => ()
+          }
         Dx12Swapchain(_) => ()
       }
     // Texture upload/blit is a Vulkan-backend feature today.
@@ -585,7 +612,9 @@ pub fn Swapchain::create_pipeline(
   match self.backend {
     Dx12Swapchain(state) =>
       return {
-        backend: Dx12Pipeline(dx12_pipeline_create(state, vert_spv, frag_spv, uniform_slots)),
+        backend: Dx12Pipeline(
+          dx12_pipeline_create(state.device, vert_spv, frag_spv, uniform_slots, false, true),
+        ),
       }
     VkSwapchain(_) => ()
   }
@@ -616,7 +645,17 @@ pub fn Swapchain::create_pipeline_desc(
       }
       return {
         backend: Dx12Pipeline(
-          dx12_pipeline_create(state, desc.vert, desc.frag, desc.uniform_slots),
+          dx12_pipeline_create(
+            state.device,
+            desc.vert,
+            desc.frag,
+            desc.uniform_slots,
+            desc.depth_test && (match desc.depth_format {
+              Some(_) => true
+              None => false
+            }),
+            desc.depth_write,
+          ),
         ),
       }
     }
@@ -632,7 +671,10 @@ pub fn Device::create_graphics_pipeline(
   self : Device,
   desc : PipelineDesc,
 ) -> Pipeline raise RhiError {
-  { backend: VkPipeline(vk_graphics_pipeline_create_default(self.vk(), desc)) }
+  match self.backend {
+    Dx12Device(state) => { backend: Dx12Pipeline(dx12_pipeline_create_from_desc(state, desc)) }
+    VkDevice(_) => { backend: VkPipeline(vk_graphics_pipeline_create_default(self.vk(), desc)) }
+  }
 }
 
 ///|
@@ -914,7 +956,7 @@ pub fn Device::create_texture_format(
   format : TextureFormat,
   pixels : Bytes,
 ) -> Texture raise RhiError {
-  { inner: vk_texture_create_uploaded(self.vk(), width, height, format, pixels) }
+  { backend: VkTexture(vk_texture_create_uploaded(self.vk(), width, height, format, pixels)) }
 }
 
 ///|
@@ -925,9 +967,7 @@ pub fn Device::create_texture_mipmapped(
   format : TextureFormat,
   pixels : Bytes,
 ) -> Texture raise RhiError {
-  {
-    inner: vk_texture_create_mipmapped(self.vk(), width, height, format, pixels),
-  }
+  { backend: VkTexture(vk_texture_create_mipmapped(self.vk(), width, height, format, pixels)) }
 }
 
 ///|
@@ -937,7 +977,7 @@ pub fn Device::create_storage_texture(
   height : Int,
   format : TextureFormat,
 ) -> Texture raise RhiError {
-  { inner: vk_texture_create_storage(self.vk(), width, height, format) }
+  { backend: VkTexture(vk_texture_create_storage(self.vk(), width, height, format)) }
 }
 
 ///|
@@ -960,7 +1000,7 @@ pub fn Device::create_cubemap(
       (0 : Byte)
     }
   })
-  { inner: vk_texture_create_cubemap(self.vk(), size, format, total) }
+  { backend: VkTexture(vk_texture_create_cubemap(self.vk(), size, format, total)) }
 }
 
 ///|
@@ -991,15 +1031,13 @@ pub fn Device::create_cubemap_mipmapped(
       }
     }
   }
-  {
-    inner: vk_texture_create_cubemap_mipmapped(
+  { backend: VkTexture(vk_texture_create_cubemap_mipmapped(
       self.vk(),
       size,
       format,
       levels.length(),
       Bytes::from_array(all),
-    ),
-  }
+    )) }
 }
 
 ///|
@@ -1011,16 +1049,14 @@ pub fn Device::create_texture_array(
   format : TextureFormat,
   pixels : Bytes,
 ) -> Texture raise RhiError {
-  {
-    inner: vk_texture_create_2d_array(
+  { backend: VkTexture(vk_texture_create_2d_array(
       self.vk(),
       width,
       height,
       layers,
       format,
       pixels,
-    ),
-  }
+    )) }
 }
 
 ///|
@@ -1034,14 +1070,21 @@ pub fn Device::create_render_target(
   if is_depth_format(format) {
     raise InvalidArgument("Use create_depth_texture for depth targets")
   }
-  {
-    inner: vk_texture_create_render_target(
-      self.vk(),
-      width,
-      height,
-      format,
-      samples,
-    ),
+  match self.backend {
+    Dx12Device(state) => {
+      if format != TextureFormat::RGBA8 {
+        raise RhiError::BackendUnsupported(
+          "the DX12 render-target path only allocates RGBA8 so far",
+        )
+      }
+      { backend: Dx12Texture(dx12_render_target_create(state, width, height)) }
+    }
+    VkDevice(_) =>
+      {
+        backend: VkTexture(
+          vk_texture_create_render_target(self.vk(), width, height, format, samples),
+        ),
+      }
   }
 }
 
@@ -1071,40 +1114,67 @@ pub fn Device::create_depth_texture_format(
   if !is_depth_format(format) {
     raise InvalidArgument("Expected Depth32F or Depth24Stencil8 format")
   }
-  {
-    inner: vk_texture_create_depth_target(
-      self.vk(),
-      width,
-      height,
-      format,
-      samples,
-    ),
+  match self.backend {
+    Dx12Device(state) => {
+      if format != TextureFormat::Depth32F {
+        raise RhiError::BackendUnsupported(
+          "the DX12 depth path only allocates Depth32F so far",
+        )
+      }
+      if samples != SampleCount::X1 {
+        raise RhiError::BackendUnsupported(
+          "MSAA depth targets are not implemented on DX12",
+        )
+      }
+      { backend: Dx12Texture(dx12_depth_create(state, width, height)) }
+    }
+    VkDevice(_) =>
+      {
+        backend: VkTexture(
+          vk_texture_create_depth_target(self.vk(), width, height, format, samples),
+        ),
+      }
   }
 }
 
 ///|
 pub fn Texture::width(self : Texture) -> Int {
-  self.vk().width
+  match self.backend {
+    Dx12Texture(state) => state.width
+    VkTexture(state) => state.width
+  }
 }
 
 ///|
 pub fn Texture::format(self : Texture) -> TextureFormat {
-  self.vk().format
+  match self.backend {
+    Dx12Texture(state) => state.format
+    VkTexture(state) => state.format
+  }
 }
 
 ///|
 pub fn Texture::height(self : Texture) -> Int {
-  self.vk().height
+  match self.backend {
+    Dx12Texture(state) => state.height
+    VkTexture(state) => state.height
+  }
 }
 
 ///|
 pub fn Texture::mip_levels(self : Texture) -> Int {
-  self.vk().mip_levels
+  match self.backend {
+    Dx12Texture(_) => 1
+    VkTexture(state) => state.mip_levels
+  }
 }
 
 ///|
 pub fn Texture::layers(self : Texture) -> Int {
-  self.vk().layers
+  match self.backend {
+    Dx12Texture(_) => 1
+    VkTexture(state) => state.layers
+  }
 }
 
 ///|
@@ -1143,7 +1213,10 @@ pub fn Texture::upload_subregion(
 
 ///|
 pub fn Texture::readback(self : Texture) -> FixedArray[Byte] raise RhiError {
-  vk_texture_readback(self.vk())
+  match self.backend {
+    VkTexture(state) => vk_texture_readback(state)
+    Dx12Texture(state) => dx12_texture_readback(state)
+  }
 }
 
 ///|
@@ -1156,7 +1229,10 @@ pub fn Texture::readback_mip(
 
 ///|
 pub fn Texture::destroy(self : Texture) -> Unit {
-  vk_texture_destroy(self.vk())
+  match self.backend {
+    VkTexture(state) => vk_texture_destroy(state)
+    Dx12Texture(state) => state.tex.destroy()
+  }
 }
 
 ///|
@@ -1252,7 +1328,7 @@ pub fn BindlessHeap::register_texture(
   texture : Texture,
   sampler : Sampler,
 ) -> Int raise RhiError {
-  vk_bindless_heap_register(self.vk(), texture.inner, sampler.inner)
+  vk_bindless_heap_register(self.vk(), texture.vk(), sampler.inner)
 }
 
 ///|
@@ -1267,6 +1343,10 @@ pub fn BindlessHeap::destroy(self : BindlessHeap) -> Unit {
 
 ///|
 pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
+  match self.backend {
+    Dx12Device(state) => return { backend: Dx12Commands(dx12_commands_create(state)) }
+    VkDevice(_) => ()
+  }
   let d = self.vk()
   let cmd = begin_one_time(d)
   let fi = (d.current_gen.to_int() + d.active_recordings) & 1
@@ -1300,6 +1380,14 @@ pub fn Device::end_commands(
   self : Device,
   cmd : CommandBuffer,
 ) -> Unit raise RhiError {
+  match (self.backend, cmd.backend) {
+    (Dx12Device(_), Dx12Commands(state)) => return dx12_commands_finish(state)
+    (Dx12Device(_), VkCommands(_)) =>
+      raise RhiError::InvalidArgument("Vulkan command buffer given to a DX12 device")
+    (VkDevice(_), Dx12Commands(_)) =>
+      raise RhiError::InvalidArgument("DX12 command buffer given to a Vulkan device")
+    (VkDevice(_), VkCommands(_)) => ()
+  }
   let d = self.vk()
   if d.active_recordings > 0 {
     d.active_recordings = d.active_recordings - 1
@@ -1325,14 +1413,24 @@ pub fn CommandBuffer::begin_render_pass(
   colors : Array[RenderTargetDesc],
   depth? : DepthTargetDesc? = None,
 ) -> Unit raise RhiError {
-  vk_cmd_begin_render_pass(self.vk(), colors, depth)
+  match self.backend {
+    VkCommands(state) => vk_cmd_begin_render_pass(state, colors, depth)
+    Dx12Commands(state) => dx12_begin_render_pass(state, colors, depth)
+  }
 }
 
 ///|
 pub fn CommandBuffer::end_render_pass(self : CommandBuffer) -> Unit {
   match self.backend {
-    VkCommands(state) => vk_cmd_end_render_pass(state)
-    Dx12Commands(_) => ()
+    VkCommands(state) =>
+      // The Vulkan helper can only fail on a backend mix-up, which the tags
+      // already prevent; the signature stays non-raising like before.
+      try {
+        vk_cmd_end_render_pass(state)
+      } catch {
+        _ => ()
+      }
+    Dx12Commands(state) => dx12_end_render_pass(state)
   }
 }
 
@@ -1393,7 +1491,13 @@ pub fn CommandBuffer::bind_texture(
   sampler : Sampler,
 ) -> Unit {
   match pipeline.backend {
-    VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_textures.push((pipe, slot, texture, sampler)) })
+    VkPipeline(pipe) =>
+      match texture.backend {
+        VkTexture(tex) => self.on_vk(fn(state) {
+          state.pending_textures.push((pipe, slot, tex, sampler.inner))
+        })
+        Dx12Texture(_) => ()
+      }
     Dx12Pipeline(_) => ()
   }
 }
@@ -1423,7 +1527,12 @@ pub fn CommandBuffer::bind_storage_image(
   texture : Texture,
 ) -> Unit {
   match pipeline.backend {
-    VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_storage_images.push((pipe, slot, texture)) })
+    VkPipeline(pipe) =>
+      match texture.backend {
+        VkTexture(tex) =>
+          self.on_vk(fn(state) { state.pending_storage_images.push((pipe, slot, tex)) })
+        Dx12Texture(_) => ()
+      }
     Dx12Pipeline(_) => ()
   }
 }
@@ -1434,10 +1543,18 @@ pub fn CommandBuffer::transition_for_compute(
   texture : Texture,
 ) -> Unit {
   match self.backend {
-    VkCommands(state) => vk_cmd_transition_for_compute(state, texture.inner)
-    Dx12Commands(state) => {
-      let _ = state.commands.transition(state.target, @dx12.ResourceState::UnorderedAccess)
-    }
+    VkCommands(state) =>
+      match texture.backend {
+        VkTexture(texture) => vk_cmd_transition_for_compute(state, texture)
+        Dx12Texture(_) => ()
+      }
+    Dx12Commands(state) =>
+      match state.target {
+        Some(target) => {
+          let _ = state.commands.transition(target, @dx12.ResourceState::UnorderedAccess)
+        }
+        None => ()
+      }
   }
 }
 
@@ -1447,10 +1564,18 @@ pub fn CommandBuffer::transition_for_sampling(
   texture : Texture,
 ) -> Unit {
   match self.backend {
-    VkCommands(state) => vk_cmd_transition_for_sampling(state, texture.inner)
-    Dx12Commands(state) => {
-      let _ = state.commands.transition(state.target, @dx12.ResourceState::ShaderResource)
-    }
+    VkCommands(state) =>
+      match texture.backend {
+        VkTexture(texture) => vk_cmd_transition_for_sampling(state, texture)
+        Dx12Texture(_) => ()
+      }
+    Dx12Commands(state) =>
+      match state.target {
+        Some(target) => {
+          let _ = state.commands.transition(target, @dx12.ResourceState::ShaderResource)
+        }
+        None => ()
+      }
   }
 }
 
@@ -1461,7 +1586,11 @@ pub fn CommandBuffer::blit_texture(
   dst : Texture,
   filter? : Filter = Filter::Linear,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_blit_texture(state, src.inner, dst.inner, filter) })
+  match (src.backend, dst.backend) {
+    (VkTexture(a), VkTexture(b)) =>
+      self.on_vk(fn(state) { vk_cmd_blit_texture(state, a, b, filter) })
+    _ => ()
+  }
 }
 
 ///|

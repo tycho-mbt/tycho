@@ -72,6 +72,7 @@ static const GUID kIID_IDXGISwapChain3 = {0x94d99bdb, 0xf1f8, 0x4ab0,
                                           {0xb2, 0x36, 0x7d, 0xa0, 0x17, 0x0e, 0xda, 0xb1}};
 
 #define TYCHO_DX12_RT_FORMAT DXGI_FORMAT_R8G8B8A8_UNORM
+#define TYCHO_DX12_DEPTH_FORMAT DXGI_FORMAT_D32_FLOAT
 #define TYCHO_DX12_RT_FORMAT_PIXEL_BYTES 4
 #define TYCHO_DX12_PITCH_ALIGNMENT 256
 #define TYCHO_DX12_FRAME_COUNT 3
@@ -87,6 +88,7 @@ enum {
   TYCHO_DX12_STATE_PRESENT = 4,
   TYCHO_DX12_STATE_SHADER_RESOURCE = 5,
   TYCHO_DX12_STATE_UNORDERED_ACCESS = 6,
+  TYCHO_DX12_STATE_DEPTH_WRITE = 7,
 };
 
 static D3D12_RESOURCE_STATES dx12_native_state(int32_t state) {
@@ -103,6 +105,8 @@ static D3D12_RESOURCE_STATES dx12_native_state(int32_t state) {
       return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
     case TYCHO_DX12_STATE_UNORDERED_ACCESS:
       return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    case TYCHO_DX12_STATE_DEPTH_WRITE:
+      return D3D12_RESOURCE_STATE_DEPTH_WRITE;
     default:
       return D3D12_RESOURCE_STATE_COMMON;
   }
@@ -135,6 +139,9 @@ typedef struct TychoDxTexture {
   ID3D12Resource *resource;
   ID3D12DescriptorHeap *rtv_heap;  // owned by the wrapper unless `owned` is 0
   D3D12_CPU_DESCRIPTOR_HANDLE rtv;
+  ID3D12DescriptorHeap *dsv_heap;
+  D3D12_CPU_DESCRIPTOR_HANDLE dsv;
+  int is_depth;
   D3D12_RESOURCE_STATES state;  // native state, what the barriers need
   int state_tag;                // typed enum reported across the FFI
   int width;
@@ -170,6 +177,7 @@ typedef struct TychoDxReadback {
 typedef struct TychoDxCommands {
   ID3D12CommandAllocator *allocator;
   ID3D12GraphicsCommandList *list;
+  struct TychoDxTexture *depth;  // optional DSV bound by cmd_set_target
 } TychoDxCommands;
 
 static TychoDxDevice *as_device(uint64_t p) { return (TychoDxDevice *)(uintptr_t)p; }
@@ -576,7 +584,8 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd_p, uint64_t tex_p, i
     g_last_hr = (HRESULT)0x8000000E;  // E_ILLEGAL_METHOD_CALL: draw before transition
     return 0;
   }
-  cmds->list->lpVtbl->OMSetRenderTargets(cmds->list, 1, &tex->rtv, FALSE, NULL);
+  cmds->list->lpVtbl->OMSetRenderTargets(cmds->list, 1, &tex->rtv, FALSE,
+                                        cmds->depth ? &cmds->depth->dsv : NULL);
   memset(&vp, 0, sizeof vp);
   vp.TopLeftX = 0.0f;
   // A negative viewport height maps NDC y=-1 to the first framebuffer row, which
@@ -665,7 +674,8 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_commands_execute_wait(uint64_t dev_p, uint
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uint8_t *vs,
                                                        int32_t vs_len, const uint8_t *ps,
                                                        int32_t ps_len, int32_t cbv_count,
-                                                       int32_t flip_y) {
+                                                       int32_t flip_y, int32_t depth_enable,
+                                                       int32_t depth_write) {
   TychoDxDevice *dev = as_device(dev_p);
   TychoDxPipeline *pipe;
   ID3DBlob *rs_blob = NULL;
@@ -749,8 +759,14 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
     rt->LogicOp = D3D12_LOGIC_OP_NOOP;
     rt->RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
   }
-  pso_desc.DepthStencilState.DepthEnable = FALSE;
+  pso_desc.DepthStencilState.DepthEnable = depth_enable ? TRUE : FALSE;
+  pso_desc.DepthStencilState.DepthWriteMask =
+      depth_write ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+  pso_desc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
   pso_desc.DepthStencilState.StencilEnable = FALSE;
+  if (depth_enable) {
+    pso_desc.DSVFormat = TYCHO_DX12_DEPTH_FORMAT;
+  }
   pso_desc.SampleMask = UINT_MAX;
   pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   pso_desc.NumRenderTargets = 1;
@@ -853,11 +869,108 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create(uint64_t dev_p, int32_t wi
   return (uint64_t)(uintptr_t)tex;
 }
 
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_depth_create(uint64_t dev_p, int32_t width, int32_t height) {
+  TychoDxDevice *dev = as_device(dev_p);
+  TychoDxTexture *tex;
+  D3D12_HEAP_PROPERTIES heap;
+  D3D12_RESOURCE_DESC desc;
+  D3D12_DESCRIPTOR_HEAP_DESC heap_desc;
+  D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc;
+  D3D12_CLEAR_VALUE clear_value;
+  HRESULT hr;
+  if (!dev || width <= 0 || height <= 0) return 0;
+
+  tex = (TychoDxTexture *)calloc(1, sizeof(TychoDxTexture));
+  if (!tex) return 0;
+  tex->width = width;
+  tex->height = height;
+  tex->is_depth = 1;
+  tex->owned = 1;
+  tex->state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+  tex->state_tag = TYCHO_DX12_STATE_DEPTH_WRITE;
+
+  memset(&heap, 0, sizeof heap);
+  heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+  heap.CreationNodeMask = 1;
+  heap.VisibleNodeMask = 1;
+
+  memset(&clear_value, 0, sizeof clear_value);
+  clear_value.Format = TYCHO_DX12_DEPTH_FORMAT;
+  clear_value.DepthStencil.Depth = 1.0f;
+
+  memset(&desc, 0, sizeof desc);
+  desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+  desc.Width = (UINT64)width;
+  desc.Height = (UINT)height;
+  desc.DepthOrArraySize = 1;
+  desc.MipLevels = 1;
+  desc.Format = TYCHO_DX12_DEPTH_FORMAT;
+  desc.SampleDesc.Count = 1;
+  desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+  desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+  hr = dev->device->lpVtbl->CreateCommittedResource(
+      dev->device, &heap, D3D12_HEAP_FLAG_NONE, &desc,
+      D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear_value, &kIID_ID3D12Resource,
+      (void **)&tex->resource);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    free(tex);
+    return 0;
+  }
+
+  memset(&heap_desc, 0, sizeof heap_desc);
+  heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+  heap_desc.NumDescriptors = 1;
+  heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+  hr = dev->device->lpVtbl->CreateDescriptorHeap(dev->device, &heap_desc,
+                                                &kIID_ID3D12DescriptorHeap,
+                                                (void **)&tex->dsv_heap);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    tex->resource->lpVtbl->Release(tex->resource);
+    free(tex);
+    return 0;
+  }
+  tex->dsv_heap->lpVtbl->GetCPUDescriptorHandleForHeapStart(tex->dsv_heap, &tex->dsv);
+  memset(&dsv_desc, 0, sizeof dsv_desc);
+  dsv_desc.Format = TYCHO_DX12_DEPTH_FORMAT;
+  dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+  dev->device->lpVtbl->CreateDepthStencilView(dev->device, tex->resource, &dsv_desc, tex->dsv);
+  return (uint64_t)(uintptr_t)tex;
+}
+
+// Binds the depth attachment that cmd_draw passes to OMSetRenderTargets. Clearing
+// and drawing then see the same DSV, so a pass cannot silently render without
+// depth by forgetting a second call.
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_depth(uint64_t cmd_p, uint64_t tex_p) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  TychoDxTexture *tex = as_texture(tex_p);
+  if (!cmds) return 0;
+  if (tex && !tex->is_depth) return 0;
+  cmds->depth = tex;
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_clear_depth(uint64_t cmd_p, uint64_t tex_p, float depth) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  TychoDxTexture *tex = as_texture(tex_p);
+  if (!cmds || !tex || !tex->is_depth) return 0;
+  if (tex->state != D3D12_RESOURCE_STATE_DEPTH_WRITE) {
+    g_last_hr = (HRESULT)0x8000000E;  // E_ILLEGAL_METHOD_CALL: clear before transition
+    return 0;
+  }
+  cmds->list->lpVtbl->ClearDepthStencilView(cmds->list, tex->dsv,
+                                            D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, NULL);
+  return 1;
+}
+
 MOONBIT_FFI_EXPORT void tycho_dx12_texture_destroy(uint64_t p) {
   TychoDxTexture *tex = as_texture(p);
   if (!tex) return;
   if (tex->owned) {
     if (tex->rtv_heap) tex->rtv_heap->lpVtbl->Release(tex->rtv_heap);
+    if (tex->dsv_heap) tex->dsv_heap->lpVtbl->Release(tex->dsv_heap);
     if (tex->resource) tex->resource->lpVtbl->Release(tex->resource);
   }
   free(tex);
@@ -1422,7 +1535,8 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_commands_execute_wait(uint64_t dev, uint64
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev, const uint8_t *vs,
                                                        int32_t vs_len, const uint8_t *ps,
                                                        int32_t ps_len, int32_t cbv_count,
-                                                       int32_t flip_y) {
+                                                       int32_t flip_y, int32_t depth_enable,
+                                                       int32_t depth_write) {
   (void)dev;
   (void)vs;
   (void)vs_len;
@@ -1430,6 +1544,8 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev, const uint8
   (void)ps_len;
   (void)cbv_count;
   (void)flip_y;
+  (void)depth_enable;
+  (void)depth_write;
   return 0;
 }
 
@@ -1444,6 +1560,26 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create(uint64_t dev, int32_t widt
 }
 
 MOONBIT_FFI_EXPORT void tycho_dx12_texture_destroy(uint64_t p) { (void)p; }
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_depth_create(uint64_t dev, int32_t width, int32_t height) {
+  (void)dev;
+  (void)width;
+  (void)height;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_depth(uint64_t cmd, uint64_t tex) {
+  (void)cmd;
+  (void)tex;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_clear_depth(uint64_t cmd, uint64_t tex, float depth) {
+  (void)cmd;
+  (void)tex;
+  (void)depth;
+  return 0;
+}
 
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_readback_create(uint64_t dev, int32_t width,
                                                        int32_t height) {
