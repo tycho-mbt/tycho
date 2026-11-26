@@ -25,19 +25,8 @@ fn make_badge_image() -> @g2d.Image2D {
 
 ///|
 fn sin_cos_showcase(theta : Double) -> (Double, Double) {
-  let pi = 3.141592653589793
-  let two_pi = 6.283185307179586
-  let mut x = theta % two_pi
-  if x > pi { x = x - two_pi } else if x < -pi { x = x + two_pi }
-  let half_pi = 1.5707963267948966
-  let mut cos_sign = 1.0
-  let mut sx = x
-  if sx > half_pi { sx = pi - sx; cos_sign = -1.0 }
-  else if sx < -half_pi { sx = -pi - sx; cos_sign = -1.0 }
-  let x2 = sx * sx
-  let s = sx * (1.0 - x2 / 6.0 * (1.0 - x2 / 20.0 * (1.0 - x2 / 42.0)))
-  let c = cos_sign * (1.0 - x2 / 2.0 * (1.0 - x2 / 12.0 * (1.0 - x2 / 30.0)))
-  (s, c)
+  let (s, c) = @tmath.sin_cos(Float::from_double(theta))
+  (s.to_double(), c.to_double())
 }
 
 ///|

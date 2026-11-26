@@ -5,86 +5,19 @@
 //   Pass 2: Fullscreen deferred directional lighting sampling both G-Buffer textures to swapchain.
 
 ///|
-fn sin_cos_approx(theta : Float) -> (Float, Float) {
-  let pi : Double = 3.141592653589793
-  let two_pi : Double = 6.283185307179586
-  let mut x = theta.to_double() % two_pi
-  if x > pi {
-    x = x - two_pi
-  } else if x < -pi {
-    x = x + two_pi
-  }
-  let mut cos_sign : Double = 1.0
-  let half_pi : Double = 1.5707963267948966
-  let mut sx = x
-  if sx > half_pi {
-    sx = pi - sx
-    cos_sign = -1.0
-  } else if sx < -half_pi {
-    sx = -pi - sx
-    cos_sign = -1.0
-  }
-  let x2 = sx * sx
-  let s = sx *
-    (1.0 - x2 / 6.0 * (1.0 - x2 / 20.0 * (1.0 - x2 / 42.0 * (1.0 - x2 / 72.0))))
-  let c = cos_sign *
-    (1.0 - x2 / 2.0 * (1.0 - x2 / 12.0 * (1.0 - x2 / 30.0 * (1.0 - x2 / 56.0))))
-  (Float::from_double(s), Float::from_double(c))
-}
-
-///|
-fn mat4_mul(a : FixedArray[Float], b : FixedArray[Float]) -> FixedArray[Float] {
-  let out = FixedArray::make(16, (0.0 : Float))
-  for col = 0; col < 4; col = col + 1 {
-    for row = 0; row < 4; row = row + 1 {
-      let mut sum : Float = (0.0 : Float)
-      for k = 0; k < 4; k = k + 1 {
-        sum = sum + a[k * 4 + row] * b[col * 4 + k]
-      }
-      out[col * 4 + row] = sum
-    }
-  }
-  out
-}
-
-///|
+/// Model-view-projection for the spinning cube, in Vulkan clip space.
 fn make_mvp(angle : Float, aspect : Float) -> FixedArray[Float] {
-  let f : Float = (1.7320508 : Float)
-  let near : Float = (0.1 : Float)
-  let far : Float = (10.0 : Float)
-  let proj = FixedArray::make(16, (0.0 : Float))
-  proj[0] = f / aspect
-  proj[5] = -f
-  proj[10] = far / (near - far)
-  proj[11] = (-1.0 : Float)
-  proj[14] = near * far / (near - far)
-
-  let view = FixedArray::make(16, (0.0 : Float))
-  view[0] = (1.0 : Float)
-  view[5] = (1.0 : Float)
-  view[10] = (1.0 : Float)
-  view[14] = (-2.2 : Float)
-  view[15] = (1.0 : Float)
-
-  let (sy, cy) = sin_cos_approx(angle)
-  let (sx, cx) = sin_cos_approx(angle * (0.5 : Float))
-  let ry = FixedArray::make(16, (0.0 : Float))
-  ry[0] = cy
-  ry[2] = -sy
-  ry[5] = (1.0 : Float)
-  ry[8] = sy
-  ry[10] = cy
-  ry[15] = (1.0 : Float)
-
-  let rx = FixedArray::make(16, (0.0 : Float))
-  rx[0] = (1.0 : Float)
-  rx[5] = cx
-  rx[6] = sx
-  rx[9] = -sx
-  rx[10] = cx
-  rx[15] = (1.0 : Float)
-
-  mat4_mul(proj, mat4_mul(view, mat4_mul(ry, rx)))
+  let proj = @tmath.perspective_rh(
+    @tmath.deg_to_rad(60.0),
+    aspect,
+    0.1,
+    10.0,
+    clip=@tmath.ClipSpace::Vulkan,
+  )
+  let view = @tmath.Mat4::from_translation(@tmath.Vec3::new(0.0, 0.0, -2.2))
+  let model = @tmath.Mat4::from_rotation_y(angle) *
+    @tmath.Mat4::from_rotation_x(angle * 0.5)
+  (proj * view * model).to_cols_array()
 }
 
 ///|
