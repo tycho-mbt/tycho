@@ -26,6 +26,7 @@ EXAMPLES=(
   75-tycho-3d-shadow-atlas
   76-tycho-3d-animation
   77-tycho-3d-gltf-viewer
+  78-tycho-3d-gltf-animation
 )
 
 echo "== unit tests =="
