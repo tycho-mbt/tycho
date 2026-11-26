@@ -1,0 +1,284 @@
+#!/usr/bin/env python3
+"""Distil the COM ABI of a Direct3D 12 header into dx12/registry/d3d12-abi.txt.
+
+The manifest is committed, so `tools/gen-dx12-bindings.py` can regenerate the
+MoonBit/C dispatch layer on any host without the Windows SDK. Refresh it when
+bumping the header:
+
+    python tools/dump-d3d12-abi.py [path/to/d3d12.h] [--all]
+
+Only the interfaces the binding needs are dumped unless --all is passed.
+"""
+
+from __future__ import annotations
+
+import pathlib
+import re
+import sys
+
+DEFAULT_HEADER = pathlib.Path(
+    "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um/d3d12.h"
+)
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+OUTPUT = ROOT / "dx12" / "registry" / "d3d12-abi.txt"
+
+# Interfaces the M1a/M1b binding exposes. Extending this list is the only thing
+# needed to widen the generated surface.
+ALLOW = [
+    "ID3D12Object",
+    "ID3D12Device",
+    "ID3D12Device1",
+    "ID3D12Device2",
+    "ID3D12Device3",
+    "ID3D12Device4",
+    "ID3D12CommandQueue",
+    "ID3D12CommandAllocator",
+    "ID3D12GraphicsCommandList",
+    "ID3D12GraphicsCommandList1",
+    "ID3D12GraphicsCommandList2",
+    "ID3D12PipelineState",
+    "ID3D12RootSignature",
+    "ID3D12Resource",
+    "ID3D12DescriptorHeap",
+    "ID3D12Fence",
+    "ID3D12Fence1",
+]
+
+# IUnknown slots every COM interface starts with; not part of the generated API.
+SKIP_METHODS = {"QueryInterface", "AddRef", "Release"}
+
+METHOD_HEAD = re.compile(
+    r"^\s*(?P<ret>.+?)\s*\(\s*STDMETHODCALLTYPE\s*\*\s*(?P<name>\w+)\s*\)\s*\(\s*$"
+)
+XFGVIRT = re.compile(r"^\s*DECLSPEC_XFGVIRT\((?P<owner>[^,]+),\s*(?P<name>\w+)\)")
+SAL = re.compile(r"^_[A-Za-z0-9_]+_")
+
+
+def strip_sal(text: str) -> str:
+    """Drop leading SAL annotations, including nested ones like
+    `_Outptr_opt_result_bytebuffer_(_Inexpressible_("Dependent on resource"))`."""
+    text = text.strip()
+    while True:
+        m = SAL.match(text)
+        if not m:
+            return text.strip()
+        text = text[m.end() :].lstrip()
+        if text.startswith("("):
+            depth = 0
+            for index, ch in enumerate(text):
+                if ch == "(":
+                    depth += 1
+                elif ch == ")":
+                    depth -= 1
+                    if depth == 0:
+                        text = text[index + 1 :].lstrip()
+                        break
+            else:
+                return text.strip()
+
+
+def split_params(text: str) -> list[str]:
+    parts, depth, current = [], 0, ""
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append(current)
+            current = ""
+        else:
+            current += ch
+    if current.strip():
+        parts.append(current)
+    return parts
+
+
+def normalise_array(text: str) -> str:
+    # Arrays decay to pointers at the ABI, in both spellings the headers use:
+    # `const D3D12_RECT [4]pRects` and `const FLOAT BlendFactor[4]`.
+    text = re.sub(r"\s*\[\s*\d*\s*\]\s*(?=[A-Za-z_])", " *", text)
+    return re.sub(r"([A-Za-z_]\w*)\s*\[\s*\d*\s*\]", r"* \1", text)
+
+
+def parse_param(text: str) -> tuple[str, str] | None:
+    text = normalise_array(strip_sal(text.strip()))
+    if not text or text == "void":
+        return None
+    text = text.replace("  ", " ")
+    m = re.match(r"^(?P<type>.*?)(?P<name>[A-Za-z_]\w*)$", text)
+    if not m:
+        return None
+    ctype = m.group("type").strip()
+    name = m.group("name")
+    if not ctype:
+        # A bare identifier is a scalar typedef without a parameter name.
+        return (name, "")
+    # Keep `*` glued to the type, matching how the manifest is read back.
+    return (ctype, name)
+
+
+def parse_interface(header: list[str], start: int) -> tuple[str, list[dict], int]:
+    match = re.match(r"\s*typedef struct (\w+)Vtbl\s*$", header[start])
+    assert match, header[start]
+    iface = match.group(1)
+    i = start + 1
+    while "{" not in header[i]:
+        i += 1
+    i += 1
+    methods: list[dict] = []
+    keep = True
+    while i < len(header):
+        line = header[i]
+        stripped = line.strip()
+        if stripped.startswith("} " + iface + "Vtbl"):
+            return iface, methods, i + 1
+        if stripped.startswith("#if"):
+            # Inside a vtbl body the only conditional builds are the _WIN32 ones;
+            # keep the shipping branch and drop the portable-by-value one.
+            keep = not stripped.startswith("#if !defined(_WIN32)")
+            i += 1
+            continue
+        if stripped.startswith("#else"):
+            keep = not keep
+            i += 1
+            continue
+        if stripped.startswith("#endif"):
+            keep = True
+            i += 1
+            continue
+        xfx = XFGVIRT.match(line)
+        if xfx and keep:
+            i += 1
+            # Some methods wrap a portable by-value signature in
+            # `#if !defined(_WIN32)`; the shipping (`_WIN32`) form is the `#else`
+            # branch, so skip straight to it.
+            if header[i].strip().startswith("#if !defined(_WIN32)"):
+                while i < len(header) and not header[i].strip().startswith("#else"):
+                    i += 1
+                i += 1
+            head = METHOD_HEAD.match(header[i])
+            if not head:
+                i += 1
+                continue
+            name = xfx.group("name")
+            ret = head.group("ret").strip()
+            i += 1
+            blob = ""
+            while i < len(header):
+                blob += header[i].strip() + " "
+                if header[i].strip().rstrip().endswith(");"):
+                    i += 1
+                    break
+                i += 1
+            blob = blob.strip()
+            blob = blob[: blob.rfind(")")]  # drop the closing `);`
+            params = [p for p in (parse_param(x) for x in split_params(blob)) if p]
+            if name not in SKIP_METHODS:
+                # The first parameter is always `<Iface> * This`.
+                params = [(t, n) for t, n in params if n != "This"]
+                methods.append({"name": name, "ret": ret, "params": params})
+            continue
+        i += 1
+    raise RuntimeError(f"unterminated vtbl for {iface}")
+
+
+def collect_kinds(text: str) -> dict[str, str]:
+    """Map typedef'd aggregate names to 'struct' | 'union' | 'enum'."""
+    kinds: dict[str, str] = {}
+    for match in re.finditer(r"typedef\s+(struct|union|enum)\b", text):
+        kind = match.group(1)
+        i = match.end()
+        depth = 0
+        start = i
+        while i < len(text):
+            ch = text[i]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    # Read the alias that follows the closing brace.
+                    tail = re.match(r"\s*(\w+)\s*;", text[i + 1 :])
+                    if tail:
+                        kinds[tail.group(1)] = kind
+                    break
+            elif ch == ";" and depth == 0:
+                # `typedef enum Tag Name;` style without a body.
+                break
+            i += 1
+        del start
+    return kinds
+
+
+def referenced_types(interfaces: list[tuple[str, list[dict]]]) -> set[str]:
+    names: set[str] = set()
+    for _, methods in interfaces:
+        for method in methods:
+            for text in [method["ret"]] + [t for t, _ in method["params"]]:
+                base = text.replace("*", " ").replace("const", " ")
+                base = re.sub(r"\[\s*\d*\s*\]", " ", base)
+                for token in base.split():
+                    names.add(token)
+    return names
+
+
+def render(interfaces: list[tuple[str, list[dict]]], kinds: dict[str, str]) -> str:
+    lines = [
+        "# Direct3D 12 COM ABI distilled from d3d12.h - DO NOT EDIT.",
+        "# Regenerate with: python tools/dump-d3d12-abi.py",
+        "#",
+        "# interface <name> parent=<parent> methods=<count>",
+        "#   <name> ret=<type>",
+        "#     <type> <param-name>",
+        "",
+    ]
+    for iface, methods in interfaces:
+        parent = ""
+        match = re.search(rf"DECLARE_INTERFACE_?\(?{iface},\s*(\w+)", "")
+        lines.append(f"interface {iface} methods={len(methods)}")
+        for method in methods:
+            lines.append(f"  {method['name']} ret={method['ret']}")
+            for ctype, pname in method["params"]:
+                lines.append(f"    {ctype} {pname}")
+    referenced = referenced_types(interfaces)
+    aggregates = sorted((name, kind) for name, kind in kinds.items() if name in referenced)
+    if aggregates:
+        lines.append("")
+        lines.append("# ABI classification for aggregate types used by value or pointer")
+        for name, kind in aggregates:
+            lines.append(f"kind {kind} {name}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def main() -> int:
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    dump_all = "--all" in sys.argv[1:]
+    header_path = pathlib.Path(args[0]) if args else DEFAULT_HEADER
+    raw = header_path.read_text(encoding="utf-8", errors="replace")
+    header = raw.splitlines()
+    kinds = collect_kinds(raw)
+    interfaces = []
+    i = 0
+    while i < len(header):
+        match = re.match(r"\s*typedef struct (\w+)Vtbl\s*$", header[i])
+        if not match:
+            i += 1
+            continue
+        iface, methods, i = parse_interface(header, i)
+        if dump_all or iface in ALLOW:
+            interfaces.append((iface, methods))
+    if not interfaces:
+        print("ERROR: no interfaces matched", file=sys.stderr)
+        return 1
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT.write_text(render(interfaces, kinds), encoding="utf-8", newline="\n")
+    total = sum(len(m) for _, m in interfaces)
+    print(f"wrote {OUTPUT.relative_to(ROOT)} ({len(interfaces)} interfaces, {total} methods)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -68,10 +68,45 @@ static const GUID kIID_ID3D12GraphicsCommandList = {0x5b160d0f, 0xac1b, 0x4185,
                                                     {0x8b, 0xa8, 0xb3, 0xae, 0x42, 0xa5, 0xa4, 0x55}};
 static const GUID kIID_ID3D12DescriptorHeap = {0x8efb471d, 0x616c, 0x4f49,
                                                {0x90, 0xf7, 0x12, 0x7b, 0xb7, 0x63, 0xfa, 0x51}};
+static const GUID kIID_IDXGISwapChain3 = {0x94d99bdb, 0xf1f8, 0x4ab0,
+                                          {0xb2, 0x36, 0x7d, 0xa0, 0x17, 0x0e, 0xda, 0xb1}};
 
 #define TYCHO_DX12_RT_FORMAT DXGI_FORMAT_R8G8B8A8_UNORM
 #define TYCHO_DX12_RT_FORMAT_PIXEL_BYTES 4
 #define TYCHO_DX12_PITCH_ALIGNMENT 256
+#define TYCHO_DX12_FRAME_COUNT 3
+
+// Typed resource states crossing the FFI. D3D12_RESOURCE_STATE_COMMON and
+// D3D12_RESOURCE_STATE_PRESENT are both numerically 0, so the shim keeps its own
+// enum (so "present" stays expressible) while tracking the native value.
+enum {
+  TYCHO_DX12_STATE_COMMON = 0,
+  TYCHO_DX12_STATE_RENDER_TARGET = 1,
+  TYCHO_DX12_STATE_COPY_SOURCE = 2,
+  TYCHO_DX12_STATE_COPY_DEST = 3,
+  TYCHO_DX12_STATE_PRESENT = 4,
+  TYCHO_DX12_STATE_SHADER_RESOURCE = 5,
+  TYCHO_DX12_STATE_UNORDERED_ACCESS = 6,
+};
+
+static D3D12_RESOURCE_STATES dx12_native_state(int32_t state) {
+  switch (state) {
+    case TYCHO_DX12_STATE_RENDER_TARGET:
+      return D3D12_RESOURCE_STATE_RENDER_TARGET;
+    case TYCHO_DX12_STATE_COPY_SOURCE:
+      return D3D12_RESOURCE_STATE_COPY_SOURCE;
+    case TYCHO_DX12_STATE_COPY_DEST:
+      return D3D12_RESOURCE_STATE_COPY_DEST;
+    case TYCHO_DX12_STATE_PRESENT:
+      return D3D12_RESOURCE_STATE_PRESENT;
+    case TYCHO_DX12_STATE_SHADER_RESOURCE:
+      return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    case TYCHO_DX12_STATE_UNORDERED_ACCESS:
+      return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    default:
+      return D3D12_RESOURCE_STATE_COMMON;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Object wrappers (opaque handles crossing the FFI as uint64_t)
@@ -81,6 +116,7 @@ typedef struct TychoDxDevice {
   ID3D12Device *device;
   ID3D12CommandQueue *queue;
   ID3D12Fence *fence;
+  IDXGIFactory4 *factory;
   HANDLE fence_event;
   UINT64 fence_value;
   ID3D12InfoQueue *info_queue;
@@ -97,12 +133,23 @@ typedef struct TychoDxPipeline {
 
 typedef struct TychoDxTexture {
   ID3D12Resource *resource;
-  ID3D12DescriptorHeap *rtv_heap;
+  ID3D12DescriptorHeap *rtv_heap;  // owned by the wrapper unless `owned` is 0
   D3D12_CPU_DESCRIPTOR_HANDLE rtv;
-  D3D12_RESOURCE_STATES state;
+  D3D12_RESOURCE_STATES state;  // native state, what the barriers need
+  int state_tag;                // typed enum reported across the FFI
   int width;
   int height;
+  int owned;  // 0 for swapchain back buffers, whose lifetime is the swapchain's
 } TychoDxTexture;
+
+typedef struct TychoDxSwapchain {
+  IDXGISwapChain3 *swapchain;
+  ID3D12DescriptorHeap *rtv_heap;
+  D3D12_CPU_DESCRIPTOR_HANDLE rtv[TYCHO_DX12_FRAME_COUNT];
+  UINT width;
+  UINT height;
+  int has_views;
+} TychoDxSwapchain;
 
 typedef struct TychoDxReadback {
   ID3D12Resource *resource;
@@ -121,6 +168,7 @@ static TychoDxPipeline *as_pipeline(uint64_t p) { return (TychoDxPipeline *)(uin
 static TychoDxTexture *as_texture(uint64_t p) { return (TychoDxTexture *)(uintptr_t)p; }
 static TychoDxReadback *as_readback(uint64_t p) { return (TychoDxReadback *)(uintptr_t)p; }
 static TychoDxCommands *as_commands(uint64_t p) { return (TychoDxCommands *)(uintptr_t)p; }
+static TychoDxSwapchain *as_swapchain(uint64_t p) { return (TychoDxSwapchain *)(uintptr_t)p; }
 
 static void set_hr(HRESULT hr) {
   if (FAILED(hr)) {
@@ -155,6 +203,13 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_init(void) {
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_last_error(void) { return (int32_t)g_last_hr; }
+
+// Data pointer of a MoonBit array, for the raw ABI-style calls the generated
+// dispatch layer exposes (distinct name from the Vulkan package's helper so both
+// modules can be linked into one executable).
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_as_ptr(const void *p) {
+  return (uint64_t)(uintptr_t)p;
+}
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_env_requests_warp(void) {
   const char *e = getenv("TYCHO_DX12_WARP");
@@ -191,8 +246,10 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_device_create(int32_t use_warp, int32_t d
     hr = factory->lpVtbl->EnumAdapters1(factory, 0, &adapter);
   }
   set_hr(hr);
-  factory->lpVtbl->Release(factory);
-  if (FAILED(hr) || !adapter) return 0;
+  if (FAILED(hr) || !adapter) {
+    factory->lpVtbl->Release(factory);
+    return 0;
+  }
 
   dev = (TychoDxDevice *)calloc(1, sizeof(TychoDxDevice));
   if (!dev) {
@@ -200,12 +257,14 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_device_create(int32_t use_warp, int32_t d
     return 0;
   }
   dev->is_warp = use_warp ? 1 : 0;
+  dev->factory = factory;  // kept for swapchain creation, released in destroy
 
   hr = g_create_device((IUnknown *)adapter, D3D_FEATURE_LEVEL_12_0, &kIID_ID3D12Device,
                        (void **)&dev->device);
   set_hr(hr);
   adapter->lpVtbl->Release(adapter);
   if (FAILED(hr) || !dev->device) {
+    factory->lpVtbl->Release(factory);
     free(dev);
     return 0;
   }
@@ -270,6 +329,7 @@ fail:
   if (dev->fence_event) CloseHandle(dev->fence_event);
   if (dev->fence) dev->fence->lpVtbl->Release(dev->fence);
   if (dev->queue) dev->queue->lpVtbl->Release(dev->queue);
+  if (dev->factory) dev->factory->lpVtbl->Release(dev->factory);
   if (dev->device) dev->device->lpVtbl->Release(dev->device);
   free(dev);
   return 0;
@@ -291,8 +351,32 @@ MOONBIT_FFI_EXPORT void tycho_dx12_device_destroy(uint64_t p) {
   if (dev->fence_event) CloseHandle(dev->fence_event);
   if (dev->fence) dev->fence->lpVtbl->Release(dev->fence);
   if (dev->queue) dev->queue->lpVtbl->Release(dev->queue);
+  if (dev->factory) dev->factory->lpVtbl->Release(dev->factory);
   if (dev->device) dev->device->lpVtbl->Release(dev->device);
   free(dev);
+}
+
+// Signals the fence and waits for the queue to drain. Required before releasing
+// anything the GPU may still reference: the debug layer turns such a release
+// into a CORRUPTION message (and an exception when a debugger is attached).
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_device_wait_idle(uint64_t p) {
+  TychoDxDevice *dev = as_device(p);
+  HRESULT hr;
+  if (!dev || !dev->queue || !dev->fence) return 0;
+  dev->fence_value += 1;
+  hr = dev->queue->lpVtbl->Signal(dev->queue, dev->fence, dev->fence_value);
+  set_hr(hr);
+  if (FAILED(hr)) return 0;
+  if (dev->fence->lpVtbl->GetCompletedValue(dev->fence) < dev->fence_value) {
+    hr = dev->fence->lpVtbl->SetEventOnCompletion(dev->fence, dev->fence_value, dev->fence_event);
+    set_hr(hr);
+    if (FAILED(hr)) return 0;
+    if (WaitForSingleObject(dev->fence_event, 30000) != WAIT_OBJECT_0) {
+      g_last_hr = (HRESULT)0x80004004;
+      return 0;
+    }
+  }
+  return 1;
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_device_validation_errors(uint64_t p) {
@@ -318,6 +402,13 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_device_validation_errors(uint64_t p) {
     }
   }
   return errors;
+}
+
+// The raw ID3D12Device pointer, for the generated COM dispatch layer and any
+// other interop that needs the real COM object.
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_device_raw(uint64_t p) {
+  TychoDxDevice *dev = as_device(p);
+  return dev ? (uint64_t)(uintptr_t)dev->device : 0;
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_device_is_warp(uint64_t p) {
@@ -394,10 +485,19 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_commands_begin(uint64_t p) {
   return SUCCEEDED(hr) ? 1 : 0;
 }
 
-static void texture_transition(TychoDxTexture *tex, D3D12_RESOURCE_STATES after,
-                               ID3D12GraphicsCommandList *list) {
+// Resource state tracking. Every texture keeps its native state, so a transition
+// is only emitted when the requested state actually differs; drawing into or
+// copying from a texture whose state is wrong is rejected instead of silently
+// producing corrupt frames.
+static int texture_transition(TychoDxTexture *tex, int32_t state,
+                              ID3D12GraphicsCommandList *list) {
   D3D12_RESOURCE_BARRIER barrier;
-  if (!tex || !list || tex->state == after) return;
+  D3D12_RESOURCE_STATES after = dx12_native_state(state);
+  if (!tex || !list) return 0;
+  if (tex->state == after) {
+    tex->state_tag = state;
+    return 1;
+  }
   memset(&barrier, 0, sizeof barrier);
   barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
   barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
@@ -407,21 +507,20 @@ static void texture_transition(TychoDxTexture *tex, D3D12_RESOURCE_STATES after,
   barrier.Transition.StateAfter = after;
   list->lpVtbl->ResourceBarrier(list, 1, &barrier);
   tex->state = after;
-}
-
-MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_barrier_to_render_target(uint64_t cmd_p,
-                                                                   uint64_t tex_p) {
-  TychoDxCommands *cmds = as_commands(cmd_p);
-  if (!cmds) return 0;
-  texture_transition(as_texture(tex_p), D3D12_RESOURCE_STATE_RENDER_TARGET, cmds->list);
+  tex->state_tag = state;
   return 1;
 }
 
-MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_barrier_to_copy_source(uint64_t cmd_p, uint64_t tex_p) {
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_transition(uint64_t cmd_p, uint64_t tex_p,
+                                                     int32_t state) {
   TychoDxCommands *cmds = as_commands(cmd_p);
   if (!cmds) return 0;
-  texture_transition(as_texture(tex_p), D3D12_RESOURCE_STATE_COPY_SOURCE, cmds->list);
-  return 1;
+  return texture_transition(as_texture(tex_p), state, cmds->list);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_texture_state(uint64_t tex_p) {
+  TychoDxTexture *tex = as_texture(tex_p);
+  return tex ? tex->state_tag : -1;
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_clear(uint64_t cmd_p, uint64_t tex_p, float r, float g,
@@ -430,6 +529,10 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_clear(uint64_t cmd_p, uint64_t tex_p, 
   TychoDxTexture *tex = as_texture(tex_p);
   const float color[4] = {r, g, b, a};
   if (!cmds || !tex) return 0;
+  if (tex->state != D3D12_RESOURCE_STATE_RENDER_TARGET) {
+    g_last_hr = (HRESULT)0x8000000E;  // E_ILLEGAL_METHOD_CALL: clear before transition
+    return 0;
+  }
   cmds->list->lpVtbl->ClearRenderTargetView(cmds->list, tex->rtv, color, 0, NULL);
   return 1;
 }
@@ -449,6 +552,10 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd_p, uint64_t tex_p, i
   D3D12_VIEWPORT vp;
   D3D12_RECT scissor;
   if (!cmds || !tex) return 0;
+  if (tex->state != D3D12_RESOURCE_STATE_RENDER_TARGET) {
+    g_last_hr = (HRESULT)0x8000000E;  // E_ILLEGAL_METHOD_CALL: draw before transition
+    return 0;
+  }
   cmds->list->lpVtbl->OMSetRenderTargets(cmds->list, 1, &tex->rtv, FALSE, NULL);
   memset(&vp, 0, sizeof vp);
   vp.TopLeftX = 0.0f;
@@ -476,6 +583,10 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_copy_to_readback(uint64_t cmd_p, uint6
   D3D12_TEXTURE_COPY_LOCATION dst;
   D3D12_TEXTURE_COPY_LOCATION src;
   if (!cmds || !tex || !rb) return 0;
+  if (tex->state != D3D12_RESOURCE_STATE_COPY_SOURCE) {
+    g_last_hr = (HRESULT)0x8000000E;  // E_ILLEGAL_METHOD_CALL: copy before transition
+    return 0;
+  }
   memset(&dst, 0, sizeof dst);
   dst.pResource = rb->resource;
   dst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
@@ -642,6 +753,8 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create(uint64_t dev_p, int32_t wi
   tex->width = width;
   tex->height = height;
   tex->state = D3D12_RESOURCE_STATE_COMMON;
+  tex->state_tag = TYCHO_DX12_STATE_COMMON;
+  tex->owned = 1;
 
   memset(&heap, 0, sizeof heap);
   heap.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -698,8 +811,10 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_texture_create(uint64_t dev_p, int32_t wi
 MOONBIT_FFI_EXPORT void tycho_dx12_texture_destroy(uint64_t p) {
   TychoDxTexture *tex = as_texture(p);
   if (!tex) return;
-  if (tex->rtv_heap) tex->rtv_heap->lpVtbl->Release(tex->rtv_heap);
-  if (tex->resource) tex->resource->lpVtbl->Release(tex->resource);
+  if (tex->owned) {
+    if (tex->rtv_heap) tex->rtv_heap->lpVtbl->Release(tex->rtv_heap);
+    if (tex->resource) tex->resource->lpVtbl->Release(tex->resource);
+  }
   free(tex);
 }
 
@@ -791,6 +906,218 @@ MOONBIT_FFI_EXPORT moonbit_bytes_t tycho_dx12_readback_bytes(uint64_t p) {
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// DXGI flip-model swapchain (window presentation)
+// ---------------------------------------------------------------------------
+
+static void swapchain_release_views(TychoDxSwapchain *sc) {
+  if (!sc) return;
+  if (sc->rtv_heap) {
+    sc->rtv_heap->lpVtbl->Release(sc->rtv_heap);
+    sc->rtv_heap = NULL;
+  }
+  sc->has_views = 0;
+}
+
+static int swapchain_create_views(TychoDxDevice *dev, TychoDxSwapchain *sc) {
+  D3D12_DESCRIPTOR_HEAP_DESC heap_desc;
+  HRESULT hr;
+  UINT increment;
+  UINT i;
+
+  swapchain_release_views(sc);
+  memset(&heap_desc, 0, sizeof heap_desc);
+  heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+  heap_desc.NumDescriptors = TYCHO_DX12_FRAME_COUNT;
+  heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+  hr = dev->device->lpVtbl->CreateDescriptorHeap(dev->device, &heap_desc,
+                                                 &kIID_ID3D12DescriptorHeap,
+                                                 (void **)&sc->rtv_heap);
+  set_hr(hr);
+  if (FAILED(hr)) return 0;
+
+  increment = dev->device->lpVtbl->GetDescriptorHandleIncrementSize(
+      dev->device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+  for (i = 0; i < TYCHO_DX12_FRAME_COUNT; i++) {
+    ID3D12Resource *buffer = NULL;
+    D3D12_RENDER_TARGET_VIEW_DESC rtv_desc;
+    D3D12_CPU_DESCRIPTOR_HANDLE handle;
+    hr = sc->swapchain->lpVtbl->GetBuffer(sc->swapchain, i, &kIID_ID3D12Resource,
+                                          (void **)&buffer);
+    set_hr(hr);
+    if (FAILED(hr)) {
+      swapchain_release_views(sc);
+      return 0;
+    }
+    {
+      D3D12_CPU_DESCRIPTOR_HANDLE base;
+      sc->rtv_heap->lpVtbl->GetCPUDescriptorHandleForHeapStart(sc->rtv_heap, &base);
+      handle.ptr = base.ptr + (SIZE_T)i * increment;
+    }
+    sc->rtv[i] = handle;
+    memset(&rtv_desc, 0, sizeof rtv_desc);
+    rtv_desc.Format = TYCHO_DX12_RT_FORMAT;
+    rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+    dev->device->lpVtbl->CreateRenderTargetView(dev->device, buffer, &rtv_desc, handle);
+    buffer->lpVtbl->Release(buffer);
+  }
+  sc->has_views = 1;
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_swapchain_create(uint64_t dev_p, uint64_t hwnd,
+                                                        int32_t width, int32_t height) {
+  TychoDxDevice *dev = as_device(dev_p);
+  DXGI_SWAP_CHAIN_DESC1 desc;
+  IDXGISwapChain1 *swapchain1 = NULL;
+  TychoDxSwapchain *sc;
+  HRESULT hr;
+  if (!dev || !dev->factory || !hwnd || width <= 0 || height <= 0) return 0;
+
+  sc = (TychoDxSwapchain *)calloc(1, sizeof(TychoDxSwapchain));
+  if (!sc) return 0;
+
+  memset(&desc, 0, sizeof desc);
+  desc.Width = (UINT)width;
+  desc.Height = (UINT)height;
+  desc.Format = TYCHO_DX12_RT_FORMAT;
+  desc.Stereo = FALSE;
+  desc.SampleDesc.Count = 1;
+  desc.SampleDesc.Quality = 0;
+  desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+  desc.BufferCount = TYCHO_DX12_FRAME_COUNT;
+  desc.Scaling = DXGI_SCALING_STRETCH;
+  desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+  desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+  desc.Flags = 0;
+
+  hr = dev->factory->lpVtbl->CreateSwapChainForHwnd(dev->factory, (IUnknown *)dev->queue,
+                                                    (HWND)(uintptr_t)hwnd, &desc, NULL, NULL,
+                                                    &swapchain1);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    free(sc);
+    return 0;
+  }
+  // A test window must not be thrown into exclusive fullscreen by Alt+Enter.
+  dev->factory->lpVtbl->MakeWindowAssociation(dev->factory, (HWND)(uintptr_t)hwnd,
+                                              DXGI_MWA_NO_ALT_ENTER);
+  hr = swapchain1->lpVtbl->QueryInterface(swapchain1, &kIID_IDXGISwapChain3,
+                                          (void **)&sc->swapchain);
+  swapchain1->lpVtbl->Release(swapchain1);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    free(sc);
+    return 0;
+  }
+  sc->width = (UINT)width;
+  sc->height = (UINT)height;
+  if (!swapchain_create_views(dev, sc)) {
+    sc->swapchain->lpVtbl->Release(sc->swapchain);
+    free(sc);
+    return 0;
+  }
+  return (uint64_t)(uintptr_t)sc;
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_swapchain_destroy(uint64_t p) {
+  TychoDxSwapchain *sc = as_swapchain(p);
+  if (!sc) return;
+  swapchain_release_views(sc);
+  if (sc->swapchain) sc->swapchain->lpVtbl->Release(sc->swapchain);
+  free(sc);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_width(uint64_t p) {
+  TychoDxSwapchain *sc = as_swapchain(p);
+  return sc ? (int32_t)sc->width : 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_height(uint64_t p) {
+  TychoDxSwapchain *sc = as_swapchain(p);
+  return sc ? (int32_t)sc->height : 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_current_index(uint64_t p) {
+  TychoDxSwapchain *sc = as_swapchain(p);
+  return sc ? (int32_t)sc->swapchain->lpVtbl->GetCurrentBackBufferIndex(sc->swapchain) : -1;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_present(uint64_t p) {
+  TychoDxSwapchain *sc = as_swapchain(p);
+  HRESULT hr;
+  if (!sc) return 0;
+  hr = sc->swapchain->lpVtbl->Present(sc->swapchain, 1, 0);
+  if (hr == DXGI_STATUS_OCCLUDED) {
+    return 2;  // presented, but the window is not visible: not an error
+  }
+  set_hr(hr);
+  return SUCCEEDED(hr) ? 1 : 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_swapchain_target(uint64_t p, int32_t index) {
+  TychoDxSwapchain *sc = as_swapchain(p);
+  ID3D12Resource *buffer = NULL;
+  TychoDxTexture *tex;
+  HRESULT hr;
+  if (!sc || !sc->has_views || index < 0 || index >= TYCHO_DX12_FRAME_COUNT) return 0;
+  hr = sc->swapchain->lpVtbl->GetBuffer(sc->swapchain, (UINT)index, &kIID_ID3D12Resource,
+                                        (void **)&buffer);
+  set_hr(hr);
+  if (FAILED(hr)) return 0;
+  tex = (TychoDxTexture *)calloc(1, sizeof(TychoDxTexture));
+  if (!tex) {
+    buffer->lpVtbl->Release(buffer);
+    return 0;
+  }
+  // Borrowed view: the swapchain owns the resource and the descriptor heap, and
+  // a freshly presented back buffer is already in the PRESENT state.
+  tex->resource = buffer;
+  tex->rtv = sc->rtv[index];
+  tex->state = D3D12_RESOURCE_STATE_PRESENT;
+  tex->state_tag = TYCHO_DX12_STATE_PRESENT;
+  tex->width = (int)sc->width;
+  tex->height = (int)sc->height;
+  tex->owned = 0;
+  // The wrapper no longer owns the reference GetBuffer just handed out.
+  buffer->lpVtbl->Release(buffer);
+  return (uint64_t)(uintptr_t)tex;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_resize(uint64_t dev_p, uint64_t p, int32_t width,
+                                                       int32_t height) {
+  TychoDxDevice *dev = as_device(dev_p);
+  TychoDxSwapchain *sc = as_swapchain(p);
+  HRESULT hr;
+  DWORD wait_result;
+  if (!dev || !sc || width <= 0 || height <= 0) return 0;
+
+  // All back buffers must be released before ResizeBuffers.
+  swapchain_release_views(sc);
+  dev->fence_value += 1;
+  hr = dev->queue->lpVtbl->Signal(dev->queue, dev->fence, dev->fence_value);
+  set_hr(hr);
+  if (FAILED(hr)) return 0;
+  if (dev->fence->lpVtbl->GetCompletedValue(dev->fence) < dev->fence_value) {
+    hr = dev->fence->lpVtbl->SetEventOnCompletion(dev->fence, dev->fence_value, dev->fence_event);
+    set_hr(hr);
+    if (FAILED(hr)) return 0;
+    wait_result = WaitForSingleObject(dev->fence_event, 30000);
+    if (wait_result != WAIT_OBJECT_0) {
+      g_last_hr = (HRESULT)0x80004004;
+      return 0;
+    }
+  }
+
+  hr = sc->swapchain->lpVtbl->ResizeBuffers(sc->swapchain, 0, (UINT)width, (UINT)height,
+                                            DXGI_FORMAT_UNKNOWN, 0);
+  set_hr(hr);
+  if (FAILED(hr)) return 0;
+  sc->width = (UINT)width;
+  sc->height = (UINT)height;
+  return swapchain_create_views(dev, sc) ? 1 : 0;
+}
+
 #else  // !defined(_WIN32)
 
 // Non-Windows hosts: keep the package buildable, every entry point reports
@@ -799,6 +1126,10 @@ MOONBIT_FFI_EXPORT moonbit_bytes_t tycho_dx12_readback_bytes(uint64_t p) {
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_init(void) { return 0; }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_last_error(void) { return 0; }
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_as_ptr(const void *p) {
+  return (uint64_t)(uintptr_t)p;
+}
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_env_requests_warp(void) { return 0; }
 
@@ -815,7 +1146,17 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_device_validation_errors(uint64_t p) {
   return 0;
 }
 
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_device_wait_idle(uint64_t p) {
+  (void)p;
+  return 0;
+}
+
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_device_is_warp(uint64_t p) {
+  (void)p;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_device_raw(uint64_t p) {
   (void)p;
   return 0;
 }
@@ -847,16 +1188,16 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_commands_begin(uint64_t p) {
   return 0;
 }
 
-MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_barrier_to_render_target(uint64_t cmd, uint64_t tex) {
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_transition(uint64_t cmd, uint64_t tex, int32_t state) {
   (void)cmd;
   (void)tex;
+  (void)state;
   return 0;
 }
 
-MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_barrier_to_copy_source(uint64_t cmd, uint64_t tex) {
-  (void)cmd;
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_texture_state(uint64_t tex) {
   (void)tex;
-  return 0;
+  return -1;
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_clear(uint64_t cmd, uint64_t tex, float r, float g,
@@ -933,6 +1274,52 @@ MOONBIT_FFI_EXPORT void tycho_dx12_readback_destroy(uint64_t p) { (void)p; }
 MOONBIT_FFI_EXPORT moonbit_bytes_t tycho_dx12_readback_bytes(uint64_t p) {
   (void)p;
   return moonbit_make_bytes(0, 0);
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_swapchain_create(uint64_t dev, uint64_t hwnd,
+                                                        int32_t width, int32_t height) {
+  (void)dev;
+  (void)hwnd;
+  (void)width;
+  (void)height;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_swapchain_destroy(uint64_t p) { (void)p; }
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_width(uint64_t p) {
+  (void)p;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_height(uint64_t p) {
+  (void)p;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_current_index(uint64_t p) {
+  (void)p;
+  return -1;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_present(uint64_t p) {
+  (void)p;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_swapchain_target(uint64_t p, int32_t index) {
+  (void)p;
+  (void)index;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_resize(uint64_t dev, uint64_t p, int32_t width,
+                                                       int32_t height) {
+  (void)dev;
+  (void)p;
+  (void)width;
+  (void)height;
+  return 0;
 }
 
 #endif  // defined(_WIN32)

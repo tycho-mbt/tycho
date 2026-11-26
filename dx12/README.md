@@ -15,14 +15,28 @@ validated before the code generator takes over in M1b.
 
 | Surface | Notes |
 |---|---|
-| `Device` | FL 12_0 device + direct queue + fence; hardware adapter first, WARP on request; optional debug layer (`ID3D12InfoQueue` message counting) |
-| `CommandList` | direct allocator + command list, `begin` / transitions / clear / draw / copy / `execute_wait` |
+| `Device` | FL 12_0 device + direct queue + fence; hardware adapter first, WARP on request; optional debug layer (`ID3D12InfoQueue` message counting); `wait_idle`, `raw()` for raw COM interop |
+| `CommandList` | direct allocator + command list, `begin` / `transition` / clear / draw / copy / `execute_wait` |
+| `ResourceState` | typed states (`RenderTarget`, `CopySource`, `CopyDest`, `Present`, …); the shim tracks the native state per texture and only emits a barrier when it actually changes, and drawing/copying from the wrong state fails with `E_ILLEGAL_METHOD_CALL` |
 | `Pipeline` | empty root signature + graphics PSO from DXIL blobs |
-| `Texture` | RGBA8 UNORM render target with its own RTV heap |
+| `Texture` | RGBA8 UNORM render target with its own RTV heap (`state()` reports the tracked state) |
+| `Swapchain` | DXGI flip-model (`DXGI_SWAP_EFFECT_FLIP_DISCARD`, 3 buffers) on an `HWND`; `target(index)` wraps a back buffer, `present()` distinguishes presented / occluded / failed, `resize()` recreates the RTV heap |
 | `Readback` | READBACK-heap buffer, rows repacked to tightly packed RGBA8 on the MoonBit side |
+| generated dispatch | `dispatch_generated.c` / `dispatch_generated.mbt`: one thunk per COM method for 17 interfaces (490 methods), generated from `registry/d3d12-abi.txt` |
 
 Capability queries: `Device::shader_model`, `Device::mesh_tier`, `Device::raytracing_tier`,
 `Device::is_warp`, `Device::validation_errors`.
+
+## Code generation
+
+`registry/d3d12-abi.txt` is the committed COM ABI manifest, distilled once from `d3d12.h` with
+`tools/dump-d3d12-abi.py` (the only step that needs the Windows SDK). Regenerating the dispatch
+layer needs nothing but Python:
+
+```bash
+python tools/gen-dx12-bindings.py          # writes dispatch_generated.{c,mbt}
+python tools/gen-dx12-bindings.py --check  # drift gate, wired into ./check-generated.sh
+```
 
 Environment: `TYCHO_DX12_WARP=1` forces the WARP software adapter (the DX12 counterpart of
 `TYCHO_VULKAN_LIB`); `TYCHO_D3D12_LIB` / `TYCHO_DXGI_LIB` override the DLL paths.

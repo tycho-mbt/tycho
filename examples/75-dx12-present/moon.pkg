@@ -1,0 +1,6 @@
+import {
+  "laplaceliu/tycho_dx12" @dx12,
+  "laplaceliu/tycho_window" @win,
+}
+
+pkgtype(kind: "executable")

@@ -16,13 +16,20 @@ extern "c" fn last_error_ffi() -> Int32 = "tycho_dx12_last_error"
 
 extern "c" fn env_requests_warp_ffi() -> Int32 = "tycho_dx12_env_requests_warp"
 
+#borrow(values)
+extern "c" fn int32_ptr_ffi(values : FixedArray[Int32]) -> UInt64 = "tycho_dx12_as_ptr"
+
 extern "c" fn device_create_ffi(use_warp : Int, debug : Int) -> UInt64 = "tycho_dx12_device_create"
 
 extern "c" fn device_destroy_ffi(dev : UInt64) = "tycho_dx12_device_destroy"
 
 extern "c" fn device_validation_errors_ffi(dev : UInt64) -> Int32 = "tycho_dx12_device_validation_errors"
 
+extern "c" fn device_wait_idle_ffi(dev : UInt64) -> Int32 = "tycho_dx12_device_wait_idle"
+
 extern "c" fn device_is_warp_ffi(dev : UInt64) -> Int32 = "tycho_dx12_device_is_warp"
+
+extern "c" fn device_raw_ffi(dev : UInt64) -> UInt64 = "tycho_dx12_device_raw"
 
 extern "c" fn device_shader_model_ffi(dev : UInt64) -> Int32 = "tycho_dx12_device_shader_model"
 
@@ -36,9 +43,25 @@ extern "c" fn commands_destroy_ffi(cmds : UInt64) = "tycho_dx12_commands_destroy
 
 extern "c" fn commands_begin_ffi(cmds : UInt64) -> Int32 = "tycho_dx12_commands_begin"
 
-extern "c" fn cmd_barrier_to_render_target_ffi(cmds : UInt64, tex : UInt64) -> Int32 = "tycho_dx12_cmd_barrier_to_render_target"
+extern "c" fn cmd_transition_ffi(cmds : UInt64, tex : UInt64, state : Int) -> Int32 = "tycho_dx12_cmd_transition"
 
-extern "c" fn cmd_barrier_to_copy_source_ffi(cmds : UInt64, tex : UInt64) -> Int32 = "tycho_dx12_cmd_barrier_to_copy_source"
+extern "c" fn texture_state_ffi(tex : UInt64) -> Int32 = "tycho_dx12_texture_state"
+
+extern "c" fn swapchain_create_ffi(dev : UInt64, hwnd : UInt64, width : Int, height : Int) -> UInt64 = "tycho_dx12_swapchain_create"
+
+extern "c" fn swapchain_destroy_ffi(sc : UInt64) = "tycho_dx12_swapchain_destroy"
+
+extern "c" fn swapchain_width_ffi(sc : UInt64) -> Int32 = "tycho_dx12_swapchain_width"
+
+extern "c" fn swapchain_height_ffi(sc : UInt64) -> Int32 = "tycho_dx12_swapchain_height"
+
+extern "c" fn swapchain_current_index_ffi(sc : UInt64) -> Int32 = "tycho_dx12_swapchain_current_index"
+
+extern "c" fn swapchain_present_ffi(sc : UInt64) -> Int32 = "tycho_dx12_swapchain_present"
+
+extern "c" fn swapchain_target_ffi(sc : UInt64, index : Int) -> UInt64 = "tycho_dx12_swapchain_target"
+
+extern "c" fn swapchain_resize_ffi(dev : UInt64, sc : UInt64, width : Int, height : Int) -> Int32 = "tycho_dx12_swapchain_resize"
 
 extern "c" fn cmd_clear_ffi(cmds : UInt64, tex : UInt64, r : Float, g : Float, b : Float, a : Float) -> Int32 = "tycho_dx12_cmd_clear"
 
@@ -95,6 +118,12 @@ pub fn env_requests_warp() -> Bool {
 }
 
 ///|
+/// Data pointer of an `Int32` array, for the raw generated-dispatch ABI.
+pub fn int32_ptr(values : FixedArray[Int32]) -> UInt64 {
+  int32_ptr_ffi(values)
+}
+
+///|
 /// Creates a device on the first hardware adapter, or on WARP when `warp` is set.
 /// `debug` enables the D3D12 debug layer (and its message queue).
 pub fn Device::create(warp? : Bool = false, debug? : Bool = false) -> Device? {
@@ -126,8 +155,22 @@ pub fn Device::validation_errors(self : Device) -> Int {
 }
 
 ///|
+/// Blocks until the queue has drained. Call this before releasing anything the
+/// GPU may still be using (swapchain, render targets, readback buffers).
+pub fn Device::wait_idle(self : Device) -> Bool {
+  device_wait_idle_ffi(self.handle) != 0
+}
+
+///|
 pub fn Device::is_warp(self : Device) -> Bool {
   device_is_warp_ffi(self.handle) != 0
+}
+
+///|
+/// The underlying `ID3D12Device *`, for the generated dispatch layer and other
+/// raw interop. `Device::handle` is the wrapper, not the COM object.
+pub fn Device::raw(self : Device) -> UInt64 {
+  device_raw_ffi(self.handle)
 }
 
 ///|
@@ -206,6 +249,12 @@ pub fn Texture::handle(self : Texture) -> UInt64 {
 }
 
 ///|
+/// The texture's current resource state, as last set by `CommandList::transition`.
+pub fn Texture::state(self : Texture) -> ResourceState? {
+  ResourceState::from_code(texture_state_ffi(self.handle).to_int())
+}
+
+///|
 pub fn Texture::destroy(self : Texture) -> Unit {
   texture_destroy_ffi(self.handle)
 }
@@ -278,13 +327,56 @@ pub fn CommandList::begin(self : CommandList) -> Bool {
 }
 
 ///|
-pub fn CommandList::barrier_to_render_target(self : CommandList, tex : Texture) -> Bool {
-  cmd_barrier_to_render_target_ffi(self.handle, tex.handle) != 0
+/// Typed resource states. `Present` and `Common` both map to the D3D12 value 0,
+/// but keeping them apart lets a caller express intent (and lets the shim report
+/// what a texture was last used for).
+pub(all) enum ResourceState {
+  Common
+  RenderTarget
+  CopySource
+  CopyDest
+  Present
+  ShaderResource
+  UnorderedAccess
 }
 
 ///|
-pub fn CommandList::barrier_to_copy_source(self : CommandList, tex : Texture) -> Bool {
-  cmd_barrier_to_copy_source_ffi(self.handle, tex.handle) != 0
+fn ResourceState::code(self : ResourceState) -> Int {
+  match self {
+    Common => 0
+    RenderTarget => 1
+    CopySource => 2
+    CopyDest => 3
+    Present => 4
+    ShaderResource => 5
+    UnorderedAccess => 6
+  }
+}
+
+///|
+fn ResourceState::from_code(code : Int) -> ResourceState? {
+  match code {
+    0 => Some(Common)
+    1 => Some(RenderTarget)
+    2 => Some(CopySource)
+    3 => Some(CopyDest)
+    4 => Some(Present)
+    5 => Some(ShaderResource)
+    6 => Some(UnorderedAccess)
+    _ => None
+  }
+}
+
+///|
+/// Transitions the texture into `state`, emitting a barrier only when the native
+/// state actually changes. Drawing or copying from a texture in the wrong state
+/// fails with `E_ILLEGAL_METHOD_CALL` instead of corrupting the frame.
+pub fn CommandList::transition(
+  self : CommandList,
+  tex : Texture,
+  state : ResourceState,
+) -> Bool {
+  cmd_transition_ffi(self.handle, tex.handle, state.code()) != 0
 }
 
 ///|
@@ -317,4 +409,95 @@ pub fn CommandList::copy_to_readback(self : CommandList, tex : Texture, rb : Rea
 ///|
 pub fn CommandList::execute_wait(self : CommandList, device : Device) -> Bool {
   commands_execute_wait_ffi(device.handle, self.handle) != 0
+}
+
+// ---------------------------------------------------------------------------
+// DXGI flip-model swapchain
+// ---------------------------------------------------------------------------
+
+///|
+/// Outcome of `Swapchain::present`.
+pub(all) enum PresentResult {
+  Presented
+  /// Presented, but the window is not visible (minimised / occluded).
+  Occluded
+  Failed
+}
+
+///|
+/// DXGI flip-model swapchain bound to a native window handle (`HWND`).
+pub struct Swapchain {
+  handle : UInt64
+}
+
+///|
+pub fn Swapchain::create(
+  device : Device,
+  hwnd : UInt64,
+  width : Int,
+  height : Int,
+) -> Swapchain? {
+  let handle = swapchain_create_ffi(device.handle, hwnd, width, height)
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn Swapchain::handle(self : Swapchain) -> UInt64 {
+  self.handle
+}
+
+///|
+pub fn Swapchain::width(self : Swapchain) -> Int {
+  swapchain_width_ffi(self.handle).to_int()
+}
+
+///|
+pub fn Swapchain::height(self : Swapchain) -> Int {
+  swapchain_height_ffi(self.handle).to_int()
+}
+
+///|
+pub fn Swapchain::current_index(self : Swapchain) -> Int {
+  swapchain_current_index_ffi(self.handle).to_int()
+}
+
+///|
+/// A borrowed handle to back buffer `index`. The returned `Texture` must be
+/// destroyed (which only frees the wrapper), and it starts in
+/// `ResourceState::Present`.
+pub fn Swapchain::target(self : Swapchain, index : Int) -> Texture? {
+  let handle = swapchain_target_ffi(self.handle, index)
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn Swapchain::present(self : Swapchain) -> PresentResult {
+  match swapchain_present_ffi(self.handle).to_int() {
+    1 => Presented
+    2 => Occluded
+    _ => Failed
+  }
+}
+
+///|
+pub fn Swapchain::resize(
+  self : Swapchain,
+  device : Device,
+  width : Int,
+  height : Int,
+) -> Bool {
+  swapchain_resize_ffi(device.handle, self.handle, width, height) != 0
+}
+
+///|
+pub fn Swapchain::destroy(self : Swapchain) -> Unit {
+  swapchain_destroy_ffi(self.handle)
 }

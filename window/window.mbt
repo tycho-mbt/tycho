@@ -360,6 +360,14 @@ pub fn take_resized(win : UInt64) -> Bool {
 }
 
 ///|
+/// The raw native window handle: `HWND` on Windows, `Window` (X11) on Linux and
+/// the `CAMetalLayer` pointer on macOS. Needed by backends that create their own
+/// swapchain, e.g. DXGI's `CreateSwapChainForHwnd`.
+pub fn native_handle(win : UInt64) -> UInt64 {
+  win_handle_ffi(win)
+}
+
+///|
 pub fn set_title(win : UInt64, title : String) -> Unit {
   let s = @vk.cstr(title)
   win_set_title_ffi(win, s)

@@ -104,12 +104,14 @@ fn main {
   let ok = match @dx12.CommandList::create(device) {
     Some(cmd) => {
       let mut steps_ok = cmd.begin()
-      steps_ok = steps_ok && cmd.barrier_to_render_target(target)
+      steps_ok = steps_ok &&
+        cmd.transition(target, @dx12.ResourceState::RenderTarget)
       steps_ok = steps_ok &&
         cmd.clear(target, CLEAR_R, CLEAR_G, CLEAR_B, 1.0)
       steps_ok = steps_ok && cmd.set_pipeline(pipeline)
       steps_ok = steps_ok && cmd.draw(target, 3)
-      steps_ok = steps_ok && cmd.barrier_to_copy_source(target)
+      steps_ok = steps_ok &&
+        cmd.transition(target, @dx12.ResourceState::CopySource)
       steps_ok = steps_ok && cmd.copy_to_readback(target, readback)
       steps_ok = steps_ok && cmd.execute_wait(device)
       cmd.destroy()
@@ -141,6 +143,7 @@ fn main {
   let size_ok = px.length() == WIDTH * HEIGHT * 4
   let errs = device.validation_errors()
 
+  let _ = device.wait_idle()
   readback.destroy()
   target.destroy()
   pipeline.destroy()

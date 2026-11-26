@@ -1,0 +1,2070 @@
+# Direct3D 12 COM ABI distilled from d3d12.h - DO NOT EDIT.
+# Regenerate with: python tools/dump-d3d12-abi.py
+#
+# interface <name> parent=<parent> methods=<count>
+#   <name> ret=<type>
+#     <type> <param-name>
+
+interface ID3D12Object methods=4
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+interface ID3D12RootSignature methods=5
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+interface ID3D12Resource methods=12
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+  Map ret=HRESULT
+    UINT Subresource
+    const D3D12_RANGE * pReadRange
+    void ** ppData
+  Unmap ret=void
+    UINT Subresource
+    const D3D12_RANGE * pWrittenRange
+  GetDesc ret=D3D12_RESOURCE_DESC *
+    D3D12_RESOURCE_DESC * RetVal
+  GetGPUVirtualAddress ret=D3D12_GPU_VIRTUAL_ADDRESS
+  WriteToSubresource ret=HRESULT
+    UINT DstSubresource
+    const D3D12_BOX * pDstBox
+    const void * pSrcData
+    UINT SrcRowPitch
+    UINT SrcDepthPitch
+  ReadFromSubresource ret=HRESULT
+    void * pDstData
+    UINT DstRowPitch
+    UINT DstDepthPitch
+    UINT SrcSubresource
+    const D3D12_BOX * pSrcBox
+  GetHeapProperties ret=HRESULT
+    D3D12_HEAP_PROPERTIES * pHeapProperties
+    D3D12_HEAP_FLAGS * pHeapFlags
+interface ID3D12CommandAllocator methods=6
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+  Reset ret=HRESULT
+interface ID3D12Fence methods=8
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+  GetCompletedValue ret=UINT64
+  SetEventOnCompletion ret=HRESULT
+    UINT64 Value
+    HANDLE hEvent
+  Signal ret=HRESULT
+    UINT64 Value
+interface ID3D12Fence1 methods=9
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+  GetCompletedValue ret=UINT64
+  SetEventOnCompletion ret=HRESULT
+    UINT64 Value
+    HANDLE hEvent
+  Signal ret=HRESULT
+    UINT64 Value
+  GetCreationFlags ret=D3D12_FENCE_FLAGS
+interface ID3D12PipelineState methods=6
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+  GetCachedBlob ret=HRESULT
+    ID3DBlob ** ppBlob
+interface ID3D12DescriptorHeap methods=8
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+  GetDesc ret=D3D12_DESCRIPTOR_HEAP_DESC *
+    D3D12_DESCRIPTOR_HEAP_DESC * RetVal
+  GetCPUDescriptorHandleForHeapStart ret=D3D12_CPU_DESCRIPTOR_HANDLE *
+    D3D12_CPU_DESCRIPTOR_HANDLE * RetVal
+  GetGPUDescriptorHandleForHeapStart ret=D3D12_GPU_DESCRIPTOR_HANDLE *
+    D3D12_GPU_DESCRIPTOR_HANDLE * RetVal
+interface ID3D12GraphicsCommandList methods=57
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+  GetType ret=D3D12_COMMAND_LIST_TYPE
+  Close ret=HRESULT
+  Reset ret=HRESULT
+    ID3D12CommandAllocator * pAllocator
+    ID3D12PipelineState * pInitialState
+  ClearState ret=void
+    ID3D12PipelineState * pPipelineState
+  DrawInstanced ret=void
+    UINT VertexCountPerInstance
+    UINT InstanceCount
+    UINT StartVertexLocation
+    UINT StartInstanceLocation
+  DrawIndexedInstanced ret=void
+    UINT IndexCountPerInstance
+    UINT InstanceCount
+    UINT StartIndexLocation
+    INT BaseVertexLocation
+    UINT StartInstanceLocation
+  Dispatch ret=void
+    UINT ThreadGroupCountX
+    UINT ThreadGroupCountY
+    UINT ThreadGroupCountZ
+  CopyBufferRegion ret=void
+    ID3D12Resource * pDstBuffer
+    UINT64 DstOffset
+    ID3D12Resource * pSrcBuffer
+    UINT64 SrcOffset
+    UINT64 NumBytes
+  CopyTextureRegion ret=void
+    const D3D12_TEXTURE_COPY_LOCATION * pDst
+    UINT DstX
+    UINT DstY
+    UINT DstZ
+    const D3D12_TEXTURE_COPY_LOCATION * pSrc
+    const D3D12_BOX * pSrcBox
+  CopyResource ret=void
+    ID3D12Resource * pDstResource
+    ID3D12Resource * pSrcResource
+  CopyTiles ret=void
+    ID3D12Resource * pTiledResource
+    const D3D12_TILED_RESOURCE_COORDINATE * pTileRegionStartCoordinate
+    const D3D12_TILE_REGION_SIZE * pTileRegionSize
+    ID3D12Resource * pBuffer
+    UINT64 BufferStartOffsetInBytes
+    D3D12_TILE_COPY_FLAGS Flags
+  ResolveSubresource ret=void
+    ID3D12Resource * pDstResource
+    UINT DstSubresource
+    ID3D12Resource * pSrcResource
+    UINT SrcSubresource
+    DXGI_FORMAT Format
+  IASetPrimitiveTopology ret=void
+    D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology
+  RSSetViewports ret=void
+    UINT NumViewports
+    const D3D12_VIEWPORT * pViewports
+  RSSetScissorRects ret=void
+    UINT NumRects
+    const D3D12_RECT * pRects
+  OMSetBlendFactor ret=void
+    const FLOAT * BlendFactor
+  OMSetStencilRef ret=void
+    UINT StencilRef
+  SetPipelineState ret=void
+    ID3D12PipelineState * pPipelineState
+  ResourceBarrier ret=void
+    UINT NumBarriers
+    const D3D12_RESOURCE_BARRIER * pBarriers
+  ExecuteBundle ret=void
+    ID3D12GraphicsCommandList * pCommandList
+  SetDescriptorHeaps ret=void
+    UINT NumDescriptorHeaps
+    ID3D12DescriptorHeap *const * ppDescriptorHeaps
+  SetComputeRootSignature ret=void
+    ID3D12RootSignature * pRootSignature
+  SetGraphicsRootSignature ret=void
+    ID3D12RootSignature * pRootSignature
+  SetComputeRootDescriptorTable ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_DESCRIPTOR_HANDLE BaseDescriptor
+  SetGraphicsRootDescriptorTable ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_DESCRIPTOR_HANDLE BaseDescriptor
+  SetComputeRoot32BitConstant ret=void
+    UINT RootParameterIndex
+    UINT SrcData
+    UINT DestOffsetIn32BitValues
+  SetGraphicsRoot32BitConstant ret=void
+    UINT RootParameterIndex
+    UINT SrcData
+    UINT DestOffsetIn32BitValues
+  SetComputeRoot32BitConstants ret=void
+    UINT RootParameterIndex
+    UINT Num32BitValuesToSet
+    const void * pSrcData
+    UINT DestOffsetIn32BitValues
+  SetGraphicsRoot32BitConstants ret=void
+    UINT RootParameterIndex
+    UINT Num32BitValuesToSet
+    const void * pSrcData
+    UINT DestOffsetIn32BitValues
+  SetComputeRootConstantBufferView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetGraphicsRootConstantBufferView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetComputeRootShaderResourceView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetGraphicsRootShaderResourceView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetComputeRootUnorderedAccessView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetGraphicsRootUnorderedAccessView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  IASetIndexBuffer ret=void
+    const D3D12_INDEX_BUFFER_VIEW * pView
+  IASetVertexBuffers ret=void
+    UINT StartSlot
+    UINT NumViews
+    const D3D12_VERTEX_BUFFER_VIEW * pViews
+  SOSetTargets ret=void
+    UINT StartSlot
+    UINT NumViews
+    const D3D12_STREAM_OUTPUT_BUFFER_VIEW * pViews
+  OMSetRenderTargets ret=void
+    UINT NumRenderTargetDescriptors
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pRenderTargetDescriptors
+    BOOL RTsSingleHandleToDescriptorRange
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pDepthStencilDescriptor
+  ClearDepthStencilView ret=void
+    D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView
+    D3D12_CLEAR_FLAGS ClearFlags
+    FLOAT Depth
+    UINT8 Stencil
+    UINT NumRects
+    const D3D12_RECT * pRects
+  ClearRenderTargetView ret=void
+    D3D12_CPU_DESCRIPTOR_HANDLE RenderTargetView
+    const FLOAT * ColorRGBA
+    UINT NumRects
+    const D3D12_RECT * pRects
+  ClearUnorderedAccessViewUint ret=void
+    D3D12_GPU_DESCRIPTOR_HANDLE ViewGPUHandleInCurrentHeap
+    D3D12_CPU_DESCRIPTOR_HANDLE ViewCPUHandle
+    ID3D12Resource * pResource
+    const UINT * Values
+    UINT NumRects
+    const D3D12_RECT * pRects
+  ClearUnorderedAccessViewFloat ret=void
+    D3D12_GPU_DESCRIPTOR_HANDLE ViewGPUHandleInCurrentHeap
+    D3D12_CPU_DESCRIPTOR_HANDLE ViewCPUHandle
+    ID3D12Resource * pResource
+    const FLOAT * Values
+    UINT NumRects
+    const D3D12_RECT * pRects
+  DiscardResource ret=void
+    ID3D12Resource * pResource
+    const D3D12_DISCARD_REGION * pRegion
+  BeginQuery ret=void
+    ID3D12QueryHeap * pQueryHeap
+    D3D12_QUERY_TYPE Type
+    UINT Index
+  EndQuery ret=void
+    ID3D12QueryHeap * pQueryHeap
+    D3D12_QUERY_TYPE Type
+    UINT Index
+  ResolveQueryData ret=void
+    ID3D12QueryHeap * pQueryHeap
+    D3D12_QUERY_TYPE Type
+    UINT StartIndex
+    UINT NumQueries
+    ID3D12Resource * pDestinationBuffer
+    UINT64 AlignedDestinationBufferOffset
+  SetPredication ret=void
+    ID3D12Resource * pBuffer
+    UINT64 AlignedBufferOffset
+    D3D12_PREDICATION_OP Operation
+  SetMarker ret=void
+    UINT Metadata
+    const void * pData
+    UINT Size
+  BeginEvent ret=void
+    UINT Metadata
+    const void * pData
+    UINT Size
+  EndEvent ret=void
+  ExecuteIndirect ret=void
+    ID3D12CommandSignature * pCommandSignature
+    UINT MaxCommandCount
+    ID3D12Resource * pArgumentBuffer
+    UINT64 ArgumentBufferOffset
+    ID3D12Resource * pCountBuffer
+    UINT64 CountBufferOffset
+interface ID3D12GraphicsCommandList1 methods=63
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+  GetType ret=D3D12_COMMAND_LIST_TYPE
+  Close ret=HRESULT
+  Reset ret=HRESULT
+    ID3D12CommandAllocator * pAllocator
+    ID3D12PipelineState * pInitialState
+  ClearState ret=void
+    ID3D12PipelineState * pPipelineState
+  DrawInstanced ret=void
+    UINT VertexCountPerInstance
+    UINT InstanceCount
+    UINT StartVertexLocation
+    UINT StartInstanceLocation
+  DrawIndexedInstanced ret=void
+    UINT IndexCountPerInstance
+    UINT InstanceCount
+    UINT StartIndexLocation
+    INT BaseVertexLocation
+    UINT StartInstanceLocation
+  Dispatch ret=void
+    UINT ThreadGroupCountX
+    UINT ThreadGroupCountY
+    UINT ThreadGroupCountZ
+  CopyBufferRegion ret=void
+    ID3D12Resource * pDstBuffer
+    UINT64 DstOffset
+    ID3D12Resource * pSrcBuffer
+    UINT64 SrcOffset
+    UINT64 NumBytes
+  CopyTextureRegion ret=void
+    const D3D12_TEXTURE_COPY_LOCATION * pDst
+    UINT DstX
+    UINT DstY
+    UINT DstZ
+    const D3D12_TEXTURE_COPY_LOCATION * pSrc
+    const D3D12_BOX * pSrcBox
+  CopyResource ret=void
+    ID3D12Resource * pDstResource
+    ID3D12Resource * pSrcResource
+  CopyTiles ret=void
+    ID3D12Resource * pTiledResource
+    const D3D12_TILED_RESOURCE_COORDINATE * pTileRegionStartCoordinate
+    const D3D12_TILE_REGION_SIZE * pTileRegionSize
+    ID3D12Resource * pBuffer
+    UINT64 BufferStartOffsetInBytes
+    D3D12_TILE_COPY_FLAGS Flags
+  ResolveSubresource ret=void
+    ID3D12Resource * pDstResource
+    UINT DstSubresource
+    ID3D12Resource * pSrcResource
+    UINT SrcSubresource
+    DXGI_FORMAT Format
+  IASetPrimitiveTopology ret=void
+    D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology
+  RSSetViewports ret=void
+    UINT NumViewports
+    const D3D12_VIEWPORT * pViewports
+  RSSetScissorRects ret=void
+    UINT NumRects
+    const D3D12_RECT * pRects
+  OMSetBlendFactor ret=void
+    const FLOAT * BlendFactor
+  OMSetStencilRef ret=void
+    UINT StencilRef
+  SetPipelineState ret=void
+    ID3D12PipelineState * pPipelineState
+  ResourceBarrier ret=void
+    UINT NumBarriers
+    const D3D12_RESOURCE_BARRIER * pBarriers
+  ExecuteBundle ret=void
+    ID3D12GraphicsCommandList * pCommandList
+  SetDescriptorHeaps ret=void
+    UINT NumDescriptorHeaps
+    ID3D12DescriptorHeap *const * ppDescriptorHeaps
+  SetComputeRootSignature ret=void
+    ID3D12RootSignature * pRootSignature
+  SetGraphicsRootSignature ret=void
+    ID3D12RootSignature * pRootSignature
+  SetComputeRootDescriptorTable ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_DESCRIPTOR_HANDLE BaseDescriptor
+  SetGraphicsRootDescriptorTable ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_DESCRIPTOR_HANDLE BaseDescriptor
+  SetComputeRoot32BitConstant ret=void
+    UINT RootParameterIndex
+    UINT SrcData
+    UINT DestOffsetIn32BitValues
+  SetGraphicsRoot32BitConstant ret=void
+    UINT RootParameterIndex
+    UINT SrcData
+    UINT DestOffsetIn32BitValues
+  SetComputeRoot32BitConstants ret=void
+    UINT RootParameterIndex
+    UINT Num32BitValuesToSet
+    const void * pSrcData
+    UINT DestOffsetIn32BitValues
+  SetGraphicsRoot32BitConstants ret=void
+    UINT RootParameterIndex
+    UINT Num32BitValuesToSet
+    const void * pSrcData
+    UINT DestOffsetIn32BitValues
+  SetComputeRootConstantBufferView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetGraphicsRootConstantBufferView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetComputeRootShaderResourceView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetGraphicsRootShaderResourceView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetComputeRootUnorderedAccessView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetGraphicsRootUnorderedAccessView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  IASetIndexBuffer ret=void
+    const D3D12_INDEX_BUFFER_VIEW * pView
+  IASetVertexBuffers ret=void
+    UINT StartSlot
+    UINT NumViews
+    const D3D12_VERTEX_BUFFER_VIEW * pViews
+  SOSetTargets ret=void
+    UINT StartSlot
+    UINT NumViews
+    const D3D12_STREAM_OUTPUT_BUFFER_VIEW * pViews
+  OMSetRenderTargets ret=void
+    UINT NumRenderTargetDescriptors
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pRenderTargetDescriptors
+    BOOL RTsSingleHandleToDescriptorRange
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pDepthStencilDescriptor
+  ClearDepthStencilView ret=void
+    D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView
+    D3D12_CLEAR_FLAGS ClearFlags
+    FLOAT Depth
+    UINT8 Stencil
+    UINT NumRects
+    const D3D12_RECT * pRects
+  ClearRenderTargetView ret=void
+    D3D12_CPU_DESCRIPTOR_HANDLE RenderTargetView
+    const FLOAT * ColorRGBA
+    UINT NumRects
+    const D3D12_RECT * pRects
+  ClearUnorderedAccessViewUint ret=void
+    D3D12_GPU_DESCRIPTOR_HANDLE ViewGPUHandleInCurrentHeap
+    D3D12_CPU_DESCRIPTOR_HANDLE ViewCPUHandle
+    ID3D12Resource * pResource
+    const UINT * Values
+    UINT NumRects
+    const D3D12_RECT * pRects
+  ClearUnorderedAccessViewFloat ret=void
+    D3D12_GPU_DESCRIPTOR_HANDLE ViewGPUHandleInCurrentHeap
+    D3D12_CPU_DESCRIPTOR_HANDLE ViewCPUHandle
+    ID3D12Resource * pResource
+    const FLOAT * Values
+    UINT NumRects
+    const D3D12_RECT * pRects
+  DiscardResource ret=void
+    ID3D12Resource * pResource
+    const D3D12_DISCARD_REGION * pRegion
+  BeginQuery ret=void
+    ID3D12QueryHeap * pQueryHeap
+    D3D12_QUERY_TYPE Type
+    UINT Index
+  EndQuery ret=void
+    ID3D12QueryHeap * pQueryHeap
+    D3D12_QUERY_TYPE Type
+    UINT Index
+  ResolveQueryData ret=void
+    ID3D12QueryHeap * pQueryHeap
+    D3D12_QUERY_TYPE Type
+    UINT StartIndex
+    UINT NumQueries
+    ID3D12Resource * pDestinationBuffer
+    UINT64 AlignedDestinationBufferOffset
+  SetPredication ret=void
+    ID3D12Resource * pBuffer
+    UINT64 AlignedBufferOffset
+    D3D12_PREDICATION_OP Operation
+  SetMarker ret=void
+    UINT Metadata
+    const void * pData
+    UINT Size
+  BeginEvent ret=void
+    UINT Metadata
+    const void * pData
+    UINT Size
+  EndEvent ret=void
+  ExecuteIndirect ret=void
+    ID3D12CommandSignature * pCommandSignature
+    UINT MaxCommandCount
+    ID3D12Resource * pArgumentBuffer
+    UINT64 ArgumentBufferOffset
+    ID3D12Resource * pCountBuffer
+    UINT64 CountBufferOffset
+  AtomicCopyBufferUINT ret=void
+    ID3D12Resource * pDstBuffer
+    UINT64 DstOffset
+    ID3D12Resource * pSrcBuffer
+    UINT64 SrcOffset
+    UINT Dependencies
+    ID3D12Resource *const * ppDependentResources
+    const D3D12_SUBRESOURCE_RANGE_UINT64 * pDependentSubresourceRanges
+  AtomicCopyBufferUINT64 ret=void
+    ID3D12Resource * pDstBuffer
+    UINT64 DstOffset
+    ID3D12Resource * pSrcBuffer
+    UINT64 SrcOffset
+    UINT Dependencies
+    ID3D12Resource *const * ppDependentResources
+    const D3D12_SUBRESOURCE_RANGE_UINT64 * pDependentSubresourceRanges
+  OMSetDepthBounds ret=void
+    FLOAT Min
+    FLOAT Max
+  SetSamplePositions ret=void
+    UINT NumSamplesPerPixel
+    UINT NumPixels
+    D3D12_SAMPLE_POSITION * pSamplePositions
+  ResolveSubresourceRegion ret=void
+    ID3D12Resource * pDstResource
+    UINT DstSubresource
+    UINT DstX
+    UINT DstY
+    ID3D12Resource * pSrcResource
+    UINT SrcSubresource
+    D3D12_RECT * pSrcRect
+    DXGI_FORMAT Format
+    D3D12_RESOLVE_MODE ResolveMode
+  SetViewInstanceMask ret=void
+    UINT Mask
+interface ID3D12GraphicsCommandList2 methods=64
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+  GetType ret=D3D12_COMMAND_LIST_TYPE
+  Close ret=HRESULT
+  Reset ret=HRESULT
+    ID3D12CommandAllocator * pAllocator
+    ID3D12PipelineState * pInitialState
+  ClearState ret=void
+    ID3D12PipelineState * pPipelineState
+  DrawInstanced ret=void
+    UINT VertexCountPerInstance
+    UINT InstanceCount
+    UINT StartVertexLocation
+    UINT StartInstanceLocation
+  DrawIndexedInstanced ret=void
+    UINT IndexCountPerInstance
+    UINT InstanceCount
+    UINT StartIndexLocation
+    INT BaseVertexLocation
+    UINT StartInstanceLocation
+  Dispatch ret=void
+    UINT ThreadGroupCountX
+    UINT ThreadGroupCountY
+    UINT ThreadGroupCountZ
+  CopyBufferRegion ret=void
+    ID3D12Resource * pDstBuffer
+    UINT64 DstOffset
+    ID3D12Resource * pSrcBuffer
+    UINT64 SrcOffset
+    UINT64 NumBytes
+  CopyTextureRegion ret=void
+    const D3D12_TEXTURE_COPY_LOCATION * pDst
+    UINT DstX
+    UINT DstY
+    UINT DstZ
+    const D3D12_TEXTURE_COPY_LOCATION * pSrc
+    const D3D12_BOX * pSrcBox
+  CopyResource ret=void
+    ID3D12Resource * pDstResource
+    ID3D12Resource * pSrcResource
+  CopyTiles ret=void
+    ID3D12Resource * pTiledResource
+    const D3D12_TILED_RESOURCE_COORDINATE * pTileRegionStartCoordinate
+    const D3D12_TILE_REGION_SIZE * pTileRegionSize
+    ID3D12Resource * pBuffer
+    UINT64 BufferStartOffsetInBytes
+    D3D12_TILE_COPY_FLAGS Flags
+  ResolveSubresource ret=void
+    ID3D12Resource * pDstResource
+    UINT DstSubresource
+    ID3D12Resource * pSrcResource
+    UINT SrcSubresource
+    DXGI_FORMAT Format
+  IASetPrimitiveTopology ret=void
+    D3D12_PRIMITIVE_TOPOLOGY PrimitiveTopology
+  RSSetViewports ret=void
+    UINT NumViewports
+    const D3D12_VIEWPORT * pViewports
+  RSSetScissorRects ret=void
+    UINT NumRects
+    const D3D12_RECT * pRects
+  OMSetBlendFactor ret=void
+    const FLOAT * BlendFactor
+  OMSetStencilRef ret=void
+    UINT StencilRef
+  SetPipelineState ret=void
+    ID3D12PipelineState * pPipelineState
+  ResourceBarrier ret=void
+    UINT NumBarriers
+    const D3D12_RESOURCE_BARRIER * pBarriers
+  ExecuteBundle ret=void
+    ID3D12GraphicsCommandList * pCommandList
+  SetDescriptorHeaps ret=void
+    UINT NumDescriptorHeaps
+    ID3D12DescriptorHeap *const * ppDescriptorHeaps
+  SetComputeRootSignature ret=void
+    ID3D12RootSignature * pRootSignature
+  SetGraphicsRootSignature ret=void
+    ID3D12RootSignature * pRootSignature
+  SetComputeRootDescriptorTable ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_DESCRIPTOR_HANDLE BaseDescriptor
+  SetGraphicsRootDescriptorTable ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_DESCRIPTOR_HANDLE BaseDescriptor
+  SetComputeRoot32BitConstant ret=void
+    UINT RootParameterIndex
+    UINT SrcData
+    UINT DestOffsetIn32BitValues
+  SetGraphicsRoot32BitConstant ret=void
+    UINT RootParameterIndex
+    UINT SrcData
+    UINT DestOffsetIn32BitValues
+  SetComputeRoot32BitConstants ret=void
+    UINT RootParameterIndex
+    UINT Num32BitValuesToSet
+    const void * pSrcData
+    UINT DestOffsetIn32BitValues
+  SetGraphicsRoot32BitConstants ret=void
+    UINT RootParameterIndex
+    UINT Num32BitValuesToSet
+    const void * pSrcData
+    UINT DestOffsetIn32BitValues
+  SetComputeRootConstantBufferView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetGraphicsRootConstantBufferView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetComputeRootShaderResourceView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetGraphicsRootShaderResourceView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetComputeRootUnorderedAccessView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  SetGraphicsRootUnorderedAccessView ret=void
+    UINT RootParameterIndex
+    D3D12_GPU_VIRTUAL_ADDRESS BufferLocation
+  IASetIndexBuffer ret=void
+    const D3D12_INDEX_BUFFER_VIEW * pView
+  IASetVertexBuffers ret=void
+    UINT StartSlot
+    UINT NumViews
+    const D3D12_VERTEX_BUFFER_VIEW * pViews
+  SOSetTargets ret=void
+    UINT StartSlot
+    UINT NumViews
+    const D3D12_STREAM_OUTPUT_BUFFER_VIEW * pViews
+  OMSetRenderTargets ret=void
+    UINT NumRenderTargetDescriptors
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pRenderTargetDescriptors
+    BOOL RTsSingleHandleToDescriptorRange
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pDepthStencilDescriptor
+  ClearDepthStencilView ret=void
+    D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView
+    D3D12_CLEAR_FLAGS ClearFlags
+    FLOAT Depth
+    UINT8 Stencil
+    UINT NumRects
+    const D3D12_RECT * pRects
+  ClearRenderTargetView ret=void
+    D3D12_CPU_DESCRIPTOR_HANDLE RenderTargetView
+    const FLOAT * ColorRGBA
+    UINT NumRects
+    const D3D12_RECT * pRects
+  ClearUnorderedAccessViewUint ret=void
+    D3D12_GPU_DESCRIPTOR_HANDLE ViewGPUHandleInCurrentHeap
+    D3D12_CPU_DESCRIPTOR_HANDLE ViewCPUHandle
+    ID3D12Resource * pResource
+    const UINT * Values
+    UINT NumRects
+    const D3D12_RECT * pRects
+  ClearUnorderedAccessViewFloat ret=void
+    D3D12_GPU_DESCRIPTOR_HANDLE ViewGPUHandleInCurrentHeap
+    D3D12_CPU_DESCRIPTOR_HANDLE ViewCPUHandle
+    ID3D12Resource * pResource
+    const FLOAT * Values
+    UINT NumRects
+    const D3D12_RECT * pRects
+  DiscardResource ret=void
+    ID3D12Resource * pResource
+    const D3D12_DISCARD_REGION * pRegion
+  BeginQuery ret=void
+    ID3D12QueryHeap * pQueryHeap
+    D3D12_QUERY_TYPE Type
+    UINT Index
+  EndQuery ret=void
+    ID3D12QueryHeap * pQueryHeap
+    D3D12_QUERY_TYPE Type
+    UINT Index
+  ResolveQueryData ret=void
+    ID3D12QueryHeap * pQueryHeap
+    D3D12_QUERY_TYPE Type
+    UINT StartIndex
+    UINT NumQueries
+    ID3D12Resource * pDestinationBuffer
+    UINT64 AlignedDestinationBufferOffset
+  SetPredication ret=void
+    ID3D12Resource * pBuffer
+    UINT64 AlignedBufferOffset
+    D3D12_PREDICATION_OP Operation
+  SetMarker ret=void
+    UINT Metadata
+    const void * pData
+    UINT Size
+  BeginEvent ret=void
+    UINT Metadata
+    const void * pData
+    UINT Size
+  EndEvent ret=void
+  ExecuteIndirect ret=void
+    ID3D12CommandSignature * pCommandSignature
+    UINT MaxCommandCount
+    ID3D12Resource * pArgumentBuffer
+    UINT64 ArgumentBufferOffset
+    ID3D12Resource * pCountBuffer
+    UINT64 CountBufferOffset
+  AtomicCopyBufferUINT ret=void
+    ID3D12Resource * pDstBuffer
+    UINT64 DstOffset
+    ID3D12Resource * pSrcBuffer
+    UINT64 SrcOffset
+    UINT Dependencies
+    ID3D12Resource *const * ppDependentResources
+    const D3D12_SUBRESOURCE_RANGE_UINT64 * pDependentSubresourceRanges
+  AtomicCopyBufferUINT64 ret=void
+    ID3D12Resource * pDstBuffer
+    UINT64 DstOffset
+    ID3D12Resource * pSrcBuffer
+    UINT64 SrcOffset
+    UINT Dependencies
+    ID3D12Resource *const * ppDependentResources
+    const D3D12_SUBRESOURCE_RANGE_UINT64 * pDependentSubresourceRanges
+  OMSetDepthBounds ret=void
+    FLOAT Min
+    FLOAT Max
+  SetSamplePositions ret=void
+    UINT NumSamplesPerPixel
+    UINT NumPixels
+    D3D12_SAMPLE_POSITION * pSamplePositions
+  ResolveSubresourceRegion ret=void
+    ID3D12Resource * pDstResource
+    UINT DstSubresource
+    UINT DstX
+    UINT DstY
+    ID3D12Resource * pSrcResource
+    UINT SrcSubresource
+    D3D12_RECT * pSrcRect
+    DXGI_FORMAT Format
+    D3D12_RESOLVE_MODE ResolveMode
+  SetViewInstanceMask ret=void
+    UINT Mask
+  WriteBufferImmediate ret=void
+    UINT Count
+    const D3D12_WRITEBUFFERIMMEDIATE_PARAMETER * pParams
+    const D3D12_WRITEBUFFERIMMEDIATE_MODE * pModes
+interface ID3D12CommandQueue methods=16
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetDevice ret=HRESULT
+    REFIID riid
+    void ** ppvDevice
+  UpdateTileMappings ret=void
+    ID3D12Resource * pResource
+    UINT NumResourceRegions
+    const D3D12_TILED_RESOURCE_COORDINATE * pResourceRegionStartCoordinates
+    const D3D12_TILE_REGION_SIZE * pResourceRegionSizes
+    ID3D12Heap * pHeap
+    UINT NumRanges
+    const D3D12_TILE_RANGE_FLAGS * pRangeFlags
+    const UINT * pHeapRangeStartOffsets
+    const UINT * pRangeTileCounts
+    D3D12_TILE_MAPPING_FLAGS Flags
+  CopyTileMappings ret=void
+    ID3D12Resource * pDstResource
+    const D3D12_TILED_RESOURCE_COORDINATE * pDstRegionStartCoordinate
+    ID3D12Resource * pSrcResource
+    const D3D12_TILED_RESOURCE_COORDINATE * pSrcRegionStartCoordinate
+    const D3D12_TILE_REGION_SIZE * pRegionSize
+    D3D12_TILE_MAPPING_FLAGS Flags
+  ExecuteCommandLists ret=void
+    UINT NumCommandLists
+    ID3D12CommandList *const * ppCommandLists
+  SetMarker ret=void
+    UINT Metadata
+    const void * pData
+    UINT Size
+  BeginEvent ret=void
+    UINT Metadata
+    const void * pData
+    UINT Size
+  EndEvent ret=void
+  Signal ret=HRESULT
+    ID3D12Fence * pFence
+    UINT64 Value
+  Wait ret=HRESULT
+    ID3D12Fence * pFence
+    UINT64 Value
+  GetTimestampFrequency ret=HRESULT
+    UINT64 * pFrequency
+  GetClockCalibration ret=HRESULT
+    UINT64 * pGpuTimestamp
+    UINT64 * pCpuTimestamp
+  GetDesc ret=D3D12_COMMAND_QUEUE_DESC *
+    D3D12_COMMAND_QUEUE_DESC * RetVal
+interface ID3D12Device methods=41
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetNodeCount ret=UINT
+  CreateCommandQueue ret=HRESULT
+    const D3D12_COMMAND_QUEUE_DESC * pDesc
+    REFIID riid
+    void ** ppCommandQueue
+  CreateCommandAllocator ret=HRESULT
+    D3D12_COMMAND_LIST_TYPE type
+    REFIID riid
+    void ** ppCommandAllocator
+  CreateGraphicsPipelineState ret=HRESULT
+    const D3D12_GRAPHICS_PIPELINE_STATE_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  CreateComputePipelineState ret=HRESULT
+    const D3D12_COMPUTE_PIPELINE_STATE_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  CreateCommandList ret=HRESULT
+    UINT nodeMask
+    D3D12_COMMAND_LIST_TYPE type
+    ID3D12CommandAllocator * pCommandAllocator
+    ID3D12PipelineState * pInitialState
+    REFIID riid
+    void ** ppCommandList
+  CheckFeatureSupport ret=HRESULT
+    D3D12_FEATURE Feature
+    void * pFeatureSupportData
+    UINT FeatureSupportDataSize
+  CreateDescriptorHeap ret=HRESULT
+    const D3D12_DESCRIPTOR_HEAP_DESC * pDescriptorHeapDesc
+    REFIID riid
+    void ** ppvHeap
+  GetDescriptorHandleIncrementSize ret=UINT
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapType
+  CreateRootSignature ret=HRESULT
+    UINT nodeMask
+    const void * pBlobWithRootSignature
+    SIZE_T blobLengthInBytes
+    REFIID riid
+    void ** ppvRootSignature
+  CreateConstantBufferView ret=void
+    const D3D12_CONSTANT_BUFFER_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateShaderResourceView ret=void
+    ID3D12Resource * pResource
+    const D3D12_SHADER_RESOURCE_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateUnorderedAccessView ret=void
+    ID3D12Resource * pResource
+    ID3D12Resource * pCounterResource
+    const D3D12_UNORDERED_ACCESS_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateRenderTargetView ret=void
+    ID3D12Resource * pResource
+    const D3D12_RENDER_TARGET_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateDepthStencilView ret=void
+    ID3D12Resource * pResource
+    const D3D12_DEPTH_STENCIL_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateSampler ret=void
+    const D3D12_SAMPLER_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CopyDescriptors ret=void
+    UINT NumDestDescriptorRanges
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pDestDescriptorRangeStarts
+    const UINT * pDestDescriptorRangeSizes
+    UINT NumSrcDescriptorRanges
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pSrcDescriptorRangeStarts
+    const UINT * pSrcDescriptorRangeSizes
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapsType
+  CopyDescriptorsSimple ret=void
+    UINT NumDescriptors
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptorRangeStart
+    D3D12_CPU_DESCRIPTOR_HANDLE SrcDescriptorRangeStart
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapsType
+  GetResourceAllocationInfo ret=D3D12_RESOURCE_ALLOCATION_INFO *
+    D3D12_RESOURCE_ALLOCATION_INFO * RetVal
+    UINT visibleMask
+    UINT numResourceDescs
+    const D3D12_RESOURCE_DESC * pResourceDescs
+  GetCustomHeapProperties ret=D3D12_HEAP_PROPERTIES *
+    D3D12_HEAP_PROPERTIES * RetVal
+    UINT nodeMask
+    D3D12_HEAP_TYPE heapType
+  CreateCommittedResource ret=HRESULT
+    const D3D12_HEAP_PROPERTIES * pHeapProperties
+    D3D12_HEAP_FLAGS HeapFlags
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialResourceState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riidResource
+    void ** ppvResource
+  CreateHeap ret=HRESULT
+    const D3D12_HEAP_DESC * pDesc
+    REFIID riid
+    void ** ppvHeap
+  CreatePlacedResource ret=HRESULT
+    ID3D12Heap * pHeap
+    UINT64 HeapOffset
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riid
+    void ** ppvResource
+  CreateReservedResource ret=HRESULT
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riid
+    void ** ppvResource
+  CreateSharedHandle ret=HRESULT
+    ID3D12DeviceChild * pObject
+    const SECURITY_ATTRIBUTES * pAttributes
+    DWORD Access
+    LPCWSTR Name
+    HANDLE * pHandle
+  OpenSharedHandle ret=HRESULT
+    HANDLE NTHandle
+    REFIID riid
+    void ** ppvObj
+  OpenSharedHandleByName ret=HRESULT
+    LPCWSTR Name
+    DWORD Access
+    /* [annotation][out] */ _Out_ HANDLE * pNTHandle
+  MakeResident ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+  Evict ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+  CreateFence ret=HRESULT
+    UINT64 InitialValue
+    D3D12_FENCE_FLAGS Flags
+    REFIID riid
+    void ** ppFence
+  GetDeviceRemovedReason ret=HRESULT
+  GetCopyableFootprints ret=void
+    const D3D12_RESOURCE_DESC * pResourceDesc
+    UINT FirstSubresource
+    UINT NumSubresources
+    UINT64 BaseOffset
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT * pLayouts
+    UINT * pNumRows
+    UINT64 * pRowSizeInBytes
+    UINT64 * pTotalBytes
+  CreateQueryHeap ret=HRESULT
+    const D3D12_QUERY_HEAP_DESC * pDesc
+    REFIID riid
+    void ** ppvHeap
+  SetStablePowerState ret=HRESULT
+    BOOL Enable
+  CreateCommandSignature ret=HRESULT
+    const D3D12_COMMAND_SIGNATURE_DESC * pDesc
+    ID3D12RootSignature * pRootSignature
+    REFIID riid
+    void ** ppvCommandSignature
+  GetResourceTiling ret=void
+    ID3D12Resource * pTiledResource
+    UINT * pNumTilesForEntireResource
+    D3D12_PACKED_MIP_INFO * pPackedMipDesc
+    D3D12_TILE_SHAPE * pStandardTileShapeForNonPackedMips
+    UINT * pNumSubresourceTilings
+    UINT FirstSubresourceTilingToGet
+    D3D12_SUBRESOURCE_TILING * pSubresourceTilingsForNonPackedMips
+  GetAdapterLuid ret=LUID *
+    LUID * RetVal
+interface ID3D12Device1 methods=44
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetNodeCount ret=UINT
+  CreateCommandQueue ret=HRESULT
+    const D3D12_COMMAND_QUEUE_DESC * pDesc
+    REFIID riid
+    void ** ppCommandQueue
+  CreateCommandAllocator ret=HRESULT
+    D3D12_COMMAND_LIST_TYPE type
+    REFIID riid
+    void ** ppCommandAllocator
+  CreateGraphicsPipelineState ret=HRESULT
+    const D3D12_GRAPHICS_PIPELINE_STATE_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  CreateComputePipelineState ret=HRESULT
+    const D3D12_COMPUTE_PIPELINE_STATE_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  CreateCommandList ret=HRESULT
+    UINT nodeMask
+    D3D12_COMMAND_LIST_TYPE type
+    ID3D12CommandAllocator * pCommandAllocator
+    ID3D12PipelineState * pInitialState
+    REFIID riid
+    void ** ppCommandList
+  CheckFeatureSupport ret=HRESULT
+    D3D12_FEATURE Feature
+    void * pFeatureSupportData
+    UINT FeatureSupportDataSize
+  CreateDescriptorHeap ret=HRESULT
+    const D3D12_DESCRIPTOR_HEAP_DESC * pDescriptorHeapDesc
+    REFIID riid
+    void ** ppvHeap
+  GetDescriptorHandleIncrementSize ret=UINT
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapType
+  CreateRootSignature ret=HRESULT
+    UINT nodeMask
+    const void * pBlobWithRootSignature
+    SIZE_T blobLengthInBytes
+    REFIID riid
+    void ** ppvRootSignature
+  CreateConstantBufferView ret=void
+    const D3D12_CONSTANT_BUFFER_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateShaderResourceView ret=void
+    ID3D12Resource * pResource
+    const D3D12_SHADER_RESOURCE_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateUnorderedAccessView ret=void
+    ID3D12Resource * pResource
+    ID3D12Resource * pCounterResource
+    const D3D12_UNORDERED_ACCESS_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateRenderTargetView ret=void
+    ID3D12Resource * pResource
+    const D3D12_RENDER_TARGET_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateDepthStencilView ret=void
+    ID3D12Resource * pResource
+    const D3D12_DEPTH_STENCIL_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateSampler ret=void
+    const D3D12_SAMPLER_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CopyDescriptors ret=void
+    UINT NumDestDescriptorRanges
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pDestDescriptorRangeStarts
+    const UINT * pDestDescriptorRangeSizes
+    UINT NumSrcDescriptorRanges
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pSrcDescriptorRangeStarts
+    const UINT * pSrcDescriptorRangeSizes
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapsType
+  CopyDescriptorsSimple ret=void
+    UINT NumDescriptors
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptorRangeStart
+    D3D12_CPU_DESCRIPTOR_HANDLE SrcDescriptorRangeStart
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapsType
+  GetResourceAllocationInfo ret=D3D12_RESOURCE_ALLOCATION_INFO *
+    D3D12_RESOURCE_ALLOCATION_INFO * RetVal
+    UINT visibleMask
+    UINT numResourceDescs
+    const D3D12_RESOURCE_DESC * pResourceDescs
+  GetCustomHeapProperties ret=D3D12_HEAP_PROPERTIES *
+    D3D12_HEAP_PROPERTIES * RetVal
+    UINT nodeMask
+    D3D12_HEAP_TYPE heapType
+  CreateCommittedResource ret=HRESULT
+    const D3D12_HEAP_PROPERTIES * pHeapProperties
+    D3D12_HEAP_FLAGS HeapFlags
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialResourceState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riidResource
+    void ** ppvResource
+  CreateHeap ret=HRESULT
+    const D3D12_HEAP_DESC * pDesc
+    REFIID riid
+    void ** ppvHeap
+  CreatePlacedResource ret=HRESULT
+    ID3D12Heap * pHeap
+    UINT64 HeapOffset
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riid
+    void ** ppvResource
+  CreateReservedResource ret=HRESULT
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riid
+    void ** ppvResource
+  CreateSharedHandle ret=HRESULT
+    ID3D12DeviceChild * pObject
+    const SECURITY_ATTRIBUTES * pAttributes
+    DWORD Access
+    LPCWSTR Name
+    HANDLE * pHandle
+  OpenSharedHandle ret=HRESULT
+    HANDLE NTHandle
+    REFIID riid
+    void ** ppvObj
+  OpenSharedHandleByName ret=HRESULT
+    LPCWSTR Name
+    DWORD Access
+    /* [annotation][out] */ _Out_ HANDLE * pNTHandle
+  MakeResident ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+  Evict ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+  CreateFence ret=HRESULT
+    UINT64 InitialValue
+    D3D12_FENCE_FLAGS Flags
+    REFIID riid
+    void ** ppFence
+  GetDeviceRemovedReason ret=HRESULT
+  GetCopyableFootprints ret=void
+    const D3D12_RESOURCE_DESC * pResourceDesc
+    UINT FirstSubresource
+    UINT NumSubresources
+    UINT64 BaseOffset
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT * pLayouts
+    UINT * pNumRows
+    UINT64 * pRowSizeInBytes
+    UINT64 * pTotalBytes
+  CreateQueryHeap ret=HRESULT
+    const D3D12_QUERY_HEAP_DESC * pDesc
+    REFIID riid
+    void ** ppvHeap
+  SetStablePowerState ret=HRESULT
+    BOOL Enable
+  CreateCommandSignature ret=HRESULT
+    const D3D12_COMMAND_SIGNATURE_DESC * pDesc
+    ID3D12RootSignature * pRootSignature
+    REFIID riid
+    void ** ppvCommandSignature
+  GetResourceTiling ret=void
+    ID3D12Resource * pTiledResource
+    UINT * pNumTilesForEntireResource
+    D3D12_PACKED_MIP_INFO * pPackedMipDesc
+    D3D12_TILE_SHAPE * pStandardTileShapeForNonPackedMips
+    UINT * pNumSubresourceTilings
+    UINT FirstSubresourceTilingToGet
+    D3D12_SUBRESOURCE_TILING * pSubresourceTilingsForNonPackedMips
+  GetAdapterLuid ret=LUID *
+    LUID * RetVal
+  CreatePipelineLibrary ret=HRESULT
+    const void * pLibraryBlob
+    SIZE_T BlobLength
+    REFIID riid
+    void ** ppPipelineLibrary
+  SetEventOnMultipleFenceCompletion ret=HRESULT
+    ID3D12Fence *const * ppFences
+    const UINT64 * pFenceValues
+    UINT NumFences
+    D3D12_MULTIPLE_FENCE_WAIT_FLAGS Flags
+    HANDLE hEvent
+  SetResidencyPriority ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+    const D3D12_RESIDENCY_PRIORITY * pPriorities
+interface ID3D12Device2 methods=45
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetNodeCount ret=UINT
+  CreateCommandQueue ret=HRESULT
+    const D3D12_COMMAND_QUEUE_DESC * pDesc
+    REFIID riid
+    void ** ppCommandQueue
+  CreateCommandAllocator ret=HRESULT
+    D3D12_COMMAND_LIST_TYPE type
+    REFIID riid
+    void ** ppCommandAllocator
+  CreateGraphicsPipelineState ret=HRESULT
+    const D3D12_GRAPHICS_PIPELINE_STATE_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  CreateComputePipelineState ret=HRESULT
+    const D3D12_COMPUTE_PIPELINE_STATE_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  CreateCommandList ret=HRESULT
+    UINT nodeMask
+    D3D12_COMMAND_LIST_TYPE type
+    ID3D12CommandAllocator * pCommandAllocator
+    ID3D12PipelineState * pInitialState
+    REFIID riid
+    void ** ppCommandList
+  CheckFeatureSupport ret=HRESULT
+    D3D12_FEATURE Feature
+    void * pFeatureSupportData
+    UINT FeatureSupportDataSize
+  CreateDescriptorHeap ret=HRESULT
+    const D3D12_DESCRIPTOR_HEAP_DESC * pDescriptorHeapDesc
+    REFIID riid
+    void ** ppvHeap
+  GetDescriptorHandleIncrementSize ret=UINT
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapType
+  CreateRootSignature ret=HRESULT
+    UINT nodeMask
+    const void * pBlobWithRootSignature
+    SIZE_T blobLengthInBytes
+    REFIID riid
+    void ** ppvRootSignature
+  CreateConstantBufferView ret=void
+    const D3D12_CONSTANT_BUFFER_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateShaderResourceView ret=void
+    ID3D12Resource * pResource
+    const D3D12_SHADER_RESOURCE_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateUnorderedAccessView ret=void
+    ID3D12Resource * pResource
+    ID3D12Resource * pCounterResource
+    const D3D12_UNORDERED_ACCESS_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateRenderTargetView ret=void
+    ID3D12Resource * pResource
+    const D3D12_RENDER_TARGET_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateDepthStencilView ret=void
+    ID3D12Resource * pResource
+    const D3D12_DEPTH_STENCIL_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateSampler ret=void
+    const D3D12_SAMPLER_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CopyDescriptors ret=void
+    UINT NumDestDescriptorRanges
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pDestDescriptorRangeStarts
+    const UINT * pDestDescriptorRangeSizes
+    UINT NumSrcDescriptorRanges
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pSrcDescriptorRangeStarts
+    const UINT * pSrcDescriptorRangeSizes
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapsType
+  CopyDescriptorsSimple ret=void
+    UINT NumDescriptors
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptorRangeStart
+    D3D12_CPU_DESCRIPTOR_HANDLE SrcDescriptorRangeStart
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapsType
+  GetResourceAllocationInfo ret=D3D12_RESOURCE_ALLOCATION_INFO *
+    D3D12_RESOURCE_ALLOCATION_INFO * RetVal
+    UINT visibleMask
+    UINT numResourceDescs
+    const D3D12_RESOURCE_DESC * pResourceDescs
+  GetCustomHeapProperties ret=D3D12_HEAP_PROPERTIES *
+    D3D12_HEAP_PROPERTIES * RetVal
+    UINT nodeMask
+    D3D12_HEAP_TYPE heapType
+  CreateCommittedResource ret=HRESULT
+    const D3D12_HEAP_PROPERTIES * pHeapProperties
+    D3D12_HEAP_FLAGS HeapFlags
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialResourceState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riidResource
+    void ** ppvResource
+  CreateHeap ret=HRESULT
+    const D3D12_HEAP_DESC * pDesc
+    REFIID riid
+    void ** ppvHeap
+  CreatePlacedResource ret=HRESULT
+    ID3D12Heap * pHeap
+    UINT64 HeapOffset
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riid
+    void ** ppvResource
+  CreateReservedResource ret=HRESULT
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riid
+    void ** ppvResource
+  CreateSharedHandle ret=HRESULT
+    ID3D12DeviceChild * pObject
+    const SECURITY_ATTRIBUTES * pAttributes
+    DWORD Access
+    LPCWSTR Name
+    HANDLE * pHandle
+  OpenSharedHandle ret=HRESULT
+    HANDLE NTHandle
+    REFIID riid
+    void ** ppvObj
+  OpenSharedHandleByName ret=HRESULT
+    LPCWSTR Name
+    DWORD Access
+    /* [annotation][out] */ _Out_ HANDLE * pNTHandle
+  MakeResident ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+  Evict ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+  CreateFence ret=HRESULT
+    UINT64 InitialValue
+    D3D12_FENCE_FLAGS Flags
+    REFIID riid
+    void ** ppFence
+  GetDeviceRemovedReason ret=HRESULT
+  GetCopyableFootprints ret=void
+    const D3D12_RESOURCE_DESC * pResourceDesc
+    UINT FirstSubresource
+    UINT NumSubresources
+    UINT64 BaseOffset
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT * pLayouts
+    UINT * pNumRows
+    UINT64 * pRowSizeInBytes
+    UINT64 * pTotalBytes
+  CreateQueryHeap ret=HRESULT
+    const D3D12_QUERY_HEAP_DESC * pDesc
+    REFIID riid
+    void ** ppvHeap
+  SetStablePowerState ret=HRESULT
+    BOOL Enable
+  CreateCommandSignature ret=HRESULT
+    const D3D12_COMMAND_SIGNATURE_DESC * pDesc
+    ID3D12RootSignature * pRootSignature
+    REFIID riid
+    void ** ppvCommandSignature
+  GetResourceTiling ret=void
+    ID3D12Resource * pTiledResource
+    UINT * pNumTilesForEntireResource
+    D3D12_PACKED_MIP_INFO * pPackedMipDesc
+    D3D12_TILE_SHAPE * pStandardTileShapeForNonPackedMips
+    UINT * pNumSubresourceTilings
+    UINT FirstSubresourceTilingToGet
+    D3D12_SUBRESOURCE_TILING * pSubresourceTilingsForNonPackedMips
+  GetAdapterLuid ret=LUID *
+    LUID * RetVal
+  CreatePipelineLibrary ret=HRESULT
+    const void * pLibraryBlob
+    SIZE_T BlobLength
+    REFIID riid
+    void ** ppPipelineLibrary
+  SetEventOnMultipleFenceCompletion ret=HRESULT
+    ID3D12Fence *const * ppFences
+    const UINT64 * pFenceValues
+    UINT NumFences
+    D3D12_MULTIPLE_FENCE_WAIT_FLAGS Flags
+    HANDLE hEvent
+  SetResidencyPriority ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+    const D3D12_RESIDENCY_PRIORITY * pPriorities
+  CreatePipelineState ret=HRESULT
+    const D3D12_PIPELINE_STATE_STREAM_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+interface ID3D12Device3 methods=48
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetNodeCount ret=UINT
+  CreateCommandQueue ret=HRESULT
+    const D3D12_COMMAND_QUEUE_DESC * pDesc
+    REFIID riid
+    void ** ppCommandQueue
+  CreateCommandAllocator ret=HRESULT
+    D3D12_COMMAND_LIST_TYPE type
+    REFIID riid
+    void ** ppCommandAllocator
+  CreateGraphicsPipelineState ret=HRESULT
+    const D3D12_GRAPHICS_PIPELINE_STATE_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  CreateComputePipelineState ret=HRESULT
+    const D3D12_COMPUTE_PIPELINE_STATE_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  CreateCommandList ret=HRESULT
+    UINT nodeMask
+    D3D12_COMMAND_LIST_TYPE type
+    ID3D12CommandAllocator * pCommandAllocator
+    ID3D12PipelineState * pInitialState
+    REFIID riid
+    void ** ppCommandList
+  CheckFeatureSupport ret=HRESULT
+    D3D12_FEATURE Feature
+    void * pFeatureSupportData
+    UINT FeatureSupportDataSize
+  CreateDescriptorHeap ret=HRESULT
+    const D3D12_DESCRIPTOR_HEAP_DESC * pDescriptorHeapDesc
+    REFIID riid
+    void ** ppvHeap
+  GetDescriptorHandleIncrementSize ret=UINT
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapType
+  CreateRootSignature ret=HRESULT
+    UINT nodeMask
+    const void * pBlobWithRootSignature
+    SIZE_T blobLengthInBytes
+    REFIID riid
+    void ** ppvRootSignature
+  CreateConstantBufferView ret=void
+    const D3D12_CONSTANT_BUFFER_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateShaderResourceView ret=void
+    ID3D12Resource * pResource
+    const D3D12_SHADER_RESOURCE_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateUnorderedAccessView ret=void
+    ID3D12Resource * pResource
+    ID3D12Resource * pCounterResource
+    const D3D12_UNORDERED_ACCESS_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateRenderTargetView ret=void
+    ID3D12Resource * pResource
+    const D3D12_RENDER_TARGET_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateDepthStencilView ret=void
+    ID3D12Resource * pResource
+    const D3D12_DEPTH_STENCIL_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateSampler ret=void
+    const D3D12_SAMPLER_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CopyDescriptors ret=void
+    UINT NumDestDescriptorRanges
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pDestDescriptorRangeStarts
+    const UINT * pDestDescriptorRangeSizes
+    UINT NumSrcDescriptorRanges
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pSrcDescriptorRangeStarts
+    const UINT * pSrcDescriptorRangeSizes
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapsType
+  CopyDescriptorsSimple ret=void
+    UINT NumDescriptors
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptorRangeStart
+    D3D12_CPU_DESCRIPTOR_HANDLE SrcDescriptorRangeStart
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapsType
+  GetResourceAllocationInfo ret=D3D12_RESOURCE_ALLOCATION_INFO *
+    D3D12_RESOURCE_ALLOCATION_INFO * RetVal
+    UINT visibleMask
+    UINT numResourceDescs
+    const D3D12_RESOURCE_DESC * pResourceDescs
+  GetCustomHeapProperties ret=D3D12_HEAP_PROPERTIES *
+    D3D12_HEAP_PROPERTIES * RetVal
+    UINT nodeMask
+    D3D12_HEAP_TYPE heapType
+  CreateCommittedResource ret=HRESULT
+    const D3D12_HEAP_PROPERTIES * pHeapProperties
+    D3D12_HEAP_FLAGS HeapFlags
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialResourceState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riidResource
+    void ** ppvResource
+  CreateHeap ret=HRESULT
+    const D3D12_HEAP_DESC * pDesc
+    REFIID riid
+    void ** ppvHeap
+  CreatePlacedResource ret=HRESULT
+    ID3D12Heap * pHeap
+    UINT64 HeapOffset
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riid
+    void ** ppvResource
+  CreateReservedResource ret=HRESULT
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riid
+    void ** ppvResource
+  CreateSharedHandle ret=HRESULT
+    ID3D12DeviceChild * pObject
+    const SECURITY_ATTRIBUTES * pAttributes
+    DWORD Access
+    LPCWSTR Name
+    HANDLE * pHandle
+  OpenSharedHandle ret=HRESULT
+    HANDLE NTHandle
+    REFIID riid
+    void ** ppvObj
+  OpenSharedHandleByName ret=HRESULT
+    LPCWSTR Name
+    DWORD Access
+    /* [annotation][out] */ _Out_ HANDLE * pNTHandle
+  MakeResident ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+  Evict ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+  CreateFence ret=HRESULT
+    UINT64 InitialValue
+    D3D12_FENCE_FLAGS Flags
+    REFIID riid
+    void ** ppFence
+  GetDeviceRemovedReason ret=HRESULT
+  GetCopyableFootprints ret=void
+    const D3D12_RESOURCE_DESC * pResourceDesc
+    UINT FirstSubresource
+    UINT NumSubresources
+    UINT64 BaseOffset
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT * pLayouts
+    UINT * pNumRows
+    UINT64 * pRowSizeInBytes
+    UINT64 * pTotalBytes
+  CreateQueryHeap ret=HRESULT
+    const D3D12_QUERY_HEAP_DESC * pDesc
+    REFIID riid
+    void ** ppvHeap
+  SetStablePowerState ret=HRESULT
+    BOOL Enable
+  CreateCommandSignature ret=HRESULT
+    const D3D12_COMMAND_SIGNATURE_DESC * pDesc
+    ID3D12RootSignature * pRootSignature
+    REFIID riid
+    void ** ppvCommandSignature
+  GetResourceTiling ret=void
+    ID3D12Resource * pTiledResource
+    UINT * pNumTilesForEntireResource
+    D3D12_PACKED_MIP_INFO * pPackedMipDesc
+    D3D12_TILE_SHAPE * pStandardTileShapeForNonPackedMips
+    UINT * pNumSubresourceTilings
+    UINT FirstSubresourceTilingToGet
+    D3D12_SUBRESOURCE_TILING * pSubresourceTilingsForNonPackedMips
+  GetAdapterLuid ret=LUID *
+    LUID * RetVal
+  CreatePipelineLibrary ret=HRESULT
+    const void * pLibraryBlob
+    SIZE_T BlobLength
+    REFIID riid
+    void ** ppPipelineLibrary
+  SetEventOnMultipleFenceCompletion ret=HRESULT
+    ID3D12Fence *const * ppFences
+    const UINT64 * pFenceValues
+    UINT NumFences
+    D3D12_MULTIPLE_FENCE_WAIT_FLAGS Flags
+    HANDLE hEvent
+  SetResidencyPriority ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+    const D3D12_RESIDENCY_PRIORITY * pPriorities
+  CreatePipelineState ret=HRESULT
+    const D3D12_PIPELINE_STATE_STREAM_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  OpenExistingHeapFromAddress ret=HRESULT
+    const void * pAddress
+    REFIID riid
+    void ** ppvHeap
+  OpenExistingHeapFromFileMapping ret=HRESULT
+    HANDLE hFileMapping
+    REFIID riid
+    void ** ppvHeap
+  EnqueueMakeResident ret=HRESULT
+    D3D12_RESIDENCY_FLAGS Flags
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+    ID3D12Fence * pFenceToSignal
+    UINT64 FenceValueToSignal
+interface ID3D12Device4 methods=54
+  GetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT * pDataSize
+    void * pData
+  SetPrivateData ret=HRESULT
+    REFGUID guid
+    UINT DataSize
+    const void * pData
+  SetPrivateDataInterface ret=HRESULT
+    REFGUID guid
+    const IUnknown * pData
+  SetName ret=HRESULT
+    LPCWSTR Name
+  GetNodeCount ret=UINT
+  CreateCommandQueue ret=HRESULT
+    const D3D12_COMMAND_QUEUE_DESC * pDesc
+    REFIID riid
+    void ** ppCommandQueue
+  CreateCommandAllocator ret=HRESULT
+    D3D12_COMMAND_LIST_TYPE type
+    REFIID riid
+    void ** ppCommandAllocator
+  CreateGraphicsPipelineState ret=HRESULT
+    const D3D12_GRAPHICS_PIPELINE_STATE_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  CreateComputePipelineState ret=HRESULT
+    const D3D12_COMPUTE_PIPELINE_STATE_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  CreateCommandList ret=HRESULT
+    UINT nodeMask
+    D3D12_COMMAND_LIST_TYPE type
+    ID3D12CommandAllocator * pCommandAllocator
+    ID3D12PipelineState * pInitialState
+    REFIID riid
+    void ** ppCommandList
+  CheckFeatureSupport ret=HRESULT
+    D3D12_FEATURE Feature
+    void * pFeatureSupportData
+    UINT FeatureSupportDataSize
+  CreateDescriptorHeap ret=HRESULT
+    const D3D12_DESCRIPTOR_HEAP_DESC * pDescriptorHeapDesc
+    REFIID riid
+    void ** ppvHeap
+  GetDescriptorHandleIncrementSize ret=UINT
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapType
+  CreateRootSignature ret=HRESULT
+    UINT nodeMask
+    const void * pBlobWithRootSignature
+    SIZE_T blobLengthInBytes
+    REFIID riid
+    void ** ppvRootSignature
+  CreateConstantBufferView ret=void
+    const D3D12_CONSTANT_BUFFER_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateShaderResourceView ret=void
+    ID3D12Resource * pResource
+    const D3D12_SHADER_RESOURCE_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateUnorderedAccessView ret=void
+    ID3D12Resource * pResource
+    ID3D12Resource * pCounterResource
+    const D3D12_UNORDERED_ACCESS_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateRenderTargetView ret=void
+    ID3D12Resource * pResource
+    const D3D12_RENDER_TARGET_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateDepthStencilView ret=void
+    ID3D12Resource * pResource
+    const D3D12_DEPTH_STENCIL_VIEW_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CreateSampler ret=void
+    const D3D12_SAMPLER_DESC * pDesc
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptor
+  CopyDescriptors ret=void
+    UINT NumDestDescriptorRanges
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pDestDescriptorRangeStarts
+    const UINT * pDestDescriptorRangeSizes
+    UINT NumSrcDescriptorRanges
+    const D3D12_CPU_DESCRIPTOR_HANDLE * pSrcDescriptorRangeStarts
+    const UINT * pSrcDescriptorRangeSizes
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapsType
+  CopyDescriptorsSimple ret=void
+    UINT NumDescriptors
+    D3D12_CPU_DESCRIPTOR_HANDLE DestDescriptorRangeStart
+    D3D12_CPU_DESCRIPTOR_HANDLE SrcDescriptorRangeStart
+    D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeapsType
+  GetResourceAllocationInfo ret=D3D12_RESOURCE_ALLOCATION_INFO *
+    D3D12_RESOURCE_ALLOCATION_INFO * RetVal
+    UINT visibleMask
+    UINT numResourceDescs
+    const D3D12_RESOURCE_DESC * pResourceDescs
+  GetCustomHeapProperties ret=D3D12_HEAP_PROPERTIES *
+    D3D12_HEAP_PROPERTIES * RetVal
+    UINT nodeMask
+    D3D12_HEAP_TYPE heapType
+  CreateCommittedResource ret=HRESULT
+    const D3D12_HEAP_PROPERTIES * pHeapProperties
+    D3D12_HEAP_FLAGS HeapFlags
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialResourceState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riidResource
+    void ** ppvResource
+  CreateHeap ret=HRESULT
+    const D3D12_HEAP_DESC * pDesc
+    REFIID riid
+    void ** ppvHeap
+  CreatePlacedResource ret=HRESULT
+    ID3D12Heap * pHeap
+    UINT64 HeapOffset
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riid
+    void ** ppvResource
+  CreateReservedResource ret=HRESULT
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    REFIID riid
+    void ** ppvResource
+  CreateSharedHandle ret=HRESULT
+    ID3D12DeviceChild * pObject
+    const SECURITY_ATTRIBUTES * pAttributes
+    DWORD Access
+    LPCWSTR Name
+    HANDLE * pHandle
+  OpenSharedHandle ret=HRESULT
+    HANDLE NTHandle
+    REFIID riid
+    void ** ppvObj
+  OpenSharedHandleByName ret=HRESULT
+    LPCWSTR Name
+    DWORD Access
+    /* [annotation][out] */ _Out_ HANDLE * pNTHandle
+  MakeResident ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+  Evict ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+  CreateFence ret=HRESULT
+    UINT64 InitialValue
+    D3D12_FENCE_FLAGS Flags
+    REFIID riid
+    void ** ppFence
+  GetDeviceRemovedReason ret=HRESULT
+  GetCopyableFootprints ret=void
+    const D3D12_RESOURCE_DESC * pResourceDesc
+    UINT FirstSubresource
+    UINT NumSubresources
+    UINT64 BaseOffset
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT * pLayouts
+    UINT * pNumRows
+    UINT64 * pRowSizeInBytes
+    UINT64 * pTotalBytes
+  CreateQueryHeap ret=HRESULT
+    const D3D12_QUERY_HEAP_DESC * pDesc
+    REFIID riid
+    void ** ppvHeap
+  SetStablePowerState ret=HRESULT
+    BOOL Enable
+  CreateCommandSignature ret=HRESULT
+    const D3D12_COMMAND_SIGNATURE_DESC * pDesc
+    ID3D12RootSignature * pRootSignature
+    REFIID riid
+    void ** ppvCommandSignature
+  GetResourceTiling ret=void
+    ID3D12Resource * pTiledResource
+    UINT * pNumTilesForEntireResource
+    D3D12_PACKED_MIP_INFO * pPackedMipDesc
+    D3D12_TILE_SHAPE * pStandardTileShapeForNonPackedMips
+    UINT * pNumSubresourceTilings
+    UINT FirstSubresourceTilingToGet
+    D3D12_SUBRESOURCE_TILING * pSubresourceTilingsForNonPackedMips
+  GetAdapterLuid ret=LUID *
+    LUID * RetVal
+  CreatePipelineLibrary ret=HRESULT
+    const void * pLibraryBlob
+    SIZE_T BlobLength
+    REFIID riid
+    void ** ppPipelineLibrary
+  SetEventOnMultipleFenceCompletion ret=HRESULT
+    ID3D12Fence *const * ppFences
+    const UINT64 * pFenceValues
+    UINT NumFences
+    D3D12_MULTIPLE_FENCE_WAIT_FLAGS Flags
+    HANDLE hEvent
+  SetResidencyPriority ret=HRESULT
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+    const D3D12_RESIDENCY_PRIORITY * pPriorities
+  CreatePipelineState ret=HRESULT
+    const D3D12_PIPELINE_STATE_STREAM_DESC * pDesc
+    REFIID riid
+    void ** ppPipelineState
+  OpenExistingHeapFromAddress ret=HRESULT
+    const void * pAddress
+    REFIID riid
+    void ** ppvHeap
+  OpenExistingHeapFromFileMapping ret=HRESULT
+    HANDLE hFileMapping
+    REFIID riid
+    void ** ppvHeap
+  EnqueueMakeResident ret=HRESULT
+    D3D12_RESIDENCY_FLAGS Flags
+    UINT NumObjects
+    ID3D12Pageable *const * ppObjects
+    ID3D12Fence * pFenceToSignal
+    UINT64 FenceValueToSignal
+  CreateCommandList1 ret=HRESULT
+    UINT nodeMask
+    D3D12_COMMAND_LIST_TYPE type
+    D3D12_COMMAND_LIST_FLAGS flags
+    REFIID riid
+    void ** ppCommandList
+  CreateProtectedResourceSession ret=HRESULT
+    const D3D12_PROTECTED_RESOURCE_SESSION_DESC * pDesc
+    REFIID riid
+    void ** ppSession
+  CreateCommittedResource1 ret=HRESULT
+    const D3D12_HEAP_PROPERTIES * pHeapProperties
+    D3D12_HEAP_FLAGS HeapFlags
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialResourceState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    ID3D12ProtectedResourceSession * pProtectedSession
+    REFIID riidResource
+    void ** ppvResource
+  CreateHeap1 ret=HRESULT
+    const D3D12_HEAP_DESC * pDesc
+    ID3D12ProtectedResourceSession * pProtectedSession
+    REFIID riid
+    void ** ppvHeap
+  CreateReservedResource1 ret=HRESULT
+    const D3D12_RESOURCE_DESC * pDesc
+    D3D12_RESOURCE_STATES InitialState
+    const D3D12_CLEAR_VALUE * pOptimizedClearValue
+    ID3D12ProtectedResourceSession * pProtectedSession
+    REFIID riid
+    void ** ppvResource
+  GetResourceAllocationInfo1 ret=D3D12_RESOURCE_ALLOCATION_INFO *
+    D3D12_RESOURCE_ALLOCATION_INFO * RetVal
+    UINT visibleMask
+    UINT numResourceDescs
+    const D3D12_RESOURCE_DESC * pResourceDescs
+    D3D12_RESOURCE_ALLOCATION_INFO1 * pResourceAllocationInfo1
+
+# ABI classification for aggregate types used by value or pointer
+kind struct D3D12_BOX
+kind enum D3D12_CLEAR_FLAGS
+kind struct D3D12_CLEAR_VALUE
+kind enum D3D12_COMMAND_LIST_FLAGS
+kind enum D3D12_COMMAND_LIST_TYPE
+kind struct D3D12_COMMAND_QUEUE_DESC
+kind struct D3D12_COMMAND_SIGNATURE_DESC
+kind struct D3D12_COMPUTE_PIPELINE_STATE_DESC
+kind struct D3D12_CONSTANT_BUFFER_VIEW_DESC
+kind struct D3D12_CPU_DESCRIPTOR_HANDLE
+kind struct D3D12_DEPTH_STENCIL_VIEW_DESC
+kind struct D3D12_DESCRIPTOR_HEAP_DESC
+kind enum D3D12_DESCRIPTOR_HEAP_TYPE
+kind struct D3D12_DISCARD_REGION
+kind enum D3D12_FEATURE
+kind enum D3D12_FENCE_FLAGS
+kind struct D3D12_GPU_DESCRIPTOR_HANDLE
+kind struct D3D12_GRAPHICS_PIPELINE_STATE_DESC
+kind struct D3D12_HEAP_DESC
+kind enum D3D12_HEAP_FLAGS
+kind struct D3D12_HEAP_PROPERTIES
+kind enum D3D12_HEAP_TYPE
+kind struct D3D12_INDEX_BUFFER_VIEW
+kind enum D3D12_MULTIPLE_FENCE_WAIT_FLAGS
+kind struct D3D12_PACKED_MIP_INFO
+kind struct D3D12_PIPELINE_STATE_STREAM_DESC
+kind struct D3D12_PLACED_SUBRESOURCE_FOOTPRINT
+kind enum D3D12_PREDICATION_OP
+kind struct D3D12_PROTECTED_RESOURCE_SESSION_DESC
+kind struct D3D12_QUERY_HEAP_DESC
+kind enum D3D12_QUERY_TYPE
+kind struct D3D12_RANGE
+kind struct D3D12_RENDER_TARGET_VIEW_DESC
+kind enum D3D12_RESIDENCY_FLAGS
+kind enum D3D12_RESIDENCY_PRIORITY
+kind enum D3D12_RESOLVE_MODE
+kind struct D3D12_RESOURCE_ALLOCATION_INFO
+kind struct D3D12_RESOURCE_ALLOCATION_INFO1
+kind struct D3D12_RESOURCE_BARRIER
+kind struct D3D12_RESOURCE_DESC
+kind enum D3D12_RESOURCE_STATES
+kind struct D3D12_SAMPLER_DESC
+kind struct D3D12_SAMPLE_POSITION
+kind struct D3D12_SHADER_RESOURCE_VIEW_DESC
+kind struct D3D12_STREAM_OUTPUT_BUFFER_VIEW
+kind struct D3D12_SUBRESOURCE_RANGE_UINT64
+kind struct D3D12_SUBRESOURCE_TILING
+kind struct D3D12_TEXTURE_COPY_LOCATION
+kind struct D3D12_TILED_RESOURCE_COORDINATE
+kind enum D3D12_TILE_COPY_FLAGS
+kind enum D3D12_TILE_MAPPING_FLAGS
+kind enum D3D12_TILE_RANGE_FLAGS
+kind struct D3D12_TILE_REGION_SIZE
+kind struct D3D12_TILE_SHAPE
+kind struct D3D12_UNORDERED_ACCESS_VIEW_DESC
+kind struct D3D12_VERTEX_BUFFER_VIEW
+kind struct D3D12_VIEWPORT
+kind enum D3D12_WRITEBUFFERIMMEDIATE_MODE
+kind struct D3D12_WRITEBUFFERIMMEDIATE_PARAMETER
+kind struct LUID
