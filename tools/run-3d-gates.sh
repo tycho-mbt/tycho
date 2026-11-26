@@ -22,6 +22,8 @@ EXAMPLES=(
   71-tycho-3d-gpu-driven
   72-tycho-3d-hud
   73-tycho-3d-hdr-ibl
+  74-tycho-3d-brdf-fallback
+  75-tycho-3d-shadow-atlas
 )
 
 echo "== unit tests =="
