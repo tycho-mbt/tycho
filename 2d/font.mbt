@@ -65,8 +65,11 @@ priv struct TtfData {
   gsub_off : Int
   gpos_off : Int
   gdef_off : Int
-  // fvar table, -1 when absent.
+  // fvar/avar/gvar/HVAR tables, -1 when absent.
   fvar_off : Int
+  avar_off : Int
+  gvar_off : Int
+  hvar_off : Int
 }
 
 ///|
@@ -92,6 +95,9 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
   let mut gpos_off = -1
   let mut gdef_off = -1
   let mut fvar_off = -1
+  let mut avar_off = -1
+  let mut gvar_off = -1
+  let mut hvar_off = -1
   for i = 0; i < num_tables; i = i + 1 {
     let rec = 12 + i * 16
     let off = be_i32(bytes, rec + 8)
@@ -109,6 +115,9 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     else if tag_eq(bytes, rec, "GPOS") { gpos_off = off }
     else if tag_eq(bytes, rec, "GDEF") { gdef_off = off }
     else if tag_eq(bytes, rec, "fvar") { fvar_off = off }
+    else if tag_eq(bytes, rec, "avar") { avar_off = off }
+    else if tag_eq(bytes, rec, "gvar") { gvar_off = off }
+    else if tag_eq(bytes, rec, "HVAR") { hvar_off = off }
   }
   if head_off < 0 || hhea_off < 0 || maxp_off < 0 || hmtx_off < 0 ||
     cmap_off < 0 {
@@ -175,6 +184,9 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     gpos_off,
     gdef_off,
     fvar_off,
+    avar_off,
+    gvar_off,
+    hvar_off,
   })
 }
 
@@ -910,11 +922,21 @@ pub struct FontFace {
   priv gsub : GsubData?
   priv gpos : GposData?
   priv gdef : GdefData?
+  priv hvar : HvarData?
+  priv var_values : Map[String, Float]
 }
 
 ///|
 pub fn FontFace::builtin() -> FontFace {
-  { id: 0, ttf: None, gsub: None, gpos: None, gdef: None }
+  {
+    id: 0,
+    ttf: None,
+    gsub: None,
+    gpos: None,
+    gdef: None,
+    hvar: None,
+    var_values: Map([]),
+  }
 }
 
 ///|
@@ -936,7 +958,20 @@ pub fn FontFace::from_ttf_bytes(bytes : Bytes) -> FontFace? {
       } else {
         None
       }
-      Some({ id: alloc_font_id(), ttf: Some(ttf), gsub, gpos, gdef })
+      let hvar = if ttf.hvar_off >= 0 {
+        HvarData::parse(bytes, ttf.hvar_off)
+      } else {
+        None
+      }
+      Some({
+        id: alloc_font_id(),
+        ttf: Some(ttf),
+        gsub,
+        gpos,
+        gdef,
+        hvar,
+        var_values: Map([]),
+      })
     }
     None => None
   }
@@ -952,7 +987,11 @@ pub fn FontFace::advance_width(self : FontFace, cp : Int, size_px : Float) -> Fl
   match self.ttf {
     Some(t) => {
       let gid = ttf_glyph_id(t, cp)
-      let adv = ttf_advance_units(t, gid)
+      let mut adv = Float::from_int(ttf_advance_units(t, gid))
+      match self.hvar {
+        Some(h) => adv = adv + h.advance_delta(gid, self.normalized_coords())
+        None => ()
+      }
       Float::from_double(adv.to_double() * size_px.to_double() / t.units_per_em.to_double())
     }
     None => size_px * (0.62 : Float)
@@ -1014,6 +1053,285 @@ pub fn FontFace::variation_axes(self : FontFace) -> Array[FontVariationAxis] {
       []
     }
     None => []
+  }
+}
+
+///|
+// AVAR segment map: piecewise-linear remap of a normalized axis coordinate.
+fn avar_map(bytes : Bytes, base : Int, axis_index : Int, n : Float) -> Float {
+  if base + 8 > bytes.length() {
+    return n
+  }
+  let axis_count = be_u16(bytes, base + 6)
+  if axis_index < 0 || axis_index >= axis_count {
+    return n
+  }
+  let mut pos = base + 8
+  for a = 0; a < axis_count; a = a + 1 {
+    if pos + 2 > bytes.length() {
+      return n
+    }
+    let count = be_u16(bytes, pos)
+    pos = pos + 2
+    if a == axis_index {
+      if count <= 0 {
+        return n
+      }
+      let mut prev_from : Float = -1.0
+      let mut prev_to : Float = -1.0
+      for i = 0; i < count; i = i + 1 {
+        if pos + 4 > bytes.length() {
+          return n
+        }
+        let f = Float::from_double(be_i16(bytes, pos).to_double() / 16384.0)
+        let t = Float::from_double(be_i16(bytes, pos + 2).to_double() / 16384.0)
+        pos = pos + 4
+        if n == f {
+          return t
+        }
+        if n < f {
+          if i == 0 {
+            return t
+          }
+          let span = f - prev_from
+          if span <= 0.0 {
+            return t
+          }
+          return prev_to + (t - prev_to) * (n - prev_from) / span
+        }
+        prev_from = f
+        prev_to = t
+      }
+      return prev_to
+    }
+    pos = pos + count * 4
+  }
+  n
+}
+
+///|
+// HVAR advance-width variation: ItemVariationStore + DeltaSetIndexMap.
+priv struct HvarData {
+  bytes : Bytes
+  ivs : Int
+  advance_map : Int
+}
+
+///|
+fn HvarData::parse(bytes : Bytes, base : Int) -> HvarData? {
+  if base + 12 > bytes.length() {
+    return None
+  }
+  let ivs = base + be_u32(bytes, base + 4).reinterpret_as_int()
+  let adv = base + be_u32(bytes, base + 8).reinterpret_as_int()
+  if ivs <= 0 || adv <= 0 {
+    return None
+  }
+  Some({ bytes, ivs, advance_map: adv })
+}
+
+///|
+fn hvar_read_entry(b : Bytes, off : Int, size : Int) -> Int {
+  let mut v = 0
+  for i = 0; i < size; i = i + 1 {
+    v = v * 256 + b[off + i].to_int()
+  }
+  v
+}
+
+///|
+fn HvarData::delta_set_index(self : HvarData, gid : Int) -> (Int, Int)? {
+  let b = self.bytes
+  let m = self.advance_map
+  if m + 4 > b.length() {
+    return None
+  }
+  let fmt = b[m].to_int()
+  let entry_fmt = b[m + 1].to_int()
+  let (count, data) = if fmt == 0 {
+    (be_u16(b, m + 2), m + 4)
+  } else {
+    (be_u32(b, m + 2).reinterpret_as_int(), m + 6)
+  }
+  if gid < 0 || gid >= count {
+    return None
+  }
+  let size = ((entry_fmt >> 4) & 3) + 1
+  let bits = (entry_fmt & 0x0F) + 1
+  let off = data + gid * size
+  if off + size > b.length() {
+    return None
+  }
+  let v = hvar_read_entry(b, off, size)
+  Some((v >> bits, v & ((1 << bits) - 1)))
+}
+
+///|
+fn hvar_region_scalar(
+  b : Bytes,
+  region_list : Int,
+  region_index : Int,
+  coords : Array[Float],
+) -> Float {
+  if region_list + 4 > b.length() {
+    return 0.0
+  }
+  let axis_count = be_u16(b, region_list)
+  let region_count = be_u16(b, region_list + 2)
+  if region_index < 0 || region_index >= region_count {
+    return 0.0
+  }
+  let base = region_list + 4 + region_index * axis_count * 6
+  let mut scalar : Float = 1.0
+  for a = 0; a < axis_count; a = a + 1 {
+    let r = base + a * 6
+    if r + 6 > b.length() {
+      return 0.0
+    }
+    let start = Float::from_double(be_i16(b, r).to_double() / 16384.0)
+    let peak = Float::from_double(be_i16(b, r + 2).to_double() / 16384.0)
+    let end = Float::from_double(be_i16(b, r + 4).to_double() / 16384.0)
+    let v = if a < coords.length() { coords[a] } else { (0.0 : Float) }
+    if peak == 0.0 {
+      continue
+    }
+    if v == peak {
+      continue
+    }
+    if v <= start || v >= end {
+      return 0.0
+    }
+    if v < peak {
+      scalar = scalar * (v - start) / (peak - start)
+    } else {
+      scalar = scalar * (end - v) / (end - peak)
+    }
+  }
+  scalar
+}
+
+///|
+fn HvarData::advance_delta(self : HvarData, gid : Int, coords : Array[Float]) -> Float {
+  let b = self.bytes
+  let (outer, inner) = match self.delta_set_index(gid) {
+    Some(v) => v
+    None => return (0.0 : Float)
+  }
+  let ivs = self.ivs
+  if ivs + 8 > b.length() {
+    return (0.0 : Float)
+  }
+  let data_count = be_u16(b, ivs + 6)
+  if outer < 0 || outer >= data_count {
+    return (0.0 : Float)
+  }
+  let region_list = ivs + be_u32(b, ivs + 2).reinterpret_as_int()
+  let data_off = ivs + be_u32(b, ivs + 8 + outer * 4).reinterpret_as_int()
+  if data_off + 6 > b.length() {
+    return (0.0 : Float)
+  }
+  let item_count = be_u16(b, data_off)
+  if inner < 0 || inner >= item_count {
+    return (0.0 : Float)
+  }
+  let short_count = be_u16(b, data_off + 2)
+  let region_count = be_u16(b, data_off + 4)
+  let row_size = short_count * 2 + (region_count - short_count)
+  let row = data_off + 6 + region_count * 2 + inner * row_size
+  if row + row_size > b.length() {
+    return (0.0 : Float)
+  }
+  let mut sum : Float = 0.0
+  for r = 0; r < region_count; r = r + 1 {
+    let ridx = be_u16(b, data_off + 6 + r * 2)
+    let scalar = hvar_region_scalar(b, region_list, ridx, coords)
+    if scalar == 0.0 {
+      continue
+    }
+    let delta = if r < short_count {
+      Float::from_int(be_i16(b, row + r * 2))
+    } else {
+      Float::from_int(be_i8(b, row + short_count * 2 + (r - short_count)))
+    }
+    sum = sum + scalar * delta
+  }
+  sum
+}
+
+///|
+// Set one axis value (design units, e.g. wght=700).
+pub fn FontFace::set_variation(self : FontFace, tag : String, value : Float) -> Unit {
+  self.var_values[tag] = value
+}
+
+///|
+pub fn FontFace::clear_variations(self : FontFace) -> Unit {
+  self.var_values.clear()
+}
+
+///|
+pub fn FontFace::variation_value(self : FontFace, tag : String) -> Float {
+  match self.var_values.get(tag) {
+    Some(v) => v
+    None => (0.0 : Float)
+  }
+}
+
+///|
+// Normalized-axis coordinates in fvar order, after avar remapping.
+pub fn FontFace::normalized_coords(self : FontFace) -> Array[Float] {
+  let out : Array[Float] = []
+  let axes = self.variation_axes()
+  let avar = match self.ttf {
+    Some(t) => if t.avar_off >= 0 { t.avar_off } else { -1 }
+    None => -1
+  }
+  for i = 0; i < axes.length(); i = i + 1 {
+    let a = axes[i]
+    let v = match self.var_values.get(a.tag) {
+      Some(x) => x
+      None => a.default_value
+    }
+    let mut n : Float = if v <= a.min_value {
+      -1.0
+    } else if v >= a.max_value {
+      1.0
+    } else if v == a.default_value {
+      0.0
+    } else if v < a.default_value {
+      (v - a.default_value) / (a.default_value - a.min_value)
+    } else {
+      (v - a.default_value) / (a.max_value - a.default_value)
+    }
+    if avar >= 0 {
+      let t = self.ttf
+      match t {
+        Some(t) => n = avar_map(t.bytes, avar, i, n)
+        None => ()
+      }
+    }
+    out.push(n)
+  }
+  out
+}
+
+///|
+pub fn FontFace::normalized_coord(self : FontFace, tag : String) -> Float {
+  let axes = self.variation_axes()
+  let coords = self.normalized_coords()
+  for i = 0; i < axes.length(); i = i + 1 {
+    if axes[i].tag == tag {
+      return coords[i]
+    }
+  }
+  (0.0 : Float)
+}
+
+///|
+pub fn FontFace::has_gvar(self : FontFace) -> Bool {
+  match self.ttf {
+    Some(t) => t.gvar_off >= 0
+    None => false
   }
 }
 

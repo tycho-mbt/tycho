@@ -34,8 +34,14 @@ def main():
         sys.exit(2)
     dump, font, text = sys.argv[1], sys.argv[2], sys.argv[3]
     size = sys.argv[4] if len(sys.argv) >= 5 else "48"
-    ours = run_json([dump, font, text])
-    ref = run_json(["python3", "tools/hb_reference.py", font, text, size])
+    wght = sys.argv[5] if len(sys.argv) >= 6 else None
+    ours_cmd = [dump, font, text, size]
+    ref_cmd = ["python3", "tools/hb_reference.py", font, text, size]
+    if wght is not None:
+        ours_cmd.append(wght)
+        ref_cmd.append(wght)
+    ours = run_json(ours_cmd)
+    ref = run_json(ref_cmd)
     a = ours["glyphs"]
     b = ref["glyphs"]
     clusters = utf8_to_cp_clusters(text)

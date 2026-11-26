@@ -2,15 +2,31 @@
 // Usage: shape-dump <font.ttf> <text>   (size fixed at 48px for now)
 
 ///|
+fn parse_uint(s : String) -> Int {
+  let mut v = 0
+  for c in s {
+    let d = c.to_int()
+    if d >= 48 && d <= 57 {
+      v = v * 10 + (d - 48)
+    }
+  }
+  v
+}
+
+///|
 fn main {
   let args = @env.args()
   if args.length() < 3 {
-    println("usage: shape-dump <font.ttf> <text> [size_px]")
+    println("usage: shape-dump <font.ttf> <text> [size_px] [wght]")
     return
   }
   let font_path = args[1]
   let text = args[2]
-  let size = (48.0 : Float)
+  let size = if args.length() >= 4 {
+    Float::from_int(parse_uint(args[3]))
+  } else {
+    (48.0 : Float)
+  }
   let bytes = @tycho.read_file_bytes(font_path)
   let font = match @g2d.FontFace::from_ttf_bytes(bytes) {
     Some(f) => f
@@ -18,6 +34,10 @@ fn main {
       println("{\"error\":\"failed to parse font\"}")
       return
     }
+  }
+  // Optional 5th argument: wght axis value (variable fonts).
+  if args.length() >= 5 {
+    font.set_variation("wght", Float::from_int(parse_uint(args[4])))
   }
   let para = @g2d.ParagraphBuilder::new()
     .add_text(

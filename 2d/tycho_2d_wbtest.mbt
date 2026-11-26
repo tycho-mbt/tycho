@@ -940,3 +940,29 @@ test "devanagari pre-base matra and conjunct features" {
     None => ()
   }
 }
+
+///|
+test "avar normalization and HVAR advance" {
+  let path = "/home/laplaceliu/Source/laplaceliu/tycho-mbt/refs/skia/modules/canvaskit/tests/assets/RobotoSlab-VariableFont_wght.ttf"
+  let bytes = @tycho.read_file_bytes(path)
+  if bytes.length() > 0 {
+    match FontFace::from_ttf_bytes(bytes) {
+      Some(font) => {
+        let axes = font.variation_axes()
+        assert_eq(axes.length(), 1)
+        assert_eq(axes[0].tag, "wght")
+        font.set_variation("wght", (100.0 : Float))
+        assert_true(@tmath.abs_f(font.normalized_coord("wght") + (1.0 : Float)) < (0.001 : Float))
+        font.set_variation("wght", (900.0 : Float))
+        assert_true(@tmath.abs_f(font.normalized_coord("wght") - (1.0 : Float)) < (0.001 : Float))
+        let h_light = font.glyph_advance(font.glyph_id(72), (48.0 : Float))
+        font.set_variation("wght", (100.0 : Float))
+        let h_thin = font.glyph_advance(font.glyph_id(72), (48.0 : Float))
+        assert_true(h_light > h_thin)
+        assert_true(@tmath.abs_f(h_thin - (35.296875 : Float)) < (0.02 : Float))
+        assert_true(@tmath.abs_f(h_light - (37.796875 : Float)) < (0.02 : Float))
+      }
+      None => ()
+    }
+  }
+}

@@ -32,7 +32,11 @@ class HbGlyphPosition(ctypes.Structure):
     ]
 
 
-def shape_ctypes(font_path, text, size):
+class HbVariation(ctypes.Structure):
+    _fields_ = [("tag", ctypes.c_uint32), ("value", ctypes.c_float)]
+
+
+def shape_ctypes(font_path, text, size, wght=None):
     lib_name = ctypes.util.find_library("harfbuzz") or "libharfbuzz.so.0"
     hb = ctypes.CDLL(lib_name)
     hb.hb_blob_create_from_file.argtypes = [ctypes.c_char_p]
@@ -42,6 +46,11 @@ def shape_ctypes(font_path, text, size):
     hb.hb_font_create.argtypes = [ctypes.c_void_p]
     hb.hb_font_create.restype = ctypes.c_void_p
     hb.hb_font_set_scale.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+    hb.hb_font_set_variations.argtypes = [
+        ctypes.c_void_p,
+        ctypes.POINTER(HbVariation),
+        ctypes.c_uint,
+    ]
     hb.hb_buffer_create.restype = ctypes.c_void_p
     hb.hb_buffer_add_utf8.argtypes = [
         ctypes.c_void_p,
@@ -75,6 +84,9 @@ def shape_ctypes(font_path, text, size):
     blob = hb.hb_blob_create_from_file(font_path.encode())
     face = hb.hb_face_create(blob, 0)
     font = hb.hb_font_create(face)
+    if wght is not None:
+        var = HbVariation(int.from_bytes(b"wght", "big"), float(wght))
+        hb.hb_font_set_variations(font, ctypes.byref(var), 1)
     scale = int(size * 64)
     hb.hb_font_set_scale(font, scale, scale)
     buf = hb.hb_buffer_create()
@@ -110,12 +122,14 @@ def shape_ctypes(font_path, text, size):
     return glyphs
 
 
-def shape_uharfbuzz(font_path, text, size):
+def shape_uharfbuzz(font_path, text, size, wght=None):
     import uharfbuzz as hb
 
     blob = hb.Blob.from_file_path(font_path)
     face = hb.Face(blob)
     font = hb.Font(face)
+    if wght is not None:
+        font.set_variations({"wght": float(wght)})
     font.scale = (size * 64, size * 64)
     buf = hb.Buffer()
     buf.add_str(text)
@@ -146,11 +160,12 @@ def main():
     font_path = sys.argv[1]
     text = sys.argv[2]
     size = float(sys.argv[3]) if len(sys.argv) >= 4 else 48.0
+    wght = float(sys.argv[4]) if len(sys.argv) >= 5 else None
     try:
-        glyphs = shape_uharfbuzz(font_path, text, size)
+        glyphs = shape_uharfbuzz(font_path, text, size, wght)
         backend = "uharfbuzz"
     except Exception:
-        glyphs = shape_ctypes(font_path, text, size)
+        glyphs = shape_ctypes(font_path, text, size, wght)
         backend = "ctypes"
     print(
         json.dumps(
@@ -158,6 +173,7 @@ def main():
                 "backend": backend,
                 "font": font_path,
                 "text": text,
+                "wght": wght,
                 "size": size,
                 "glyphs": glyphs,
             },

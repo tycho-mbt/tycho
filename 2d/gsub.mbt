@@ -1411,7 +1411,11 @@ pub fn FontFace::glyph_id(self : FontFace, cp : Int) -> Int {
 pub fn FontFace::glyph_advance(self : FontFace, gid : Int, size_px : Float) -> Float {
   match self.ttf {
     Some(t) => {
-      let adv = ttf_advance_units(t, gid)
+      let mut adv = Float::from_int(ttf_advance_units(t, gid))
+      match self.hvar {
+        Some(h) => adv = adv + h.advance_delta(gid, self.normalized_coords())
+        None => ()
+      }
       Float::from_double(adv.to_double() * size_px.to_double() / t.units_per_em.to_double())
     }
     None => size_px * (0.62 : Float)
