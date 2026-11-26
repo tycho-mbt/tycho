@@ -108,3 +108,36 @@ test "canvas records ImagePattern, ColorMatrix, DropShadow, and ClipOp::Differen
   let dl = c.finish()
   assert_true(dl.op_count() >= 6)
 }
+
+///|
+test "elliptical rrect radii and tier-2 path fallback geometry" {
+  let rect = Rect::new((0.0 : Float), (0.0 : Float), (120.0 : Float), (60.0 : Float))
+  let rx = (24.0 : Float)
+  let ry = (10.0 : Float)
+  let rr = RRect::per_corner_xy(rect, rx, ry, rx, ry, rx, ry, rx, ry)
+  assert_eq(rr.is_circular(), false)
+  assert_eq(rr.is_rect(), false)
+  let circular = RRect::per_corner(rect, (12.0 : Float), (12.0 : Float), (12.0 : Float), (12.0 : Float))
+  assert_eq(circular.is_circular(), true)
+  // Elliptical corners must still produce valid fill geometry and bounds.
+  let p = PathBuilder::new().add_rrect(rr).build()
+  let b = p.bounds()
+  assert_true(b.width >= (120.0 : Float) && b.height >= (60.0 : Float))
+  let (fan, fan_bounds) = tessellate_fill_fan(p, Matrix3::identity())
+  assert_true(fan.length() >= 18)
+  assert_true(fan_bounds.width >= (120.0 : Float))
+  // Uniform corners keep the same geometry as before (rx == ry).
+  let p2 = PathBuilder::new().add_rrect(circular).build()
+  assert_true(p2.bounds().width >= (120.0 : Float))
+}
+
+///|
+test "font advance tracks fractional sizes" {
+  let f = FontFace::builtin()
+  let a = f.advance_width(65, (12.0 : Float))
+  let b = f.advance_width(65, (12.5 : Float))
+  assert_true(b > a)
+  let (asc0, desc0, lh0) = f.metrics((12.0 : Float))
+  let (asc1, desc1, lh1) = f.metrics((24.0 : Float))
+  assert_true(asc1 > asc0 && desc1 > desc0 && lh1 > lh0)
+}

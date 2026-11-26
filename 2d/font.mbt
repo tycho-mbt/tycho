@@ -756,18 +756,45 @@ pub(all) struct GlyphEntry {
 pub struct GlyphCache {
   atlas : DynamicAtlas
   priv entries : Map[String, GlyphEntry]
+  priv mut atlas_reset_count : Int
+  priv mut atlas_overflow_count : Int
 }
 
 ///|
 pub fn GlyphCache::new(
   dev : @tycho.Device,
-  width? : Int = 1024,
-  height? : Int = 1024,
+  width? : Int = 2048,
+  height? : Int = 2048,
 ) -> GlyphCache raise @tycho.RhiError {
   {
     atlas: DynamicAtlas::new(dev, width, height, @tycho.TextureFormat::R8),
     entries: {},
+    atlas_reset_count: 0,
+    atlas_overflow_count: 0,
   }
+}
+
+///|
+// Number of times the atlas had to be reset because it ran out of space.
+pub fn GlyphCache::atlas_reset_count(self : GlyphCache) -> Int {
+  self.atlas_reset_count
+}
+
+///|
+// Number of glyphs that could not be rasterized even after a reset (e.g. a
+// single glyph bitmap larger than the atlas page).
+pub fn GlyphCache::atlas_overflow_count(self : GlyphCache) -> Int {
+  self.atlas_overflow_count
+}
+
+///|
+pub fn GlyphCache::entry_count(self : GlyphCache) -> Int {
+  self.entries.length()
+}
+
+///|
+pub fn GlyphCache::atlas_size(self : GlyphCache) -> (Int, Int) {
+  (self.atlas.width, self.atlas.height)
 }
 
 ///|
@@ -777,27 +804,46 @@ pub fn GlyphCache::get_or_rasterize(
   cp : Int,
   size_px : Float,
 ) -> GlyphEntry raise @tycho.RhiError {
-  let q_size = @tmath.max_f((6.0 : Float), size_px).to_int()
-  let key = "\{font.id}:\{cp}:\{q_size}"
+  // Quantize the requested size to 1/4 px. This keeps animated/zoomed text from
+  // re-rasterizing on every integer step while staying small enough to be
+  // visually smooth.
+  let clamped = @tmath.max_f((6.0 : Float), size_px)
+  let q4 = (clamped * (4.0 : Float) + (0.5 : Float)).to_int()
+  let px_size = Float::from_int(q4) * (0.25 : Float)
+  let key = "\{font.id}:\{cp}:\{q4}"
   match self.entries.get(key) {
     Some(e) => return e
     None => ()
   }
-  let adv = font.advance_width(cp, Float::from_int(q_size))
+  let adv = font.advance_width(cp, px_size)
   let (ox, oy, gw, gh, pixels) = match font.ttf {
-    Some(t) => rasterize_ttf_glyph(t, cp, Float::from_int(q_size))
-    None => rasterize_builtin_glyph(cp, Float::from_int(q_size))
+    Some(t) => rasterize_ttf_glyph(t, cp, px_size)
+    None => rasterize_builtin_glyph(cp, px_size)
   }
+  let mut cacheable = true
   let (ux0, uy0, ux1, uy1) = if gw > 0 && gh > 0 {
-    match self.atlas.alloc_and_upload(gw, gh, pixels) {
-      Some((ax, ay)) => self.atlas.uv_rect(ax, ay, gw, gh)
-      None => {
-        // Atlas full: reset & retry
-        self.atlas.reset()
-        self.entries.clear()
-        match self.atlas.alloc_and_upload(gw, gh, pixels) {
-          Some((ax2, ay2)) => self.atlas.uv_rect(ax2, ay2, gw, gh)
-          None => ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
+    if gw > self.atlas.width || gh > self.atlas.height {
+      self.atlas_overflow_count = self.atlas_overflow_count + 1
+      cacheable = false
+      ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
+    } else {
+      match self.atlas.alloc_and_upload(gw, gh, pixels) {
+        Some((ax, ay)) => self.atlas.uv_rect(ax, ay, gw, gh)
+        None => {
+          // Atlas full: reset once and retry. Only truly-full pages trigger
+          // this; the old behaviour cleared entries for every overflow, so we
+          // track it explicitly for tests and diagnostics.
+          self.atlas_reset_count = self.atlas_reset_count + 1
+          self.atlas.reset()
+          self.entries.clear()
+          match self.atlas.alloc_and_upload(gw, gh, pixels) {
+            Some((ax2, ay2)) => self.atlas.uv_rect(ax2, ay2, gw, gh)
+            None => {
+              self.atlas_overflow_count = self.atlas_overflow_count + 1
+              cacheable = false
+              ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
+            }
+          }
         }
       }
     }
@@ -815,7 +861,9 @@ pub fn GlyphCache::get_or_rasterize(
     height: gh,
     advance: adv,
   }
-  self.entries[key] = entry
+  if cacheable {
+    self.entries[key] = entry
+  }
   entry
 }
 

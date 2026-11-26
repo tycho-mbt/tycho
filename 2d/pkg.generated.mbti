@@ -143,7 +143,11 @@ pub struct GlyphCache {
   atlas : DynamicAtlas
   // private fields
 }
+pub fn GlyphCache::atlas_overflow_count(Self) -> Int32
+pub fn GlyphCache::atlas_reset_count(Self) -> Int32
+pub fn GlyphCache::atlas_size(Self) -> (Int32, Int32)
 pub fn GlyphCache::destroy(Self) -> Unit
+pub fn GlyphCache::entry_count(Self) -> Int32
 pub fn GlyphCache::get_or_rasterize(Self, FontFace, Int32, Float) -> GlyphEntry raise @tycho.RhiError
 pub fn GlyphCache::new(@tycho.Device, width? : Int32, height? : Int32) -> Self raise @tycho.RhiError
 
@@ -326,14 +330,20 @@ pub fn Point::zero() -> Self
 pub(all) struct RRect {
   rect : Rect
   tl : Float
+  tl_y : Float
   tr : Float
+  tr_y : Float
   br : Float
+  br_y : Float
   bl : Float
+  bl_y : Float
 }
 pub fn RRect::from_rect(Rect) -> Self
+pub fn RRect::is_circular(Self) -> Bool
 pub fn RRect::is_rect(Self) -> Bool
 pub fn RRect::offset(Self, Float, Float) -> Self
 pub fn RRect::per_corner(Rect, Float, Float, Float, Float) -> Self
+pub fn RRect::per_corner_xy(Rect, Float, Float, Float, Float, Float, Float, Float, Float) -> Self
 pub fn RRect::uniform(Rect, Float) -> Self
 
 #derive(Eq, @debug.Debug)

@@ -82,9 +82,13 @@ pub fn lerp_rrect(a : @g2d.RRect, b : @g2d.RRect, t : Float) -> @g2d.RRect {
   {
     rect: lerp_rect(a.rect, b.rect, t),
     tl: lerp_float(a.tl, b.tl, t),
+    tl_y: lerp_float(a.tl_y, b.tl_y, t),
     tr: lerp_float(a.tr, b.tr, t),
+    tr_y: lerp_float(a.tr_y, b.tr_y, t),
     br: lerp_float(a.br, b.br, t),
+    br_y: lerp_float(a.br_y, b.br_y, t),
     bl: lerp_float(a.bl, b.bl, t),
+    bl_y: lerp_float(a.bl_y, b.bl_y, t),
   }
 }
 

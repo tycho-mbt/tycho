@@ -16,6 +16,10 @@ priv struct RenderSaveState {
   has_stencil_clip : Bool
   is_layer : Bool
   layer_paint : Paint
+  // Screen-space pixel rect backing the layer render target (logical size,
+  // not the 64px-bucketed texture size). Empty when the layer has no content.
+  layer_rect : Rect
+  layer_empty : Bool
   outer_tex : @tycho.Texture?
   outer_ds : @tycho.Texture?
   outer_w : Int
@@ -142,11 +146,11 @@ pub fn Renderer2D::new(
       address=@tycho.AddressMode::ClampToEdge,
     ),
   )
-  let glyph_cache = GlyphCache::new(dev, width=1024, height=1024)
+  let glyph_cache = GlyphCache::new(dev)
   let color_atlas = DynamicAtlas::new(
     dev,
-    1024,
-    1024,
+    2048,
+    2048,
     @tycho.TextureFormat::RGBA8,
   )
   let rt_pool = RenderTargetPool::new(dev)
@@ -1073,13 +1077,31 @@ fn Renderer2D::ensure_image_uv(
   if img.width <= 0 || img.height <= 0 || pixels.length() == 0 {
     return ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
   }
+  // An image larger than the atlas page can never fit; skip resetting for it.
+  if img.width > self.color_atlas.width || img.height > self.color_atlas.height {
+    return ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
+  }
   match self.color_atlas.alloc_and_upload(img.width, img.height, pixels) {
     Some((ax, ay)) => {
       let uv = self.color_atlas.uv_rect(ax, ay, img.width, img.height)
       self.uploaded_images[img.id] = uv
       uv
     }
-    None => ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
+    None => {
+      // Atlas full: reclaim the whole color atlas once and retry. Every cached
+      // image UV becomes invalid, so clear the cache to force re-upload instead
+      // of silently sampling stale/overlapping regions.
+      self.color_atlas.reset()
+      self.uploaded_images.clear()
+      match self.color_atlas.alloc_and_upload(img.width, img.height, pixels) {
+        Some((ax2, ay2)) => {
+          let uv = self.color_atlas.uv_rect(ax2, ay2, img.width, img.height)
+          self.uploaded_images[img.id] = uv
+          uv
+        }
+        None => ((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float))
+      }
+    }
   }
 }
 
@@ -1753,35 +1775,64 @@ fn Renderer2D::replay_ops(
           has_stencil_clip: self.has_stencil_clip,
           is_layer: false,
           layer_paint: Paint::new(),
+          layer_rect: Rect::zero(),
+          layer_empty: false,
           outer_tex: None,
           outer_ds: None,
           outer_w: 0,
           outer_h: 0,
         })
-      DrawOp::SaveLayer(_bounds_opt, paint) => {
+      DrawOp::SaveLayer(bounds_opt, paint) => {
         self.flush_prims(cmd)
         let otex = self.active_tex
         let ods = self.active_ds
         let ow = self.active_w
         let oh = self.active_h
+        let parent_xf = self.cur_transform
+        let parent_scissor = self.cur_scissor
+        // The layer only needs to cover the caller-provided bounds (when given)
+        // intersected with the active scissor, instead of the whole scissor.
+        let mapped = match bounds_opt {
+          Some(b) => parent_xf.map_rect(b)
+          None => parent_scissor
+        }
+        let clipped = mapped.intersect(parent_scissor)
+        let empty = clipped.is_empty()
+        let (lx, ly, lw, lh) = if empty {
+          ((0.0 : Float), (0.0 : Float), (1.0 : Float), (1.0 : Float))
+        } else {
+          let x = clipped.x.floor()
+          let y = clipped.y.floor()
+          let w = @tmath.max_f((1.0 : Float), clipped.right().ceil() - x)
+          let h = @tmath.max_f((1.0 : Float), clipped.bottom().ceil() - y)
+          (x, y, w, h)
+        }
+        let layer_rect = if empty {
+          Rect::zero()
+        } else {
+          Rect::new(lx, ly, lw, lh)
+        }
         self.state_stack.push({
-          transform: self.cur_transform,
-          scissor: self.cur_scissor,
+          transform: parent_xf,
+          scissor: parent_scissor,
           clip_rrect: self.cur_clip_rrect,
           has_stencil_clip: self.has_stencil_clip,
           is_layer: true,
           layer_paint: paint,
+          layer_rect,
+          layer_empty: empty,
           outer_tex: otex,
           outer_ds: ods,
           outer_w: ow,
           outer_h: oh,
         })
         cmd.end_render_pass()
-        let lw = self.cur_scissor.width.to_int()
-        let lh = self.cur_scissor.height.to_int()
-        let use_w = if lw > 0 { lw } else { 64 }
-        let use_h = if lh > 0 { lh } else { 64 }
-        let (ltex, lds_opt) = self.rt_pool.acquire(use_w, use_h, with_depth_stencil=true, slot=self.active_rt_slot)
+        let (ltex, lds_opt) = self.rt_pool.acquire(
+          lw.to_int(),
+          lh.to_int(),
+          with_depth_stencil=true,
+          slot=self.active_rt_slot,
+        )
         let lds = lds_opt.unwrap()
         self.begin_target_pass(
           cmd,
@@ -1793,6 +1844,10 @@ fn Renderer2D::replay_ops(
           Color::transparent(),
           @tycho.LoadOp::Clear,
         )
+        // Render layer content in layer-local coordinates so the bucket-padded
+        // region stays empty and compositing only reads [0, lw] x [0, lh].
+        self.cur_transform = parent_xf.concat(Matrix3::translate(-lx, -ly))
+        self.cur_scissor = Rect::new((0.0 : Float), (0.0 : Float), lw, lh)
         self.has_stencil_clip = false
       }
       DrawOp::SaveBackdropLayer(bounds, filter) => {
@@ -1804,6 +1859,8 @@ fn Renderer2D::replay_ops(
           has_stencil_clip: self.has_stencil_clip,
           is_layer: false,
           layer_paint: Paint::new(),
+          layer_rect: Rect::zero(),
+          layer_empty: false,
           outer_tex: None,
           outer_ds: None,
           outer_w: 0,
@@ -1868,52 +1925,56 @@ fn Renderer2D::replay_ops(
             if st.is_layer {
               let ltex = self.active_tex.unwrap()
               cmd.end_render_pass()
+              let tex_w = Float::from_int(ltex.width())
+              let tex_h = Float::from_int(ltex.height())
+              let layer_w = st.layer_rect.width
+              let layer_h = st.layer_rect.height
+              let base_u1 = if tex_w > (0.0 : Float) { layer_w / tex_w } else { (0.0 : Float) }
+              let base_v1 = if tex_h > (0.0 : Float) { layer_h / tex_h } else { (0.0 : Float) }
               let mut draw_tex = ltex
-              let mut src_u1 = (1.0 : Float)
-              let mut src_v1 = (1.0 : Float)
+              let mut src_u1 = base_u1
+              let mut src_v1 = base_v1
               let mut shadow_tex : @tycho.Texture? = None
               let mut shadow_u1 = (1.0 : Float)
               let mut shadow_v1 = (1.0 : Float)
-              match st.layer_paint.image_filter {
-                Some(ImageFilter::Blur(sx, sy, _)) => {
-                  let lw = Float::from_int(ltex.width())
-                  let lh = Float::from_int(ltex.height())
-                  let (btex, bw, bh) = self.run_blur_passes(
-                    cmd,
-                    ltex,
-                    st.scissor.width.to_int(),
-                    st.scissor.height.to_int(),
-                    sx,
-                    sy,
-                    src_u0=st.scissor.x / lw,
-                    src_v0=st.scissor.y / lh,
-                    src_u1=st.scissor.right() / lw,
-                    src_v1=st.scissor.bottom() / lh,
-                  )
-                  draw_tex = btex
-                  src_u1 = Float::from_int(bw) / Float::from_int(btex.width())
-                  src_v1 = Float::from_int(bh) / Float::from_int(btex.height())
+              if !st.layer_empty {
+                match st.layer_paint.image_filter {
+                  Some(ImageFilter::Blur(sx, sy, _)) => {
+                    let (btex, bw, bh) = self.run_blur_passes(
+                      cmd,
+                      ltex,
+                      layer_w.to_int(),
+                      layer_h.to_int(),
+                      sx,
+                      sy,
+                      src_u0=(0.0 : Float),
+                      src_v0=(0.0 : Float),
+                      src_u1=base_u1,
+                      src_v1=base_v1,
+                    )
+                    draw_tex = btex
+                    src_u1 = Float::from_int(bw) / Float::from_int(btex.width())
+                    src_v1 = Float::from_int(bh) / Float::from_int(btex.height())
+                  }
+                  Some(ImageFilter::DropShadow(_, _, sx, sy, _)) => {
+                    let (btex, bw, bh) = self.run_blur_passes(
+                      cmd,
+                      ltex,
+                      layer_w.to_int(),
+                      layer_h.to_int(),
+                      sx,
+                      sy,
+                      src_u0=(0.0 : Float),
+                      src_v0=(0.0 : Float),
+                      src_u1=base_u1,
+                      src_v1=base_v1,
+                    )
+                    shadow_tex = Some(btex)
+                    shadow_u1 = Float::from_int(bw) / Float::from_int(btex.width())
+                    shadow_v1 = Float::from_int(bh) / Float::from_int(btex.height())
+                  }
+                  _ => ()
                 }
-                Some(ImageFilter::DropShadow(_, _, sx, sy, _)) => {
-                  let lw = Float::from_int(ltex.width())
-                  let lh = Float::from_int(ltex.height())
-                  let (btex, bw, bh) = self.run_blur_passes(
-                    cmd,
-                    ltex,
-                    st.scissor.width.to_int(),
-                    st.scissor.height.to_int(),
-                    sx,
-                    sy,
-                    src_u0=st.scissor.x / lw,
-                    src_v0=st.scissor.y / lh,
-                    src_u1=st.scissor.right() / lw,
-                    src_v1=st.scissor.bottom() / lh,
-                  )
-                  shadow_tex = Some(btex)
-                  shadow_u1 = Float::from_int(bw) / Float::from_int(btex.width())
-                  shadow_v1 = Float::from_int(bh) / Float::from_int(btex.height())
-                }
-                _ => ()
               }
               let otex = st.outer_tex.unwrap()
               let ods = st.outer_ds.unwrap()
@@ -1931,62 +1992,54 @@ fn Renderer2D::replay_ops(
               self.cur_scissor = st.scissor
               self.cur_clip_rrect = st.clip_rrect
               self.has_stencil_clip = st.has_stencil_clip
-              let (src_u0, src_v0) = match st.layer_paint.image_filter {
-                Some(ImageFilter::Blur(_, _, _)) => ((0.0 : Float), (0.0 : Float))
-                _ => {
-                  let lw = Float::from_int(ltex.width())
-                  let lh = Float::from_int(ltex.height())
-                  src_u1 = st.scissor.right() / lw
-                  src_v1 = st.scissor.bottom() / lh
-                  (st.scissor.x / lw, st.scissor.y / lh)
+              if !st.layer_empty {
+                match (st.layer_paint.image_filter, shadow_tex) {
+                  (Some(ImageFilter::DropShadow(dx, dy, _, _, scol)), Some(stex)) =>
+                    self.composite_texture(
+                      cmd,
+                      stex,
+                      (0.0 : Float),
+                      (0.0 : Float),
+                      shadow_u1,
+                      shadow_v1,
+                      st.layer_rect.offset(dx, dy),
+                      scol,
+                      st.layer_paint.blend_mode,
+                      None,
+                      mode=(3.0 : Float),
+                    )
+                  _ => ()
                 }
-              }
-              match (st.layer_paint.image_filter, shadow_tex) {
-                (Some(ImageFilter::DropShadow(dx, dy, _, _, scol)), Some(stex)) =>
-                  self.composite_texture(
-                    cmd,
-                    stex,
-                    (0.0 : Float),
-                    (0.0 : Float),
-                    shadow_u1,
-                    shadow_v1,
-                    st.scissor.offset(dx, dy),
-                    scol,
-                    st.layer_paint.blend_mode,
-                    None,
-                    mode=(3.0 : Float),
-                  )
-                _ => ()
-              }
-              match st.layer_paint.image_filter {
-                Some(ImageFilter::ColorMatrix(mat)) =>
-                  self.composite_texture(
-                    cmd,
-                    draw_tex,
-                    src_u0,
-                    src_v0,
-                    src_u1,
-                    src_v1,
-                    st.scissor,
-                    st.layer_paint.color,
-                    st.layer_paint.blend_mode,
-                    None,
-                    mode=(2.0 : Float),
-                    color_matrix=Some(mat),
-                  )
-                _ =>
-                  self.composite_texture(
-                    cmd,
-                    draw_tex,
-                    src_u0,
-                    src_v0,
-                    src_u1,
-                    src_v1,
-                    st.scissor,
-                    st.layer_paint.color,
-                    st.layer_paint.blend_mode,
-                    None,
-                  )
+                match st.layer_paint.image_filter {
+                  Some(ImageFilter::ColorMatrix(mat)) =>
+                    self.composite_texture(
+                      cmd,
+                      draw_tex,
+                      (0.0 : Float),
+                      (0.0 : Float),
+                      src_u1,
+                      src_v1,
+                      st.layer_rect,
+                      st.layer_paint.color,
+                      st.layer_paint.blend_mode,
+                      None,
+                      mode=(2.0 : Float),
+                      color_matrix=Some(mat),
+                    )
+                  _ =>
+                    self.composite_texture(
+                      cmd,
+                      draw_tex,
+                      (0.0 : Float),
+                      (0.0 : Float),
+                      src_u1,
+                      src_v1,
+                      st.layer_rect,
+                      st.layer_paint.color,
+                      st.layer_paint.blend_mode,
+                      None,
+                    )
+                }
               }
             } else {
               let had_stencil = self.has_stencil_clip
@@ -2050,18 +2103,32 @@ fn Renderer2D::replay_ops(
         }
       }
       DrawOp::ClipRRect(rr, op) => {
+        let sx = @tmath.abs_f(self.cur_transform.a)
+        let sy = @tmath.abs_f(self.cur_transform.d)
+        let uniform_scale = @tmath.abs_f(sx - sy) <= (1.0e-4 : Float)
+        if !rr.is_circular() || !self.cur_transform.is_axis_aligned() || !uniform_scale {
+          // The analytic ClipRRect path in the SDF shader assumes an
+          // axis-aligned, uniformly-scaled, circular-cornered clip. Anything
+          // else falls back to the stencil clip path for correctness.
+          let p = PathBuilder::new().add_rrect(rr).build()
+          self.replay_ops(cmd, [DrawOp::ClipPath(p, op)])
+          return
+        }
         self.flush_prims(cmd)
         let mapped_r = self.cur_transform.map_rect(rr.rect)
         match op {
           ClipOp::Intersect => {
             self.cur_scissor = self.cur_scissor.intersect(mapped_r)
-            let sx = @tmath.abs_f(self.cur_transform.a)
             self.cur_clip_rrect = Some({
               rect: mapped_r,
               tl: rr.tl * sx,
+              tl_y: rr.tl_y * sy,
               tr: rr.tr * sx,
+              tr_y: rr.tr_y * sy,
               br: rr.br * sx,
+              br_y: rr.br_y * sy,
               bl: rr.bl * sx,
+              bl_y: rr.bl_y * sy,
             })
           }
           ClipOp::Difference => {
@@ -2146,6 +2213,13 @@ fn Renderer2D::replay_ops(
       DrawOp::DrawRect(r, paint) =>
         self.replay_ops(cmd, [DrawOp::DrawRRect(RRect::from_rect(r), paint)])
       DrawOp::DrawRRect(rr, paint) => {
+        if !rr.is_circular() {
+          // Elliptical corners are not representable by the circular-corner
+          // Tier-1 SDF pipeline; fall back to the Tier-2 path pipeline.
+          let p = PathBuilder::new().add_rrect(rr).build()
+          self.draw_path_gpu(cmd, p, paint)
+          return
+        }
         if paint.blend_mode != BlendMode2D::SrcOver {
           self.flush_prims(cmd)
         }

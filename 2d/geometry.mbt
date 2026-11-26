@@ -170,24 +170,51 @@ pub fn Rect::inflate(self : Rect, delta : Float) -> Rect {
 }
 
 ///|
+// Per-corner radii are stored as (x, y) pairs so elliptical corners (e.g. a
+// 24x12 capsule corner) can be represented. `tl..bl` keep the horizontal (x)
+// radius for source compatibility; `tl_y..bl_y` are the vertical radii.
 #derive(Eq, Debug)
 pub(all) struct RRect {
   rect : Rect
   tl : Float
+  tl_y : Float
   tr : Float
+  tr_y : Float
   br : Float
+  br_y : Float
   bl : Float
+  bl_y : Float
 }
 
 ///|
 pub fn RRect::from_rect(rect : Rect) -> RRect {
-  { rect, tl: (0.0 : Float), tr: (0.0 : Float), br: (0.0 : Float), bl: (0.0 : Float) }
+  {
+    rect,
+    tl: (0.0 : Float),
+    tl_y: (0.0 : Float),
+    tr: (0.0 : Float),
+    tr_y: (0.0 : Float),
+    br: (0.0 : Float),
+    br_y: (0.0 : Float),
+    bl: (0.0 : Float),
+    bl_y: (0.0 : Float),
+  }
 }
 
 ///|
 pub fn RRect::uniform(rect : Rect, radius : Float) -> RRect {
   let r = @tmath.max_f((0.0 : Float), radius)
-  { rect, tl: r, tr: r, br: r, bl: r }
+  {
+    rect,
+    tl: r,
+    tl_y: r,
+    tr: r,
+    tr_y: r,
+    br: r,
+    br_y: r,
+    bl: r,
+    bl_y: r,
+  }
 }
 
 ///|
@@ -201,9 +228,39 @@ pub fn RRect::per_corner(
   {
     rect,
     tl: @tmath.max_f((0.0 : Float), tl),
+    tl_y: @tmath.max_f((0.0 : Float), tl),
     tr: @tmath.max_f((0.0 : Float), tr),
+    tr_y: @tmath.max_f((0.0 : Float), tr),
     br: @tmath.max_f((0.0 : Float), br),
+    br_y: @tmath.max_f((0.0 : Float), br),
     bl: @tmath.max_f((0.0 : Float), bl),
+    bl_y: @tmath.max_f((0.0 : Float), bl),
+  }
+}
+
+///|
+// Elliptical per-corner radii: each corner takes an explicit (rx, ry).
+pub fn RRect::per_corner_xy(
+  rect : Rect,
+  tl_x : Float,
+  tl_y : Float,
+  tr_x : Float,
+  tr_y : Float,
+  br_x : Float,
+  br_y : Float,
+  bl_x : Float,
+  bl_y : Float,
+) -> RRect {
+  {
+    rect,
+    tl: @tmath.max_f((0.0 : Float), tl_x),
+    tl_y: @tmath.max_f((0.0 : Float), tl_y),
+    tr: @tmath.max_f((0.0 : Float), tr_x),
+    tr_y: @tmath.max_f((0.0 : Float), tr_y),
+    br: @tmath.max_f((0.0 : Float), br_x),
+    br_y: @tmath.max_f((0.0 : Float), br_y),
+    bl: @tmath.max_f((0.0 : Float), bl_x),
+    bl_y: @tmath.max_f((0.0 : Float), bl_y),
   }
 }
 
@@ -215,9 +272,25 @@ pub fn RRect::offset(self : RRect, dx : Float, dy : Float) -> RRect {
 ///|
 pub fn RRect::is_rect(self : RRect) -> Bool {
   self.tl <= (0.0 : Float) &&
+  self.tl_y <= (0.0 : Float) &&
   self.tr <= (0.0 : Float) &&
+  self.tr_y <= (0.0 : Float) &&
   self.br <= (0.0 : Float) &&
-  self.bl <= (0.0 : Float)
+  self.br_y <= (0.0 : Float) &&
+  self.bl <= (0.0 : Float) &&
+  self.bl_y <= (0.0 : Float)
+}
+
+///|
+// True when every corner is circular (rx == ry). The Tier-1 SDF pipeline only
+// handles circular corners; elliptical RRect falls back to the Tier-2 path
+// pipeline (see Renderer2D::replay_ops).
+pub fn RRect::is_circular(self : RRect) -> Bool {
+  let eps = (1.0e-4 : Float)
+  @tmath.abs_f(self.tl - self.tl_y) <= eps &&
+  @tmath.abs_f(self.tr - self.tr_y) <= eps &&
+  @tmath.abs_f(self.br - self.br_y) <= eps &&
+  @tmath.abs_f(self.bl - self.bl_y) <= eps
 }
 
 ///|

@@ -183,31 +183,35 @@ pub fn PathBuilder::add_rrect(self : PathBuilder, rr : RRect) -> PathBuilder {
   let hw = r.width * (0.5 : Float)
   let hh = r.height * (0.5 : Float)
   let lim = @tmath.min_f(hw, hh)
-  let tl = @tmath.min_f(rr.tl, lim)
-  let tr = @tmath.min_f(rr.tr, lim)
-  let br = @tmath.min_f(rr.br, lim)
-  let bl = @tmath.min_f(rr.bl, lim)
+  let tlx = @tmath.min_f(rr.tl, lim)
+  let tly = @tmath.min_f(rr.tl_y, lim)
+  let trx = @tmath.min_f(rr.tr, lim)
+  let tr_y = @tmath.min_f(rr.tr_y, lim)
+  let brx = @tmath.min_f(rr.br, lim)
+  let br_y = @tmath.min_f(rr.br_y, lim)
+  let blx = @tmath.min_f(rr.bl, lim)
+  let bly = @tmath.min_f(rr.bl_y, lim)
   let k = (0.55228475 : Float) // 4/3 * (sqrt(2) - 1)
   let x0 = r.x
   let y0 = r.y
   let x1 = r.right()
   let y1 = r.bottom()
-  let _ = self.move_to(x0 + tl, y0)
-  let _ = self.line_to(x1 - tr, y0)
-  if tr > (0.0 : Float) {
-    let _ = self.cubic_to(x1 - tr * (1.0 - k), y0, x1, y0 + tr * (1.0 - k), x1, y0 + tr)
+  let _ = self.move_to(x0 + tlx, y0)
+  let _ = self.line_to(x1 - trx, y0)
+  if trx > (0.0 : Float) && tr_y > (0.0 : Float) {
+    let _ = self.cubic_to(x1 - trx * (1.0 - k), y0, x1, y0 + tr_y * (1.0 - k), x1, y0 + tr_y)
   }
-  let _ = self.line_to(x1, y1 - br)
-  if br > (0.0 : Float) {
-    let _ = self.cubic_to(x1, y1 - br * (1.0 - k), x1 - br * (1.0 - k), y1, x1 - br, y1)
+  let _ = self.line_to(x1, y1 - br_y)
+  if brx > (0.0 : Float) && br_y > (0.0 : Float) {
+    let _ = self.cubic_to(x1, y1 - br_y * (1.0 - k), x1 - brx * (1.0 - k), y1, x1 - brx, y1)
   }
-  let _ = self.line_to(x0 + bl, y1)
-  if bl > (0.0 : Float) {
-    let _ = self.cubic_to(x0 + bl * (1.0 - k), y1, x0, y1 - bl * (1.0 - k), x0, y1 - bl)
+  let _ = self.line_to(x0 + blx, y1)
+  if blx > (0.0 : Float) && bly > (0.0 : Float) {
+    let _ = self.cubic_to(x0 + blx * (1.0 - k), y1, x0, y1 - bly * (1.0 - k), x0, y1 - bly)
   }
-  let _ = self.line_to(x0, y0 + tl)
-  if tl > (0.0 : Float) {
-    let _ = self.cubic_to(x0, y0 + tl * (1.0 - k), x0 + tl * (1.0 - k), y0, x0 + tl, y0)
+  let _ = self.line_to(x0, y0 + tly)
+  if tlx > (0.0 : Float) && tly > (0.0 : Float) {
+    let _ = self.cubic_to(x0, y0 + tly * (1.0 - k), x0 + tlx * (1.0 - k), y0, x0 + tlx, y0)
   }
   self.close()
 }
