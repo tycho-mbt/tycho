@@ -351,3 +351,27 @@ test "path ops: union, intersect, difference, xor with a convex clip" {
     None => assert_true(true)
   }
 }
+
+///|
+test "paint color/mask filters are independent of image_filter" {
+  let m : FixedArray[Float] = FixedArray::make(20, (0.0 : Float))
+  let p = Paint::new(
+    color_filter=Some(ColorFilter::Matrix(m)),
+    mask_filter=Some(MaskFilter::Blur((2.0 : Float), (3.0 : Float))),
+  )
+  match p.image_filter {
+    None => assert_true(true)
+    Some(_) => assert_true(false)
+  }
+  match p.mask_filter {
+    Some(MaskFilter::Blur(sx, sy)) => {
+      assert_eq(sx, (2.0 : Float))
+      assert_eq(sy, (3.0 : Float))
+    }
+    None => assert_true(false)
+  }
+  match p.color_filter {
+    Some(ColorFilter::Matrix(mm)) => assert_eq(mm.length(), 20)
+    _ => assert_true(false)
+  }
+}

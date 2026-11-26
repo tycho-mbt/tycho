@@ -540,6 +540,40 @@ fn main {
     let alpha_ok = near(apx[ai].to_int(), 128)
     rt_a.destroy()
 
+    // B5: Paint.color_filter is independent of ImageFilter; an inversion
+    // matrix turns a white layer black.
+    let rt_cf = dev.create_render_target(32, 32, @tycho.TextureFormat::RGBA8)
+    let ccf = @g2d.Canvas::new()
+    ccf.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    let inv : FixedArray[Float] = FixedArray::make(20, (0.0 : Float))
+    inv[0] = (-1.0 : Float)
+    inv[6] = (-1.0 : Float)
+    inv[12] = (-1.0 : Float)
+    inv[4] = (1.0 : Float)
+    inv[9] = (1.0 : Float)
+    inv[14] = (1.0 : Float)
+    inv[18] = (1.0 : Float)
+    let _ = ccf.save_layer(
+      bounds=Some(
+        @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+      ),
+      paint=@g2d.Paint::new(
+        color_filter=Some(@g2d.ColorFilter::Matrix(inv)),
+      ),
+    )
+    ccf.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::white()),
+    )
+    ccf.restore()
+    renderer.render_offscreen(ccf.finish(), rt_cf)
+    let cfpx = rt_cf.readback()
+    let cfi = (16 * 32 + 16) * 4
+    let cf_ok = cfpx[cfi].to_int() < 30 &&
+      cfpx[cfi + 1].to_int() < 30 &&
+      cfpx[cfi + 2].to_int() < 30
+    rt_cf.destroy()
+
     if show_win {
       let cc = @g2d.Color::from_rgba8(14, 18, 30)
       let sc = dev.create_swapchain_desc(
@@ -573,11 +607,11 @@ fn main {
     let used = dev.allocator_used_bytes()
     dev.destroy()
 
-    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && blend2d_ok && alpha_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
-      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus/Darken/Lighten blend + premultiplied images + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries} coverage=\{st.coverage_draws}), 0 validation errors")
+    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && blend2d_ok && alpha_ok && cf_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
+      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus/Darken/Lighten blend + premultiplied images + Paint.color_filter + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries} coverage=\{st.coverage_draws}), 0 validation errors")
     } else {
       println(
-        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) blend2d=\{blend2d_ok} alpha=\{alpha_ok}(\{apx[ai]},\{apx[ai + 3]}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
+        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) blend2d=\{blend2d_ok} alpha=\{alpha_ok}(\{apx[ai]},\{apx[ai + 3]}) cf=\{cf_ok}(\{cfpx[cfi]}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
       )
     }
   } catch {

@@ -198,6 +198,19 @@ pub(all) enum ImageFilter {
 }
 
 ///|
+// Paint-level color filter, independent of ImageFilter. `Matrix` is a 4x5
+// row-major color matrix; `Blend` is reserved for a future shader path.
+pub(all) enum ColorFilter {
+  Matrix(FixedArray[Float])
+  Blend(Color, BlendMode2D)
+}
+
+///|
+pub(all) enum MaskFilter {
+  Blur(Float, Float)
+}
+
+///|
 pub(all) struct Paint {
   color : Color
   style : PaintStyle
@@ -208,6 +221,8 @@ pub(all) struct Paint {
   blend_mode : BlendMode2D
   shader : Shader2D?
   image_filter : ImageFilter?
+  color_filter : ColorFilter?
+  mask_filter : MaskFilter?
   anti_alias : Bool
 }
 
@@ -222,6 +237,8 @@ pub fn Paint::new(
   blend_mode? : BlendMode2D = BlendMode2D::SrcOver,
   shader? : Shader2D? = None,
   image_filter? : ImageFilter? = None,
+  color_filter? : ColorFilter? = None,
+  mask_filter? : MaskFilter? = None,
   anti_alias? : Bool = true,
 ) -> Paint {
   {
@@ -234,6 +251,8 @@ pub fn Paint::new(
     blend_mode,
     shader,
     image_filter,
+    color_filter,
+    mask_filter,
     anti_alias,
   }
 }

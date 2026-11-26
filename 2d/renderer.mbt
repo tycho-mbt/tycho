@@ -2885,13 +2885,29 @@ fn Renderer2D::replay_ops(
         } else {
           Rect::new(lx, ly, lw, lh)
         }
+        // Paint-level filters are independent of ImageFilter; map them onto
+        // the layer filter path (Blend color filters remain unsupported).
+        let effective_filter = match paint.image_filter {
+          Some(f) => Some(f)
+          None =>
+            match paint.mask_filter {
+              Some(MaskFilter::Blur(sx, sy)) =>
+                Some(ImageFilter::Blur(sx, sy, TileMode::Clamp))
+              None =>
+                match paint.color_filter {
+                  Some(ColorFilter::Matrix(m)) => Some(ImageFilter::ColorMatrix(m))
+                  _ => None
+                }
+            }
+        }
+        let layer_paint = { ..paint, image_filter: effective_filter }
         self.state_stack.push({
           transform: parent_xf,
           scissor: parent_scissor,
           clip_rrect: self.cur_clip_rrect,
           has_stencil_clip: self.has_stencil_clip,
           is_layer: true,
-          layer_paint: paint,
+          layer_paint,
           layer_rect,
           layer_empty: empty,
           outer_tex: otex,

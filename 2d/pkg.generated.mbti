@@ -104,6 +104,11 @@ pub fn Color::transparent() -> Self
 pub fn Color::white() -> Self
 pub fn Color::with_alpha(Self, Float) -> Self
 
+pub(all) enum ColorFilter {
+  Matrix(FixedArray[Float])
+  Blend(Color, BlendMode2D)
+}
+
 pub(all) struct CoverageBitmap {
   width : Int32
   height : Int32
@@ -232,6 +237,10 @@ pub(all) struct LineMetrics {
   width : Float
 }
 
+pub(all) enum MaskFilter {
+  Blur(Float, Float)
+}
+
 #derive(Eq, @debug.Debug)
 pub(all) struct Matrix3 {
   a : Float
@@ -264,10 +273,12 @@ pub(all) struct Paint {
   blend_mode : BlendMode2D
   shader : Shader2D?
   image_filter : ImageFilter?
+  color_filter : ColorFilter?
+  mask_filter : MaskFilter?
   anti_alias : Bool
 }
 pub fn Paint::fill(Color) -> Self
-pub fn Paint::new(color? : Color, style? : PaintStyle, stroke_width? : Float, stroke_cap? : StrokeCap, stroke_join? : StrokeJoin, stroke_miter? : Float, blend_mode? : BlendMode2D, shader? : Shader2D?, image_filter? : ImageFilter?, anti_alias? : Bool) -> Self
+pub fn Paint::new(color? : Color, style? : PaintStyle, stroke_width? : Float, stroke_cap? : StrokeCap, stroke_join? : StrokeJoin, stroke_miter? : Float, blend_mode? : BlendMode2D, shader? : Shader2D?, image_filter? : ImageFilter?, color_filter? : ColorFilter?, mask_filter? : MaskFilter?, anti_alias? : Bool) -> Self
 pub fn Paint::stroke(Color, Float, cap? : StrokeCap, join? : StrokeJoin) -> Self
 
 #derive(Eq, @debug.Debug)
