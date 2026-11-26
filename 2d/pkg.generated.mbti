@@ -256,6 +256,8 @@ pub fn GlyphCache::get_or_rasterize_styled(Self, FontFace, Int32, Int32, Float, 
 pub fn GlyphCache::msdf_count(Self) -> Int32
 pub fn GlyphCache::new(@tycho.Device, width? : Int32, height? : Int32) -> Self raise @tycho.RhiError
 pub fn GlyphCache::sdf_count(Self) -> Int32
+pub fn GlyphCache::set_msdf_enabled(Self, Bool) -> Unit
+pub fn GlyphCache::set_msdf_min_size(Self, Float) -> Unit
 
 pub(all) struct GlyphEntry {
   uv_x0 : Float
@@ -562,6 +564,8 @@ pub fn Renderer2D::prim_draw_count(Self) -> Int32
 pub fn Renderer2D::render_offscreen(Self, DisplayList, @tycho.Texture, clear_color? : Color, damage? : Rect?) -> Unit raise @tycho.RhiError
 pub fn Renderer2D::render_swapchain(Self, @tycho.Swapchain, DisplayList, clear_color? : Color, dl_size? : (Int32, Int32)?) -> Unit raise @tycho.RhiError
 pub fn Renderer2D::set_coverage_enabled(Self, Bool) -> Unit
+pub fn Renderer2D::set_msdf_enabled(Self, Bool) -> Unit
+pub fn Renderer2D::set_msdf_min_size(Self, Float) -> Unit
 pub fn Renderer2D::stats(Self) -> RenderStats
 
 pub(all) enum Shader2D {

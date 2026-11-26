@@ -1420,6 +1420,7 @@ fn Renderer2D::flush_prims(
 ///|
 fn Renderer2D::flush_atlas_uploads(self : Renderer2D) -> Unit raise @tycho.RhiError {
   self.glyph_cache.atlas.flush_uploads()
+  self.glyph_cache.msdf_atlas.flush_uploads()
   self.color_atlas.flush_uploads()
   self.coverage_atlas.flush_uploads()
 }
@@ -1467,6 +1468,16 @@ pub fn Renderer2D::stats(self : Renderer2D) -> RenderStats {
 
 ///|
 // Compact single-line summary suitable for a debug/performance overlay.
+pub fn Renderer2D::set_msdf_enabled(self : Renderer2D, enabled : Bool) -> Unit {
+  self.glyph_cache.set_msdf_enabled(enabled)
+}
+
+///|
+pub fn Renderer2D::set_msdf_min_size(self : Renderer2D, size : Float) -> Unit {
+  self.glyph_cache.set_msdf_min_size(size)
+}
+
+///|
 pub fn RenderStats::summary(self : RenderStats) -> String {
   "draws \{self.draw_calls} | passes \{self.path_passes} | prims \{self.prims} | coverage \{self.coverage_draws} | uploads \{self.upload_bytes}B | glyphs \{self.glyph_entries} (sdf \{self.sdf_glyphs}) | atlas resets \{self.atlas_resets}/\{self.atlas_overflows}"
 }

@@ -579,6 +579,9 @@ fn synthesize_glyph_bitmap(
 const SDF_SPREAD : Int = 6
 
 ///|
+const MSDF_BASE_PX : Float = 128.0
+
+///|
 fn sdf_distance_pass(d : Array[Float], w : Int, h : Int, forward : Bool) -> Unit {
   let diag = (1.41421356 : Float)
   if forward {
@@ -1759,6 +1762,8 @@ pub struct GlyphCache {
   priv mut atlas_overflow_count : Int
   priv mut sdf_entries : Int
   priv mut msdf_entries : Int
+  priv mut msdf_enabled : Bool
+  priv mut msdf_min_size : Float
   priv mut frame : Int
   // Bumped whenever the atlas is reset; external caches (coverage bitmaps)
   // must invalidate their UVs when this changes.
@@ -1780,6 +1785,8 @@ pub fn GlyphCache::new(
     atlas_overflow_count: 0,
     sdf_entries: 0,
     msdf_entries: 0,
+    msdf_enabled: true,
+    msdf_min_size: (48.0 : Float),
     frame: 0,
     generation: 0,
   }
@@ -1866,6 +1873,16 @@ pub fn GlyphCache::sdf_count(self : GlyphCache) -> Int {
 ///|
 pub fn GlyphCache::msdf_count(self : GlyphCache) -> Int {
   self.msdf_entries
+}
+
+///|
+pub fn GlyphCache::set_msdf_enabled(self : GlyphCache, enabled : Bool) -> Unit {
+  self.msdf_enabled = enabled
+}
+
+///|
+pub fn GlyphCache::set_msdf_min_size(self : GlyphCache, size : Float) -> Unit {
+  self.msdf_min_size = size
 }
 
 ///|
@@ -2005,7 +2022,9 @@ fn GlyphCache::get_or_rasterize_impl(
   } else {
     ""
   }
-  let use_sdf = gid > 0 && px_size >= (48.0 : Float)
+  let use_sdf = gid > 0 &&
+    self.msdf_enabled &&
+    px_size >= self.msdf_min_size
   // SDF entries are generated once at a fixed base size and scaled on read,
   // so zoomed/animated text reuses the distance field.
   let key = if use_sdf {
@@ -2033,7 +2052,7 @@ fn GlyphCache::get_or_rasterize_impl(
     }
     None => ()
   }
-  let raster_size = if use_sdf { (64.0 : Float) } else { px_size }
+  let raster_size = if use_sdf { MSDF_BASE_PX } else { px_size }
   let adv = if gid > 0 {
     font.glyph_advance(gid, raster_size)
   } else {
@@ -2108,7 +2127,7 @@ fn GlyphCache::get_or_rasterize_impl(
     height: quad_h,
     advance: adv,
     is_sdf: use_sdf,
-    sdf_base: if use_sdf { (64.0 : Float) } else { (0.0 : Float) },
+    sdf_base: if use_sdf { MSDF_BASE_PX } else { (0.0 : Float) },
     is_msdf: use_sdf,
   }
   if cacheable {
@@ -2127,7 +2146,7 @@ fn GlyphCache::get_or_rasterize_impl(
     }
   }
   if use_sdf {
-    let scale = px_size / (64.0 : Float)
+    let scale = px_size / MSDF_BASE_PX
     return scale_glyph_entry(
       entry,
       scale,
