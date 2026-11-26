@@ -27,7 +27,18 @@ priv struct RenderSaveState {
 }
 
 ///|
+// One cached tessellation of a path for a specific (quantized) transform and
+// paint variant. `wq == -1` means fill; otherwise it is the stroke width in
+// 1/16 px, paired with cap/join/miter codes.
 priv struct CachedPathMesh {
+  aq : Int
+  bq : Int
+  cq : Int
+  dq : Int
+  wq : Int
+  cap : Int
+  join : Int
+  mq : Int
   verts : Array[Float]
   bounds : Rect
   mut last_frame : Int
@@ -53,6 +64,19 @@ priv struct PendingPath {
   path : Path
   paint : Paint
   transform : Matrix3
+}
+
+///|
+// Per-frame rendering statistics. `draw_calls` counts Tier-1 instanced draws
+// (each may contain many prims), `path_passes` counts shared MSAA path passes,
+// and `upload_bytes` counts per-frame geometry uploads (prim + path vertices).
+pub(all) struct RenderStats {
+  draw_calls : Int
+  path_passes : Int
+  prims : Int
+  upload_bytes : Int
+  glyph_entries : Int
+  image_entries : Int
 }
 
 ///|
@@ -119,7 +143,8 @@ pub struct Renderer2D {
   priv prim_batch_scratch : FixedArray[Float]
   priv stop_scratch : FixedArray[Float]
   priv path_scratch : FixedArray[Float]
-  priv path_cache : Map[String, CachedPathMesh]
+  priv path_cache : Map[Int, Array[CachedPathMesh]]
+  priv mut path_cache_count : Int
   priv path_batch : Array[PendingPath]
   priv mut path_batch_bounds : Rect?
   priv mut path_batch_count : Int
@@ -130,6 +155,8 @@ pub struct Renderer2D {
   priv mut prim_cursor : Int
   priv mut prim_batch_start : Int
   priv mut prim_draw_count : Int
+  priv mut prim_total : Int
+  priv mut upload_bytes : Int
   priv mut stop_cursor : Int
   priv mut path_cursor : Int
   // Active traversal state
@@ -598,6 +625,7 @@ pub fn Renderer2D::new(
     stop_scratch: FixedArray::make(STOP_FLOATS, (0.0 : Float)),
     path_scratch: FixedArray::make(max_path_verts_per_frame * PATH_VERT_FLOATS, (0.0 : Float)),
     path_cache: {},
+    path_cache_count: 0,
     path_batch: [],
     path_batch_bounds: None,
     path_batch_count: 0,
@@ -607,6 +635,8 @@ pub fn Renderer2D::new(
     prim_cursor: 0,
     prim_batch_start: 0,
     prim_draw_count: 0,
+    prim_total: 0,
+    upload_bytes: 0,
     stop_cursor: 0,
     path_cursor: 0,
     cur_transform: Matrix3::identity(),
@@ -1055,6 +1085,7 @@ fn Renderer2D::emit_prim(
     self.prim_batch_scratch[dst_base + i] = self.prim_scratch[i]
   }
   self.prim_cursor = self.prim_cursor + 1
+  self.prim_total = self.prim_total + 1
 }
 
 ///|
@@ -1229,6 +1260,7 @@ fn Renderer2D::flush_prims(
     offset=self.active_prim_slot_base + self.prim_batch_start * PRIM_BYTES,
     count=count * PRIM_FLOATS,
   )
+  self.upload_bytes = self.upload_bytes + count * PRIM_BYTES
   cmd.set_scissor(0, 0, self.active_w, self.active_h)
   self.prim_draw_count = self.prim_draw_count + 1
   cmd.draw_instanced(6, count, 0, self.prim_batch_start)
@@ -1254,6 +1286,18 @@ pub fn Renderer2D::path_batch_count(self : Renderer2D) -> Int {
 ///|
 pub fn Renderer2D::prim_draw_count(self : Renderer2D) -> Int {
   self.prim_draw_count
+}
+
+///|
+pub fn Renderer2D::stats(self : Renderer2D) -> RenderStats {
+  {
+    draw_calls: self.prim_draw_count,
+    path_passes: self.path_batch_count,
+    prims: self.prim_total,
+    upload_bytes: self.upload_bytes,
+    glyph_entries: self.glyph_cache.entry_count(),
+    image_entries: self.uploaded_images.length() + self.image_tex.length(),
+  }
 }
 
 ///|
@@ -1362,6 +1406,7 @@ fn Renderer2D::upload_path_verts(
   let start_vert = self.path_cursor
   let byte_off = self.slot_path_base() + start_vert * PATH_VERT_BYTES
   self.path_vbuf.upload_floats(self.path_scratch, offset=byte_off, count=n_floats)
+  self.upload_bytes = self.upload_bytes + n_floats * 4
   self.path_cursor = start_vert + use_verts
   (start_vert, use_verts)
 }
@@ -1430,43 +1475,245 @@ fn path_cover_pc(
 }
 
 ///|
+fn stroke_cap_code(c : StrokeCap) -> Int {
+  match c {
+    StrokeCap::Butt => 0
+    StrokeCap::Round => 1
+    StrokeCap::Square => 2
+  }
+}
+
+///|
+fn stroke_join_code(j : StrokeJoin) -> Int {
+  match j {
+    StrokeJoin::Miter => 0
+    StrokeJoin::Round => 1
+    StrokeJoin::Bevel => 2
+  }
+}
+
+///|
+fn verts_bounds(verts : Array[Float]) -> Rect {
+  let n = verts.length()
+  if n < 2 {
+    return Rect::zero()
+  }
+  let mut minx = verts[0]
+  let mut miny = verts[1]
+  let mut maxx = verts[0]
+  let mut maxy = verts[1]
+  let mut i = 2
+  while i + 1 < n {
+    let x = verts[i]
+    let y = verts[i + 1]
+    if x < minx {
+      minx = x
+    }
+    if x > maxx {
+      maxx = x
+    }
+    if y < miny {
+      miny = y
+    }
+    if y > maxy {
+      maxy = y
+    }
+    i = i + 2
+  }
+  Rect::new(minx, miny, maxx - minx, maxy - miny)
+}
+
+///|
+fn translate_mesh(
+  verts : Array[Float],
+  bounds : Rect,
+  xf : Matrix3,
+) -> (Array[Float], Rect) {
+  if xf.tx == (0.0 : Float) && xf.ty == (0.0 : Float) {
+    return (verts, bounds)
+  }
+  let n = verts.length()
+  let out = Array::make(n, (0.0 : Float))
+  let mut i = 0
+  while i + 1 < n {
+    out[i] = verts[i] + xf.tx
+    out[i + 1] = verts[i + 1] + xf.ty
+    i = i + 2
+  }
+  (out, bounds.offset(xf.tx, xf.ty))
+}
+
+///|
+// Evict the least-recently-used cached path variant. Only runs on insertion
+// once the cache is at capacity, so the O(entries) scan stays off the hot path.
+fn Renderer2D::evict_oldest_path(self : Renderer2D) -> Unit {
+  let mut oldest_pid = 0
+  let mut oldest_idx = -1
+  let mut oldest_frame = self.frame_idx + 1
+  for pid, arr in self.path_cache {
+    for i = 0; i < arr.length(); i = i + 1 {
+      if arr[i].last_frame < oldest_frame {
+        oldest_frame = arr[i].last_frame
+        oldest_pid = pid
+        oldest_idx = i
+      }
+    }
+  }
+  if oldest_idx < 0 {
+    return
+  }
+  match self.path_cache.get(oldest_pid) {
+    Some(arr) => {
+      let _ = arr.remove(oldest_idx)
+      if arr.length() == 0 {
+        let _ = self.path_cache.remove(oldest_pid)
+      }
+      self.path_cache_count = self.path_cache_count - 1
+    }
+    None => ()
+  }
+}
+
+///|
 fn Renderer2D::tessellate_fill_cached(
   self : Renderer2D,
   path : Path,
   xf : Matrix3,
 ) -> (Array[Float], Rect) {
+  let pid = path.id().to_int()
   let aq = (xf.a * (16.0 : Float)).to_int()
   let bq = (xf.b * (16.0 : Float)).to_int()
   let cq = (xf.c * (16.0 : Float)).to_int()
   let dq = (xf.d * (16.0 : Float)).to_int()
-  let key = "\{path.id()}:\{aq}:\{bq}:\{cq}:\{dq}"
-  let (base_verts, base_bounds) = match self.path_cache.get(key) {
-    Some(entry) => {
-      entry.last_frame = self.frame_idx
-      (entry.verts, entry.bounds)
+  let arr = match self.path_cache.get(pid) {
+    Some(a) => a
+    None => []
+  }
+  let mut hit : CachedPathMesh? = None
+  for e in arr {
+    if e.aq == aq && e.bq == bq && e.cq == cq && e.dq == dq && e.wq == -1 {
+      e.last_frame = self.frame_idx
+      hit = Some(e)
     }
+  }
+  let (base_verts, base_bounds) = match hit {
+    Some(e) => (e.verts, e.bounds)
     None => {
-      if self.path_cache.length() >= 256 {
-        let mut oldest_key = ""
-        let mut oldest_frame = self.frame_idx + 1
-        for k, v in self.path_cache {
-          if v.last_frame < oldest_frame {
-            oldest_frame = v.last_frame
-            oldest_key = k
-          }
-        }
-        if oldest_key != "" {
-          self.path_cache.remove(oldest_key)
-        }
+      if self.path_cache_count >= 256 {
+        self.evict_oldest_path()
       }
-      let linear_xf = Matrix3::{ a: xf.a, c: xf.c, tx: (0.0 : Float), b: xf.b, d: xf.d, ty: (0.0 : Float) }
+      let linear_xf = Matrix3::{
+        a: xf.a,
+        c: xf.c,
+        tx: (0.0 : Float),
+        b: xf.b,
+        d: xf.d,
+        ty: (0.0 : Float),
+      }
       let (verts, bounds) = tessellate_fill_fan(path, linear_xf)
-      self.path_cache[key] = { verts, bounds, last_frame: self.frame_idx }
+      arr.push({
+        aq,
+        bq,
+        cq,
+        dq,
+        wq: -1,
+        cap: 0,
+        join: 0,
+        mq: 0,
+        verts,
+        bounds,
+        last_frame: self.frame_idx,
+      })
+      self.path_cache[pid] = arr
+      self.path_cache_count = self.path_cache_count + 1
       (verts, bounds)
     }
   }
+  translate_mesh(base_verts, base_bounds, xf)
+}
+
+///|
+fn Renderer2D::tessellate_stroke_cached(
+  self : Renderer2D,
+  path : Path,
+  xf : Matrix3,
+  paint : Paint,
+) -> Array[Float] {
+  let pid = path.id().to_int()
+  let aq = (xf.a * (16.0 : Float)).to_int()
+  let bq = (xf.b * (16.0 : Float)).to_int()
+  let cq = (xf.c * (16.0 : Float)).to_int()
+  let dq = (xf.d * (16.0 : Float)).to_int()
+  let wq = @tmath.max_f(
+    (0.0 : Float),
+    paint.stroke_width * (16.0 : Float) + (0.5 : Float),
+  ).to_int()
+  let cap = stroke_cap_code(paint.stroke_cap)
+  let join = stroke_join_code(paint.stroke_join)
+  let mq = @tmath.max_f(
+    (0.0 : Float),
+    paint.stroke_miter * (4.0 : Float) + (0.5 : Float),
+  ).to_int()
+  let arr = match self.path_cache.get(pid) {
+    Some(a) => a
+    None => []
+  }
+  let mut hit : CachedPathMesh? = None
+  for e in arr {
+    if e.aq == aq &&
+      e.bq == bq &&
+      e.cq == cq &&
+      e.dq == dq &&
+      e.wq == wq &&
+      e.cap == cap &&
+      e.join == join &&
+      e.mq == mq {
+      e.last_frame = self.frame_idx
+      hit = Some(e)
+    }
+  }
+  let base_verts = match hit {
+    Some(e) => e.verts
+    None => {
+      if self.path_cache_count >= 256 {
+        self.evict_oldest_path()
+      }
+      let linear_xf = Matrix3::{
+        a: xf.a,
+        c: xf.c,
+        tx: (0.0 : Float),
+        b: xf.b,
+        d: xf.d,
+        ty: (0.0 : Float),
+      }
+      let verts = tessellate_stroke(
+        path,
+        linear_xf,
+        Float::from_int(wq) * (0.0625 : Float),
+        paint.stroke_cap,
+        paint.stroke_join,
+        Float::from_int(mq) * (0.25 : Float),
+      )
+      arr.push({
+        aq,
+        bq,
+        cq,
+        dq,
+        wq,
+        cap,
+        join,
+        mq,
+        verts,
+        bounds: verts_bounds(verts),
+        last_frame: self.frame_idx,
+      })
+      self.path_cache[pid] = arr
+      self.path_cache_count = self.path_cache_count + 1
+      verts
+    }
+  }
   if xf.tx == (0.0 : Float) && xf.ty == (0.0 : Float) {
-    return (base_verts, base_bounds)
+    return base_verts
   }
   let n = base_verts.length()
   let out = Array::make(n, (0.0 : Float))
@@ -1476,7 +1723,7 @@ fn Renderer2D::tessellate_fill_cached(
     out[i + 1] = base_verts[i + 1] + xf.ty
     i = i + 2
   }
-  (out, base_bounds.offset(xf.tx, xf.ty))
+  out
 }
 
 ///|
@@ -1532,14 +1779,7 @@ fn Renderer2D::draw_path_raw(
     }
   }
   if paint.style == PaintStyle::Stroke || paint.style == PaintStyle::StrokeAndFill {
-    let verts = tessellate_stroke(
-      path,
-      xf,
-      paint.stroke_width,
-      paint.stroke_cap,
-      paint.stroke_join,
-      paint.stroke_miter,
-    )
+    let verts = self.tessellate_stroke_cached(path, xf, paint)
     let (vstart, vcnt) = self.upload_path_verts(verts)
     if vcnt >= 3 {
       let spipe = if use_msaa {
@@ -3095,6 +3335,8 @@ fn Renderer2D::reset_frame_state(
   self.prim_cursor = 0
   self.prim_batch_start = 0
   self.prim_draw_count = 0
+  self.prim_total = 0
+  self.upload_bytes = 0
   self.active_prim_ssbo = self.prim_ssbo
   self.active_prim_slot_base = self.slot_prim_base()
   self.active_prim_chunk = 0
@@ -3159,6 +3401,7 @@ pub fn Renderer2D::render_offscreen(
   dl : DisplayList,
   target : @tycho.Texture,
   clear_color? : Color = Color::transparent(),
+  damage? : Rect? = None,
 ) -> Unit raise @tycho.RhiError {
   self.frame_idx = self.frame_idx + 1
   self.dev.wait_idle()
@@ -3170,17 +3413,79 @@ pub fn Renderer2D::render_offscreen(
   // extra color target plus a full-screen sample+write per offscreen render.
   self.reset_frame_state(w, h, 0, 2)
   self.cur_color_format = target.format()
+  let damage_clip = match damage {
+    Some(d) => {
+      let clipped = d.intersect(
+        Rect::new(
+          (0.0 : Float),
+          (0.0 : Float),
+          Float::from_int(w),
+          Float::from_int(h),
+        ),
+      )
+      if clipped.is_empty() {
+        self.rt_pool.release_slot(2)
+        return
+      }
+      Some(clipped)
+    }
+    None => None
+  }
   let ds = self.rt_pool.acquire_depth(w, h, slot=2)
+  let color_load = match damage_clip {
+    Some(_) => @tycho.LoadOp::Load
+    None => @tycho.LoadOp::Clear
+  }
   self.begin_target_pass(
     cmd,
     target,
     ds,
     w,
     h,
-    @tycho.LoadOp::Clear,
+    color_load,
     clear_color,
     @tycho.LoadOp::Clear,
   )
+  match damage_clip {
+    Some(d) => {
+      // Partial repaint: clip everything to the damage rect and clear only that
+      // region so the rest of the target keeps the previous frame.
+      self.cur_scissor = d
+      self.set_blend(cmd, BlendMode2D::Src)
+      self.emit_prim(
+        cmd,
+        d.x,
+        d.y,
+        d.width,
+        d.height,
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        clear_color,
+        Color::transparent(),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+        (0.0 : Float),
+      )
+      self.flush_prims(cmd)
+      self.set_blend(cmd, BlendMode2D::SrcOver)
+    }
+    None => ()
+  }
   self.replay_ops(cmd, dl.ops)
   self.flush_path_batch(cmd)
   self.flush_prims(cmd)

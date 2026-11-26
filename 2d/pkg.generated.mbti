@@ -372,6 +372,15 @@ pub fn Rect::right(Self) -> Float
 pub fn Rect::union(Self, Self) -> Self
 pub fn Rect::zero() -> Self
 
+pub(all) struct RenderStats {
+  draw_calls : Int32
+  path_passes : Int32
+  prims : Int32
+  upload_bytes : Int32
+  glyph_entries : Int32
+  image_entries : Int32
+}
+
 pub struct RenderTargetPool {
   // private fields
 }
@@ -392,8 +401,9 @@ pub fn Renderer2D::destroy(Self) -> Unit
 pub fn Renderer2D::new(@tycho.Device, max_prims_per_frame? : Int32, max_stops_per_frame? : Int32, max_path_verts_per_frame? : Int32) -> Self raise @tycho.RhiError
 pub fn Renderer2D::path_batch_count(Self) -> Int32
 pub fn Renderer2D::prim_draw_count(Self) -> Int32
-pub fn Renderer2D::render_offscreen(Self, DisplayList, @tycho.Texture, clear_color? : Color) -> Unit raise @tycho.RhiError
+pub fn Renderer2D::render_offscreen(Self, DisplayList, @tycho.Texture, clear_color? : Color, damage? : Rect?) -> Unit raise @tycho.RhiError
 pub fn Renderer2D::render_swapchain(Self, @tycho.Swapchain, DisplayList, clear_color? : Color, dl_size? : (Int32, Int32)?) -> Unit raise @tycho.RhiError
+pub fn Renderer2D::stats(Self) -> RenderStats
 
 pub(all) enum Shader2D {
   Solid(Color)

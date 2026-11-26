@@ -321,6 +321,8 @@ fn main {
     let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
     renderer.render_offscreen(dl, rt, clear_color=@g2d.Color::from_rgba8(14, 18, 30))
     let path_batches = renderer.path_batch_count()
+    let st = renderer.stats()
+    let stats_ok = st.draw_calls > 0 && st.upload_bytes > 0 && st.glyph_entries > 0
 
     let px = rt.readback()
     if shot != "" {
@@ -437,6 +439,44 @@ fn main {
     let s3_ok = clip_batches <= 2 && s3_clip_ok
     rt_clip.destroy()
 
+    // S9: partial repaint only touches the damage region; the untouched half
+    // must still hold the previous frame's pixels.
+    let w4 = 64
+    let h4 = 64
+    let rt_dmg = dev.create_render_target(w4, h4, @tycho.TextureFormat::RGBA8)
+    let d1 = @g2d.Canvas::new()
+    d1.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    d1.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::from_rgba8(255, 0, 0)),
+    )
+    d1.draw_rect(
+      @g2d.Rect::new((32.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::from_rgba8(0, 0, 255)),
+    )
+    renderer.render_offscreen(d1.finish(), rt_dmg)
+    let d2 = @g2d.Canvas::new()
+    d2.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    d2.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::from_rgba8(0, 255, 0)),
+    )
+    renderer.render_offscreen(
+      d2.finish(),
+      rt_dmg,
+      damage=Some(
+        @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      ),
+    )
+    let dpx = rt_dmg.readback()
+    let dl_i = (32 * w4 + 16) * 4
+    let dr_i = (32 * w4 + 48) * 4
+    let s9_ok = dpx[dl_i + 1].to_int() > 150 &&
+      dpx[dl_i].to_int() < 100 &&
+      dpx[dr_i + 2].to_int() > 150 &&
+      dpx[dr_i].to_int() < 100
+    rt_dmg.destroy()
+
     if show_win {
       let cc = @g2d.Color::from_rgba8(14, 18, 30)
       let sc = dev.create_swapchain_desc(
@@ -470,11 +510,11 @@ fn main {
     let used = dev.allocator_used_bytes()
     dev.destroy()
 
-    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && errs == 0 && used == (0 : UInt64) {
-      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus blend + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified, 0 validation errors")
+    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
+      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus blend + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries}), 0 validation errors")
     } else {
       println(
-        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} errs=\{errs} used=\{used}",
+        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
       )
     }
   } catch {
