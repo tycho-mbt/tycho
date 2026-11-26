@@ -50,6 +50,9 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   single `draw_indexed_indirect_count` issues them all (compute culling fills
   instance counts); the non-bindless fallback keeps per-batch draws because it
   rebinds material textures.
+- Distance LOD: `create_lod_node(scene, levels, switch_distances, material)`
+  swaps meshes per camera distance, shares one material for instancing, and
+  reports `stats.lod_switches` (example 86 selects 48x32 / 20x12 / 8x5 spheres).
 - GPU skinning: `MeshData::set_skin` attaches four joint indices/weights per
   vertex (80-byte stream), `Renderer3D::create_skinned_node` binds a joint list
   plus inverse bind matrices, and the vertex shader applies the palette from a

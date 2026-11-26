@@ -11,6 +11,7 @@ pub(all) struct RenderStats3D {
   mut upload_bytes : Int
   mut instance_batches : Int
   mut line_segments : Int
+  mut lod_switches : Int
 }
 
 ///|
@@ -24,15 +25,16 @@ pub fn RenderStats3D::new() -> RenderStats3D {
     upload_bytes: 0,
     instance_batches: 0,
     line_segments: 0,
+    lod_switches: 0,
   }
 }
 
 ///|
 pub fn RenderStats3D::summary(self : RenderStats3D) -> String {
-  "draws=\{self.draw_calls} tris=\{self.triangles} visible=\{self.visible_nodes} culled=\{self.culled_nodes} shadow_passes=\{self.shadow_passes} upload_bytes=\{self.upload_bytes} instance_batches=\{self.instance_batches} lines=\{self.line_segments}"
+  "draws=\{self.draw_calls} tris=\{self.triangles} visible=\{self.visible_nodes} culled=\{self.culled_nodes} shadow_passes=\{self.shadow_passes} upload_bytes=\{self.upload_bytes} instance_batches=\{self.instance_batches} lines=\{self.line_segments} lod=\{self.lod_switches}"
 }
 
 ///|
 pub fn RenderStats3D::to_json(self : RenderStats3D) -> String {
-  "{\"draw_calls\":\{self.draw_calls},\"triangles\":\{self.triangles},\"visible_nodes\":\{self.visible_nodes},\"culled_nodes\":\{self.culled_nodes},\"shadow_passes\":\{self.shadow_passes},\"upload_bytes\":\{self.upload_bytes},\"instance_batches\":\{self.instance_batches},\"line_segments\":\{self.line_segments}}"
+  "{\"draw_calls\":\{self.draw_calls},\"triangles\":\{self.triangles},\"visible_nodes\":\{self.visible_nodes},\"culled_nodes\":\{self.culled_nodes},\"shadow_passes\":\{self.shadow_passes},\"upload_bytes\":\{self.upload_bytes},\"instance_batches\":\{self.instance_batches},\"line_segments\":\{self.line_segments},\"lod_switches\":\{self.lod_switches}}"
 }

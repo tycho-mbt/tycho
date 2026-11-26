@@ -112,6 +112,15 @@ priv struct DrawBatch {
 }
 
 ///|
+/// Distance-based mesh selection for one node. `levels[0]` is the highest
+/// detail; `switch_distances[i]` is the distance where level i+1 takes over.
+priv struct LodGroup {
+  node : NodeId
+  levels : Array[MeshHandle]
+  switch_distances : Array[Float]
+}
+
+///|
 /// A skeleton bound to one scene node: joint nodes plus inverse bind matrices.
 /// `offset` is the palette slot in the bone SSBO, stable for the renderer's life.
 priv struct SkinBinding {
@@ -151,6 +160,7 @@ pub struct Renderer3D {
   priv bone_scratch : FixedArray[Float]
   priv mut bone_cursor : Int
   priv skins : Array[SkinBinding]
+  priv lods : Array[LodGroup]
   priv materials : Array[MaterialDesc]
   priv object_ring : @pool.FrameRing
   priv light_ring : @pool.FrameRing
@@ -782,6 +792,7 @@ pub fn Renderer3D::new(
     bone_scratch: FixedArray::make(MAX_BONES * 16, (0.0 : Float)),
     bone_cursor: 0,
     skins: [],
+    lods: [],
     materials: [],
     object_ring: @pool.FrameRing::new(dev, desc.max_objects * OBJECT_BYTES),
     light_ring: @pool.FrameRing::new(dev, desc.max_lights * LIGHT_BYTES),
@@ -1568,14 +1579,27 @@ fn Renderer3D::render_frame(
   for id in visible {
     match scene.payload(id) {
       Some(NodePayload::Mesh(inst)) => {
-        let mi = inst.mesh.id()
+        let world = scene.world_transform(id)
+        let dist = (world.translation - eye).length()
+        let mut mi = inst.mesh.id()
+        let mut level = 0
+        for g in self.lods {
+          if g.node.index() == id.index() {
+            while level < g.switch_distances.length() &&
+              dist > g.switch_distances[level] {
+              level = level + 1
+            }
+            mi = g.levels[level].id()
+            if level > 0 {
+              self.stats.lod_switches = self.stats.lod_switches + 1
+            }
+          }
+        }
         let mati = inst.material.id()
         if mi >= 0 &&
           mi < self.meshes.length() &&
           mati >= 0 &&
           mati < self.materials.length() {
-          let world = scene.world_transform(id)
-          let dist = (world.translation - eye).length()
           let item : DrawItem = {
             node: id,
             mesh: mi,
@@ -2509,6 +2533,58 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   self.linear_sampler.destroy()
   self.env_sampler.destroy()
   self.shadow_sampler.destroy()
+}
+
+///|
+/// Create a node with distance-based mesh LOD. `levels` runs from highest to
+/// lowest detail and `switch_distances` (length `levels.length() - 1`) holds the
+/// strictly increasing world-space distances where the next level takes over.
+pub fn Renderer3D::create_lod_node(
+  self : Renderer3D,
+  scene : Scene,
+  levels : Array[MeshHandle],
+  switch_distances : Array[Float],
+  material : MaterialHandle,
+  transform? : @tmath.Transform = @tmath.Transform::identity(),
+  name? : String = "",
+) -> NodeId raise {
+  if levels.length() == 0 || switch_distances.length() != levels.length() - 1 {
+    fail("Renderer3D::create_lod_node: levels/distances mismatch")
+  }
+  for i = 0; i < levels.length(); i = i + 1 {
+    let mi = levels[i].id()
+    if mi < 0 || mi >= self.meshes.length() {
+      fail("Renderer3D::create_lod_node: invalid mesh handle")
+    }
+    if self.meshes[mi].skinned() {
+      fail("Renderer3D::create_lod_node: skinned LOD is not supported")
+    }
+  }
+  for i = 1; i < switch_distances.length(); i = i + 1 {
+    if switch_distances[i] <= switch_distances[i - 1] {
+      fail("Renderer3D::create_lod_node: switch distances must increase")
+    }
+  }
+  let mati = material.id()
+  if mati < 0 || mati >= self.materials.length() {
+    fail("Renderer3D::create_lod_node: invalid material handle")
+  }
+  let node = scene.create_node(
+    transform=transform,
+    payload=NodePayload::Mesh(MeshInstance::new(levels[0], material)),
+    name=name,
+  )
+  let mut bounds = self.mesh_bounds(levels[0])
+  for i = 1; i < levels.length(); i = i + 1 {
+    match (bounds, self.mesh_bounds(levels[i])) {
+      (Some(b), Some(o)) => bounds = Some(b.union(o))
+      (None, Some(o)) => bounds = Some(o)
+      _ => ()
+    }
+  }
+  scene.set_local_bounds(node, bounds)
+  self.lods.push({ node, levels, switch_distances })
+  node
 }
 
 ///|
