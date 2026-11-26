@@ -270,10 +270,11 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
       let shaped = font.india_shape(
         gids,
         [
-          "rphf", "half", "cjct", "akhn", "pres", "abvs", "blws", "psts",
-          "haln",
+          "nukt", "akhn", "rphf", "blwf", "half", "vatu", "cjct", "pres",
+          "abvs", "blws", "psts", "haln",
         ],
       )
+      let run_out : Array[ShapedChar] = []
       let mut idx = 0
       for pair in shaped {
         let (gid, comps) = pair
@@ -287,7 +288,7 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
         if ce <= idx {
           ce = idx + 1
         }
-        out.push({
+        run_out.push({
           cp: run_cps[idx],
           source_start: run_cluster[idx],
           source_end: run_cluster[idx] + 1,
@@ -296,6 +297,43 @@ fn shape_run(font : FontFace, text : String) -> Array[ShapedChar] {
           is_space: false,
         })
         idx = ce
+      }
+      // Reph: Ra+virama forms a reph glyph that is placed after the base
+      // consonant, not at its logical position.
+      let mut reph_src = -1
+      for k = start; k + 1 < j; k = k + 1 {
+        if cps[k] == 0x0930 && cps[k + 1] == 0x094D {
+          reph_src = k
+          break
+        }
+      }
+      if reph_src >= 0 {
+        let mut ri = -1
+        for k = 0; k < run_out.length(); k = k + 1 {
+          if run_out[k].cp == 0x0930 &&
+            run_out[k].glyph_id != font.glyph_id(0x0930) {
+            ri = k
+            break
+          }
+        }
+        if ri >= 0 {
+          let r = run_out.remove(ri)
+          let mut base_i = -1
+          for k = 0; k < run_out.length(); k = k + 1 {
+            if is_deva_consonant(run_out[k].cp) {
+              base_i = k
+              break
+            }
+          }
+          if base_i >= 0 {
+            run_out.insert(base_i + 1, r)
+          } else {
+            run_out.insert(0, r)
+          }
+        }
+      }
+      for sc in run_out {
+        out.push(sc)
       }
       i = j
       continue
