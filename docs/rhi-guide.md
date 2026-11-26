@@ -173,3 +173,4 @@ if dev.capabilities().supports_ray_query {
 | `54-tycho-2d-showcase` | `laplaceliu/tycho_2d` showcase: gradients, TrueType/built-in paragraphs, Stencil-then-Cover paths, `save_layer`, and `BackdropFilter` blur |
 | `55-tycho-ui-gallery` | `laplaceliu/tycho_ui` declarative UI showcase: three trees, `Signal[T]`, Dark/Light theme, `TextField`, `frosted_dialog`, and 100K virtual `ListView` |
 | `73-win32-window` | Windows Win32 WSI (`user32.dll` + `VK_KHR_win32_surface`), fullscreen-resize swapchain recreation, clipboard, DPI `content_scale` |
+| `74-dx12-triangle` | Direct3D 12 raw binding: device + command list + DXIL PSO + offscreen RTV + readback, on hardware or WARP |

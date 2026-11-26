@@ -1,5 +1,6 @@
 members = [
   "vulkan",
+  "dx12",
   "window",
   "shader",
   "tycho",

@@ -1,0 +1,65 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_dx12"
+
+// Values
+pub fn available() -> Bool
+
+pub fn env_requests_warp() -> Bool
+
+pub fn last_error() -> Int32
+
+// Errors
+
+// Types and methods
+pub struct CommandList {
+  handle : UInt64
+}
+pub fn CommandList::barrier_to_copy_source(Self, Texture) -> Bool
+pub fn CommandList::barrier_to_render_target(Self, Texture) -> Bool
+pub fn CommandList::begin(Self) -> Bool
+pub fn CommandList::clear(Self, Texture, Float, Float, Float, Float) -> Bool
+pub fn CommandList::copy_to_readback(Self, Texture, Readback) -> Bool
+pub fn CommandList::create(Device) -> Self?
+pub fn CommandList::destroy(Self) -> Unit
+pub fn CommandList::draw(Self, Texture, Int32) -> Bool
+pub fn CommandList::execute_wait(Self, Device) -> Bool
+pub fn CommandList::handle(Self) -> UInt64
+pub fn CommandList::set_pipeline(Self, Pipeline) -> Bool
+
+pub struct Device {
+  handle : UInt64
+}
+pub fn Device::create(warp? : Bool, debug? : Bool) -> Self?
+pub fn Device::destroy(Self) -> Unit
+pub fn Device::handle(Self) -> UInt64
+pub fn Device::is_warp(Self) -> Bool
+pub fn Device::mesh_tier(Self) -> Int32
+pub fn Device::raytracing_tier(Self) -> Int32
+pub fn Device::shader_model(Self) -> Int32
+pub fn Device::validation_errors(Self) -> Int32
+
+pub struct Pipeline {
+  handle : UInt64
+}
+pub fn Pipeline::create(Device, FixedArray[UInt32], Int32, FixedArray[UInt32], Int32) -> Self?
+pub fn Pipeline::destroy(Self) -> Unit
+pub fn Pipeline::handle(Self) -> UInt64
+
+pub struct Readback {
+  handle : UInt64
+}
+pub fn Readback::bytes(Self) -> Bytes
+pub fn Readback::create(Device, Int32, Int32) -> Self?
+pub fn Readback::destroy(Self) -> Unit
+pub fn Readback::handle(Self) -> UInt64
+
+pub struct Texture {
+  handle : UInt64
+}
+pub fn Texture::create(Device, Int32, Int32) -> Self?
+pub fn Texture::destroy(Self) -> Unit
+pub fn Texture::handle(Self) -> UInt64
+
+// Type aliases
+
+// Traits

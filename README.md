@@ -23,6 +23,7 @@
 | Module (`mooncakes.io`) | Directory | Purpose | Native Link Deps |
 |---|---|---|---|
 | `laplaceliu/tycho_vulkan` | `vulkan/` | Pure-MoonBit Vulkan bindings generated from `vk.xml` 1.4.363 (root package, headers vendored in-package: no Vulkan SDK needed; runtime loads `libvulkan.so.1` / `vulkan-1.dll` / `libvulkan.1.dylib` / `MoltenVK` dynamically) | *(none)* |
+| `laplaceliu/tycho_dx12` | `dx12/` | Pure-MoonBit Direct3D 12 bindings (M1a minimal hand-written surface: device, command list, DXIL pipeline, render target, readback; runtime loads `d3d12.dll` / `dxgi.dll`, no import libs) | *(none)* |
 | `laplaceliu/tycho_window` | `window/` | Thin native window + input events + Vulkan WSI surface helper across Linux (Wayland/X11 via `dlopen`), Windows (Win32 via `LoadLibraryA`), and macOS (Cocoa + `CAMetalLayer` via `dlopen`) | *(none)* |
 | `laplaceliu/tycho_shader` | `shader/` | GLSL (`glslangValidator`), Slang (`slangc`), pure-MoonBit SPIR-V reflection (`reflect_spirv`), & PPM/BMP/PNG/HDR image helpers | *(none)* |
 | `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, free-list sub-allocator, auto-reflected pipelines (`from_spirv`), MRT, mipmaps, storage images, bindless, mesh shaders, inline Ray Query (BLAS/TLAS), stencil state, and GPU timestamps; typed math seams via `tycho_math` (`push_constants_mat4`, `RayInstanceDesc::from_affine3`) | *(none)* |
@@ -37,7 +38,8 @@ Documentation:
 - [RHI Programming Guide](docs/rhi-guide.md)
 
 Planned next phase:
-- Add `laplaceliu/tycho_metal` (macOS/iOS) and `laplaceliu/tycho_dx12` (Windows) backends under `laplaceliu/tycho`, plus cross-platform shader compilation.
+- Grow `laplaceliu/tycho_dx12` from its M1a hand-written surface to the generated full binding + DXGI presentation, then add the DX12 backend under `laplaceliu/tycho`.
+- Add `laplaceliu/tycho_metal` (macOS/iOS), plus cross-platform shader compilation (SPIR-V today, DXIL/MSL artifacts next).
 
 ## Key Design Improvements for `mooncakes.io`
 

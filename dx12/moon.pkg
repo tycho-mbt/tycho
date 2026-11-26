@@ -1,0 +1,5 @@
+pkgtype(kind: "foreign_library")
+
+options(
+  "native-stub": [ "dx12_stub.c" ],
+)

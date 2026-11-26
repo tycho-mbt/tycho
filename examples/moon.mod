@@ -12,6 +12,7 @@ description = "Pure-MoonBit Vulkan examples and Linux API verification suite for
 
 import {
   "laplaceliu/tycho_vulkan@0.7.0",
+  "laplaceliu/tycho_dx12@0.1.0",
   "laplaceliu/tycho_window@0.8.1",
   "laplaceliu/tycho_shader@0.7.0",
   "laplaceliu/tycho@0.9.0",
