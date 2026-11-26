@@ -17,6 +17,7 @@ EXAMPLES=(
   65-tycho-3d-transparency
   66-tycho-3d-debug-lines
   67-tycho-3d-env-quality
+  68-tycho-3d-msaa
 )
 
 echo "== unit tests =="
