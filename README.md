@@ -124,6 +124,29 @@ moon test --target native
 ./check-math-layering.sh   # tycho_math stays a leaf; RHI uses @tmath only in its façade
 ```
 
+## Quick Start (Windows)
+
+```powershell
+# 1. Check the MSVC + Windows SDK toolchain and native dependencies
+#    (add -SlangPath C:\path\to\slang-release to link third_party\slang)
+.\setup-windows.ps1
+
+# 2. Build all modules and verification suites
+moon build --target native
+
+# 3. Run unit tests
+moon test --target native
+
+# 4. Run the pure-MoonBit verification examples (GPU-less runners use Mesa lavapipe)
+python tools\run-ci-suite.py --mode all --skip 07-slang,51-wayland-window --require-pass 35
+```
+
+`setup-windows.ps1` verifies the MSVC x64 compiler and Windows SDK that `moon` drives
+(located through `vswhere`, so no developer prompt is required), the Vulkan loader (1.3+),
+`glslangValidator`, and the vendored headers/`vk.xml`. With `-SlangPath` it links a Slang
+release into `third_party\slang` as a junction. If PowerShell blocks the script, run
+`powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1`.
+
 ## Publishing to `mooncakes.io`
 
 Install in downstream MoonBit packages with:
