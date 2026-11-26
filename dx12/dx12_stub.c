@@ -142,6 +142,15 @@ typedef struct TychoDxTexture {
   int owned;  // 0 for swapchain back buffers, whose lifetime is the swapchain's
 } TychoDxTexture;
 
+// CPU-visible (UPLOAD heap) buffer, persistently mapped. Uniform data is the
+// only consumer today; it is bound as a root CBV so no descriptor heap is
+// needed.
+typedef struct TychoDxBuffer {
+  ID3D12Resource *resource;
+  void *mapped;
+  int size;
+} TychoDxBuffer;
+
 typedef struct TychoDxSwapchain {
   IDXGISwapChain3 *swapchain;
   ID3D12DescriptorHeap *rtv_heap;
@@ -169,6 +178,7 @@ static TychoDxTexture *as_texture(uint64_t p) { return (TychoDxTexture *)(uintpt
 static TychoDxReadback *as_readback(uint64_t p) { return (TychoDxReadback *)(uintptr_t)p; }
 static TychoDxCommands *as_commands(uint64_t p) { return (TychoDxCommands *)(uintptr_t)p; }
 static TychoDxSwapchain *as_swapchain(uint64_t p) { return (TychoDxSwapchain *)(uintptr_t)p; }
+static TychoDxBuffer *as_buffer(uint64_t p) { return (TychoDxBuffer *)(uintptr_t)p; }
 
 static void set_hr(HRESULT hr) {
   if (FAILED(hr)) {
@@ -537,6 +547,15 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_clear(uint64_t cmd_p, uint64_t tex_p, 
   return 1;
 }
 
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_cbv(uint64_t cmd_p, int32_t index,
+                                                  uint64_t gpu_address) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  if (!cmds || index < 0) return 0;
+  cmds->list->lpVtbl->SetGraphicsRootConstantBufferView(cmds->list, (UINT)index,
+                                                        (D3D12_GPU_VIRTUAL_ADDRESS)gpu_address);
+  return 1;
+}
+
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_pipeline(uint64_t cmd_p, uint64_t pipe_p) {
   TychoDxCommands *cmds = as_commands(cmd_p);
   TychoDxPipeline *pipe = as_pipeline(pipe_p);
@@ -547,7 +566,7 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_pipeline(uint64_t cmd_p, uint64_t 
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd_p, uint64_t tex_p, int32_t vertices,
-                                              int32_t instances) {
+                                              int32_t instances, int32_t flip_y) {
   TychoDxCommands *cmds = as_commands(cmd_p);
   TychoDxTexture *tex = as_texture(tex_p);
   D3D12_VIEWPORT vp;
@@ -560,9 +579,12 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd_p, uint64_t tex_p, i
   cmds->list->lpVtbl->OMSetRenderTargets(cmds->list, 1, &tex->rtv, FALSE, NULL);
   memset(&vp, 0, sizeof vp);
   vp.TopLeftX = 0.0f;
-  vp.TopLeftY = 0.0f;
+  // A negative viewport height maps NDC y=-1 to the first framebuffer row, which
+  // is Vulkan's convention; content authored once then renders identically on
+  // both backends without a shader-side flip.
+  vp.TopLeftY = flip_y ? (float)tex->height : 0.0f;
   vp.Width = (float)tex->width;
-  vp.Height = (float)tex->height;
+  vp.Height = flip_y ? -(float)tex->height : (float)tex->height;
   vp.MinDepth = 0.0f;
   vp.MaxDepth = 1.0f;
   cmds->list->lpVtbl->RSSetViewports(cmds->list, 1, &vp);
@@ -635,26 +657,44 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_commands_execute_wait(uint64_t dev_p, uint
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline (empty root signature + graphics PSO from DXIL blobs)
+// Pipeline (root signature with `cbv_count` root CBVs + graphics PSO from DXIL)
 // ---------------------------------------------------------------------------
+
+#define TYCHO_DX12_MAX_ROOT_CBVS 8
 
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uint8_t *vs,
                                                        int32_t vs_len, const uint8_t *ps,
-                                                       int32_t ps_len) {
+                                                       int32_t ps_len, int32_t cbv_count,
+                                                       int32_t flip_y) {
   TychoDxDevice *dev = as_device(dev_p);
   TychoDxPipeline *pipe;
   ID3DBlob *rs_blob = NULL;
   ID3DBlob *rs_err = NULL;
   D3D12_VERSIONED_ROOT_SIGNATURE_DESC rs_desc;
+  D3D12_ROOT_PARAMETER root_params[TYCHO_DX12_MAX_ROOT_CBVS];
   D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc;
   HRESULT hr;
+  int i;
   if (!dev || !vs || !ps || vs_len <= 0 || ps_len <= 0) return 0;
+  if (cbv_count < 0 || cbv_count > TYCHO_DX12_MAX_ROOT_CBVS) return 0;
 
   pipe = (TychoDxPipeline *)calloc(1, sizeof(TychoDxPipeline));
   if (!pipe) return 0;
 
+  // Uniform slots map to root CBVs: slot i is register b<i> in space 0, which is
+  // what `[[vk::binding(i, 0)]]` / `register(b<i>, space0)` compiles to on both
+  // backends. Root CBVs need no descriptor heap, only a 256-byte aligned address.
+  memset(root_params, 0, sizeof root_params);
+  for (i = 0; i < cbv_count; i++) {
+    root_params[i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    root_params[i].Descriptor.ShaderRegister = (UINT)i;
+    root_params[i].Descriptor.RegisterSpace = 0;
+    root_params[i].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+  }
   memset(&rs_desc, 0, sizeof rs_desc);
   rs_desc.Version = D3D_ROOT_SIGNATURE_VERSION_1_0;
+  rs_desc.Desc_1_0.NumParameters = (UINT)cbv_count;
+  rs_desc.Desc_1_0.pParameters = cbv_count > 0 ? root_params : NULL;
   rs_desc.Desc_1_0.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
   hr = g_serialize_rs(&rs_desc, &rs_blob, &rs_err);
   set_hr(hr);
@@ -682,7 +722,10 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
   pso_desc.PS.BytecodeLength = (SIZE_T)ps_len;
   pso_desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
   pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-  pso_desc.RasterizerState.FrontCounterClockwise = FALSE;
+  // A flipped viewport mirrors the image, which reverses triangle winding, so the
+  // front-face convention has to flip with it (see the negative viewport in
+  // tycho_dx12_cmd_draw).
+  pso_desc.RasterizerState.FrontCounterClockwise = flip_y ? TRUE : FALSE;
   pso_desc.RasterizerState.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
   pso_desc.RasterizerState.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
   pso_desc.RasterizerState.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
@@ -906,6 +949,95 @@ MOONBIT_FFI_EXPORT moonbit_bytes_t tycho_dx12_readback_bytes(uint64_t p) {
   range.End = 0;
   rb->resource->lpVtbl->Unmap(rb->resource, 0, &range);
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Upload (CPU-visible) buffers
+// ---------------------------------------------------------------------------
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_buffer_create(uint64_t dev_p, int32_t size) {
+  TychoDxDevice *dev = as_device(dev_p);
+  TychoDxBuffer *buf;
+  D3D12_HEAP_PROPERTIES heap;
+  D3D12_RESOURCE_DESC desc;
+  void *mapped = NULL;
+  HRESULT hr;
+  if (!dev || size <= 0) return 0;
+
+  buf = (TychoDxBuffer *)calloc(1, sizeof(TychoDxBuffer));
+  if (!buf) return 0;
+  buf->size = size;
+
+  memset(&heap, 0, sizeof heap);
+  heap.Type = D3D12_HEAP_TYPE_UPLOAD;
+  heap.CreationNodeMask = 1;
+  heap.VisibleNodeMask = 1;
+
+  memset(&desc, 0, sizeof desc);
+  desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  desc.Width = (UINT64)size;
+  desc.Height = 1;
+  desc.DepthOrArraySize = 1;
+  desc.MipLevels = 1;
+  desc.Format = DXGI_FORMAT_UNKNOWN;
+  desc.SampleDesc.Count = 1;
+  desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+  desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+  hr = dev->device->lpVtbl->CreateCommittedResource(dev->device, &heap, D3D12_HEAP_FLAG_NONE,
+                                                    &desc, D3D12_RESOURCE_STATE_GENERIC_READ, NULL,
+                                                    &kIID_ID3D12Resource,
+                                                    (void **)&buf->resource);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    free(buf);
+    return 0;
+  }
+  if (FAILED(buf->resource->lpVtbl->Map(buf->resource, 0, NULL, &mapped)) || !mapped) {
+    buf->resource->lpVtbl->Release(buf->resource);
+    free(buf);
+    return 0;
+  }
+  buf->mapped = mapped;
+  return (uint64_t)(uintptr_t)buf;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_buffer_write(uint64_t buf_p, int32_t offset,
+                                                   const uint8_t *data, int32_t len) {
+  TychoDxBuffer *buf = as_buffer(buf_p);
+  if (!buf || !buf->mapped || !data || len < 0 || offset < 0) return 0;
+  if ((int64_t)offset + (int64_t)len > (int64_t)buf->size) return 0;
+  memcpy((uint8_t *)buf->mapped + offset, data, (size_t)len);
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_buffer_write_floats(uint64_t buf_p, int32_t offset,
+                                                          const float *data, int32_t count) {
+  if (count < 0) return 0;
+  return tycho_dx12_buffer_write(buf_p, offset, (const uint8_t *)data, count * 4);
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_buffer_gpu_address(uint64_t buf_p) {
+  TychoDxBuffer *buf = as_buffer(buf_p);
+  if (!buf || !buf->resource) return 0;
+  return (uint64_t)buf->resource->lpVtbl->GetGPUVirtualAddress(buf->resource);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_buffer_size(uint64_t buf_p) {
+  TychoDxBuffer *buf = as_buffer(buf_p);
+  return buf ? buf->size : 0;
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_buffer_destroy(uint64_t buf_p) {
+  TychoDxBuffer *buf = as_buffer(buf_p);
+  if (!buf) return;
+  if (buf->resource) {
+    if (buf->mapped) {
+      buf->resource->lpVtbl->Unmap(buf->resource, 0, NULL);
+    }
+    buf->resource->lpVtbl->Release(buf->resource);
+  }
+  free(buf);
 }
 
 // ---------------------------------------------------------------------------
@@ -1220,13 +1352,58 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_pipeline(uint64_t cmd, uint64_t pi
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_draw(uint64_t cmd, uint64_t tex, int32_t vertices,
-                                              int32_t instances) {
+                                              int32_t instances, int32_t flip_y) {
   (void)cmd;
   (void)tex;
   (void)vertices;
   (void)instances;
+  (void)flip_y;
   return 0;
 }
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_cbv(uint64_t cmd, int32_t index,
+                                                  uint64_t gpu_address) {
+  (void)cmd;
+  (void)index;
+  (void)gpu_address;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_buffer_create(uint64_t dev, int32_t size) {
+  (void)dev;
+  (void)size;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_buffer_write(uint64_t buf, int32_t offset,
+                                                   const uint8_t *data, int32_t len) {
+  (void)buf;
+  (void)offset;
+  (void)data;
+  (void)len;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_buffer_write_floats(uint64_t buf, int32_t offset,
+                                                          const float *data, int32_t count) {
+  (void)buf;
+  (void)offset;
+  (void)data;
+  (void)count;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_buffer_gpu_address(uint64_t buf) {
+  (void)buf;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_buffer_size(uint64_t buf) {
+  (void)buf;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_buffer_destroy(uint64_t buf) { (void)buf; }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_copy_to_readback(uint64_t cmd, uint64_t tex,
                                                            uint64_t rb) {
@@ -1244,12 +1421,15 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_commands_execute_wait(uint64_t dev, uint64
 
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev, const uint8_t *vs,
                                                        int32_t vs_len, const uint8_t *ps,
-                                                       int32_t ps_len) {
+                                                       int32_t ps_len, int32_t cbv_count,
+                                                       int32_t flip_y) {
   (void)dev;
   (void)vs;
   (void)vs_len;
   (void)ps;
   (void)ps_len;
+  (void)cbv_count;
+  (void)flip_y;
   return 0;
 }
 

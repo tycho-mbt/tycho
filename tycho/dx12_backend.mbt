@@ -18,6 +18,21 @@ priv struct Dx12DeviceState {
 }
 
 ///|
+/// A compiled DX12 pipeline plus the uniform slot count its root signature was
+/// built with (slot i = root CBV i = `register(b<i>, space0)`).
+priv struct Dx12PipelineState {
+  pipe : @dx12.Pipeline
+  uniform_slots : Int
+}
+
+///|
+/// A CPU-visible upload buffer; `size` is tracked so the RHI can bound checks.
+priv struct Dx12BufferState {
+  buffer : @dx12.Buffer
+  size : Int
+}
+
+///|
 priv struct Dx12SwapchainState {
   device : @dx12.Device
   swapchain : @dx12.Swapchain
@@ -129,22 +144,69 @@ fn dx12_pipeline_create(
   vert : FixedArray[UInt32],
   frag : FixedArray[UInt32],
   uniform_slots : Int,
-) -> @dx12.Pipeline raise RhiError {
-  if uniform_slots > 0 {
-    raise RhiError::BackendUnsupported(
-      "uniform slots need a descriptor heap, which the DX12 backend does not have yet",
-    )
-  }
+) -> Dx12PipelineState raise RhiError {
+  // Root CBVs cost nothing to declare, so uniform slots are supported directly;
+  // `flip_y` pins the Vulkan clip-space/winding convention (docs/original-design
+  // /03-dx12.md §6.1 item 2) so one shader source renders identically on both
+  // backends.
   match @dx12.Pipeline::create(
     state.device,
     vert,
     vert.length() * 4,
     frag,
     frag.length() * 4,
+    cbv_count=uniform_slots,
+    flip_y=true,
   ) {
-    Some(p) => p
+    Some(p) => { pipe: p, uniform_slots, }
     None => raise RhiError::PipelineFailed("DX12 CreateGraphicsPipelineState failed")
   }
+}
+
+///|
+fn dx12_buffer_create(
+  state : Dx12DeviceState,
+  size : Int,
+  kind : BufferKind,
+  location : MemoryLocation,
+) -> Dx12BufferState raise RhiError {
+  let uploadable = match location {
+    MemoryLocation::CpuToGpu => true
+    _ => false
+  }
+  if !uploadable {
+    raise RhiError::BackendUnsupported(
+      "the DX12 backend only allocates CpuToGpu buffers so far",
+    )
+  }
+  match kind {
+    BufferKind::Uniform => ()
+    _ =>
+      raise RhiError::BackendUnsupported(
+        "the DX12 backend only uploads uniform buffers so far",
+      )
+  }
+  match @dx12.Buffer::create(state.device, size) {
+    Some(b) => { buffer: b, size, }
+    None => raise RhiError::AllocationFailed("DX12 upload buffer")
+  }
+}
+
+///|
+fn dx12_bind_uniform(
+  cmd : Dx12CommandState,
+  pipe : Dx12PipelineState,
+  slot : Int,
+  buffer : Dx12BufferState,
+  offset : Int,
+) -> Bool {
+  if slot < 0 || slot >= pipe.uniform_slots {
+    return false
+  }
+  if offset + 16 > buffer.size {
+    return false
+  }
+  cmd.commands.set_cbv(slot, buffer.buffer, offset~)
 }
 
 ///|
@@ -229,13 +291,14 @@ fn dx12_end_frame(state : Dx12SwapchainState, cmd : Dx12CommandState) -> Unit ra
 }
 
 ///|
-fn dx12_bind_pipeline(cmd : Dx12CommandState, pipe : @dx12.Pipeline) -> Unit {
-  let _ = cmd.commands.set_pipeline(pipe)
+fn dx12_bind_pipeline(cmd : Dx12CommandState, pipe : Dx12PipelineState) -> Unit {
+  let _ = cmd.commands.set_pipeline(pipe.pipe)
 }
 
 ///|
 fn dx12_draw(cmd : Dx12CommandState, vertices : Int, instances : Int) -> Unit {
   // Vertex/instance offsets are not part of the DX12 slice yet; the RHI draw
-  // calls without offsets are the ones the gates exercise.
-  let _ = cmd.commands.draw(cmd.target, vertices, instances=instances)
+  // calls without offsets are the ones the gates exercise. `flip_y` matches the
+  // viewport convention pinned in dx12_pipeline_create.
+  let _ = cmd.commands.draw(cmd.target, vertices, instances=instances, flip_y=true)
 }

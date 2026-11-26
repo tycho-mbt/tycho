@@ -22,7 +22,13 @@ priv enum SwapchainBackend {
 ///|
 priv enum PipelineBackend {
   VkPipeline(VkPipelineState)
-  Dx12Pipeline(@dx12.Pipeline)
+  Dx12Pipeline(Dx12PipelineState)
+}
+
+///|
+priv enum BufferBackend {
+  VkBuffer(VkBufferState)
+  Dx12Buffer(Dx12BufferState)
 }
 
 ///|
@@ -81,7 +87,7 @@ fn CommandBuffer::vk(self : CommandBuffer) -> VkCmdState raise RhiError {
 
 ///|
 pub struct Buffer {
-  priv inner : VkBufferState
+  priv backend : BufferBackend
 }
 
 ///|
@@ -119,11 +125,25 @@ pub struct CommandBuffer {
   priv backend : CommandsBackend
 }
 
+///|
+fn Buffer::vk(self : Buffer) -> VkBufferState raise RhiError {
+  match self.backend {
+    VkBuffer(state) => state
+    Dx12Buffer(_) =>
+      raise RhiError::BackendUnsupported("this buffer operation is not implemented on DX12")
+  }
+}
+
+///|
+fn Buffer::dx12(self : Buffer) -> Dx12BufferState? {
+  match self.backend {
+    Dx12Buffer(state) => Some(state)
+    VkBuffer(_) => None
+  }
+}
+
 // Vulkan-only handles: they are only ever produced by the Vulkan backend, so the
 // accessors below cannot fail.
-fn Buffer::vk(self : Buffer) -> VkBufferState {
-  self.inner
-}
 
 fn Texture::vk(self : Texture) -> VkTextureState {
   self.inner
@@ -431,6 +451,33 @@ fn CommandBuffer::on_vk(
 }
 
 ///|
+/// Runs `apply` with the Vulkan command state and a Vulkan buffer; a no-op when
+/// either side belongs to another backend.
+fn CommandBuffer::on_vk_buffer(
+  self : CommandBuffer,
+  buffer : Buffer,
+  apply : (VkCmdState, VkBufferState) -> Unit,
+) -> Unit {
+  match (self.backend, buffer.backend) {
+    (VkCommands(cmd), VkBuffer(state)) => apply(cmd, state)
+    _ => ()
+  }
+}
+
+///|
+fn CommandBuffer::on_vk_buffers(
+  self : CommandBuffer,
+  first : Buffer,
+  second : Buffer,
+  apply : (VkCmdState, VkBufferState, VkBufferState) -> Unit,
+) -> Unit {
+  match (self.backend, first.backend, second.backend) {
+    (VkCommands(cmd), VkBuffer(a), VkBuffer(b)) => apply(cmd, a, b)
+    _ => ()
+  }
+}
+
+///|
 pub fn CommandBuffer::frame_slot(self : CommandBuffer) -> Int {
   match self.backend {
     VkCommands(state) => state.frame_idx
@@ -552,6 +599,29 @@ pub fn Swapchain::create_pipeline_desc(
   self : Swapchain,
   desc : PipelineDesc,
 ) -> Pipeline raise RhiError {
+  match self.backend {
+    Dx12Swapchain(state) => {
+      if desc.texture_slots > 0 ||
+        desc.storage_slots > 0 ||
+        desc.storage_image_slots > 0 ||
+        desc.accel_slots > 0 {
+        raise RhiError::BackendUnsupported(
+          "the DX12 backend implements uniform slots only (texture/storage/accel slots need a descriptor heap)",
+        )
+      }
+      if desc.push_constant_size > 0 {
+        raise RhiError::BackendUnsupported(
+          "push constants are not implemented on the DX12 backend yet",
+        )
+      }
+      return {
+        backend: Dx12Pipeline(
+          dx12_pipeline_create(state, desc.vert, desc.frag, desc.uniform_slots),
+        ),
+      }
+    }
+    VkSwapchain(_) => ()
+  }
   {
     backend: VkPipeline(vk_graphics_pipeline_create(self.vk().device, desc, self.vk().format)),
   }
@@ -673,7 +743,7 @@ pub fn Device::create_compute_pipeline_auto(
 pub fn Pipeline::destroy(self : Pipeline) -> Unit {
   match self.backend {
     VkPipeline(state) => vk_pipeline_destroy(state)
-    Dx12Pipeline(pipe) => pipe.destroy()
+    Dx12Pipeline(state) => state.pipe.destroy()
   }
 }
 
@@ -693,12 +763,18 @@ pub fn Device::create_buffer_with(
   kind : BufferKind,
   location? : MemoryLocation = MemoryLocation::CpuToGpu,
 ) -> Buffer raise RhiError {
-  { inner: vk_buffer_create(self.vk(), size, kind, location~) }
+  match self.backend {
+    VkDevice(state) => { backend: VkBuffer(vk_buffer_create(state, size, kind, location~)) }
+    Dx12Device(state) => { backend: Dx12Buffer(dx12_buffer_create(state, size, kind, location)) }
+  }
 }
 
 ///|
 pub fn Buffer::size(self : Buffer) -> Int {
-  self.vk().size
+  match self.backend {
+    VkBuffer(state) => state.size
+    Dx12Buffer(state) => state.size
+  }
 }
 
 ///|
@@ -722,7 +798,10 @@ pub fn Buffer::upload_bytes(
   count? : Int = -1,
 ) -> Unit raise RhiError {
   let n = resolve_upload_count(count, data.length())
-  vk_buffer_upload_bytes(self.vk(), data, offset, n)
+  match self.dx12() {
+    Some(state) => dx12_buffer_write(state, data, offset, n)
+    None => vk_buffer_upload_bytes(self.vk(), data, offset, n)
+  }
 }
 
 ///|
@@ -733,7 +812,14 @@ pub fn Buffer::upload_floats(
   count? : Int = -1,
 ) -> Unit raise RhiError {
   let n = resolve_upload_count(count, data.length())
-  vk_buffer_upload_floats(self.vk(), data, offset, n)
+  match self.dx12() {
+    Some(state) => {
+      if !state.buffer.write_floats(data, offset~) {
+        raise AllocationFailed("DX12 uniform upload exceeded the buffer size")
+      }
+    }
+    None => vk_buffer_upload_floats(self.vk(), data, offset, n)
+  }
 }
 
 ///|
@@ -762,6 +848,19 @@ pub fn Buffer::upload_uint32(
 }
 
 ///|
+fn dx12_buffer_write(
+  state : Dx12BufferState,
+  data : Bytes,
+  offset : Int,
+  count : Int,
+) -> Unit raise RhiError {
+  let slice = Bytes::makei(count, fn(i) { data[i] })
+  if !state.buffer.write(slice, offset~) {
+    raise AllocationFailed("DX12 upload exceeded the buffer size")
+  }
+}
+
+///|
 pub fn Buffer::upload_uint16(
   self : Buffer,
   data : FixedArray[UInt16],
@@ -782,12 +881,19 @@ pub fn Buffer::upload_uint16(
 
 ///|
 pub fn Buffer::download(self : Buffer) -> Bytes raise RhiError {
-  vk_buffer_download(self.vk())
+  match self.backend {
+    VkBuffer(state) => vk_buffer_download(state)
+    Dx12Buffer(_) =>
+      raise RhiError::BackendUnsupported("readback buffers are not implemented on DX12")
+  }
 }
 
 ///|
 pub fn Buffer::destroy(self : Buffer) -> Unit {
-  vk_buffer_destroy(self.vk())
+  match self.backend {
+    VkBuffer(state) => vk_buffer_destroy(state)
+    Dx12Buffer(state) => state.buffer.destroy()
+  }
 }
 
 ///|
@@ -1258,9 +1364,23 @@ pub fn CommandBuffer::bind_uniform(
   offset? : Int = 0,
   size? : Int = -1,
 ) -> Unit {
-  match pipeline.backend {
-    VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_uniforms.push((pipe, slot, buffer, offset, size)) })
-    Dx12Pipeline(_) => ()
+  match self.backend {
+    VkCommands(_) =>
+      match (pipeline.backend, buffer.backend) {
+        (VkPipeline(pipe), VkBuffer(b)) => self.on_vk(fn(state) {
+          state.pending_uniforms.push((pipe, slot, b, offset, size))
+        })
+        _ => ()
+      }
+    Dx12Commands(cmd) =>
+      match (pipeline.backend, buffer.backend) {
+        (Dx12Pipeline(pipe), Dx12Buffer(state)) => {
+          // Uniform binding is recorded immediately (root CBV); failures surface
+          // at the next raising call, matching the Vulkan path.
+          let _ = dx12_bind_uniform(cmd, pipe, slot, state, offset)
+        }
+        _ => ()
+      }
   }
 }
 
@@ -1287,9 +1407,11 @@ pub fn CommandBuffer::bind_storage(
   offset? : Int = 0,
   size? : Int = -1,
 ) -> Unit {
-  match pipeline.backend {
-    VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_storage.push((pipe, slot, buffer, offset, size)) })
-    Dx12Pipeline(_) => ()
+  match (pipeline.backend, buffer.backend) {
+    (VkPipeline(pipe), VkBuffer(b)) => self.on_vk(fn(state) {
+      state.pending_storage.push((pipe, slot, b, offset, size))
+    })
+    _ => ()
   }
 }
 
@@ -1367,7 +1489,7 @@ pub fn CommandBuffer::bind_vertex(
   buffer : Buffer,
   offset? : Int = 0,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_bind_vertex(state, slot, buffer.inner, offset) })
+  self.on_vk_buffer(buffer, fn(state, b) { vk_cmd_bind_vertex(state, slot, b, offset) })
 }
 
 ///|
@@ -1377,7 +1499,7 @@ pub fn CommandBuffer::bind_index(
   index_type : IndexType,
   offset? : Int = 0,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_bind_index(state, buffer.inner, index_type, offset) })
+  self.on_vk_buffer(buffer, fn(state, b) { vk_cmd_bind_index(state, b, index_type, offset) })
 }
 
 ///|
@@ -1546,7 +1668,9 @@ pub fn CommandBuffer::draw_indirect(
   offset? : Int = 0,
   stride? : Int = 16,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_draw_indirect(state, buffer.inner, draw_count, offset, stride) })
+  self.on_vk_buffer(buffer, fn(state, b) {
+    vk_cmd_draw_indirect(state, b, draw_count, offset, stride)
+  })
 }
 
 ///|
@@ -1557,7 +1681,9 @@ pub fn CommandBuffer::draw_indexed_indirect(
   offset? : Int = 0,
   stride? : Int = 20,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_draw_indexed_indirect(state, buffer.inner, draw_count, offset, stride) })
+  self.on_vk_buffer(buffer, fn(state, b) {
+    vk_cmd_draw_indexed_indirect(state, b, draw_count, offset, stride)
+  })
 }
 
 ///|
@@ -1570,8 +1696,8 @@ pub fn CommandBuffer::draw_indirect_count(
   count_offset? : Int = 0,
   stride? : Int = 16,
 ) -> Unit {
-  self.on_vk(fn(state) {
-    vk_cmd_draw_indirect_count(state, buffer.inner, count_buffer.inner, max_draw_count, offset, count_offset, stride)
+  self.on_vk_buffers(buffer, count_buffer, fn(state, a, b) {
+    vk_cmd_draw_indirect_count(state, a, b, max_draw_count, offset, count_offset, stride)
   })
 }
 
@@ -1585,8 +1711,8 @@ pub fn CommandBuffer::draw_indexed_indirect_count(
   count_offset? : Int = 0,
   stride? : Int = 20,
 ) -> Unit {
-  self.on_vk(fn(state) {
-    vk_cmd_draw_indexed_indirect_count(state, buffer.inner, count_buffer.inner, max_draw_count, offset, count_offset, stride)
+  self.on_vk_buffers(buffer, count_buffer, fn(state, a, b) {
+    vk_cmd_draw_indexed_indirect_count(state, a, b, max_draw_count, offset, count_offset, stride)
   })
 }
 
@@ -1596,7 +1722,7 @@ pub fn CommandBuffer::dispatch_indirect(
   buffer : Buffer,
   offset? : Int = 0,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_dispatch_indirect(state, buffer.inner, offset) })
+  self.on_vk_buffer(buffer, fn(state, b) { vk_cmd_dispatch_indirect(state, b, offset) })
 }
 
 ///|
@@ -1617,7 +1743,9 @@ pub fn CommandBuffer::draw_mesh_tasks_indirect(
   offset? : Int = 0,
   stride? : Int = 12,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_draw_mesh_tasks_indirect(state, buffer.inner, draw_count, offset, stride) })
+  self.on_vk_buffer(buffer, fn(state, b) {
+    vk_cmd_draw_mesh_tasks_indirect(state, b, draw_count, offset, stride)
+  })
 }
 
 ///|
@@ -1640,7 +1768,7 @@ pub fn CommandBuffer::copy_buffer(
   dst : Buffer,
   size : Int,
 ) -> Unit {
-  self.on_vk(fn(state) { vk_cmd_copy_buffer(state, src.inner, dst.inner, size) })
+  self.on_vk_buffers(src, dst, fn(state, a, b) { vk_cmd_copy_buffer(state, a, b, size) })
 }
 
 ///|

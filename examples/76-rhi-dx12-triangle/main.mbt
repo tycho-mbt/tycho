@@ -105,11 +105,12 @@ fn main {
       }
     }
 
-    // Vertex order matches the DXIL: bottom-centre red, upper-right green,
-    // upper-left blue, over a blue-ish clear color.
-    let red_ok = dominant(pixel(px, WIDTH / 2, HEIGHT * 3 / 4 - 8), 0)
-    let green_ok = dominant(pixel(px, WIDTH * 3 / 4 - 6, HEIGHT * 37 / 128), 1)
-    let blue_ok = dominant(pixel(px, WIDTH / 4 + 6, HEIGHT * 37 / 128), 2)
+    // The DX12 backend renders with a negative viewport height (Vulkan clip-space
+    // convention, docs/original-design/03-dx12.md §6.1 item 2), so NDC y=-0.5 is
+    // the top row: red sits at the apex (h/4), green and blue on the base (3h/4).
+    let red_ok = dominant(pixel(px, WIDTH / 2, HEIGHT / 4 + 8), 0)
+    let green_ok = dominant(pixel(px, WIDTH * 3 / 4 - 8, HEIGHT * 3 / 4 - 8), 1)
+    let blue_ok = dominant(pixel(px, WIDTH / 4 + 8, HEIGHT * 3 / 4 - 8), 2)
     let size_ok = px.length() == WIDTH * HEIGHT * 4
     if shot != "" && px.length() == WIDTH * HEIGHT * 4 {
       let _ = @tycho.save_png(shot, WIDTH, HEIGHT, px)

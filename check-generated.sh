@@ -25,6 +25,13 @@ if command -v python3 >/dev/null 2>&1; then
 else
   echo "WARNING: python3 not found, skipping the DX12 dispatch check" >&2
 fi
+
+# Dual-target shader artifacts need slangc; skip (loudly) where it is absent.
+if command -v slangc >/dev/null 2>&1 || [ -n "${TYCHO_SLANGC:-}" ]; then
+  python3 tools/gen-dual-shaders.py --check >/dev/null || dirty=1
+else
+  echo "WARNING: slangc not found, skipping the dual-artifact shader check" >&2
+fi
 if [ -n "$new_files" ]; then
   dirty=1
 fi

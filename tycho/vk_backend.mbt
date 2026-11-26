@@ -120,9 +120,9 @@ priv struct VkPipelineState {
   accel_bindings : FixedArray[Int]
   compute : Bool
   stencil_ref : UInt32?
-  cur_uniforms : FixedArray[(Buffer, Int, Int)?]
+  cur_uniforms : FixedArray[(VkBufferState, Int, Int)?]
   cur_textures : FixedArray[(Texture, Sampler)?]
-  cur_storage : FixedArray[(Buffer, Int, Int)?]
+  cur_storage : FixedArray[(VkBufferState, Int, Int)?]
   cur_storage_images : FixedArray[Texture?]
   cur_accel : FixedArray[AccelStruct?]
 }
@@ -198,9 +198,9 @@ priv struct VkCmdState {
   cmd : @vk.VkCommandBuffer
   frame_idx : Int
   frame_gen : UInt64
-  pending_uniforms : Array[(VkPipelineState, Int, Buffer, Int, Int)]
+  pending_uniforms : Array[(VkPipelineState, Int, VkBufferState, Int, Int)]
   pending_textures : Array[(VkPipelineState, Int, Texture, Sampler)]
-  pending_storage : Array[(VkPipelineState, Int, Buffer, Int, Int)]
+  pending_storage : Array[(VkPipelineState, Int, VkBufferState, Int, Int)]
   pending_storage_images : Array[(VkPipelineState, Int, Texture)]
   pending_accel : Array[(VkPipelineState, Int, AccelStruct)]
   mut bound : VkPipelineState?
@@ -4060,7 +4060,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
     if slot >= 0 && slot < ps.uniform_slots {
       let same = match ps.cur_uniforms[slot] {
         Some((prev, prev_off, prev_size)) =>
-          prev.inner.buffer.as_ptr() == buf.inner.buffer.as_ptr() &&
+          prev.buffer.as_ptr() == buf.buffer.as_ptr() &&
           prev_off == offset &&
           prev_size == size
         None => false
@@ -4095,7 +4095,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
     if slot >= 0 && slot < ps.storage_slots {
       let same = match ps.cur_storage[slot] {
         Some((prev, prev_off, prev_size)) =>
-          prev.inner.buffer.as_ptr() == buf.inner.buffer.as_ptr() &&
+          prev.buffer.as_ptr() == buf.buffer.as_ptr() &&
           prev_off == offset &&
           prev_size == size
         None => false
@@ -4183,7 +4183,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
                   set_handle,
                   ps.uniform_bindings[i],
                   @vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                  buf.inner,
+                  buf,
                   offset,
                   size,
                 )
@@ -4211,7 +4211,7 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
                   set_handle,
                   ps.storage_bindings[i],
                   @vk.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                  buf.inner,
+                  buf,
                   offset,
                   size,
                 )
@@ -6174,7 +6174,7 @@ fn vk_create_blas(
   let addrs_keep : Array[@vk.VkDeviceOrHostAddressConstKHR] = []
   for i = 0; i < n; i = i + 1 {
     let g = geometries[i]
-    let vaddr = vk_buffer_device_address(d, g.vertex_buffer.inner.buffer)
+    let vaddr = vk_buffer_device_address(d, g.vertex_buffer.vk().buffer)
     let vdev = @vk.VkDeviceOrHostAddressConstKHR::new()
     vdev.set_deviceAddress(vaddr)
     addrs_keep.push(vdev)
@@ -6187,7 +6187,7 @@ fn vk_create_blas(
     )
     let prim_cnt = match g.index_buffer {
       Some(ib) => {
-        let iaddr = vk_buffer_device_address(d, ib.inner.buffer)
+        let iaddr = vk_buffer_device_address(d, ib.vk().buffer)
         let idev = @vk.VkDeviceOrHostAddressConstKHR::new()
         idev.set_deviceAddress(iaddr)
         addrs_keep.push(idev)

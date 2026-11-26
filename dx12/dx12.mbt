@@ -67,14 +67,30 @@ extern "c" fn cmd_clear_ffi(cmds : UInt64, tex : UInt64, r : Float, g : Float, b
 
 extern "c" fn cmd_set_pipeline_ffi(cmds : UInt64, pipe : UInt64) -> Int32 = "tycho_dx12_cmd_set_pipeline"
 
-extern "c" fn cmd_draw_ffi(cmds : UInt64, tex : UInt64, vertices : Int, instances : Int) -> Int32 = "tycho_dx12_cmd_draw"
+extern "c" fn cmd_draw_ffi(cmds : UInt64, tex : UInt64, vertices : Int, instances : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_draw"
+
+extern "c" fn cmd_set_cbv_ffi(cmds : UInt64, index : Int, gpu_address : UInt64) -> Int32 = "tycho_dx12_cmd_set_cbv"
+
+extern "c" fn buffer_create_ffi(dev : UInt64, size : Int) -> UInt64 = "tycho_dx12_buffer_create"
+
+#borrow(data)
+extern "c" fn buffer_write_ffi(buf : UInt64, offset : Int, data : Bytes, len : Int) -> Int32 = "tycho_dx12_buffer_write"
+
+#borrow(data)
+extern "c" fn buffer_write_floats_ffi(buf : UInt64, offset : Int, data : FixedArray[Float], count : Int) -> Int32 = "tycho_dx12_buffer_write_floats"
+
+extern "c" fn buffer_gpu_address_ffi(buf : UInt64) -> UInt64 = "tycho_dx12_buffer_gpu_address"
+
+extern "c" fn buffer_size_ffi(buf : UInt64) -> Int32 = "tycho_dx12_buffer_size"
+
+extern "c" fn buffer_destroy_ffi(buf : UInt64) = "tycho_dx12_buffer_destroy"
 
 extern "c" fn cmd_copy_to_readback_ffi(cmds : UInt64, tex : UInt64, rb : UInt64) -> Int32 = "tycho_dx12_cmd_copy_to_readback"
 
 extern "c" fn commands_execute_wait_ffi(dev : UInt64, cmds : UInt64) -> Int32 = "tycho_dx12_commands_execute_wait"
 
 #borrow(vs, ps)
-extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int) -> UInt64 = "tycho_dx12_pipeline_create"
+extern "c" fn pipeline_create_ffi(dev : UInt64, vs : FixedArray[UInt32], vs_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, cbv_count : Int, flip_y : Int) -> UInt64 = "tycho_dx12_pipeline_create"
 
 extern "c" fn pipeline_destroy_ffi(pipe : UInt64) = "tycho_dx12_pipeline_destroy"
 
@@ -202,14 +218,28 @@ pub struct Pipeline {
 }
 
 ///|
+///|
+/// `cbv_count` root constant buffers are declared at `register(b<i>, space0)`;
+/// `flip_y` renders with a negative viewport height (Vulkan clip-space
+/// convention) and mirrors the front-face winding to match.
 pub fn Pipeline::create(
   device : Device,
   vs_dxil : FixedArray[UInt32],
   vs_bytes : Int,
   ps_dxil : FixedArray[UInt32],
   ps_bytes : Int,
+  cbv_count? : Int = 0,
+  flip_y? : Bool = false,
 ) -> Pipeline? {
-  let handle = pipeline_create_ffi(device.handle, vs_dxil, vs_bytes, ps_dxil, ps_bytes)
+  let handle = pipeline_create_ffi(
+    device.handle,
+    vs_dxil,
+    vs_bytes,
+    ps_dxil,
+    ps_bytes,
+    cbv_count,
+    if flip_y { 1 } else { 0 },
+  )
   if handle == (0 : UInt64) {
     None
   } else {
@@ -402,8 +432,76 @@ pub fn CommandList::draw(
   tex : Texture,
   vertices : Int,
   instances? : Int = 1,
+  flip_y? : Bool = false,
 ) -> Bool {
-  cmd_draw_ffi(self.handle, tex.handle, vertices, instances) != 0
+  cmd_draw_ffi(self.handle, tex.handle, vertices, instances, if flip_y { 1 } else { 0 }) != 0
+}
+
+///|
+/// Binds an upload buffer to root CBV `index` (see `Pipeline::create`'s
+/// `cbv_count`).
+pub fn CommandList::set_cbv(
+  self : CommandList,
+  index : Int,
+  buffer : Buffer,
+  offset? : Int = 0,
+) -> Bool {
+  cmd_set_cbv_ffi(self.handle, index, buffer.gpu_address() + offset.to_uint64()) != 0
+}
+
+// ---------------------------------------------------------------------------
+// Upload buffer (CPU-visible, persistently mapped)
+// ---------------------------------------------------------------------------
+
+///|
+/// A CPU-writable buffer on the UPLOAD heap. Uniform data is its only consumer
+/// today; it is bound as a root CBV, so no descriptor heap is involved.
+pub struct Buffer {
+  handle : UInt64
+}
+
+///|
+pub fn Buffer::create(device : Device, size : Int) -> Buffer? {
+  let handle = buffer_create_ffi(device.handle, size)
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn Buffer::handle(self : Buffer) -> UInt64 {
+  self.handle
+}
+
+///|
+pub fn Buffer::size(self : Buffer) -> Int {
+  buffer_size_ffi(self.handle).to_int()
+}
+
+///|
+pub fn Buffer::gpu_address(self : Buffer) -> UInt64 {
+  buffer_gpu_address_ffi(self.handle)
+}
+
+///|
+pub fn Buffer::write(self : Buffer, data : Bytes, offset? : Int = 0) -> Bool {
+  buffer_write_ffi(self.handle, offset, data, data.length()) != 0
+}
+
+///|
+pub fn Buffer::write_floats(
+  self : Buffer,
+  data : FixedArray[Float],
+  offset? : Int = 0,
+) -> Bool {
+  buffer_write_floats_ffi(self.handle, offset, data, data.length()) != 0
+}
+
+///|
+pub fn Buffer::destroy(self : Buffer) -> Unit {
+  buffer_destroy_ffi(self.handle)
 }
 
 ///|
