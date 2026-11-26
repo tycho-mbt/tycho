@@ -70,11 +70,11 @@ fn hole_texture(w : Int, h : Int) -> FixedArray[Byte] {
   for y = 0; y < h; y = y + 1 {
     for x = 0; x < w; x = x + 1 {
       let o = (y * w + x) * 4
-      let opaque = (x / 16) % 2 == 0
-      px[o] = byte_of(if opaque { 235 } else { 250 })
-      px[o + 1] = byte_of(if opaque { 150 } else { 235 })
-      px[o + 2] = byte_of(if opaque { 60 } else { 205 })
-      px[o + 3] = byte_of(if opaque { 255 } else { 0 })
+      let solid_band = (x / 16) % 2 == 0
+      px[o] = byte_of(if solid_band { 235 } else { 250 })
+      px[o + 1] = byte_of(if solid_band { 150 } else { 235 })
+      px[o + 2] = byte_of(if solid_band { 60 } else { 205 })
+      px[o + 3] = byte_of(if solid_band { 255 } else { 0 })
     }
   }
   px
