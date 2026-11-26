@@ -34,6 +34,10 @@ pub fn f16_to_float(UInt16) -> Float
 
 pub fn load_gltf(Renderer3D, Scene, @tycho_geometry.GltfScene, parent? : NodeId?) -> Array[NodeId] raise
 
+pub fn load_gltf_animations(@tycho_geometry.GltfScene, Array[NodeId?]) -> Array[AnimationClip]
+
+pub fn load_gltf_with_nodes(Renderer3D, Scene, @tycho_geometry.GltfScene, parent? : NodeId?) -> Array[NodeId?] raise
+
 pub fn procedural_environment_cubemap(@tycho.Device, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> @tycho.Texture raise
 
 pub fn ray_mesh_hit(@tycho_math.Ray, @tycho_geometry.MeshData, @tycho_math.Affine3) -> MeshHit?

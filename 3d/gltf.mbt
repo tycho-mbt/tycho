@@ -9,9 +9,10 @@ fn add_gltf_node(
   meshes : Array[MeshHandle],
   index : Int,
   parent : NodeId?,
-) -> Array[NodeId] raise {
+  out : Array[NodeId?],
+) -> Unit raise {
   if index < 0 || index >= gltf.nodes.length() {
-    return []
+    return
   }
   let n = gltf.nodes[index]
   let mut payload = NodePayload::Empty
@@ -38,13 +39,10 @@ fn add_gltf_node(
     name=n.name,
   )
   scene.set_local_bounds(node, bounds)
-  let out : Array[NodeId] = [node]
+  out[index] = Some(node)
   for c in n.children {
-    for id in add_gltf_node(renderer, scene, gltf, materials, meshes, c, Some(node)) {
-      out.push(id)
-    }
+    add_gltf_node(renderer, scene, gltf, materials, meshes, c, Some(node), out)
   }
-  out
 }
 
 ///|
@@ -75,13 +73,14 @@ fn upload_gltf_texture(
 
 ///|
 /// Upload every glTF mesh/material and instantiate its node hierarchy under
-/// `parent`. Returns the created nodes in pre-order.
-pub fn load_gltf(
+/// `parent`. The result is indexed by glTF node index (None for nodes that are
+/// not instantiated), which `load_gltf_animations` uses to bind channels.
+pub fn load_gltf_with_nodes(
   renderer : Renderer3D,
   scene : Scene,
   gltf : @tgeo.GltfScene,
   parent? : NodeId? = None,
-) -> Array[NodeId] raise {
+) -> Array[NodeId?] raise {
   let materials : Array[MaterialHandle] = []
   for m in gltf.materials {
     let mut desc = MaterialDesc::pbr(
@@ -113,11 +112,117 @@ pub fn load_gltf(
   for md in gltf.meshes {
     meshes.push(renderer.upload_mesh(md))
   }
-  let out : Array[NodeId] = []
+  let out : Array[NodeId?] = []
+  for i = 0; i < gltf.nodes.length(); i = i + 1 {
+    out.push(None)
+  }
   for r in gltf.roots {
-    for id in add_gltf_node(renderer, scene, gltf, materials, meshes, r, parent) {
-      out.push(id)
+    add_gltf_node(renderer, scene, gltf, materials, meshes, r, parent, out)
+  }
+  out
+}
+
+///|
+/// Upload every glTF mesh/material and instantiate its node hierarchy under
+/// `parent`. Returns the created nodes in pre-order.
+pub fn load_gltf(
+  renderer : Renderer3D,
+  scene : Scene,
+  gltf : @tgeo.GltfScene,
+  parent? : NodeId? = None,
+) -> Array[NodeId] raise {
+  let map = load_gltf_with_nodes(renderer, scene, gltf, parent~)
+  let out : Array[NodeId] = []
+  for entry in map {
+    match entry {
+      Some(id) => out.push(id)
+      None => ()
     }
   }
   out
+}
+
+///|
+/// Convert glTF animation channels into engine clips. Channels sharing a node
+/// merge into one transform track; cubic-spline keys use their value key.
+pub fn load_gltf_animations(
+  gltf : @tgeo.GltfScene,
+  node_map : Array[NodeId?],
+) -> Array[AnimationClip] {
+  let clips : Array[AnimationClip] = []
+  for anim in gltf.animations {
+    let ids : Array[NodeId] = []
+    let tracks : Array[TransformTrack] = []
+    for ch in anim.channels {
+      if ch.node < 0 || ch.node >= node_map.length() {
+        continue
+      }
+      let id = match node_map[ch.node] {
+        Some(x) => x
+        None => continue
+      }
+      let interp : Interpolation = match ch.interpolation {
+        @tgeo.GltfAnimationInterpolation::Step => Interpolation::Step
+        _ => Interpolation::Linear
+      }
+      let mut slot = -1
+      for i = 0; i < ids.length(); i = i + 1 {
+        if ids[i].index() == id.index() {
+          slot = i
+        }
+      }
+      let base = if slot >= 0 {
+        tracks[slot]
+      } else {
+        TransformTrack::new()
+      }
+      let track = match ch.path {
+        @tgeo.GltfAnimationPath::Translation => {
+          let values : Array[@tmath.Vec3] = []
+          for v in ch.values {
+            values.push(@tmath.Vec3::new(v.x, v.y, v.z))
+          }
+          TransformTrack::new(
+            translation=Some(Vec3Track::new(ch.times, values, interpolation=interp)),
+            rotation=base.rotation,
+            scale=base.scale,
+          )
+        }
+        @tgeo.GltfAnimationPath::Rotation => {
+          let values : Array[@tmath.Quat] = []
+          for v in ch.values {
+            values.push(@tmath.Quat::from_xyzw(v.x, v.y, v.z, v.w))
+          }
+          TransformTrack::new(
+            translation=base.translation,
+            rotation=Some(QuatTrack::new(ch.times, values, interpolation=interp)),
+            scale=base.scale,
+          )
+        }
+        @tgeo.GltfAnimationPath::Scale => {
+          let values : Array[@tmath.Vec3] = []
+          for v in ch.values {
+            values.push(@tmath.Vec3::new(v.x, v.y, v.z))
+          }
+          TransformTrack::new(
+            translation=base.translation,
+            rotation=base.rotation,
+            scale=Some(Vec3Track::new(ch.times, values, interpolation=interp)),
+          )
+        }
+      }
+      if slot >= 0 {
+        tracks[slot] = track
+      } else {
+        ids.push(id)
+        tracks.push(track)
+      }
+    }
+    let channels : Array[AnimationChannel] = []
+    for i = 0; i < ids.length(); i = i + 1 {
+      channels.push(AnimationChannel::new(ids[i], tracks[i]))
+    }
+    clips.push(AnimationClip::new(anim.name, channels))
+  }
+  clips
 }
