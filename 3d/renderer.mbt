@@ -8,6 +8,7 @@ pub(all) struct RendererDesc {
   max_lights : Int
   max_materials : Int
   max_textures : Int
+  msaa : Bool
   bloom : Bool
   shadows : Bool
   shadow_map_size : Int
@@ -20,6 +21,7 @@ pub fn RendererDesc::default() -> RendererDesc {
     max_lights: 16,
     max_materials: 1024,
     max_textures: 1024,
+    msaa: true,
     bloom: true,
     shadows: true,
     shadow_map_size: 1024,
@@ -56,6 +58,8 @@ priv struct FrameTargets {
   h : Int
   depth : @tycho.Texture
   hdr : @tycho.Texture
+  // Set when MSAA is on; `hdr` is the multisampled colour attachment.
+  hdr_resolve : @tycho.Texture?
   bloom_a : @tycho.Texture
   bloom_b : @tycho.Texture
 }
@@ -90,6 +94,7 @@ priv struct GpuTexture {
 pub struct Renderer3D {
   priv dev : @tycho.Device
   priv desc : RendererDesc
+  priv msaa : Bool
   priv meshes : Array[GpuMesh]
   priv materials : Array[MaterialDesc]
   priv object_ring : @pool.FrameRing
@@ -257,6 +262,11 @@ pub fn Renderer3D::new(
   dev : @tycho.Device,
   desc? : RendererDesc = RendererDesc::default(),
 ) -> Renderer3D raise {
+  let samples = if desc.msaa {
+    @tycho.SampleCount::X4
+  } else {
+    @tycho.SampleCount::X1
+  }
   let material_sampler = dev.create_sampler_desc(
     @tycho.SamplerDesc::new(
       mag=@tycho.Filter::Linear,
@@ -309,6 +319,7 @@ pub fn Renderer3D::new(
       color_format=Some(@tycho.TextureFormat::RGBA16F),
       vertex_layouts=mesh_layouts,
       bindless_heap=Some(bindless),
+      samples=samples,
     ),
   )
   let pbr_blend_pipe = dev.create_graphics_pipeline(
@@ -326,6 +337,7 @@ pub fn Renderer3D::new(
       color_format=Some(@tycho.TextureFormat::RGBA16F),
       vertex_layouts=mesh_layouts,
       bindless_heap=Some(bindless),
+      samples=samples,
     ),
   )
   let sky_pipe = dev.create_graphics_pipeline(
@@ -334,6 +346,7 @@ pub fn Renderer3D::new(
       spv_skybox_frag,
       depth_format=Some(@tycho.TextureFormat::Depth32F),
       color_format=Some(@tycho.TextureFormat::RGBA16F),
+      samples=samples,
     ),
   )
   let bloom_extract_pipe = dev.create_graphics_pipeline(
@@ -384,6 +397,7 @@ pub fn Renderer3D::new(
       depth_format=Some(@tycho.TextureFormat::Depth32F),
       color_format=Some(@tycho.TextureFormat::RGBA16F),
       vertex_layouts=line_layouts,
+      samples=samples,
     ),
   )
   let shadow_sampler = dev.create_sampler_desc(
@@ -416,6 +430,7 @@ pub fn Renderer3D::new(
   {
     dev,
     desc,
+    msaa: desc.msaa,
     meshes: [],
     materials: [],
     object_ring: @pool.FrameRing::new(dev, desc.max_objects * OBJECT_BYTES),
@@ -586,6 +601,10 @@ pub fn Renderer3D::set_environment(
 ///|
 fn Renderer3D::destroy_targets(targets : FrameTargets) -> Unit {
   targets.depth.destroy()
+  match targets.hdr_resolve {
+    Some(t) => t.destroy()
+    None => ()
+  }
   targets.hdr.destroy()
   targets.bloom_a.destroy()
   targets.bloom_b.destroy()
@@ -595,11 +614,31 @@ fn Renderer3D::destroy_targets(targets : FrameTargets) -> Unit {
 fn Renderer3D::create_targets(self : Renderer3D, w : Int, h : Int) -> FrameTargets raise {
   let bw = if w / 2 < 1 { 1 } else { w / 2 }
   let bh = if h / 2 < 1 { 1 } else { h / 2 }
+  let samples = if self.msaa {
+    @tycho.SampleCount::X4
+  } else {
+    @tycho.SampleCount::X1
+  }
   {
     w,
     h,
-    depth: self.dev.create_depth_texture_format(w, h, @tycho.TextureFormat::Depth32F),
-    hdr: self.dev.create_render_target(w, h, @tycho.TextureFormat::RGBA16F),
+    depth: self.dev.create_depth_texture_format(
+      w,
+      h,
+      @tycho.TextureFormat::Depth32F,
+      samples=samples,
+    ),
+    hdr: self.dev.create_render_target(
+      w,
+      h,
+      @tycho.TextureFormat::RGBA16F,
+      samples=samples,
+    ),
+    hdr_resolve: if self.msaa {
+      Some(self.dev.create_render_target(w, h, @tycho.TextureFormat::RGBA16F))
+    } else {
+      None
+    },
     bloom_a: self.dev.create_render_target(bw, bh, @tycho.TextureFormat::RGBA16F),
     bloom_b: self.dev.create_render_target(bw, bh, @tycho.TextureFormat::RGBA16F),
   }
@@ -1117,13 +1156,22 @@ fn Renderer3D::render_frame(
   }
 
   // Main HDR pass.
+  let resolved = match targets.hdr_resolve {
+    Some(t) => t
+    None => targets.hdr
+  }
   cmd.begin_render_pass(
     [
       @tycho.RenderTargetDesc::new(
         targets.hdr,
         load_op=@tycho.LoadOp::Clear,
-        store_op=@tycho.StoreOp::Store,
+        store_op=if targets.hdr_resolve.is_some() {
+          @tycho.StoreOp::DontCare
+        } else {
+          @tycho.StoreOp::Store
+        },
         clear_color=@tycho.ClearColor::black(),
+        resolve_texture=targets.hdr_resolve,
       ),
     ],
     depth=Some(
@@ -1252,7 +1300,7 @@ fn Renderer3D::render_frame(
   cmd.end_render_pass()
 
   // Bloom chain.
-  let mut bloom_result = targets.hdr
+  let mut bloom_result = resolved
   if self.desc.bloom {
     let bw = targets.bloom_a.width()
     let bh = targets.bloom_a.height()
@@ -1269,7 +1317,7 @@ fn Renderer3D::render_frame(
     cmd.set_viewport(0.0, 0.0, f_of_int(bw), f_of_int(bh))
     cmd.set_scissor(0, 0, bw, bh)
     cmd.bind_pipeline(self.bloom_extract_pipe)
-    cmd.bind_texture(self.bloom_extract_pipe, 0, targets.hdr, self.linear_sampler)
+    cmd.bind_texture(self.bloom_extract_pipe, 0, resolved, self.linear_sampler)
     cmd.draw(3, 1)
     cmd.end_render_pass()
     cmd.begin_render_pass(
@@ -1337,7 +1385,7 @@ fn Renderer3D::render_frame(
   cmd.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
   cmd.set_scissor(0, 0, w, h)
   cmd.bind_pipeline(tm_pipe)
-  cmd.bind_texture(tm_pipe, 0, targets.hdr, self.linear_sampler)
+  cmd.bind_texture(tm_pipe, 0, resolved, self.linear_sampler)
   cmd.bind_texture(tm_pipe, 1, bloom_result, self.linear_sampler)
   cmd.draw(3, 1)
   cmd.end_render_pass()

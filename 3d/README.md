@@ -36,6 +36,9 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   with Moller-Trumbore and normal-matrix-transformed normals.
 - `OrbitCamera` / `FlyCamera`: drag-to-orbit, scroll-to-zoom and WASD/QE fly
   controllers that consume `@tycho.Event` and emit camera `Transform`s.
+- 4x MSAA: the HDR pass renders into a multisampled `RGBA16F` target and
+  resolves into a single-sample target consumed by bloom/tonemap;
+  `RendererDesc.msaa=false` selects the single-sampled path.
 - Transparent pass: `AlphaMode::Blend` nodes are sorted back-to-front by
   camera distance and drawn with a depth-tested, depth-write-disabled pipeline.
 - Debug lines: `add_debug_line` / `add_debug_aabb` queue world-space segments

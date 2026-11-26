@@ -24,6 +24,7 @@ fn main {
       max_lights: 16,
       max_materials: 64,
       max_textures: 64,
+      msaa: true,
       bloom: true,
       shadows: true,
       shadow_map_size: 1024,
