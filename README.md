@@ -26,6 +26,7 @@
 | `laplaceliu/tycho_window` | `window/` | Thin native window + input events + Vulkan WSI surface helper across Linux (Wayland/X11 via `dlopen`), Windows (Win32 via `LoadLibraryA`), and macOS (Cocoa + `CAMetalLayer` via `dlopen`) | *(none)* |
 | `laplaceliu/tycho_shader` | `shader/` | GLSL (`glslangValidator`), Slang (`slangc`), pure-MoonBit SPIR-V reflection (`reflect_spirv`), & PPM/BMP/PNG/HDR image helpers | *(none)* |
 | `laplaceliu/tycho` | `tycho/` | Unified pure-MoonBit RHI over Vulkan 1.3 dynamic rendering, sync2, 2 frames-in-flight, free-list sub-allocator, auto-reflected pipelines (`from_spirv`), MRT, mipmaps, storage images, bindless, mesh shaders, inline Ray Query (BLAS/TLAS), stencil state, and GPU timestamps | *(none)* |
+| `laplaceliu/tycho_math` | `math/` | Zero-dependency pure-MoonBit fixed-dimension graphics & geometry math: `Vec2/3/4`, `IVec`/`UVec`, `Quat`, column-major `Mat2/3/4`, `Affine2/3`, `Transform`, clip-space-aware projections, `Ray`/`Aabb`/`Frustum`, std140/std430 packing, batch kernels | *(none)* |
 | `laplaceliu/tycho_2d` | `2d/` | Skia/Impeller-inspired pure-MoonBit 2D engine: `Canvas`/`DisplayList`, AOT embedded SPIR-V pipelines, Tier-1 SDF/gradient/atlas batcher, pure-MoonBit TrueType + built-in font & `Paragraph` layout, Tier-2 Stencil-then-Cover paths & strokes, `save_layer`, and Gaussian `BackdropFilter` blur | *(none)* |
 | `laplaceliu/tycho_ui` | `ui/` | Flutter-inspired declarative UI framework: Widget/Element/RenderObject/Layer trees, fine-grained `Signal[T]`, single-pass `BoxConstraints` (`Row`/`Column`/`Stack`/`Wrap`), `GestureArena`, `TextField`, `ThemeData`, virtualized `ListView`, `AppRunner` & headless `WidgetTester` | *(none)* |
 | `laplaceliu/tycho_codegen` *(private)* | `codegen/` | Khronos `vk.xml` → MoonBit + C shim generator | *(none)* |
@@ -127,6 +128,7 @@ moon add laplaceliu/tycho_vulkan
 moon add laplaceliu/tycho_shader
 moon add laplaceliu/tycho_window
 moon add laplaceliu/tycho
+moon add laplaceliu/tycho_math
 moon add laplaceliu/tycho_2d
 moon add laplaceliu/tycho_ui
 ```
@@ -140,6 +142,7 @@ Or publish from source in dependency order (after `moon login` as `laplaceliu`):
 (cd shader && moon publish)
 (cd window && moon publish)
 (cd tycho && moon publish)
+(cd math && moon publish)
 (cd 2d && moon publish)
 (cd ui && moon publish)
 ```
