@@ -13,6 +13,7 @@ EXAMPLES=(
   55-tycho-ui-gallery
   56-tycho-2d-text-stress
   57-tycho-2d-perf
+  58-tycho-2d-svg-icons
 )
 
 cd "$ROOT/examples"

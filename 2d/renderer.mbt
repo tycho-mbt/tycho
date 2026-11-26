@@ -45,6 +45,7 @@ priv struct CachedCoverage {
   y : Int
   w : Int
   h : Int
+  tex_id : Int
   mut last_frame : Int
 }
 
@@ -174,6 +175,10 @@ pub struct Renderer2D {
   priv mut coverage_count : Int
   priv mut coverage_generation : Int
   priv mut coverage_draws : Int
+  priv coverage_atlas : DynamicAtlas
+  priv coverage_tex_id : Int
+  priv mut coverage_atlas_generation : Int
+  priv mut coverage_enabled : Bool
   priv path_batch : Array[PendingPath]
   priv mut path_batch_bounds : Rect?
   priv mut path_batch_count : Int
@@ -258,6 +263,15 @@ pub fn Renderer2D::new(
     2048,
     2048,
     @tycho.TextureFormat::RGBA8,
+  )
+  // Dedicated R8 atlas for CPU coverage bitmaps, so large path coverage does
+  // not evict glyphs. Sampled through the bindless heap when available;
+  // otherwise coverage falls back to the glyph atlas.
+  let coverage_atlas = DynamicAtlas::new(
+    dev,
+    2048,
+    2048,
+    @tycho.TextureFormat::R8,
   )
   let rt_pool = RenderTargetPool::new(dev)
 
@@ -550,10 +564,11 @@ pub fn Renderer2D::new(
     (None, None, None, None)
   }
 
-  let (bindless_heap, prim_bindless_pipe, prim_bindless_clip_pipe) = if dev.capabilities().supports_bindless {
+  let (bindless_heap, prim_bindless_pipe, prim_bindless_clip_pipe, coverage_tex_id) = if dev.capabilities().supports_bindless {
     let heap = dev.create_bindless_heap(max_textures=256)
     let _ = heap.register_texture(glyph_cache.atlas.texture, sampler)
     let _ = heap.register_texture(color_atlas.texture, sampler)
+    let cid = heap.register_texture(coverage_atlas.texture, sampler)
     let bp = dev.create_graphics_pipeline(
       @tycho.PipelineDesc::from_spirv(
         spv_prim2d_vert,
@@ -574,9 +589,9 @@ pub fn Renderer2D::new(
       @tycho.BlendMode::Premultiplied,
       bindless_heap=Some(heap),
     )
-    (Some(heap), Some(bp), Some(bcp))
+    (Some(heap), Some(bp), Some(bcp), cid)
   } else {
-    (None, None, None)
+    (None, None, None, -1)
   }
 
   let prim_ssbo = dev.create_buffer_with(
@@ -661,6 +676,10 @@ pub fn Renderer2D::new(
     coverage_count: 0,
     coverage_generation: 0,
     coverage_draws: 0,
+    coverage_atlas,
+    coverage_tex_id,
+    coverage_atlas_generation: 0,
+    coverage_enabled: true,
     path_batch: [],
     path_batch_bounds: None,
     path_batch_count: 0,
@@ -707,7 +726,12 @@ pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
   }
   self.image_tex.clear()
   match self.bindless_heap {
-    Some(h) => h.destroy()
+    Some(h) => {
+      if self.coverage_tex_id >= 0 {
+        h.unregister_texture(self.coverage_tex_id)
+      }
+      h.destroy()
+    }
     None => ()
   }
   self.stencil_nz_pipe.destroy()
@@ -759,6 +783,7 @@ pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
   self.rt_pool.destroy()
   self.glyph_cache.destroy()
   self.color_atlas.destroy()
+  self.coverage_atlas.destroy()
   self.mip_sampler.destroy()
   self.sampler.destroy()
 }
@@ -1321,6 +1346,7 @@ fn Renderer2D::flush_prims(
 fn Renderer2D::flush_atlas_uploads(self : Renderer2D) -> Unit raise @tycho.RhiError {
   self.glyph_cache.atlas.flush_uploads()
   self.color_atlas.flush_uploads()
+  self.coverage_atlas.flush_uploads()
 }
 
 ///|
@@ -1336,6 +1362,14 @@ pub fn Renderer2D::path_batch_count(self : Renderer2D) -> Int {
 ///|
 pub fn Renderer2D::prim_draw_count(self : Renderer2D) -> Int {
   self.prim_draw_count
+}
+
+///|
+///|
+// Enable/disable the CPU coverage path (useful for A/B quality comparisons
+// against MSAA).
+pub fn Renderer2D::set_coverage_enabled(self : Renderer2D, enabled : Bool) -> Unit {
+  self.coverage_enabled = enabled
 }
 
 ///|
@@ -1943,11 +1977,15 @@ fn Renderer2D::coverage_for(
   path : Path,
   xf : Matrix3,
 ) -> CachedCoverage? raise @tycho.RhiError {
-  let gen = self.glyph_cache.generation()
-  if gen != self.coverage_generation {
-    self.coverage_cache.clear()
-    self.coverage_count = 0
-    self.coverage_generation = gen
+  if self.coverage_tex_id < 0 {
+    // Fallback path stores coverage in the glyph atlas, so glyph compaction
+    // invalidates coverage UVs too.
+    let gen = self.glyph_cache.generation()
+    if gen != self.coverage_generation {
+      self.coverage_cache.clear()
+      self.coverage_count = 0
+      self.coverage_generation = gen
+    }
   }
   let pid = path.id().to_int()
   let aq = (xf.a * (16.0 : Float)).to_int()
@@ -1985,22 +2023,55 @@ fn Renderer2D::coverage_for(
     Some(b) => b
     None => return None
   }
-  if self.coverage_count >= 128 {
+  if self.coverage_count >= 512 {
     self.evict_oldest_coverage()
   }
-  let (u0, v0, u1, v1) = match self.glyph_cache.alloc_coverage(
-    bmp.width,
-    bmp.height,
-    bmp.pixels,
-  ) {
-    Some(uv) => uv
-    None => return None
-  }
-  let gen2 = self.glyph_cache.generation()
-  if gen2 != self.coverage_generation {
-    self.coverage_cache.clear()
-    self.coverage_count = 0
-    self.coverage_generation = gen2
+  let mut cleared = false
+  let (u0, v0, u1, v1, tex_id) = if self.coverage_tex_id >= 0 {
+    let first = self.coverage_atlas.alloc_and_upload(
+      bmp.width,
+      bmp.height,
+      bmp.pixels,
+      padding=1,
+    )
+    let placed = match first {
+      Some(_) => first
+      None => {
+        // Dedicated atlas full: reset it and drop all cached coverage UVs.
+        self.coverage_atlas.reset()
+        self.coverage_cache.clear()
+        self.coverage_count = 0
+        self.coverage_atlas_generation = self.coverage_atlas_generation + 1
+        cleared = true
+        self.coverage_atlas.alloc_and_upload(
+          bmp.width,
+          bmp.height,
+          bmp.pixels,
+          padding=1,
+        )
+      }
+    }
+    match placed {
+      Some((tx, ty)) => {
+        let (a, b, c, d) = self.coverage_atlas.uv_rect(
+          tx,
+          ty,
+          bmp.width,
+          bmp.height,
+        )
+        (a, b, c, d, self.coverage_tex_id)
+      }
+      None => return None
+    }
+  } else {
+    match self.glyph_cache.alloc_coverage(
+      bmp.width,
+      bmp.height,
+      bmp.pixels,
+    ) {
+      Some((a, b, c, d)) => (a, b, c, d, -1)
+      None => return None
+    }
   }
   let e : CachedCoverage = {
     aq,
@@ -2018,11 +2089,17 @@ fn Renderer2D::coverage_for(
     y: bmp.origin_y,
     w: bmp.width,
     h: bmp.height,
+    tex_id,
     last_frame: self.frame_idx,
   }
-  arr.push(e)
-  self.coverage_cache[pid] = arr
-  self.coverage_count = self.coverage_count + 1
+  if cleared {
+    self.coverage_cache[pid] = [e]
+    self.coverage_count = 1
+  } else {
+    arr.push(e)
+    self.coverage_cache[pid] = arr
+    self.coverage_count = self.coverage_count + 1
+  }
   Some(e)
 }
 
@@ -2074,6 +2151,7 @@ fn Renderer2D::try_draw_coverage(
     (0.0 : Float),
     (0.0 : Float),
     (0.0 : Float),
+    extra0=Float::from_int(e.tex_id),
   )
   self.cur_transform = saved
   true
@@ -2607,7 +2685,7 @@ fn Renderer2D::queue_path(
       None => true
       _ => false
     })
-  if solid_fill && paint.anti_alias {
+  if self.coverage_enabled && solid_fill && paint.anti_alias {
     self.flush_path_batch(cmd)
     if self.try_draw_coverage(cmd, path, paint) {
       return

@@ -192,8 +192,16 @@ void main() {
   }
 
   if (kind == 6) {
-    // Pre-rasterized CPU coverage bitmap (R8), already antialiased.
-    float ga = texture(u_glyph_atlas, clamp(v_uv, v_uv_rect.xy, v_uv_rect.zw)).r;
+    // Pre-rasterized CPU coverage bitmap (R8), already antialiased. A
+    // non-negative tex id selects the dedicated coverage atlas; otherwise the
+    // glyph atlas is the fallback.
+    int cid = int(floor(v_grad_extra.x + 0.5));
+    float ga;
+    if (cid >= 0) {
+      ga = texture(u_bindless_textures[nonuniformEXT(cid)], clamp(v_uv, v_uv_rect.xy, v_uv_rect.zw)).r;
+    } else {
+      ga = texture(u_glyph_atlas, clamp(v_uv, v_uv_rect.xy, v_uv_rect.zw)).r;
+    }
     float a = v_fill.a * ga * clip_cov;
     out_color = vec4(v_fill.rgb * a, a);
     return;
