@@ -68,6 +68,10 @@ static const GUID kIID_ID3D12GraphicsCommandList = {0x5b160d0f, 0xac1b, 0x4185,
                                                     {0x8b, 0xa8, 0xb3, 0xae, 0x42, 0xa5, 0xa4, 0x55}};
 static const GUID kIID_ID3D12DescriptorHeap = {0x8efb471d, 0x616c, 0x4f49,
                                                {0x90, 0xf7, 0x12, 0x7b, 0xb7, 0x63, 0xfa, 0x51}};
+static const GUID kIID_ID3D12Device2 = {
+    0x30baa41e, 0xb15b, 0x475c, {0xa0, 0xbb, 0x1a, 0xf5, 0xc5, 0xb6, 0x43, 0x28}};
+static const GUID kIID_ID3D12GraphicsCommandList6 = {
+    0xc3827890, 0xe548, 0x4cfa, {0x96, 0xcf, 0x56, 0x89, 0xa9, 0x37, 0x0f, 0x80}};
 static const GUID kIID_ID3D12CommandSignature = {
     0xc36a797c, 0xec80, 0x4f0a, {0x89, 0x85, 0xa7, 0xb2, 0x47, 0x50, 0x82, 0xd1}};
 static const GUID kIID_ID3D12QueryHeap = {
@@ -126,6 +130,7 @@ static D3D12_RESOURCE_STATES dx12_native_state(int32_t state) {
 
 typedef struct TychoDxDevice {
   ID3D12Device *device;
+  ID3D12Device2 *device2;  // lazily queried; mesh pipeline state objects need it
   ID3D12CommandQueue *queue;
   ID3D12Fence *fence;
   IDXGIFactory4 *factory;
@@ -262,6 +267,20 @@ static TychoDxSampler *as_sampler(uint64_t p) { return (TychoDxSampler *)(uintpt
 static TychoDxBufferHeap *as_buffer_heap(uint64_t p) {
   return (TychoDxBufferHeap *)(uintptr_t)p;
 }
+// Mesh pipelines (and any stream-descriptor PSO) go through Device2.
+static ID3D12Device2 *ensure_device2(TychoDxDevice *dev) {
+  HRESULT hr;
+  if (!dev || !dev->device) return NULL;
+  if (dev->device2) return dev->device2;
+  hr = dev->device->lpVtbl->QueryInterface(dev->device, &kIID_ID3D12Device2,
+                                          (void **)&dev->device2);
+  if (FAILED(hr)) {
+    dev->device2 = NULL;
+    return NULL;
+  }
+  return dev->device2;
+}
+
 static TychoDxTimestampPool *as_timestamp_pool(uint64_t p) {
   return (TychoDxTimestampPool *)(uintptr_t)p;
 }
@@ -431,6 +450,7 @@ fail:
       if (dev->indirect_sig[sig]) dev->indirect_sig[sig]->lpVtbl->Release(dev->indirect_sig[sig]);
     }
   }
+  if (dev->device2) dev->device2->lpVtbl->Release(dev->device2);
   if (dev->sampler_heap) dev->sampler_heap->lpVtbl->Release(dev->sampler_heap);
   if (dev->srv_heap) dev->srv_heap->lpVtbl->Release(dev->srv_heap);
   if (dev->factory) dev->factory->lpVtbl->Release(dev->factory);
@@ -1893,6 +1913,216 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_compute_root_constants(uint64_t cm
 }
 
 // ---------------------------------------------------------------------------
+// Mesh-shader pipelines
+// ---------------------------------------------------------------------------
+
+// A stream-descriptor subobject: the type tag followed by its payload, with every
+// subobject 8-byte aligned — exactly the layout D3D12 documents for
+// D3D12_PIPELINE_STATE_STREAM_DESC (the runtime advances by each type's size).
+#define TYCHO_DX12_SUBOBJECT(name, payload) \
+  typedef struct __declspec(align(8)) {     \
+    D3D12_PIPELINE_STATE_SUBOBJECT_TYPE type; \
+    payload value;                            \
+  } name
+
+TYCHO_DX12_SUBOBJECT(TychoSubRootSig, ID3D12RootSignature *);
+TYCHO_DX12_SUBOBJECT(TychoSubShader, D3D12_SHADER_BYTECODE);
+TYCHO_DX12_SUBOBJECT(TychoSubBlend, D3D12_BLEND_DESC);
+TYCHO_DX12_SUBOBJECT(TychoSubRasterizer, D3D12_RASTERIZER_DESC);
+TYCHO_DX12_SUBOBJECT(TychoSubDepthStencil, D3D12_DEPTH_STENCIL_DESC);
+// `D3D12_RT_FORMAT_ARRAY` is only declared behind a newer SDK version guard in
+// some toolchains, so the identical layout is spelled out here.
+typedef struct {
+  // Order matters: D3D12_RT_FORMAT_ARRAY puts the formats before the count.
+  DXGI_FORMAT RTFormats[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
+  UINT NumRenderTargets;
+} TychoRtvFormats;
+TYCHO_DX12_SUBOBJECT(TychoSubRtvFormats, TychoRtvFormats);
+TYCHO_DX12_SUBOBJECT(TychoSubSampleDesc, DXGI_SAMPLE_DESC);
+TYCHO_DX12_SUBOBJECT(TychoSubNodeMask, UINT);
+TYCHO_DX12_SUBOBJECT(TychoSubFlags, D3D12_PIPELINE_STATE_FLAGS);
+
+typedef struct {
+  TychoSubRootSig root_signature;
+  TychoSubShader mesh_shader;
+  TychoSubShader pixel_shader;
+  TychoSubBlend blend;
+  TychoSubRasterizer rasterizer;
+  TychoSubDepthStencil depth_stencil;
+  TychoSubRtvFormats rtv_formats;
+  TychoSubSampleDesc sample_desc;
+  TychoSubNodeMask node_mask;
+  TychoSubFlags flags;
+} TychoDxMeshPipelineStream;
+
+// Mesh pipelines carry no input layout: the mesh shader produces the vertices.
+// The root signature is empty for now, so a mesh shader can only use what it
+// generates itself (see the M2e note in docs/original-design/03-dx12.md).
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_mesh_pipeline_create(
+    uint64_t dev_p, const uint8_t *ms, int32_t ms_len, const uint8_t *ps, int32_t ps_len,
+    int32_t color_format, int32_t depth_enable, int32_t depth_write, int32_t flip_y) {
+  TychoDxDevice *dev = as_device(dev_p);
+  ID3D12Device2 *device2;
+  TychoDxPipeline *pipe;
+  TychoDxMeshPipelineStream stream;
+  D3D12_VERSIONED_ROOT_SIGNATURE_DESC rs_desc;
+  D3D12_PIPELINE_STATE_STREAM_DESC stream_desc;
+  ID3DBlob *rs_blob = NULL;
+  ID3DBlob *rs_err = NULL;
+  DXGI_FORMAT rtv_format;
+  HRESULT hr;
+  if (!dev || !ms || !ps || ms_len <= 0 || ps_len <= 0) return 0;
+  device2 = ensure_device2(dev);
+  if (!device2) {
+    fprintf(stderr, "[tycho-dx12] ID3D12Device2 is unavailable; mesh pipelines need it\n");
+    return 0;
+  }
+  rtv_format = dx12_format_from_code(color_format);
+  if (rtv_format == DXGI_FORMAT_UNKNOWN) {
+    fprintf(stderr, "[tycho-dx12] mesh: bad colour format code %d\n", color_format);
+    return 0;
+  }
+
+  pipe = (TychoDxPipeline *)calloc(1, sizeof(TychoDxPipeline));
+  if (!pipe) return 0;
+
+  // An empty root signature: mesh shaders here consume no external resources.
+  memset(&rs_desc, 0, sizeof rs_desc);
+  rs_desc.Version = D3D_ROOT_SIGNATURE_VERSION_1_0;
+  rs_desc.Desc_1_0.NumParameters = 0;
+  rs_desc.Desc_1_0.pParameters = NULL;
+  rs_desc.Desc_1_0.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+  hr = g_serialize_rs(&rs_desc, &rs_blob, &rs_err);
+  set_hr(hr);
+  if (FAILED(hr) || !rs_blob) {
+    fprintf(stderr, "[tycho-dx12] mesh: SerializeRootSignature failed: 0x%08lX\n",
+            (unsigned long)hr);
+    if (rs_err) rs_err->lpVtbl->Release(rs_err);
+    free(pipe);
+    return 0;
+  }
+  hr = dev->device->lpVtbl->CreateRootSignature(
+      dev->device, 0, rs_blob->lpVtbl->GetBufferPointer(rs_blob),
+      rs_blob->lpVtbl->GetBufferSize(rs_blob), &kIID_ID3D12RootSignature,
+      (void **)&pipe->root_signature);
+  set_hr(hr);
+  rs_blob->lpVtbl->Release(rs_blob);
+  if (rs_err) rs_err->lpVtbl->Release(rs_err);
+  if (FAILED(hr)) {
+    fprintf(stderr, "[tycho-dx12] mesh: CreateRootSignature failed: 0x%08lX\n",
+            (unsigned long)hr);
+    free(pipe);
+    return 0;
+  }
+
+  memset(&stream, 0, sizeof stream);
+  stream.root_signature.type =
+      D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE;
+  stream.root_signature.value = pipe->root_signature;
+  stream.mesh_shader.type = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MS;
+  stream.mesh_shader.value.pShaderBytecode = ms;
+  stream.mesh_shader.value.BytecodeLength = (SIZE_T)ms_len;
+  stream.pixel_shader.type = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PS;
+  stream.pixel_shader.value.pShaderBytecode = ps;
+  stream.pixel_shader.value.BytecodeLength = (SIZE_T)ps_len;
+
+  stream.blend.type = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_BLEND;
+  stream.blend.value.AlphaToCoverageEnable = FALSE;
+  stream.blend.value.IndependentBlendEnable = FALSE;
+  stream.blend.value.RenderTarget[0].BlendEnable = FALSE;
+  stream.blend.value.RenderTarget[0].LogicOpEnable = FALSE;
+  stream.blend.value.RenderTarget[0].SrcBlend = D3D12_BLEND_ONE;
+  stream.blend.value.RenderTarget[0].DestBlend = D3D12_BLEND_ZERO;
+  stream.blend.value.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+  stream.blend.value.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+  stream.blend.value.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+  stream.blend.value.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+  stream.blend.value.RenderTarget[0].LogicOp = D3D12_LOGIC_OP_NOOP;
+  stream.blend.value.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+  stream.rasterizer.type = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RASTERIZER;
+  stream.rasterizer.value.FillMode = D3D12_FILL_MODE_SOLID;
+  stream.rasterizer.value.CullMode = D3D12_CULL_MODE_NONE;
+  // A flipped viewport mirrors the image, which reverses winding (see the
+  // graphics path for the same reasoning).
+  stream.rasterizer.value.FrontCounterClockwise = flip_y ? TRUE : FALSE;
+  stream.rasterizer.value.DepthBias = 0;
+  stream.rasterizer.value.DepthBiasClamp = 0.0f;
+  stream.rasterizer.value.SlopeScaledDepthBias = 0.0f;
+  stream.rasterizer.value.DepthClipEnable = TRUE;
+  stream.rasterizer.value.MultisampleEnable = FALSE;
+  stream.rasterizer.value.AntialiasedLineEnable = FALSE;
+  stream.rasterizer.value.ForcedSampleCount = 0;
+  stream.rasterizer.value.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+
+  stream.depth_stencil.type = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DEPTH_STENCIL;
+  stream.depth_stencil.value.DepthEnable = depth_enable ? TRUE : FALSE;
+  stream.depth_stencil.value.DepthWriteMask =
+      depth_write ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+  stream.depth_stencil.value.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+  stream.depth_stencil.value.StencilEnable = FALSE;
+  stream.depth_stencil.value.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+  stream.depth_stencil.value.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+  stream.depth_stencil.value.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+  stream.depth_stencil.value.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+  stream.depth_stencil.value.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+  stream.depth_stencil.value.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+  stream.depth_stencil.value.BackFace = stream.depth_stencil.value.FrontFace;
+
+  stream.rtv_formats.type = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_RENDER_TARGET_FORMATS;
+  stream.rtv_formats.value.NumRenderTargets = 1;
+  stream.rtv_formats.value.RTFormats[0] = rtv_format;
+
+  stream.sample_desc.type = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_SAMPLE_DESC;
+  stream.sample_desc.value.Count = 1;
+  stream.sample_desc.value.Quality = 0;
+
+  stream.node_mask.type = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_NODE_MASK;
+  stream.node_mask.value = 1;
+
+  stream.flags.type = D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_FLAGS;
+  stream.flags.value = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+  memset(&stream_desc, 0, sizeof stream_desc);
+  stream_desc.SizeInBytes = sizeof stream;
+  stream_desc.pPipelineStateSubobjectStream = &stream;
+  hr = device2->lpVtbl->CreatePipelineState(device2, &stream_desc,
+                                            &kIID_ID3D12PipelineState,
+                                            (void **)&pipe->pso);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    fprintf(stderr, "[tycho-dx12] CreatePipelineState(mesh) failed: 0x%08lX\n",
+            (unsigned long)hr);
+    dump_info_queue(dev, "CreatePipelineState(mesh)");
+    pipe->root_signature->lpVtbl->Release(pipe->root_signature);
+    free(pipe);
+    return 0;
+  }
+  return (uint64_t)(uintptr_t)pipe;
+}
+
+// DispatchMesh lives on ID3D12GraphicsCommandList6; the list is queried once and
+// cached on the command state.
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_dispatch_mesh(uint64_t cmd_p, uint64_t tex_p,
+                                                        int32_t x, int32_t y, int32_t z,
+                                                        int32_t flip_y) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  ID3D12GraphicsCommandList6 *list6 = NULL;
+  HRESULT hr;
+  if (!cmds || x < 0 || y < 0 || z < 0) return 0;
+  if (!dx12_prepare_draw(cmds, as_texture(tex_p), flip_y)) return 0;
+  hr = cmds->list->lpVtbl->QueryInterface(cmds->list, &kIID_ID3D12GraphicsCommandList6,
+                                          (void **)&list6);
+  if (FAILED(hr) || !list6) {
+    fprintf(stderr, "[tycho-dx12] ID3D12GraphicsCommandList6 is unavailable; mesh shaders need it\n");
+    return 0;
+  }
+  list6->lpVtbl->DispatchMesh(list6, (UINT)x, (UINT)y, (UINT)z);
+  list6->lpVtbl->Release(list6);
+  return 1;
+}
+
+// ---------------------------------------------------------------------------
 // Storage (UAV) buffers and plain copies
 // ---------------------------------------------------------------------------
 
@@ -2031,6 +2261,7 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_copy_buffer(uint64_t cmd_p, uint64_t s
 }
 
 // `count_buffer` holds a single UINT32 that bounds how many arguments run.
+
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_execute_indirect_counted(
     uint64_t cmd_p, uint64_t tex_p, int32_t kind, uint64_t arg_buffer_p, int32_t arg_offset,
     int32_t max_count, uint64_t count_buffer_p, int32_t count_offset, int32_t flip_y) {
@@ -3137,6 +3368,33 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_execute_indirect_counted(
   (void)flip_y;
   return 0;
 }
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_mesh_pipeline_create(
+    uint64_t dev, const uint8_t *ms, int32_t ms_len, const uint8_t *ps, int32_t ps_len,
+    int32_t color_format, int32_t depth_enable, int32_t depth_write, int32_t flip_y) {
+  (void)dev;
+  (void)ms;
+  (void)ms_len;
+  (void)ps;
+  (void)ps_len;
+  (void)color_format;
+  (void)depth_enable;
+  (void)depth_write;
+  (void)flip_y;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_dispatch_mesh(uint64_t cmd, uint64_t tex, int32_t x,
+                                                        int32_t y, int32_t z, int32_t flip_y) {
+  (void)cmd;
+  (void)tex;
+  (void)x;
+  (void)y;
+  (void)z;
+  (void)flip_y;
+  return 0;
+}
+
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_copy_to_readback(uint64_t cmd, uint64_t tex,
                                                            uint64_t rb) {

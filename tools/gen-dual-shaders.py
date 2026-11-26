@@ -25,6 +25,15 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # (package dir, slang source, generated file, [(identifier, entry, stage)])
 TARGETS = [
     (
+        "examples/85-dx12-mesh",
+        "shader.slang",
+        "shader_artifacts.mbt",
+        [
+            ("shader_ms", "meshMain", "mesh", "sm_6_5"),
+            ("shader_fs", "fragmentMain", "fragment"),
+        ],
+    ),
+    (
         "examples/84-dx12-mrt",
         "shader.slang",
         "shader_artifacts.mbt",
@@ -114,7 +123,14 @@ def find_slangc() -> str:
     raise FileNotFoundError("slangc not found (set TYCHO_SLANGC, add it to PATH, or install the Vulkan SDK)")
 
 
-def compile_entry(slangc: str, source: pathlib.Path, entry: str, stage: str, target: str) -> bytes:
+def compile_entry(
+    slangc: str,
+    source: pathlib.Path,
+    entry: str,
+    stage: str,
+    target: str,
+    profile: str = "sm_6_0",
+) -> bytes:
     with tempfile.TemporaryDirectory() as tmp:
         out = pathlib.Path(tmp) / f"out.{target}"
         subprocess.run(
@@ -124,7 +140,7 @@ def compile_entry(slangc: str, source: pathlib.Path, entry: str, stage: str, tar
                 "-target",
                 target,
                 "-profile",
-                "sm_6_0",
+                profile,
                 "-entry",
                 entry,
                 "-stage",
@@ -181,14 +197,19 @@ def main() -> int:
         package_dir = ROOT / package
         source = package_dir / source_name
         output = package_dir / output_name
-        compiled = [
-            (
-                name,
-                compile_entry(slangc, source, entry, stage, "spirv"),
-                compile_entry(slangc, source, entry, stage, "dxil"),
+        compiled = []
+        for item in entries:
+            # Mesh/task stages need SM 6.5 for DXIL; everything else stays on
+            # 6.0 so the artifacts keep working on older drivers.
+            name, entry, stage = item[0], item[1], item[2]
+            profile = item[3] if len(item) > 3 else "sm_6_0"
+            compiled.append(
+                (
+                    name,
+                    compile_entry(slangc, source, entry, stage, "spirv", profile),
+                    compile_entry(slangc, source, entry, stage, "dxil", profile),
+                )
             )
-            for name, entry, stage in entries
-        ]
         rendered = render(source_name, compiled)
         spv_total = sum(len(spv) for _, spv, _ in compiled)
         dxil_total = sum(len(dxil) for _, _, dxil in compiled)

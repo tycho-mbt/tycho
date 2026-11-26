@@ -184,3 +184,4 @@ if dev.capabilities().supports_ray_query {
 | `82-dx12-indirect` | Headless DX12 indirect draws (`ExecuteIndirect` + command signatures) and timestamp queries; unsupported calls fail `end_commands` instead of no-oping |
 | `83-dx12-advanced` | Headless DX12 push constants (root constants at `b15`), storage buffers (raw UAV + staging readback) and GPU-side draw counts |
 | `84-dx12-mrt` | DX12 multi-texture slots (one root table per slot), multi-render-target output and sRGB render targets |
+| `85-dx12-mesh` | DX12 mesh shader pipeline: stream-descriptor PSO via `ID3D12Device2::CreatePipelineState` + `DispatchMesh`, no input layout at all |

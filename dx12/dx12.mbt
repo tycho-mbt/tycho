@@ -69,6 +69,11 @@ extern "c" fn cmd_set_pipeline_ffi(cmds : UInt64, pipe : UInt64) -> Int32 = "tyc
 
 extern "c" fn cmd_set_extra_targets_ffi(cmds : UInt64, t1 : UInt64, t2 : UInt64, t3 : UInt64) -> Int32 = "tycho_dx12_cmd_set_extra_targets"
 
+#borrow(ms, ps)
+extern "c" fn mesh_pipeline_create_ffi(dev : UInt64, ms : FixedArray[UInt32], ms_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, color_format : Int, depth_enable : Int, depth_write : Int, flip_y : Int) -> UInt64 = "tycho_dx12_mesh_pipeline_create"
+
+extern "c" fn cmd_dispatch_mesh_ffi(cmds : UInt64, tex : UInt64, x : Int, y : Int, z : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_dispatch_mesh"
+
 extern "c" fn cmd_draw_ffi(cmds : UInt64, tex : UInt64, vertices : Int, instances : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_draw"
 
 extern "c" fn cmd_set_cbv_ffi(cmds : UInt64, index : Int, gpu_address : UInt64) -> Int32 = "tycho_dx12_cmd_set_cbv"
@@ -940,6 +945,80 @@ pub fn CommandList::execute_indirect_counted(
     max_count,
     count_buffer.handle(),
     count_offset,
+    if flip_y { 1 } else { 0 },
+  ) != 0
+}
+
+// ---------------------------------------------------------------------------
+// Mesh shaders
+// ---------------------------------------------------------------------------
+
+///|
+/// A pipeline whose vertices come from a mesh shader. There is no input layout
+/// and no vertex buffer: `CommandList::dispatch_mesh` launches the workgroups.
+pub struct MeshPipeline {
+  handle : UInt64
+}
+
+///|
+pub fn MeshPipeline::create(
+  device : Device,
+  ms_dxil : FixedArray[UInt32],
+  ps_dxil : FixedArray[UInt32],
+  color_format? : Int = 0,
+  depth? : Bool = false,
+  depth_write? : Bool = true,
+  flip_y? : Bool = true,
+) -> MeshPipeline? {
+  let handle = mesh_pipeline_create_ffi(
+    device.handle,
+    ms_dxil,
+    ms_dxil.length() * 4,
+    ps_dxil,
+    ps_dxil.length() * 4,
+    color_format,
+    if depth { 1 } else { 0 },
+    if depth_write { 1 } else { 0 },
+    if flip_y { 1 } else { 0 },
+  )
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn MeshPipeline::handle(self : MeshPipeline) -> UInt64 {
+  self.handle
+}
+
+///|
+pub fn MeshPipeline::destroy(self : MeshPipeline) -> Unit {
+  pipeline_destroy_ffi(self.handle)
+}
+
+///|
+pub fn CommandList::set_mesh_pipeline(self : CommandList, pipe : MeshPipeline) -> Bool {
+  cmd_set_pipeline_ffi(self.handle, pipe.handle) != 0
+}
+
+///|
+/// Runs `x * y * z` mesh-shader workgroups into `tex`.
+pub fn CommandList::dispatch_mesh(
+  self : CommandList,
+  tex : Texture,
+  x : Int,
+  y? : Int = 1,
+  z? : Int = 1,
+  flip_y? : Bool = true,
+) -> Bool {
+  cmd_dispatch_mesh_ffi(
+    self.handle,
+    tex.handle,
+    x,
+    y,
+    z,
     if flip_y { 1 } else { 0 },
   ) != 0
 }

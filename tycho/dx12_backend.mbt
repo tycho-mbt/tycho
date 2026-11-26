@@ -35,8 +35,18 @@ priv struct Dx12DeviceState {
 /// A compiled DX12 pipeline plus the uniform slot count its root signature was
 /// built with (slot i = root CBV i = `register(b<i>, space0)`), and the vertex
 /// stride per input slot (D3D12 wants it on every bind, not only at creation).
+///|
+/// Graphics and mesh pipelines share the RHI's `Pipeline` façade, so the raw
+/// handle is tagged instead of adding a second backend variant (which would sit
+/// in dozens of exhaustive matches).
+priv enum Dx12PipeKind {
+  Graphics(@dx12.Pipeline)
+  Mesh(@dx12.MeshPipeline)
+}
+
+///|
 priv struct Dx12PipelineState {
-  pipe : @dx12.Pipeline
+  pipe : Dx12PipeKind
   uniform_slots : Int
   strides : FixedArray[Int]
   /// Texture slots, so ind_texture can address the sampler table that follows
@@ -228,7 +238,7 @@ fn dx12_pipeline_create(
     inputs=inputs,
   ) {
     Some(p) => {
-      pipe: p,
+      pipe: Graphics(p),
       uniform_slots,
       strides,
       texture_slots: srv_tables,
@@ -416,7 +426,10 @@ fn dx12_end_frame(state : Dx12SwapchainState, cmd : Dx12CommandState) -> Unit ra
 
 ///|
 fn dx12_bind_pipeline(cmd : Dx12CommandState, pipe : Dx12PipelineState) -> Unit {
-  let _ = cmd.commands.set_pipeline(pipe.pipe)
+  let _ = match pipe.pipe {
+    Graphics(graphics) => cmd.commands.set_pipeline(graphics)
+    Mesh(mesh) => cmd.commands.set_mesh_pipeline(mesh)
+  }
   cmd.bound = Some(pipe)
 }
 
@@ -1146,5 +1159,63 @@ fn dx12_is_linear_4bpp(format : TextureFormat) -> Bool {
     TextureFormat::RGBA8Srgb => true
     TextureFormat::BGRA8Srgb => true
     _ => false
+  }
+}
+
+///|
+/// A mesh pipeline: the mesh shader writes the vertices, so there is no input
+/// layout, no vertex buffer and (for now) no root signature payload.
+fn dx12_mesh_pipeline_create(
+  state : Dx12DeviceState,
+  desc : MeshPipelineDesc,
+) -> Dx12PipelineState raise RhiError {
+  if desc.mesh.length() == 0 || desc.frag.length() == 0 {
+    raise RhiError::InvalidArgument("a mesh pipeline needs both mesh and fragment DXIL")
+  }
+  if desc.task is Some(_) {
+    raise RhiError::BackendUnsupported("amplification shaders are not implemented on DX12 yet")
+  }
+  if desc.uniform_slots > 0 ||
+    desc.texture_slots > 0 ||
+    desc.storage_slots > 0 ||
+    desc.storage_image_slots > 0 ||
+    desc.push_constant_size > 0 {
+    raise RhiError::BackendUnsupported(
+      "the DX12 mesh path uses an empty root signature so far (no uniforms/textures/push constants)",
+    )
+  }
+  let has_depth = match desc.depth_format {
+    Some(_) => true
+    None => false
+  }
+  let formats = if desc.color_formats.length() > 0 {
+    desc.color_formats
+  } else {
+    match desc.color_format {
+      Some(format) => [format]
+      None => [TextureFormat::RGBA8]
+    }
+  }
+  if formats.length() != 1 {
+    raise RhiError::BackendUnsupported("the DX12 mesh path writes exactly one colour target")
+  }
+  match @dx12.MeshPipeline::create(
+    state.device,
+    desc.mesh,
+    desc.frag,
+    color_format=dx12_format_code(formats[0]),
+    depth=desc.depth_test && has_depth,
+    depth_write=desc.depth_write,
+    flip_y=true,
+  ) {
+    Some(p) => {
+      pipe: Mesh(p),
+      uniform_slots: 0,
+      strides: [],
+      texture_slots: 0,
+      push_index: 0,
+      push_bytes: 0,
+    }
+    None => raise RhiError::PipelineFailed("DX12 mesh pipeline state failed")
   }
 }

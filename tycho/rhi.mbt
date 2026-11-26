@@ -732,7 +732,10 @@ pub fn Device::create_mesh_pipeline(
   self : Device,
   desc : MeshPipelineDesc,
 ) -> Pipeline raise RhiError {
-  { backend: VkPipeline(vk_mesh_pipeline_create_default(self.vk(), desc)) }
+  match self.backend {
+    Dx12Device(state) => { backend: Dx12Pipeline(dx12_mesh_pipeline_create(state, desc)) }
+    VkDevice(_) => { backend: VkPipeline(vk_mesh_pipeline_create_default(self.vk(), desc)) }
+  }
 }
 
 ///|
@@ -740,8 +743,15 @@ pub fn Swapchain::create_mesh_pipeline(
   self : Swapchain,
   desc : MeshPipelineDesc,
 ) -> Pipeline raise RhiError {
-  {
-    backend: VkPipeline(vk_mesh_pipeline_create(self.vk().device, desc, self.vk().format)),
+  match self.backend {
+    Dx12Swapchain(state) => {
+      backend: Dx12Pipeline(
+        dx12_mesh_pipeline_create({ device: state.device, buffers: None }, desc),
+      ),
+    }
+    VkSwapchain(_) => {
+      backend: VkPipeline(vk_mesh_pipeline_create(self.vk().device, desc, self.vk().format)),
+    }
   }
 }
 
@@ -868,7 +878,11 @@ pub fn Device::create_compute_pipeline_auto(
 pub fn Pipeline::destroy(self : Pipeline) -> Unit {
   match self.backend {
     VkPipeline(state) => vk_pipeline_destroy(state)
-    Dx12Pipeline(state) => state.pipe.destroy()
+    Dx12Pipeline(state) =>
+      match state.pipe {
+        Graphics(graphics) => graphics.destroy()
+        Mesh(mesh) => mesh.destroy()
+      }
     Dx12Compute(state) => state.pipe.destroy()
   }
 }
@@ -2256,7 +2270,16 @@ pub fn CommandBuffer::draw_mesh_tasks(
   z : Int,
 ) -> Unit {
   self.on_vk(fn(state) { vk_cmd_draw_mesh_tasks(state, x, y, z) })
-  self.dx12_unsupported("mesh shaders")
+  match self.backend {
+    Dx12Commands(cmd) =>
+      match cmd.target {
+        Some(target) => {
+          let _ = cmd.commands.dispatch_mesh(target, x, y=y, z=z)
+        }
+        None => dx12_unsupported(cmd, "a mesh dispatch without a bound render target")
+      }
+    VkCommands(_) => ()
+  }
 }
 
 ///|
