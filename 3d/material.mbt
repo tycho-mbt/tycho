@@ -20,6 +20,23 @@ pub fn TextureHandle::id(self : TextureHandle) -> Int {
 }
 
 ///|
+/// Renderer-owned material slot.
+#derive(Eq, Debug)
+pub(all) struct MaterialHandle {
+  priv id : Int
+}
+
+///|
+pub fn MaterialHandle::from_id(id : Int) -> MaterialHandle {
+  { id, }
+}
+
+///|
+pub fn MaterialHandle::id(self : MaterialHandle) -> Int {
+  self.id
+}
+
+///|
 pub(all) enum Shading {
   Pbr
   Unlit

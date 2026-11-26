@@ -44,9 +44,24 @@ pub fn NodeId::index(self : NodeId) -> Int {
 }
 
 ///|
+/// A mesh node's drawable pair. The renderer resolves both handles to GPU
+/// state; `MeshInstance` itself stays a small value struct.
+pub(all) struct MeshInstance {
+  mesh : MeshHandle
+  material : MaterialHandle
+  cast_shadow : Bool
+  receive_shadow : Bool
+}
+
+///|
+pub fn MeshInstance::new(mesh : MeshHandle, material : MaterialHandle) -> MeshInstance {
+  { mesh, material, cast_shadow: true, receive_shadow: true }
+}
+
+///|
 pub(all) enum NodePayload {
   Empty
-  Mesh(MeshHandle)
+  Mesh(MeshInstance)
   Light(Light)
   Camera(Camera)
 }

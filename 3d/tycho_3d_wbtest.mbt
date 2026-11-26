@@ -123,14 +123,14 @@ test "frustum culling and layer masks" {
     @tmath.Vec3::splat(-1.0),
     @tmath.Vec3::splat(1.0),
   )
-  let near = s.create_node(payload=NodePayload::Mesh(MeshHandle::from_id(1)))
+  let near = s.create_node(payload=NodePayload::Mesh(MeshInstance::new(MeshHandle::from_id(1), MaterialHandle::from_id(1))))
   s.set_local_bounds(near, Some(box))
   let far = s.create_node(
     transform=@tmath.Transform::from_translation(@tmath.Vec3::new(0.0, 0.0, -100.0)),
-    payload=NodePayload::Mesh(MeshHandle::from_id(2)),
+    payload=NodePayload::Mesh(MeshInstance::new(MeshHandle::from_id(2), MaterialHandle::from_id(1))),
   )
   s.set_local_bounds(far, Some(box))
-  let off_layer = s.create_node(payload=NodePayload::Mesh(MeshHandle::from_id(3)))
+  let off_layer = s.create_node(payload=NodePayload::Mesh(MeshInstance::new(MeshHandle::from_id(3), MaterialHandle::from_id(1))))
   s.set_local_bounds(off_layer, Some(box))
   s.set_layer_mask(off_layer, (2 : UInt))
   s.update()
