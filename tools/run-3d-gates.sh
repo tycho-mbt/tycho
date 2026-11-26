@@ -14,6 +14,8 @@ EXAMPLES=(
   62-tycho-geometry-primitives
   63-tycho-3d-instances
   64-tycho-3d-textures
+  65-tycho-3d-transparency
+  66-tycho-3d-debug-lines
 )
 
 echo "== unit tests =="
