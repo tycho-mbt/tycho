@@ -39,6 +39,31 @@ pub(all) enum GltfAlphaMode {
   Blend
 }
 
+pub(all) struct GltfAnimation {
+  name : String
+  channels : Array[GltfAnimationChannel]
+}
+
+pub(all) struct GltfAnimationChannel {
+  node : Int32
+  path : GltfAnimationPath
+  interpolation : GltfAnimationInterpolation
+  times : Array[Float]
+  values : Array[@tycho_math.Vec4]
+}
+
+pub(all) enum GltfAnimationInterpolation {
+  Step
+  Linear
+  CubicSpline
+}
+
+pub(all) enum GltfAnimationPath {
+  Translation
+  Rotation
+  Scale
+}
+
 pub(all) struct GltfMaterial {
   name : String
   base_color : @tycho_math.Vec4
@@ -66,6 +91,7 @@ pub(all) struct GltfScene {
   roots : Array[Int32]
   textures : Array[GltfTexture]
   images : Array[Bytes]
+  animations : Array[GltfAnimation]
 }
 
 pub(all) struct GltfTexture {

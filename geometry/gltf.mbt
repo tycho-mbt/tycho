@@ -2,9 +2,10 @@
 //
 // Supported subset: JSON documents whose buffers are base64 data URIs,
 // triangle-list primitives with POSITION / NORMAL / TEXCOORD_0 and optional
-// 8/16/32-bit indices, sparse accessors, node TRS or matrix transforms, and
+// 8/16/32-bit indices, sparse accessors, node TRS or matrix transforms,
 // pbrMetallicRoughness factors plus base-colour / normal textures whose images
-// are embedded `data:` URIs.
+// are embedded `data:` URIs, and node TRS animation channels (cubic spline
+// keys are sampled by their value key, i.e. treated as linear).
 
 ///|
 pub(all) enum GltfAlphaMode {
@@ -32,6 +33,37 @@ pub(all) struct GltfTexture {
 }
 
 ///|
+pub(all) enum GltfAnimationPath {
+  Translation
+  Rotation
+  Scale
+}
+
+///|
+pub(all) enum GltfAnimationInterpolation {
+  Step
+  Linear
+  CubicSpline
+}
+
+///|
+/// One resolved animation channel: key times plus values (rotation stores the
+/// quaternion in xyzw, translation/scale use xyz).
+pub(all) struct GltfAnimationChannel {
+  node : Int
+  path : GltfAnimationPath
+  interpolation : GltfAnimationInterpolation
+  times : Array[Float]
+  values : Array[@tmath.Vec4]
+}
+
+///|
+pub(all) struct GltfAnimation {
+  name : String
+  channels : Array[GltfAnimationChannel]
+}
+
+///|
 pub(all) struct GltfNode {
   name : String
   mesh : Int
@@ -50,6 +82,7 @@ pub(all) struct GltfScene {
   textures : Array[GltfTexture]
   // Decoded image bytes (embedded `data:` URIs; empty for external files).
   images : Array[Bytes]
+  animations : Array[GltfAnimation]
 }
 
 ///|
@@ -522,6 +555,71 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
     })
   }
 
+  let animations : Array[GltfAnimation] = []
+  for aj in jarr(root, "animations") {
+    let samplers_json = jarr(aj, "samplers")
+    let channels : Array[GltfAnimationChannel] = []
+    for cj in jarr(aj, "channels") {
+      let target = match jget(cj, "target") {
+        Some(t) => t
+        None => continue
+      }
+      let node = jint(target, "node", -1)
+      let path : GltfAnimationPath = match jstr(target, "path", "") {
+        "translation" => Translation
+        "rotation" => Rotation
+        "scale" => Scale
+        _ => continue
+      }
+      let si = jint(cj, "sampler", -1)
+      if si < 0 || si >= samplers_json.length() {
+        continue
+      }
+      let sj = samplers_json[si]
+      let input = jint(sj, "input", -1)
+      let output = jint(sj, "output", -1)
+      if input < 0 || input >= accessors.length() || output < 0 || output >= accessors.length() {
+        continue
+      }
+      let interpolation : GltfAnimationInterpolation = match
+        jstr(sj, "interpolation", "LINEAR") {
+        "STEP" => Step
+        "CUBICSPLINE" => CubicSpline
+        _ => Linear
+      }
+      let tf = read_floats(accessors[input], buffers, 1)
+      let times : Array[Float] = []
+      for i = 0; i < tf.length(); i = i + 1 {
+        times.push(tf[i])
+      }
+      let comps = match path {
+        Rotation => 4
+        _ => 3
+      }
+      let stride = if interpolation is CubicSpline { comps * 3 } else { comps }
+      let raw = read_floats(accessors[output], buffers, stride)
+      let values : Array[@tmath.Vec4] = []
+      let keys = if stride > 0 { raw.length() / stride } else { 0 }
+      for i = 0; i < keys; i = i + 1 {
+        // Cubic spline stores (in-tangent, value, out-tangent); take the value.
+        let base = if interpolation is CubicSpline {
+          i * stride + comps
+        } else {
+          i * stride
+        }
+        if comps == 4 {
+          values.push(
+            @tmath.Vec4::new(raw[base], raw[base + 1], raw[base + 2], raw[base + 3]),
+          )
+        } else {
+          values.push(@tmath.Vec4::new(raw[base], raw[base + 1], raw[base + 2], 0.0))
+        }
+      }
+      channels.push({ node, path, interpolation, times, values })
+    }
+    animations.push({ name: jstr(aj, "name", ""), channels })
+  }
+
   let nodes : Array[GltfNode] = []
   for nj in jarr(root, "nodes") {
     let mut translation = @tmath.Vec3::zero()
@@ -598,5 +696,5 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
       }
     }
   }
-  { meshes, materials, nodes, roots, textures, images }
+  { meshes, materials, nodes, roots, textures, images, animations }
 }

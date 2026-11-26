@@ -20,7 +20,8 @@ This module is the CPU content layer of the Tycho graphics stack (see
   positive and negative indices), and `parse_gltf` (glTF 2.0 subset: embedded
   base64 buffers, POSITION/NORMAL/TEXCOORD_0, sparse accessors, TRS/matrix
   nodes, PBR factors plus base-colour/normal texture references with embedded
-  `data:` image URIs decoded to bytes).
+  `data:` image URIs decoded to bytes, and node TRS animation channels with
+  LINEAR/STEP/CUBICSPLINE samplers).
 
 ## Conventions
 

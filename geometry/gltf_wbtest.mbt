@@ -52,3 +52,24 @@ test "parse gltf textures" {
   need(g.materials[0].base_color_tex == 0, "base colour texture")
   need(g.materials[0].normal_tex == 0, "normal texture")
 }
+
+///|
+test "parse gltf animation" {
+  let text = "{\"asset\": {\"version\": \"2.0\"}, \"buffers\": [{\"byteLength\": 60, \"uri\": \"data:application/octet-stream;base64,AAAAAACGgD8AAABAAAAAAAAAAAAAAAAAAACAPwAAAADzBDU/AAAAAPMENT8AAAAAAACAPwAAAAAyMY0k\"}], \"bufferViews\": [{\"buffer\": 0, \"byteOffset\": 0, \"byteLength\": 12}, {\"buffer\": 0, \"byteOffset\": 12, \"byteLength\": 48}], \"accessors\": [{\"bufferView\": 0, \"componentType\": 5126, \"count\": 3, \"type\": \"SCALAR\"}, {\"bufferView\": 1, \"componentType\": 5126, \"count\": 3, \"type\": \"VEC4\"}], \"nodes\": [{\"name\": \"n\"}], \"animations\": [{\"name\": \"spin\", \"samplers\": [{\"input\": 0, \"output\": 1, \"interpolation\": \"LINEAR\"}], \"channels\": [{\"sampler\": 0, \"target\": {\"node\": 0, \"path\": \"rotation\"}}]}]}"
+  let g = parse_gltf(text)
+  need(g.animations.length() == 1, "animation count")
+  let a = g.animations[0]
+  need(a.name == "spin", "animation name")
+  need(a.channels.length() == 1, "channel count")
+  let ch = a.channels[0]
+  need(ch.node == 0, "channel node")
+  match ch.path {
+    Rotation => ()
+    _ => fail("channel path")
+  }
+  need(ch.times.length() == 3, "key times")
+  need(close(ch.times[2], 2.0), "last time")
+  need(ch.values.length() == 3, "key values")
+  need(close(ch.values[1].y, 0.70710678, eps=1.0e-4), "quat y")
+  need(close(ch.values[1].w, 0.70710678, eps=1.0e-4), "quat w")
+}
