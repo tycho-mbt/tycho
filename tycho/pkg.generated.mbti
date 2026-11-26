@@ -367,6 +367,7 @@ pub fn Device::create_buffer_with(Self, Int32, BufferKind, location? : MemoryLoc
 pub fn Device::create_compute_pipeline(Self, FixedArray[UInt32], Int32, Int32, storage_image_slots? : Int32, accel_slots? : Int32, push_constant_size? : Int32) -> Pipeline raise RhiError
 pub fn Device::create_compute_pipeline_auto(Self, FixedArray[UInt32]) -> Pipeline raise RhiError
 pub fn Device::create_cubemap(Self, Int32, TextureFormat, Array[Bytes]) -> Texture raise RhiError
+pub fn Device::create_cubemap_mipmapped(Self, Int32, TextureFormat, Array[Array[Bytes]]) -> Texture raise RhiError
 pub fn Device::create_depth_texture(Self, Int32, Int32, samples? : SampleCount) -> Texture raise RhiError
 pub fn Device::create_depth_texture_format(Self, Int32, Int32, TextureFormat, samples? : SampleCount) -> Texture raise RhiError
 pub fn Device::create_fence(Self, Bool) -> Fence raise RhiError

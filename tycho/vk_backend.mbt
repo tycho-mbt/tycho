@@ -5303,6 +5303,115 @@ fn vk_texture_create_cubemap(
 }
 
 ///|
+/// Create a cubemap with an explicit mip chain uploaded from CPU-side data.
+/// `pixels` is laid out mip-major, with the six faces of each mip contiguous.
+fn vk_texture_create_cubemap_mipmapped(
+  d : VkDeviceState,
+  size : Int,
+  format : TextureFormat,
+  mips : Int,
+  pixels : Bytes,
+) -> VkTextureState raise RhiError {
+  if is_depth_format(format) {
+    raise InvalidArgument("Cubemaps cannot use a depth format")
+  }
+  let levels = if mips < 1 { 1 } else { mips }
+  let bpp = texture_format_bytes(format)
+  let mut expected = 0
+  for m = 0; m < levels; m = m + 1 {
+    let s = if size >> m < 1 { 1 } else { size >> m }
+    expected = expected + s * s * bpp * 6
+  }
+  if pixels.length() < expected {
+    raise InvalidArgument(
+      "Cubemap mip bytes (\{pixels.length()}) smaller than \{expected}",
+    )
+  }
+  let staging = vk_buffer_create(d, expected, BufferKind::Staging)
+  vk_buffer_upload_ptr(staging, @vk.bytes_ptr(pixels), expected)
+  let tex = create_image_and_view(
+    d,
+    size,
+    size,
+    vk_texture_format_for(d, format),
+    @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+    @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    @vk.VK_IMAGE_USAGE_SAMPLED_BIT,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    SampleCount::X1,
+    format,
+    mip_levels=levels,
+    layers=6,
+    flags=@vk.VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+    view_type=@vk.VK_IMAGE_VIEW_TYPE_CUBE,
+  )
+  let cmd = begin_one_time(d)
+  cmd_image_barrier2_mips(
+    d,
+    cmd,
+    tex.image,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    0,
+    levels,
+    @vk.VK_PIPELINE_STAGE_2_NONE,
+    @vk.VK_ACCESS_2_NONE,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    @vk.VK_IMAGE_LAYOUT_UNDEFINED,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    layer_count=6,
+  )
+  let mut offset = 0
+  for m = 0; m < levels; m = m + 1 {
+    let s = if size >> m < 1 { 1 } else { size >> m }
+    let extent = @vk.VkExtent3D::new()
+    extent.set_width(s.reinterpret_as_uint())
+    extent.set_height(s.reinterpret_as_uint())
+    extent.set_depth((1 : UInt32))
+    let region = @vk.VkBufferImageCopy::new()
+    region.set_bufferOffset(offset.to_uint64())
+    let sub = @vk.VkImageSubresourceLayers::new()
+    sub.set_aspectMask(@vk.VK_IMAGE_ASPECT_COLOR_BIT)
+    sub.set_mipLevel(m.reinterpret_as_uint())
+    sub.set_layerCount((6 : UInt32))
+    region.set_imageSubresource(sub)
+    region.set_imageExtent(extent)
+    (d.dfn.vkCmdCopyBufferToImage)(
+      cmd,
+      staging.buffer,
+      tex.image,
+      @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      (1 : UInt32),
+      region,
+    )
+    extent.free()
+    region.free()
+    sub.free()
+    offset = offset + s * s * bpp * 6
+  }
+  cmd_image_barrier2_mips(
+    d,
+    cmd,
+    tex.image,
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    0,
+    levels,
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    @vk.VK_ACCESS_2_SHADER_READ_BIT,
+    @vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    layer_count=6,
+  )
+  end_one_time(d, cmd)
+  vk_buffer_destroy(staging)
+  tex.layout = @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+  tex
+}
+
+///|
 fn vk_texture_create_2d_array(
   d : VkDeviceState,
   width : Int,
