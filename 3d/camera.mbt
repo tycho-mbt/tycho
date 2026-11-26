@@ -1,8 +1,8 @@
 // Camera component: projection parameters + clip-space convention.
 //
-// The node's world `Affine3` supplies the view transform. The default
-// perspective projection is infinite reversed-Z (best depth precision), which
-// tycho_3d renders with `GreaterEqual` and a zero clear value.
+// The node's world `Affine3` supplies the view transform. Every projection is
+// reversed-Z (infinite far by default), which tycho_3d renders with
+// `GreaterEqual` and a zero depth clear.
 
 ///|
 pub(all) struct PerspectiveParams {
@@ -70,11 +70,11 @@ pub fn Camera::projection_matrix(self : Camera) -> @tmath.Mat4 {
   match self.projection {
     Perspective(p) =>
       match p.far {
-        Some(f) => @tmath.perspective_rh(p.fov_y_rad, p.aspect, p.near, f, clip=self.clip)
+        Some(f) => @tmath.perspective_rh_reverse(p.fov_y_rad, p.aspect, p.near, f, clip=self.clip)
         None => @tmath.perspective_infinite_reverse_rh(p.fov_y_rad, p.aspect, p.near, clip=self.clip)
       }
     Orthographic(o) =>
-      @tmath.orthographic_rh(o.left, o.right, o.bottom, o.top, o.near, o.far, clip=self.clip)
+      @tmath.orthographic_rh_reverse(o.left, o.right, o.bottom, o.top, o.near, o.far, clip=self.clip)
   }
 }
 
@@ -129,22 +129,28 @@ pub fn Camera::screen_ray(
 
 ///|
 /// Rotation-only matrix that reconstructs a world-space view direction from
-/// an NDC direction (skybox). Equivalent to the hand-derived `invRotProj` in
-/// `examples/49-rhi-pbr-showcase`; scaled camera nodes are normalized first.
+/// an NDC direction (skybox). Built analytically from the FOV instead of
+/// inverting `mat3(proj)`, because the infinite reversed-Z projection has a
+/// zero `m22` and is therefore singular in 3x3. Equivalent to the hand-derived
+/// `invRotProj` in `examples/49-rhi-pbr-showcase`; scaled camera nodes are
+/// normalized first.
 pub fn Camera::sky_ray_matrix(self : Camera, world : @tmath.Affine3) -> @tmath.Mat3? {
-  let proj = self.projection_matrix()
-  match proj.to_mat3().inverse() {
-    Some(pinv) => {
+  match self.projection {
+    Perspective(p) => {
+      let focal : Float = 1.0 / @tmath.tan(p.fov_y_rad * 0.5)
+      let y_sign : Float = if self.clip.is_y_down() { -1.0 } else { 1.0 }
+      let sx : Float = p.aspect / focal
+      let sy : Float = y_sign / focal
       let m = world.matrix3
       Some(
         @tmath.Mat3::from_cols(
           m.x_axis.normalize(),
           m.y_axis.normalize(),
           m.z_axis.normalize(),
-        ) * pinv,
+        ) * @tmath.Mat3::from_diagonal(@tmath.Vec3::new(sx, sy, -1.0)),
       )
     }
-    None => None
+    Orthographic(_) => Some(@tmath.Mat3::identity())
   }
 }
 

@@ -2,11 +2,21 @@
 package "laplaceliu/tycho_3d"
 
 import {
+  "laplaceliu/tycho",
+  "laplaceliu/tycho_geometry",
   "laplaceliu/tycho_math",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub const MESH_VERTEX_BYTES : Int32 = 32
+
+pub const MESH_VERTEX_FLOATS : Int32 = 8
+
+pub fn default_environment_cubemap(@tycho.Device) -> @tycho.Texture raise
+
+pub fn procedural_environment_cubemap(@tycho.Device, @tycho_math.Vec3, size? : Int32) -> @tycho.Texture raise
+
 pub fn srgb(Float, Float, Float, a? : Float) -> @tycho_math.Vec4
 
 pub fn srgb_to_linear(Float) -> Float
@@ -43,6 +53,21 @@ pub(all) struct DirectionalLight {
   intensity : Float
   shadow : ShadowDesc?
 }
+
+pub struct GpuMesh {
+  bounds : @tycho_math.Aabb3
+  groups : Array[@tycho_geometry.MeshGroup]
+  cpu_positions : FixedArray[@tycho_math.Vec3]
+  cpu_indices : FixedArray[UInt32]
+  // private fields
+}
+pub fn GpuMesh::bind(Self, @tycho.CommandBuffer) -> Unit
+pub fn GpuMesh::bounds(Self) -> @tycho_math.Aabb3
+pub fn GpuMesh::destroy(Self) -> Unit
+pub fn GpuMesh::draw(Self, @tycho.CommandBuffer) -> Unit
+pub fn GpuMesh::index_count(Self) -> Int32
+pub fn GpuMesh::upload(@tycho.Device, @tycho_geometry.MeshData) -> Self raise
+pub fn GpuMesh::vertex_count(Self) -> Int32
 
 pub(all) struct HemisphereLight {
   sky : @tycho_math.Vec3
@@ -86,11 +111,26 @@ pub fn MaterialDesc::with_emissive(Self, @tycho_math.Vec3) -> Self
 pub fn MaterialDesc::with_normal_tex(Self, TextureHandle) -> Self
 
 #derive(Eq, @debug.Debug)
+pub(all) struct MaterialHandle {
+  // private fields
+}
+pub fn MaterialHandle::from_id(Int32) -> Self
+pub fn MaterialHandle::id(Self) -> Int32
+
+#derive(Eq, @debug.Debug)
 pub(all) struct MeshHandle {
   // private fields
 }
 pub fn MeshHandle::from_id(Int32) -> Self
 pub fn MeshHandle::id(Self) -> Int32
+
+pub(all) struct MeshInstance {
+  mesh : MeshHandle
+  material : MaterialHandle
+  cast_shadow : Bool
+  receive_shadow : Bool
+}
+pub fn MeshInstance::new(MeshHandle, MaterialHandle) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) struct NodeId {
@@ -100,7 +140,7 @@ pub fn NodeId::index(Self) -> Int32
 
 pub(all) enum NodePayload {
   Empty
-  Mesh(MeshHandle)
+  Mesh(MeshInstance)
   Light(Light)
   Camera(Camera)
 }
@@ -145,6 +185,30 @@ pub(all) struct RenderStats3D {
 pub fn RenderStats3D::new() -> Self
 pub fn RenderStats3D::summary(Self) -> String
 pub fn RenderStats3D::to_json(Self) -> String
+
+pub struct Renderer3D {
+  // private fields
+}
+pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
+pub fn Renderer3D::destroy(Self) -> Unit
+pub fn Renderer3D::mesh_bounds(Self, MeshHandle) -> @tycho_math.Aabb3?
+pub fn Renderer3D::new(@tycho.Device, desc? : RendererDesc) -> Self raise
+pub fn Renderer3D::render_offscreen(Self, Scene, NodeId, @tycho.Texture) -> Unit raise
+pub fn Renderer3D::render_swapchain(Self, @tycho.Swapchain, Scene, NodeId) -> Unit raise
+pub fn Renderer3D::set_environment(Self, @tycho.Texture, @tycho_math.Vec3, intensity? : Float) -> Unit
+pub fn Renderer3D::stats(Self) -> RenderStats3D
+pub fn Renderer3D::update_material(Self, MaterialHandle, MaterialDesc) -> Unit raise
+pub fn Renderer3D::upload_mesh(Self, @tycho_geometry.MeshData) -> MeshHandle raise
+
+pub(all) struct RendererDesc {
+  max_objects : Int32
+  max_lights : Int32
+  max_materials : Int32
+  bloom : Bool
+  shadows : Bool
+  shadow_map_size : Int32
+}
+pub fn RendererDesc::default() -> Self
 
 pub struct Scene {
   // private fields
