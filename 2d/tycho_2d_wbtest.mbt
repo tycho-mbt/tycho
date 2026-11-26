@@ -729,6 +729,41 @@ fn test_u32(a : Array[Byte], off : Int, v : Int) -> Unit {
 }
 
 ///|
+test "bidi weak/neutral resolution orders digits and Hebrew" {
+  let p = ParagraphBuilder::new()
+    .add_text("ABC אבג", style=TextStyle::new(font_size=(16.0 : Float)))
+    .build()
+  p.layout((1000.0 : Float))
+  let cps : Array[Int] = []
+  for g in p.placed_glyphs() {
+    cps.push(g.codepoint)
+  }
+  assert_eq(cps.length(), 6)
+  assert_eq(cps[0], 65)
+  assert_eq(cps[1], 66)
+  assert_eq(cps[2], 67)
+  assert_eq(cps[3], 0x05D2)
+  assert_eq(cps[4], 0x05D1)
+  assert_eq(cps[5], 0x05D0)
+
+  let p2 = ParagraphBuilder::new()
+    .add_text("אבג 123", style=TextStyle::new(font_size=(16.0 : Float)))
+    .build()
+  p2.layout((1000.0 : Float))
+  let cps2 : Array[Int] = []
+  for g in p2.placed_glyphs() {
+    cps2.push(g.codepoint)
+  }
+  assert_eq(cps2.length(), 6)
+  assert_eq(cps2[0], 49)
+  assert_eq(cps2[1], 50)
+  assert_eq(cps2[2], 51)
+  assert_eq(cps2[3], 0x05D2)
+  assert_eq(cps2[4], 0x05D1)
+  assert_eq(cps2[5], 0x05D0)
+}
+
+///|
 test "caret affinity distinguishes line-end positions" {
   let p = ParagraphBuilder::new()
     .add_text("AB", style=TextStyle::new(font_size=(16.0 : Float)))
