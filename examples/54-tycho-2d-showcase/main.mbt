@@ -239,6 +239,19 @@ fn build_scene(font : @g2d.FontFace, badge : @g2d.Image2D) -> @g2d.DisplayList {
   c.restore()
   c.restore()
 
+  // Direct per-primitive blend mode (no save_layer): Plus adds red + blue.
+  c.draw_rect(
+    @g2d.Rect::new((36.0 : Float), (30.0 : Float), (24.0 : Float), (24.0 : Float)),
+    @g2d.Paint::fill(@g2d.Color::from_rgba8(255, 0, 0)),
+  )
+  c.draw_rect(
+    @g2d.Rect::new((52.0 : Float), (30.0 : Float), (24.0 : Float), (24.0 : Float)),
+    @g2d.Paint::new(
+      color=@g2d.Color::from_rgba8(0, 0, 255),
+      blend_mode=@g2d.BlendMode2D::Plus,
+    ),
+  )
+
   c.finish()
 }
 
@@ -323,6 +336,12 @@ fn main {
         }
       }
     }
+    // 10. Direct Plus blend (no save_layer): red + blue overlap is magenta;
+    //     blue over the header gradient stays blue-dominant.
+    let (ovr, ovg, ovb, _) = px_at(px, w, 56, 42)
+    let blend_overlap_ok = ovr > 200 && ovb > 200 && ovg < 80
+    let (blr, blg, blb, _) = px_at(px, w, 70, 32)
+    let blend_blue_ok = blb > 200 && blr < 80
 
     rt.destroy()
 
@@ -357,11 +376,11 @@ fn main {
     let used = dev.allocator_used_bytes()
     dev.destroy()
 
-    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && errs == 0 && used == (0 : UInt64) {
-      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified, 0 validation errors")
+    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && errs == 0 && used == (0 : UInt64) {
+      println("[54-tycho-2d-showcase] OK — SDF + elliptical pill + subpixel text + Plus blend + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified, 0 validation errors")
     } else {
       println(
-        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} errs=\{errs} used=\{used}",
+        "[54-tycho-2d-showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) errs=\{errs} used=\{used}",
       )
     }
   } catch {

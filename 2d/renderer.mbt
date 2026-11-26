@@ -52,6 +52,11 @@ pub struct Renderer2D {
   priv stencil_eo_pipe : @tycho.Pipeline
   priv stencil_clip_pipe : @tycho.Pipeline
   priv stencil_clear_clip_pipe : @tycho.Pipeline
+  priv st_test_clip : @tycho.StencilState
+  // Lazily-created Tier-1 pipelines for non-SrcOver blend modes, indexed by
+  // (blend_index * 4 + variant), where variant encodes clip/bindless.
+  priv blend_prims : Array[@tycho.Pipeline?]
+  priv mut cur_blend : BlendMode2D
   priv path_cover_pipe : @tycho.Pipeline
   priv path_cover_clip_pipe : @tycho.Pipeline
   priv stroke_pipe : @tycho.Pipeline
@@ -521,6 +526,9 @@ pub fn Renderer2D::new(
     stencil_eo_pipe,
     stencil_clip_pipe,
     stencil_clear_clip_pipe,
+    st_test_clip,
+    blend_prims: Array::make(28, (None : @tycho.Pipeline?)),
+    cur_blend: BlendMode2D::SrcOver,
     path_cover_pipe,
     path_cover_clip_pipe,
     stroke_pipe,
@@ -591,6 +599,12 @@ pub fn Renderer2D::destroy(self : Renderer2D) -> Unit {
   self.stencil_eo_pipe.destroy()
   self.stencil_clip_pipe.destroy()
   self.stencil_clear_clip_pipe.destroy()
+  for p in self.blend_prims {
+    match p {
+      Some(pipe) => pipe.destroy()
+      None => ()
+    }
+  }
   self.path_cover_pipe.destroy()
   self.path_cover_clip_pipe.destroy()
   self.stroke_pipe.destroy()
@@ -982,18 +996,97 @@ fn Renderer2D::emit_prim(
 }
 
 ///|
-fn Renderer2D::flush_prims(self : Renderer2D, cmd : @tycho.CommandBuffer) -> Unit {
+fn blend_mode_index(b : BlendMode2D) -> Int {
+  match b {
+    BlendMode2D::SrcOver => 0
+    BlendMode2D::Src => 1
+    BlendMode2D::Plus => 2
+    BlendMode2D::Multiply => 3
+    BlendMode2D::DstIn => 4
+    BlendMode2D::SrcIn => 5
+    BlendMode2D::Clear => 6
+  }
+}
+
+///|
+// Resolve (creating lazily) the Tier-1 pipeline for a given blend mode and
+// clip/bindless variant. SrcOver reuses the eagerly-created pipelines.
+fn Renderer2D::prim_pipe_for(
+  self : Renderer2D,
+  has_clip : Bool,
+  blend : BlendMode2D,
+) -> @tycho.Pipeline raise @tycho.RhiError {
+  if blend == BlendMode2D::SrcOver {
+    return match (has_clip, self.prim_bindless_clip_pipe, self.prim_bindless_pipe) {
+      (true, Some(bcp), _) => bcp
+      (false, _, Some(bp)) => bp
+      (true, None, _) => self.prim_clip_pipe
+      (false, _, None) => self.prim_pipe
+    }
+  }
+  let use_bindless = match (self.bindless_heap, self.prim_bindless_pipe) {
+    (Some(_), Some(_)) => true
+    _ => false
+  }
+  let variant = (if has_clip { 1 } else { 0 }) + (if use_bindless { 2 } else { 0 })
+  let idx = blend_mode_index(blend) * 4 + variant
+  match self.blend_prims[idx] {
+    Some(p) => p
+    None => {
+      let heap = if use_bindless { self.bindless_heap } else { None }
+      let frag = if use_bindless { spv_prim2d_bindless_frag } else { spv_prim2d_frag }
+      let pipe = if has_clip {
+        make_rhi_stencil_pipeline(
+          self.dev,
+          spv_prim2d_vert,
+          frag,
+          self.st_test_clip,
+          true,
+          blend.to_rhi(),
+          bindless_heap=heap,
+        )
+      } else {
+        self.dev.create_graphics_pipeline(
+          @tycho.PipelineDesc::from_spirv(
+            spv_prim2d_vert,
+            frag,
+            blend_mode=Some(blend.to_rhi()),
+            cull_mode=@tycho.CullMode::None,
+            color_format=Some(@tycho.TextureFormat::RGBA8),
+            depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+            bindless_heap=heap,
+          ),
+        )
+      }
+      self.blend_prims[idx] = Some(pipe)
+      pipe
+    }
+  }
+}
+
+///|
+fn Renderer2D::set_blend(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+  blend : BlendMode2D,
+) -> Unit raise @tycho.RhiError {
+  if blend != self.cur_blend {
+    self.flush_prims(cmd)
+    self.cur_blend = blend
+  }
+}
+
+///|
+fn Renderer2D::flush_prims(
+  self : Renderer2D,
+  cmd : @tycho.CommandBuffer,
+) -> Unit raise @tycho.RhiError {
   let count = self.prim_cursor - self.prim_batch_start
   if count <= 0 || self.active_w <= 0 || self.active_h <= 0 {
     self.prim_batch_start = self.prim_cursor
     return
   }
-  let pipe = match (self.has_stencil_clip, self.prim_bindless_clip_pipe, self.prim_bindless_pipe) {
-    (true, Some(bcp), _) => bcp
-    (false, _, Some(bp)) => bp
-    (true, None, _) => self.prim_clip_pipe
-    (false, _, None) => self.prim_pipe
-  }
+  let pipe = self.prim_pipe_for(self.has_stencil_clip, self.cur_blend)
   cmd.bind_pipeline(pipe)
   if self.has_stencil_clip {
     cmd.set_stencil_reference(128)
@@ -1851,7 +1944,7 @@ fn Renderer2D::replay_ops(
   for op in ops {
     match op {
       DrawOp::Clear(col) => {
-        self.flush_prims(cmd)
+        self.set_blend(cmd, BlendMode2D::SrcOver)
         let prev_xf = self.cur_transform
         self.cur_transform = Matrix3::identity()
         self.emit_prim(
@@ -2332,9 +2425,7 @@ fn Renderer2D::replay_ops(
       DrawOp::DrawRect(r, paint) =>
         self.replay_ops(cmd, [DrawOp::DrawRRect(RRect::from_rect(r), paint)])
       DrawOp::DrawRRect(rr, paint) => {
-        if paint.blend_mode != BlendMode2D::SrcOver {
-          self.flush_prims(cmd)
-        }
+        self.set_blend(cmd, paint.blend_mode)
         let sh = self.resolve_paint_shader(paint)
         let (bw, border_col, stroke_only) = match paint.style {
           PaintStyle::Fill => ((0.0 : Float), Color::transparent(), (0.0 : Float))
@@ -2375,6 +2466,7 @@ fn Renderer2D::replay_ops(
         )
       }
       DrawOp::DrawCircle(center, radius, paint) => {
+        self.set_blend(cmd, paint.blend_mode)
         let sh = self.resolve_paint_shader(paint)
         let (bw, border_col, stroke_only) = match paint.style {
           PaintStyle::Fill => ((0.0 : Float), Color::transparent(), (0.0 : Float))
@@ -2415,6 +2507,7 @@ fn Renderer2D::replay_ops(
         )
       }
       DrawOp::DrawLine(p0, p1, paint) => {
+        self.set_blend(cmd, paint.blend_mode)
         let sh = self.resolve_paint_shader(paint)
         self.emit_prim(
           cmd,
@@ -2449,6 +2542,7 @@ fn Renderer2D::replay_ops(
         )
       }
       DrawOp::DrawRRectShadow(rr, dx, dy, blur, spread, col) => {
+        self.set_blend(cmd, BlendMode2D::SrcOver)
         let r = rr.rect.offset(dx, dy).inflate(spread)
         let grow = fn(v : Float) {
           if v > (0.0 : Float) { @tmath.max_f((0.0 : Float), v + spread) } else { (0.0 : Float) }
@@ -2494,6 +2588,7 @@ fn Renderer2D::replay_ops(
       }
       DrawOp::DrawPath(path, paint) => self.draw_path_gpu(cmd, path, paint)
       DrawOp::DrawImage(img, src, dst, paint) => {
+        self.set_blend(cmd, paint.blend_mode)
         let (u0, v0, u1, v1) = self.ensure_image_uv(img)
         let iw = Float::from_int(if img.width > 0 { img.width } else { 1 })
         let ih = Float::from_int(if img.height > 0 { img.height } else { 1 })
@@ -2532,6 +2627,7 @@ fn Renderer2D::replay_ops(
         )
       }
       DrawOp::DrawParagraph(para, pos) => {
+        self.set_blend(cmd, BlendMode2D::SrcOver)
         para.layout((1.0e9 : Float))
         for g in para.placed_glyphs() {
           let ge = self.glyph_cache.get_or_rasterize(g.font, g.codepoint, g.font_size)
@@ -2644,6 +2740,7 @@ fn Renderer2D::render_into_scene(
   )
   self.cur_clip_rrect = None
   self.has_stencil_clip = false
+  self.cur_blend = BlendMode2D::SrcOver
   self.state_stack.clear()
 
   self.begin_target_pass(
