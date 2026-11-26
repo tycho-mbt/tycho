@@ -102,7 +102,7 @@ priv struct LayoutChar {
   cp : Int
   style : TextStyle
   font : FontFace
-  advance : Float
+  mut advance : Float
   char_index : Int
   is_newline : Bool
   is_space : Bool
@@ -134,6 +134,19 @@ fn is_no_end(cp : Int) -> Bool {
     0x2018 => true
     _ => false
   }
+}
+
+///|
+// Strong RTL ranges for the bidi subset (Hebrew + Arabic blocks).
+fn is_rtl(cp : Int) -> Bool {
+  (cp >= 0x0590 && cp <= 0x05FF) ||
+  (cp >= 0x0600 && cp <= 0x06FF) ||
+  (cp >= 0x0700 && cp <= 0x074F) ||
+  (cp >= 0x0750 && cp <= 0x077F) ||
+  (cp >= 0x08A0 && cp <= 0x08FF) ||
+  (cp >= 0xFB1D && cp <= 0xFB4F) ||
+  (cp >= 0xFB50 && cp <= 0xFDFF) ||
+  (cp >= 0xFE70 && cp <= 0xFEFF)
 }
 
 ///|
@@ -244,6 +257,23 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
       self.char_x.push((0.0 : Float))
       self.char_line.push(0)
       idx = idx + 1
+    }
+  }
+
+  // Legacy kern pairs, applied only within the same face and size.
+  for i = 0; i + 1 < chars.length(); i = i + 1 {
+    let a = chars[i]
+    let b = chars[i + 1]
+    if !a.is_newline &&
+      !b.is_newline &&
+      a.cp != 9 &&
+      b.cp != 9 &&
+      a.font.id() == b.font.id() &&
+      a.style.font_size == b.style.font_size {
+      let k = a.font.kern(a.cp, b.cp, a.style.font_size)
+      if k != (0.0 : Float) {
+        chars[i].advance = chars[i].advance + k
+      }
     }
   }
 
@@ -379,6 +409,26 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
     } else {
       (0.0 : Float)
     }
+    // Visual order: reverse contiguous RTL runs. This is a UAX #9 subset
+    // (strong RTL ranges only); Arabic joining still depends on GSUB.
+    let order : Array[Int] = []
+    let mut oi = rs
+    while oi < end_idx {
+      if is_rtl(chars[oi].cp) {
+        let st = oi
+        while oi < end_idx && is_rtl(chars[oi].cp) {
+          oi = oi + 1
+        }
+        let mut j = oi - 1
+        while j >= st {
+          order.push(j)
+          j = j - 1
+        }
+      } else {
+        order.push(oi)
+        oi = oi + 1
+      }
+    }
     let x_start = match self.pstyle.align {
       TextAlign::Left => (0.0 : Float)
       TextAlign::Justify => (0.0 : Float)
@@ -389,12 +439,13 @@ pub fn Paragraph::layout(self : Paragraph, max_width : Float) -> Unit {
     }
     let baseline = cur_y + max_asc
     let mut cx = x_start
-    for k = rs; k < end_idx; k = k + 1 {
+    for oi2 = 0; oi2 < order.length(); oi2 = oi2 + 1 {
+      let k = order[oi2]
       let ch = chars[k]
       self.char_x[ch.char_index] = cx
       self.char_line[ch.char_index] = li
       let add_gap = is_justify &&
-        k < end_idx - 1 &&
+        oi2 < order.length() - 1 &&
         (if space_gaps > 0 { ch.is_space } else { true })
       if !ch.is_space && !ch.is_newline {
         self.glyphs.push({

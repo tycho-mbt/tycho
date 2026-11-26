@@ -504,3 +504,42 @@ test "justify, tab advance and kinsoku helpers" {
   assert_true(is_no_start(0xFF0C))
   assert_true(is_no_end(0xFF08))
 }
+
+///|
+test "legacy kern and RTL visual order" {
+  let bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  )
+  match FontFace::from_ttf_bytes(bytes) {
+    Some(font) => {
+      let k = font.kern(65, 86, (100.0 : Float))
+      assert_true(k < (0.0 : Float))
+      let p = ParagraphBuilder::new()
+        .add_text(
+          "AV",
+          style=TextStyle::new(font=font, font_size=(100.0 : Float)),
+        )
+        .build()
+      p.layout((1000.0 : Float))
+      let gs = p.placed_glyphs()
+      assert_eq(gs.length(), 2)
+      let sum = font.advance_width(65, (100.0 : Float)) +
+        font.advance_width(86, (100.0 : Float))
+      assert_true(gs[1].x < sum)
+      // A pure Hebrew run is laid out in reverse visual order.
+      let pr = ParagraphBuilder::new()
+        .add_text(
+          "אבג",
+          style=TextStyle::new(font=font, font_size=(100.0 : Float)),
+        )
+        .build()
+      pr.layout((1000.0 : Float))
+      let gr = pr.placed_glyphs()
+      assert_eq(gr.length(), 3)
+      assert_eq(gr[0].codepoint, 0x05D2)
+      assert_eq(gr[1].codepoint, 0x05D1)
+      assert_eq(gr[2].codepoint, 0x05D0)
+    }
+    None => ()
+  }
+}

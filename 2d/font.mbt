@@ -59,6 +59,8 @@ priv struct TtfData {
   // Color bitmap tables (CBDT/CBLC), -1 when absent.
   cblc_off : Int
   cbdt_off : Int
+  // Legacy `kern` table, -1 when absent.
+  kern_off : Int
 }
 
 ///|
@@ -79,6 +81,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
   let mut cmap_off = -1
   let mut cblc_off = -1
   let mut cbdt_off = -1
+  let mut kern_off = -1
   for i = 0; i < num_tables; i = i + 1 {
     let rec = 12 + i * 16
     let off = be_i32(bytes, rec + 8)
@@ -91,6 +94,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     else if tag_eq(bytes, rec, "cmap") { cmap_off = off }
     else if tag_eq(bytes, rec, "CBLC") { cblc_off = off }
     else if tag_eq(bytes, rec, "CBDT") { cbdt_off = off }
+    else if tag_eq(bytes, rec, "kern") { kern_off = off }
   }
   if head_off < 0 || hhea_off < 0 || maxp_off < 0 || hmtx_off < 0 ||
     cmap_off < 0 {
@@ -152,6 +156,7 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     cmap_format: best_fmt,
     cblc_off,
     cbdt_off,
+    kern_off,
   })
 }
 
@@ -987,6 +992,57 @@ pub fn FontFace::color_glyph(
     None => return None
   }
   Some((cb, dec))
+}
+
+///|
+// Legacy `kern` format-0 pair adjustment, in pixels at `size_px`.
+pub fn FontFace::kern(self : FontFace, cp1 : Int, cp2 : Int, size_px : Float) -> Float {
+  let t = match self.ttf {
+    Some(t) => t
+    None => return (0.0 : Float)
+  }
+  if t.kern_off < 0 {
+    return (0.0 : Float)
+  }
+  let g1 = ttf_glyph_id(t, cp1)
+  let g2 = ttf_glyph_id(t, cp2)
+  if g1 == 0 || g2 == 0 {
+    return (0.0 : Float)
+  }
+  let b = t.bytes
+  let n_tables = be_u16(b, t.kern_off + 2)
+  let mut off = t.kern_off + 4
+  for ti = 0; ti < n_tables; ti = ti + 1 {
+    let _ = ti
+    if off + 6 > b.length() {
+      return (0.0 : Float)
+    }
+    let length = be_u16(b, off + 2)
+    let coverage = be_u16(b, off + 4)
+    let fmt = coverage >> 8
+    // Horizontal, non-cross-stream only.
+    if fmt == 0 && (coverage & 1) != 0 && (coverage & 4) == 0 {
+      if off + 14 > b.length() {
+        return (0.0 : Float)
+      }
+      let n_pairs = be_u16(b, off + 6)
+      for p = 0; p < n_pairs; p = p + 1 {
+        let pr = off + 14 + p * 6
+        if pr + 6 > b.length() {
+          break
+        }
+        if be_u16(b, pr) == g1 && be_u16(b, pr + 2) == g2 {
+          let v = Float::from_int(be_i16(b, pr + 4))
+          return v * size_px / Float::from_int(t.units_per_em)
+        }
+      }
+    }
+    if length < 6 {
+      return (0.0 : Float)
+    }
+    off = off + length
+  }
+  (0.0 : Float)
 }
 
 ///|

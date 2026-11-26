@@ -199,6 +199,7 @@ pub fn FontFace::from_ttf_bytes(Bytes) -> Self?
 pub fn FontFace::has_color_bitmap(Self, Int32) -> Bool
 pub fn FontFace::has_glyph(Self, Int32) -> Bool
 pub fn FontFace::id(Self) -> Int32
+pub fn FontFace::kern(Self, Int32, Int32, Float) -> Float
 pub fn FontFace::metrics(Self, Float) -> (Float, Float, Float)
 pub fn FontFace::set_png_decoder((Bytes) -> DecodedImage?) -> Unit
 
