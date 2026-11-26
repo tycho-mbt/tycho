@@ -13,6 +13,7 @@ EXAMPLES=(
   61-tycho-3d-showcase
   62-tycho-geometry-primitives
   63-tycho-3d-instances
+  64-tycho-3d-textures
 )
 
 echo "== unit tests =="
