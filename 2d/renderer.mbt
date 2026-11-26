@@ -33,6 +33,23 @@ priv struct RenderSaveState {
 }
 
 ///|
+priv struct CachedColorGlyph {
+  font_id : Int
+  cp : Int
+  q4 : Int
+  uv0 : Float
+  uv1 : Float
+  uv2 : Float
+  uv3 : Float
+  width : Int
+  height : Int
+  bearing_x : Int
+  bearing_y : Int
+  ppem : Int
+  mut last_frame : Int
+}
+
+///|
 // A CPU-rasterized coverage bitmap cached in the shared R8 atlas. UVs are
 // invalidated when the atlas generation changes (compaction/reset).
 priv struct CachedCoverage {
@@ -188,6 +205,9 @@ pub struct Renderer2D {
   priv mut coverage_count : Int
   priv mut coverage_generation : Int
   priv mut coverage_draws : Int
+  priv color_glyphs : Map[Int, Array[CachedColorGlyph]]
+  priv mut color_glyph_count : Int
+  priv mut color_atlas_gen : Int
   priv coverage_atlas : DynamicAtlas
   priv coverage_tex_id : Int
   priv mut coverage_atlas_generation : Int
@@ -706,6 +726,9 @@ pub fn Renderer2D::new(
     coverage_count: 0,
     coverage_generation: 0,
     coverage_draws: 0,
+    color_glyphs: {},
+    color_glyph_count: 0,
+    color_atlas_gen: 0,
     coverage_atlas,
     coverage_tex_id,
     coverage_atlas_generation: 0,
@@ -2147,6 +2170,125 @@ fn Renderer2D::coverage_for(
     arr.push(e)
     self.coverage_cache[pid] = arr
     self.coverage_count = self.coverage_count + 1
+  }
+  Some(e)
+}
+
+///|
+fn Renderer2D::evict_oldest_color_glyph(self : Renderer2D) -> Unit {
+  let mut oldest_key = 0
+  let mut oldest_idx = -1
+  let mut oldest_frame = self.frame_idx + 1
+  for k, arr in self.color_glyphs {
+    for i = 0; i < arr.length(); i = i + 1 {
+      if arr[i].last_frame < oldest_frame {
+        oldest_frame = arr[i].last_frame
+        oldest_key = k
+        oldest_idx = i
+      }
+    }
+  }
+  if oldest_idx < 0 {
+    return
+  }
+  match self.color_glyphs.get(oldest_key) {
+    Some(arr) => {
+      let _ = arr.remove(oldest_idx)
+      if arr.length() == 0 {
+        let _ = self.color_glyphs.remove(oldest_key)
+      }
+      self.color_glyph_count = self.color_glyph_count - 1
+    }
+    None => ()
+  }
+}
+
+///|
+// Decode a CBDT color glyph and cache its RGBA bitmap in the color atlas.
+fn Renderer2D::color_glyph_for(
+  self : Renderer2D,
+  font : FontFace,
+  cp : Int,
+  size : Float,
+) -> CachedColorGlyph? raise @tycho.RhiError {
+  let q4 = (size * (4.0 : Float) + (0.5 : Float)).to_int()
+  let key = font.id()
+  let arr = match self.color_glyphs.get(key) {
+    Some(a) => a
+    None => []
+  }
+  for e in arr {
+    if e.font_id == key && e.cp == cp && e.q4 == q4 {
+      e.last_frame = self.frame_idx
+      return Some(e)
+    }
+  }
+  let (cb, img) = match font.color_glyph(cp, size) {
+    Some(v) => v
+    None => return None
+  }
+  if img.width <= 0 || img.height <= 0 || img.rgba.length() < img.width * img.height * 4 {
+    return None
+  }
+  if self.color_glyph_count >= 256 {
+    self.evict_oldest_color_glyph()
+  }
+  let mut placed = self.color_atlas.alloc_and_upload(
+    img.width,
+    img.height,
+    img.rgba,
+    padding=1,
+  )
+  let mut cleared = false
+  match placed {
+    Some(_) => ()
+    None => {
+      self.color_atlas.reset()
+      self.color_glyphs.clear()
+      self.color_glyph_count = 0
+      self.uploaded_images.clear()
+      self.color_atlas_gen = self.color_atlas.generation()
+      cleared = true
+      placed = self.color_atlas.alloc_and_upload(
+        img.width,
+        img.height,
+        img.rgba,
+        padding=1,
+      )
+    }
+  }
+  let (tx, ty) = match placed {
+    Some(v) => v
+    None => return None
+  }
+  let (u0, v0, u1, v1) = self.color_atlas.uv_rect(
+    tx,
+    ty,
+    img.width,
+    img.height,
+  )
+  let e : CachedColorGlyph = {
+    font_id: key,
+    cp,
+    q4,
+    uv0: u0,
+    uv1: v0,
+    uv2: u1,
+    uv3: v1,
+    width: cb.width,
+    height: cb.height,
+    bearing_x: cb.bearing_x,
+    bearing_y: cb.bearing_y,
+    ppem: cb.ppem,
+    last_frame: self.frame_idx,
+  }
+  if cleared {
+    self.color_glyphs[key] = [e]
+    self.color_glyph_count = 1
+  } else {
+    arr.push(e)
+    self.color_glyphs[key] = arr
+    self.color_glyph_count = self.color_glyph_count + 1
   }
   Some(e)
 }
@@ -3844,39 +3986,81 @@ fn Renderer2D::replay_ops(
         self.set_blend(cmd, BlendMode2D::SrcOver)
         para.layout((1.0e9 : Float))
         for g in para.placed_glyphs() {
-          let ge = self.glyph_cache.get_or_rasterize(g.font, g.codepoint, g.font_size)
-          if ge.width > 0 && ge.height > 0 {
-            let gx = pos.x + g.x + Float::from_int(ge.offset_x)
-            let gy = pos.y + g.baseline_y + Float::from_int(ge.offset_y)
-            self.emit_prim(
-              cmd,
-              gx,
-              gy,
-              Float::from_int(ge.width),
-              Float::from_int(ge.height),
-              (0.0 : Float),
-              (0.0 : Float),
-              (0.0 : Float),
-              (0.0 : Float),
-              g.color,
-              Color::transparent(),
-              ge.uv_x0,
-              ge.uv_y0,
-              ge.uv_x1,
-              ge.uv_y1,
-              (0.0 : Float),
-              (0.0 : Float),
-              (3.0 : Float),
-              (0.0 : Float),
-              (0.0 : Float),
-              (0.0 : Float),
-              (0.0 : Float),
-              (0.0 : Float),
-              (0.0 : Float),
-              (0.0 : Float),
-              (0.0 : Float),
-              (0.0 : Float),
-            )
+          match self.color_glyph_for(g.font, g.codepoint, g.font_size) {
+            Some(cg) => {
+              let scale = g.font_size / Float::from_int(cg.ppem)
+              let gx = pos.x + g.x + Float::from_int(cg.bearing_x) * scale
+              let gy = pos.y + g.baseline_y - Float::from_int(cg.bearing_y) * scale
+              self.emit_prim(
+                cmd,
+                gx,
+                gy,
+                Float::from_int(cg.width) * scale,
+                Float::from_int(cg.height) * scale,
+                (0.0 : Float),
+                (0.0 : Float),
+                (0.0 : Float),
+                (0.0 : Float),
+                Color::rgba((1.0 : Float), (1.0 : Float), (1.0 : Float), g.color.a),
+                Color::transparent(),
+                cg.uv0,
+                cg.uv1,
+                cg.uv2,
+                cg.uv3,
+                (0.0 : Float),
+                (-1.5 : Float),
+                (7.0 : Float),
+                (0.0 : Float),
+                (0.0 : Float),
+                (0.0 : Float),
+                (0.0 : Float),
+                (0.0 : Float),
+                (0.0 : Float),
+                (0.0 : Float),
+                (0.0 : Float),
+                (0.0 : Float),
+              )
+            }
+            None => {
+              let ge = self.glyph_cache.get_or_rasterize(
+                g.font,
+                g.codepoint,
+                g.font_size,
+              )
+              if ge.width > 0 && ge.height > 0 {
+                let gx = pos.x + g.x + Float::from_int(ge.offset_x)
+                let gy = pos.y + g.baseline_y + Float::from_int(ge.offset_y)
+                self.emit_prim(
+                  cmd,
+                  gx,
+                  gy,
+                  Float::from_int(ge.width),
+                  Float::from_int(ge.height),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  g.color,
+                  Color::transparent(),
+                  ge.uv_x0,
+                  ge.uv_y0,
+                  ge.uv_x1,
+                  ge.uv_y1,
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (3.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                  (0.0 : Float),
+                )
+              }
+            }
           }
         }
         for ul in para.underline_rects() {
@@ -3956,6 +4140,13 @@ fn Renderer2D::reset_frame_state(
   self.coverage_draws = 0
   self.vert_cursor = 0
   self.vert_index_cursor = 0
+  let cgen = self.color_atlas.generation()
+  if cgen != self.color_atlas_gen {
+    self.color_glyphs.clear()
+    self.color_glyph_count = 0
+    self.uploaded_images.clear()
+    self.color_atlas_gen = cgen
+  }
   self.active_prim_ssbo = self.prim_ssbo
   self.active_prim_slot_base = self.slot_prim_base()
   self.active_prim_chunk = 0

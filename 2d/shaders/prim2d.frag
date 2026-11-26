@@ -191,6 +191,14 @@ void main() {
     return;
   }
 
+  if (kind == 7) {
+    // Color glyph (CBDT emoji) from the RGBA atlas, no SDF edge.
+    vec4 tex = texture(u_color_atlas, clamp(v_uv, v_uv_rect.xy, v_uv_rect.zw));
+    float a = v_fill.a * tex.a * clip_cov;
+    out_color = vec4(v_fill.rgb * tex.rgb * a, a);
+    return;
+  }
+
   float d = (kind == 4)
     ? (length(v_local_pos) - min(v_half_size.x, v_half_size.y))
     : sdRoundBoxElliptic(v_local_pos, v_half_size, v_radii, v_radii_y);

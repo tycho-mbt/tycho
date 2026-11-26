@@ -14,6 +14,7 @@ EXAMPLES=(
   56-tycho-2d-text-stress
   57-tycho-2d-perf
   58-tycho-2d-svg-icons
+  59-tycho-2d-emoji
 )
 
 cd "$ROOT/examples"

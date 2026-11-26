@@ -144,6 +144,8 @@ pub struct DynamicAtlas {
   // Deferred glyph/image uploads, flushed in one submit before the frame's
   // draw commands are submitted.
   priv pending : Array[(Int, Int, Int, Int, Bytes)]
+  // Bumped on reset so external UV caches can invalidate.
+  priv mut generation : Int
 }
 
 ///|
@@ -165,7 +167,13 @@ pub fn DynamicAtlas::new(
     height,
     packer: SkylinePacker::new(width, height),
     pending: [],
+    generation: 0,
   }
+}
+
+///|
+pub fn DynamicAtlas::generation(self : DynamicAtlas) -> Int {
+  self.generation
 }
 
 ///|
@@ -247,6 +255,7 @@ pub fn DynamicAtlas::uv_rect(
 pub fn DynamicAtlas::reset(self : DynamicAtlas) -> Unit {
   self.packer.reset()
   self.pending.clear()
+  self.generation = self.generation + 1
 }
 
 ///|

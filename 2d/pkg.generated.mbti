@@ -106,6 +106,16 @@ pub fn Color::transparent() -> Self
 pub fn Color::white() -> Self
 pub fn Color::with_alpha(Self, Float) -> Self
 
+pub(all) struct ColorBitmap {
+  width : Int32
+  height : Int32
+  bearing_x : Int32
+  bearing_y : Int32
+  advance : Int32
+  ppem : Int32
+  png : Bytes
+}
+
 pub(all) enum ColorFilter {
   Matrix(FixedArray[Float])
   Blend(Color, BlendMode2D)
@@ -118,6 +128,13 @@ pub(all) struct CoverageBitmap {
   origin_y : Int32
   pixels : Bytes
 }
+
+pub(all) struct DecodedImage {
+  width : Int32
+  height : Int32
+  rgba : Bytes
+}
+pub fn DecodedImage::new(Int32, Int32, Bytes) -> Self
 
 pub struct DisplayList {
   ops : FixedArray[DrawOp]
@@ -160,6 +177,7 @@ pub fn DynamicAtlas::alloc_and_upload(Self, Int32, Int32, Bytes, padding? : Int3
 pub fn DynamicAtlas::alloc_and_upload_padded(Self, Int32, Int32, Bytes, padding? : Int32) -> (Int32, Int32, Int32, Int32)? raise @tycho.RhiError
 pub fn DynamicAtlas::destroy(Self) -> Unit
 pub fn DynamicAtlas::flush_uploads(Self) -> Unit raise @tycho.RhiError
+pub fn DynamicAtlas::generation(Self) -> Int32
 pub fn DynamicAtlas::new(@tycho.Device, Int32, Int32, @tycho.TextureFormat) -> Self raise @tycho.RhiError
 pub fn DynamicAtlas::reset(Self) -> Unit
 pub fn DynamicAtlas::uv_rect(Self, Int32, Int32, Int32, Int32) -> (Float, Float, Float, Float)
@@ -175,10 +193,14 @@ pub struct FontFace {
 }
 pub fn FontFace::advance_width(Self, Int32, Float) -> Float
 pub fn FontFace::builtin() -> Self
+pub fn FontFace::color_bitmap(Self, Int32, Float) -> ColorBitmap?
+pub fn FontFace::color_glyph(Self, Int32, Float) -> (ColorBitmap, DecodedImage)?
 pub fn FontFace::from_ttf_bytes(Bytes) -> Self?
+pub fn FontFace::has_color_bitmap(Self, Int32) -> Bool
 pub fn FontFace::has_glyph(Self, Int32) -> Bool
 pub fn FontFace::id(Self) -> Int32
 pub fn FontFace::metrics(Self, Float) -> (Float, Float, Float)
+pub fn FontFace::set_png_decoder((Bytes) -> DecodedImage?) -> Unit
 
 pub(all) struct FontFallbackChain {
   // private fields

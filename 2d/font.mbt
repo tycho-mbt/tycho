@@ -12,6 +12,12 @@ fn be_i16(b : Bytes, off : Int) -> Int {
 }
 
 ///|
+fn be_i8(b : Bytes, off : Int) -> Int {
+  let v = b[off].to_int()
+  if v >= 128 { v - 256 } else { v }
+}
+
+///|
 fn be_u32(b : Bytes, off : Int) -> UInt {
   ((b[off].to_int() & 0xFF).reinterpret_as_uint() << 24) |
   ((b[off + 1].to_int() & 0xFF).reinterpret_as_uint() << 16) |
@@ -50,6 +56,9 @@ priv struct TtfData {
   hmtx_off : Int
   cmap_subtable_off : Int
   cmap_format : Int
+  // Color bitmap tables (CBDT/CBLC), -1 when absent.
+  cblc_off : Int
+  cbdt_off : Int
 }
 
 ///|
@@ -68,6 +77,8 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
   let mut glyf_off = -1
   let mut hmtx_off = -1
   let mut cmap_off = -1
+  let mut cblc_off = -1
+  let mut cbdt_off = -1
   for i = 0; i < num_tables; i = i + 1 {
     let rec = 12 + i * 16
     let off = be_i32(bytes, rec + 8)
@@ -78,9 +89,15 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     else if tag_eq(bytes, rec, "glyf") { glyf_off = off }
     else if tag_eq(bytes, rec, "hmtx") { hmtx_off = off }
     else if tag_eq(bytes, rec, "cmap") { cmap_off = off }
+    else if tag_eq(bytes, rec, "CBLC") { cblc_off = off }
+    else if tag_eq(bytes, rec, "CBDT") { cbdt_off = off }
   }
-  if head_off < 0 || hhea_off < 0 || maxp_off < 0 || loca_off < 0 ||
-    glyf_off < 0 || hmtx_off < 0 || cmap_off < 0 {
+  if head_off < 0 || hhea_off < 0 || maxp_off < 0 || hmtx_off < 0 ||
+    cmap_off < 0 {
+    return None
+  }
+  // Bitmap-only color fonts (CBDT/CBLC) have no glyf/loca.
+  if (glyf_off < 0 || loca_off < 0) && (cblc_off < 0 || cbdt_off < 0) {
     return None
   }
   let units_per_em = be_u16(bytes, head_off + 18)
@@ -133,6 +150,8 @@ fn parse_ttf(bytes : Bytes) -> TtfData? {
     hmtx_off,
     cmap_subtable_off: best_off,
     cmap_format: best_fmt,
+    cblc_off,
+    cbdt_off,
   })
 }
 
@@ -460,6 +479,9 @@ fn rasterize_ttf_glyph(
   cp : Int,
   size_px : Float,
 ) -> (Int, Int, Int, Int, Bytes) {
+  if t.glyf_off < 0 || t.loca_off < 0 {
+    return (0, 0, 0, 0, b"")
+  }
   let gid = ttf_glyph_id(t, cp)
   let scale = size_px.to_double() / t.units_per_em.to_double()
   let edges : Array[RasterEdge] = []
@@ -731,7 +753,23 @@ pub fn FontFace::has_glyph(self : FontFace, cp : Int) -> Bool {
 }
 
 ///|
-// Ordered font fallback: the first face that has a glyph wins.
+pub fn FontFace::has_color_bitmap(self : FontFace, cp : Int) -> Bool {
+  match self.color_bitmap(cp, (16.0 : Float)) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn is_emoji_cp(cp : Int) -> Bool {
+  (cp >= 0x1F000 && cp <= 0x1FAFF) ||
+  (cp >= 0x2600 && cp <= 0x27BF) ||
+  (cp >= 0xFE00 && cp <= 0xFE0F)
+}
+
+///|
+// Ordered font fallback: color emoji prefer a face with a CBDT bitmap; other
+// codepoints take the first face that has a glyph.
 pub(all) struct FontFallbackChain {
   priv faces : Array[FontFace]
 }
@@ -750,6 +788,13 @@ pub fn FontFallbackChain::new(
 
 ///|
 pub fn FontFallbackChain::face_for(self : FontFallbackChain, cp : Int) -> FontFace {
+  if is_emoji_cp(cp) {
+    for f in self.faces {
+      if f.has_color_bitmap(cp) {
+        return f
+      }
+    }
+  }
   for f in self.faces {
     if f.has_glyph(cp) {
       return f
@@ -765,6 +810,183 @@ pub fn FontFallbackChain::faces(self : FontFallbackChain) -> Array[FontFace] {
     out.push(f)
   }
   out
+}
+
+///|
+// A color bitmap glyph from CBDT/CBLC, in the strike's native pixels. Callers
+// scale by `size_px / ppem`.
+pub(all) struct ColorBitmap {
+  width : Int
+  height : Int
+  bearing_x : Int
+  bearing_y : Int
+  advance : Int
+  ppem : Int
+  png : Bytes
+}
+
+///|
+pub(all) struct DecodedImage {
+  width : Int
+  height : Int
+  rgba : Bytes
+}
+
+///|
+pub fn DecodedImage::new(width : Int, height : Int, rgba : Bytes) -> DecodedImage {
+  { width, height, rgba }
+}
+
+///|
+// Host-provided PNG decoder (CBDT glyphs store PNG). Kept as a hook so the
+// pure-MoonBit 2D package does not depend on a native image library.
+let g_png_decoder : Ref[((Bytes) -> DecodedImage?)?] = Ref(None)
+
+///|
+pub fn FontFace::set_png_decoder(decoder : (Bytes) -> DecodedImage?) -> Unit {
+  g_png_decoder.val = Some(decoder)
+}
+
+///|
+// Parse the CBDT bitmap record for `cp` at the strike closest to `size_px`.
+pub fn FontFace::color_bitmap(self : FontFace, cp : Int, size_px : Float) -> ColorBitmap? {
+  let t = match self.ttf {
+    Some(t) => t
+    None => return None
+  }
+  if t.cblc_off < 0 || t.cbdt_off < 0 {
+    return None
+  }
+  let gid = ttf_glyph_id(t, cp)
+  if gid <= 0 {
+    return None
+  }
+  let b = t.bytes
+  let cblc = t.cblc_off
+  if cblc + 8 > b.length() {
+    return None
+  }
+  let num_sizes = be_u32(b, cblc + 4).reinterpret_as_int()
+  let mut rec = -1
+  let mut best_diff = (1.0e9 : Float)
+  for si = 0; si < num_sizes; si = si + 1 {
+    let r = cblc + 8 + si * 48
+    if r + 48 > b.length() {
+      continue
+    }
+    let sg = be_u16(b, r + 40)
+    let eg = be_u16(b, r + 42)
+    if gid >= sg && gid <= eg {
+      let ppem = b[r + 44].to_int()
+      let diff = @tmath.abs_f(Float::from_int(ppem) - size_px)
+      if diff < best_diff {
+        best_diff = diff
+        rec = r
+      }
+    }
+  }
+  if rec < 0 {
+    return None
+  }
+  let arr = cblc + be_u32(b, rec).reinterpret_as_int()
+  let n_idx = be_u32(b, rec + 8).reinterpret_as_int()
+  let ppem_x = b[rec + 44].to_int()
+  for k = 0; k < n_idx; k = k + 1 {
+    let r = arr + k * 8
+    if r + 8 > b.length() {
+      continue
+    }
+    let fg = be_u16(b, r)
+    let lg = be_u16(b, r + 2)
+    if gid < fg || gid > lg {
+      continue
+    }
+    let sub = arr + be_u32(b, r + 4).reinterpret_as_int()
+    if sub + 8 > b.length() {
+      return None
+    }
+    let fmt = be_u16(b, sub)
+    let img_fmt = be_u16(b, sub + 2)
+    let data_off = be_u32(b, sub + 4).reinterpret_as_int()
+    // Index format 1: u32 offsets. Other formats are rare in color fonts.
+    if fmt != 1 {
+      return None
+    }
+    let o0 = sub + 8 + (gid - fg) * 4
+    if o0 + 8 > b.length() {
+      return None
+    }
+    let i0 = be_u32(b, o0).reinterpret_as_int()
+    let i1 = be_u32(b, o0 + 4).reinterpret_as_int()
+    if i1 <= i0 {
+      return None
+    }
+    let mut off = t.cbdt_off + data_off + i0
+    if off + 5 > b.length() {
+      return None
+    }
+    let mut w = 0
+    let mut h = 0
+    let mut bx = 0
+    let mut by = 0
+    let mut adv = 0
+    if img_fmt == 17 {
+      h = b[off].to_int()
+      w = b[off + 1].to_int()
+      bx = be_i8(b, off + 2)
+      by = be_i8(b, off + 3)
+      adv = b[off + 4].to_int()
+      off = off + 5
+    } else if img_fmt == 18 || img_fmt == 19 {
+      h = b[off].to_int()
+      w = b[off + 1].to_int()
+      bx = be_i8(b, off + 2)
+      by = be_i8(b, off + 3)
+      adv = b[off + 4].to_int()
+      off = off + 8
+    } else {
+      return None
+    }
+    if off + 4 > b.length() {
+      return None
+    }
+    let data_len = be_u32(b, off).reinterpret_as_int()
+    off = off + 4
+    if data_len <= 0 || off + data_len > b.length() {
+      return None
+    }
+    return Some({
+      width: w,
+      height: h,
+      bearing_x: bx,
+      bearing_y: by,
+      advance: adv,
+      ppem: ppem_x,
+      png: b[off:off + data_len].to_owned(),
+    })
+  }
+  None
+}
+
+///|
+pub fn FontFace::color_glyph(
+  self : FontFace,
+  cp : Int,
+  size_px : Float,
+) -> (ColorBitmap, DecodedImage)? {
+  let cb = match self.color_bitmap(cp, size_px) {
+    Some(v) => v
+    None => return None
+  }
+  let dec = match g_png_decoder.val {
+    Some(f) =>
+      match f(cb.png) {
+        Some(v) => v
+        None => return None
+      }
+    None => return None
+  }
+  Some((cb, dec))
 }
 
 ///|

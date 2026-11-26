@@ -449,3 +449,31 @@ test "font fallback chain picks per-codepoint faces" {
     _ => ()
   }
 }
+
+///|
+test "CBDT color glyph parses and emoji fallback prefers color" {
+  let latin_bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  )
+  let emoji_bytes = @tycho.read_file_bytes(
+    "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+  )
+  match (
+    FontFace::from_ttf_bytes(latin_bytes),
+    FontFace::from_ttf_bytes(emoji_bytes),
+  ) {
+    (Some(latin), Some(emoji)) => {
+      assert_true(emoji.has_color_bitmap(0x1F600))
+      match emoji.color_bitmap(0x1F600, (48.0 : Float)) {
+        Some(cb) => {
+          assert_true(cb.width > 0 && cb.height > 0)
+          assert_true(cb.png.length() > 0)
+        }
+        None => assert_true(false)
+      }
+      let chain = FontFallbackChain::new(latin, fallbacks=[emoji])
+      assert_eq(chain.face_for(0x1F600).id(), emoji.id())
+    }
+    _ => ()
+  }
+}
