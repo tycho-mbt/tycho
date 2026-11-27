@@ -2616,7 +2616,7 @@ fn Renderer2D::draw_path_gpu(
         slot=self.active_rt_slot,
       )
       let msaa_ds = msaa_ds_opt.unwrap()
-      cmd.begin_render_pass(
+      cmd.render_pass(
         [
           @tycho.RenderTargetDesc::new(
             msaa_col,
@@ -2636,11 +2636,13 @@ fn Renderer2D::draw_path_gpu(
             clear_stencil=0,
           )
         ,
-      )
-      cmd.set_viewport((0.0 : Float), (0.0 : Float), Float::from_int(msaa_col.width()), Float::from_int(msaa_col.height()))
-      cmd.set_scissor(0, 0, bw, bh)
-      self.draw_path_raw(cmd, path, paint, local_xf, msaa_col.width(), msaa_col.height(), true)
-      cmd.end_render_pass()
+  fn(pass) raise @tycho.RhiError {
+        pass.set_viewport((0.0 : Float), (0.0 : Float), Float::from_int(msaa_col.width()), Float::from_int(msaa_col.height()))
+        pass.set_scissor(0, 0, bw, bh)
+        self.draw_path_raw(cmd, path, paint, local_xf, msaa_col.width(), msaa_col.height(), true)
+      
+  },
+)
     } else {
       self.begin_target_pass(
         cmd,
@@ -2747,47 +2749,50 @@ fn Renderer2D::downsample_region(
   let sh = if src_h > 0 { src_h } else { 1 }
   let texel_u = (src_u1 - src_u0) / Float::from_int(sw)
   let texel_v = (src_v1 - src_v0) / Float::from_int(sh)
-  cmd.begin_render_pass([
+  cmd.render_pass([
     @tycho.RenderTargetDesc::new(
       dst,
       load_op=@tycho.LoadOp::Clear,
       store_op=@tycho.StoreOp::Store,
       clear_color=@tycho.ClearColor::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float)),
     ),
-  ])
-  cmd.set_viewport((0.0 : Float), (0.0 : Float), dw, dh)
-  cmd.set_scissor(0, 0, dst_w, dst_h)
-  cmd.bind_pipeline(self.blur_pipe)
-  cmd.bind_texture(self.blur_pipe, 0, src, self.sampler)
-  cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
-  cmd.push_constants_floats(self.blur_pipe, [
-    (0.0 : Float),
-    (0.0 : Float),
-    Float::from_int(dst_w) / dw,
-    Float::from_int(dst_h) / dh,
-    src_u0,
-    src_v0,
-    src_u1,
-    src_v1,
-    texel_u,
-    texel_v,
-    dw,
-    (4.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (-1.0 : Float),
-    (-1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-  ])
-  cmd.draw(6, 1)
-  cmd.end_render_pass()
+  ],
+  fn(pass) {
+    pass.set_viewport((0.0 : Float), (0.0 : Float), dw, dh)
+    pass.set_scissor(0, 0, dst_w, dst_h)
+    pass.bind_pipeline(self.blur_pipe)
+    pass.bind_texture(self.blur_pipe, 0, src, self.sampler)
+    pass.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
+    pass.push_constants_floats(self.blur_pipe, [
+      (0.0 : Float),
+      (0.0 : Float),
+      Float::from_int(dst_w) / dw,
+      Float::from_int(dst_h) / dh,
+      src_u0,
+      src_v0,
+      src_u1,
+      src_v1,
+      texel_u,
+      texel_v,
+      dw,
+      (4.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (-1.0 : Float),
+      (-1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+    ])
+    pass.draw(6, 1)
+  
+  },
+)
   (dst, dst_w, dst_h)
 }
 
@@ -2857,92 +2862,98 @@ fn Renderer2D::run_blur_passes(
   let rad_y = @tmath.clamp_f(sy / scale / (1.7 : Float), (0.5 : Float), (4.0 : Float))
 
   // Horizontal pass into tex_a
-  cmd.begin_render_pass([
+  cmd.render_pass([
     @tycho.RenderTargetDesc::new(
       tex_a,
       load_op=@tycho.LoadOp::Clear,
       store_op=@tycho.StoreOp::Store,
       clear_color=@tycho.ClearColor::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float)),
     ),
-  ])
-  cmd.set_viewport(0.0, 0.0, aw_f, ah_f)
-  cmd.set_scissor(0, 0, bw, bh)
-  cmd.bind_pipeline(self.blur_pipe)
-  cmd.bind_texture(self.blur_pipe, 0, cur_tex, self.sampler)
-  cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
-  cmd.push_constants_floats(self.blur_pipe, [
-    (0.0 : Float),
-    (0.0 : Float),
-    bw_norm,
-    bh_norm,
-    cu0,
-    cv0,
-    cu1,
-    cv1,
-    rad_x / Float::from_int(cur_tex.width()),
-    (0.0 : Float),
-    aw_f,
-    (0.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (-1.0 : Float),
-    (-1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-  ])
-  cmd.draw(6, 1)
-  cmd.end_render_pass()
+  ],
+  fn(pass) {
+    pass.set_viewport(0.0, 0.0, aw_f, ah_f)
+    pass.set_scissor(0, 0, bw, bh)
+    pass.bind_pipeline(self.blur_pipe)
+    pass.bind_texture(self.blur_pipe, 0, cur_tex, self.sampler)
+    pass.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
+    pass.push_constants_floats(self.blur_pipe, [
+      (0.0 : Float),
+      (0.0 : Float),
+      bw_norm,
+      bh_norm,
+      cu0,
+      cv0,
+      cu1,
+      cv1,
+      rad_x / Float::from_int(cur_tex.width()),
+      (0.0 : Float),
+      aw_f,
+      (0.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (-1.0 : Float),
+      (-1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+    ])
+    pass.draw(6, 1)
+  
+  },
+)
 
   // Vertical pass into tex_b
   let btex_w = Float::from_int(tex_b.width())
   let btex_h = Float::from_int(tex_b.height())
-  cmd.begin_render_pass([
+  cmd.render_pass([
     @tycho.RenderTargetDesc::new(
       tex_b,
       load_op=@tycho.LoadOp::Clear,
       store_op=@tycho.StoreOp::Store,
       clear_color=@tycho.ClearColor::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float)),
     ),
-  ])
-  cmd.set_viewport(0.0, 0.0, btex_w, btex_h)
-  cmd.set_scissor(0, 0, bw, bh)
-  cmd.bind_pipeline(self.blur_pipe)
-  cmd.bind_texture(self.blur_pipe, 0, tex_a, self.sampler)
-  cmd.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
-  cmd.push_constants_floats(self.blur_pipe, [
-    (0.0 : Float),
-    (0.0 : Float),
-    Float::from_int(bw) / btex_w,
-    Float::from_int(bh) / btex_h,
-    (0.0 : Float),
-    (0.0 : Float),
-    bw_norm,
-    bh_norm,
-    (0.0 : Float),
-    rad_y / ah_f,
-    btex_w,
-    (0.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (-1.0 : Float),
-    (-1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-  ])
-  cmd.draw(6, 1)
-  cmd.end_render_pass()
+  ],
+  fn(pass) {
+    pass.set_viewport(0.0, 0.0, btex_w, btex_h)
+    pass.set_scissor(0, 0, bw, bh)
+    pass.bind_pipeline(self.blur_pipe)
+    pass.bind_texture(self.blur_pipe, 0, tex_a, self.sampler)
+    pass.bind_storage(self.blur_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
+    pass.push_constants_floats(self.blur_pipe, [
+      (0.0 : Float),
+      (0.0 : Float),
+      Float::from_int(bw) / btex_w,
+      Float::from_int(bh) / btex_h,
+      (0.0 : Float),
+      (0.0 : Float),
+      bw_norm,
+      bh_norm,
+      (0.0 : Float),
+      rad_y / ah_f,
+      btex_w,
+      (0.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (-1.0 : Float),
+      (-1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+    ])
+    pass.draw(6, 1)
+  
+  },
+)
 
   (tex_b, bw, bh)
 }
@@ -3193,7 +3204,7 @@ fn Renderer2D::flush_path_batch(
   )
   let msaa_ds = msaa_ds_opt.unwrap()
   self.path_batch_count = self.path_batch_count + 1
-  cmd.begin_render_pass(
+  cmd.render_pass(
     [
       @tycho.RenderTargetDesc::new(
         msaa_col,
@@ -3213,38 +3224,40 @@ fn Renderer2D::flush_path_batch(
         clear_stencil=0,
       )
     ,
-  )
-  cmd.set_viewport(
-    (0.0 : Float),
-    (0.0 : Float),
-    Float::from_int(msaa_col.width()),
-    Float::from_int(msaa_col.height()),
-  )
-  cmd.set_scissor(0, 0, bw, bh)
-  let count = self.path_batch.length()
-  for i = 0; i < count; i = i + 1 {
-    let pp = self.path_batch[i]
-    let xf = pp.transform
-    let local_xf = Matrix3::{
-      a: xf.a,
-      c: xf.c,
-      tx: xf.tx - bx,
-      b: xf.b,
-      d: xf.d,
-      ty: xf.ty - by,
-    }
-    self.draw_path_raw(
-      cmd,
-      pp.path,
-      pp.paint,
-      local_xf,
-      msaa_col.width(),
-      msaa_col.height(),
-      true,
+  fn(pass) raise @tycho.RhiError {
+    pass.set_viewport(
+      (0.0 : Float),
+      (0.0 : Float),
+      Float::from_int(msaa_col.width()),
+      Float::from_int(msaa_col.height()),
     )
-  }
-  self.path_batch.clear()
-  cmd.end_render_pass()
+    pass.set_scissor(0, 0, bw, bh)
+    let count = self.path_batch.length()
+    for i = 0; i < count; i = i + 1 {
+      let pp = self.path_batch[i]
+      let xf = pp.transform
+      let local_xf = Matrix3::{
+        a: xf.a,
+        c: xf.c,
+        tx: xf.tx - bx,
+        b: xf.b,
+        d: xf.d,
+        ty: xf.ty - by,
+      }
+      self.draw_path_raw(
+        cmd,
+        pp.path,
+        pp.paint,
+        local_xf,
+        msaa_col.width(),
+        msaa_col.height(),
+        true,
+      )
+    }
+    self.path_batch.clear()
+  
+  },
+)
   self.begin_target_pass(
     cmd,
     otex,
@@ -4506,44 +4519,46 @@ fn Renderer2D::present_scene(
   let v1 = Float::from_int(scene_h) / Float::from_int(scene_tex.height())
   let dst_w_frac = Float::from_int(scene_w) / Float::from_int(w)
   let dst_h_frac = Float::from_int(scene_h) / Float::from_int(h)
-  cmd.begin_swapchain_pass(
+  cmd.swapchain_pass(
     sc,
     load_op~,
     clear_color=clear_color.to_clear_color(),
-  )
-  cmd.set_viewport((0.0 : Float), (0.0 : Float), Float::from_int(w), Float::from_int(h))
-  cmd.set_scissor(0, 0, w, h)
-  cmd.bind_pipeline(sc_pipe)
-  cmd.bind_texture(sc_pipe, 0, scene_tex, self.sampler)
-  cmd.bind_storage(sc_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
-  cmd.push_constants_floats(sc_pipe, [
-    (0.0 : Float),
-    (0.0 : Float),
-    dst_w_frac,
-    dst_h_frac,
-    (0.0 : Float),
-    (0.0 : Float),
-    u1,
-    v1,
-    (0.0 : Float),
-    (0.0 : Float),
-    Float::from_int(w),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (-1.0 : Float),
-    (-1.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-    (0.0 : Float),
-  ])
-  cmd.draw(6, 1)
-  cmd.end_swapchain_pass()
+  fn(pass) {
+    pass.set_viewport((0.0 : Float), (0.0 : Float), Float::from_int(w), Float::from_int(h))
+    pass.set_scissor(0, 0, w, h)
+    pass.bind_pipeline(sc_pipe)
+    pass.bind_texture(sc_pipe, 0, scene_tex, self.sampler)
+    pass.bind_storage(sc_pipe, 0, self.color_mat_ssbo, offset=self.slot_cmat_base(), size=80)
+    pass.push_constants_floats(sc_pipe, [
+      (0.0 : Float),
+      (0.0 : Float),
+      dst_w_frac,
+      dst_h_frac,
+      (0.0 : Float),
+      (0.0 : Float),
+      u1,
+      v1,
+      (0.0 : Float),
+      (0.0 : Float),
+      Float::from_int(w),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (-1.0 : Float),
+      (-1.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+      (0.0 : Float),
+    ])
+    pass.draw(6, 1)
+  
+  },
+)
   self.flush_atlas_uploads()
 }
 

@@ -466,7 +466,7 @@ fn create_brdf_lut(dev : @tycho.Device) -> @tycho.Texture raise {
   )
   let rt = dev.create_render_target(size, size, @tycho.TextureFormat::RG16F)
   let cmd = dev.begin_commands()
-  cmd.begin_render_pass(
+  cmd.render_pass(
     [
       @tycho.RenderTargetDesc::new(
         rt,
@@ -475,13 +475,15 @@ fn create_brdf_lut(dev : @tycho.Device) -> @tycho.Texture raise {
         clear_color=@tycho.ClearColor::black(),
       ),
     ],
-  )
-  cmd.set_viewport(0.0, 0.0, f_of_int(size), f_of_int(size))
-  cmd.set_scissor(0, 0, size, size)
-  cmd.bind_pipeline(pipe)
-  cmd.push_constants_floats(pipe, [(128.0 : Float), 0.0, 0.0, 0.0])
-  cmd.draw(3, 1)
-  cmd.end_render_pass()
+  fn(pass) {
+    pass.set_viewport(0.0, 0.0, f_of_int(size), f_of_int(size))
+    pass.set_scissor(0, 0, size, size)
+    pass.bind_pipeline(pipe)
+    pass.push_constants_floats(pipe, [(128.0 : Float), 0.0, 0.0, 0.0])
+    pass.draw(3, 1)
+  
+  },
+)
   dev.end_commands(cmd)
   let px = rt.readback()
   let tex = dev.create_texture_format(
@@ -2432,7 +2434,7 @@ fn Renderer3D::render_frame(
 
   // Single atlas pass: clear once, then each shadow light renders its casters
   // into its own tile through viewport/scissor.
-  cmd.begin_render_pass(
+  cmd.render_pass(
     [],
     depth=
       @tycho.DepthTargetDesc::new(
@@ -2442,124 +2444,126 @@ fn Renderer3D::render_frame(
         clear_depth=1.0,
       )
     ,
-  )
-  let tile_size = self.desc.shadow_map_size
-  for st in shadow_tiles {
-    let tx = (st.tile % 4) * tile_size
-    let ty = (st.tile / 4) * tile_size
-    cmd.set_viewport(
-      f_of_int(tx),
-      f_of_int(ty),
-      f_of_int(tile_size),
-      f_of_int(tile_size),
-    )
-    cmd.set_scissor(tx, ty, tile_size, tile_size)
-    if shadow_static.length() > 0 {
-      cmd.bind_pipeline(self.shadow_pipe)
-      cmd.bind_uniform(
-        self.shadow_pipe,
-        0,
-        self.frame_ubo,
-        offset=slot * FRAME_SLOT_BYTES,
-        size=FRAME_BYTES,
+  fn(pass) {
+    let tile_size = self.desc.shadow_map_size
+    for st in shadow_tiles {
+      let tx = (st.tile % 4) * tile_size
+      let ty = (st.tile / 4) * tile_size
+      pass.set_viewport(
+        f_of_int(tx),
+        f_of_int(ty),
+        f_of_int(tile_size),
+        f_of_int(tile_size),
       )
-      cmd.bind_storage(
-        self.shadow_pipe,
-        0,
-        self.object_ring.buffer(),
-        offset=object_offset,
-        size=bind_objects_bytes(object_count),
-      )
-      self.bind_arenas(cmd)
-      cmd.push_constants_floats(self.shadow_pipe, shadow_pc_floats(st.vp))
-      for b in shadow_static {
-        let mesh = self.meshes[b.mesh]
-        cmd.draw_indexed_full(
-          mesh.index_count(),
-          b.count,
-          mesh.first_index(),
-          mesh.first_vertex(),
-          b.first,
+      pass.set_scissor(tx, ty, tile_size, tile_size)
+      if shadow_static.length() > 0 {
+        pass.bind_pipeline(self.shadow_pipe)
+        pass.bind_uniform(
+          self.shadow_pipe,
+          0,
+          self.frame_ubo,
+          offset=slot * FRAME_SLOT_BYTES,
+          size=FRAME_BYTES,
         )
-        self.stats.shadow_passes = self.stats.shadow_passes + 1
+        pass.bind_storage(
+          self.shadow_pipe,
+          0,
+          self.object_ring.buffer(),
+          offset=object_offset,
+          size=bind_objects_bytes(object_count),
+        )
+        self.bind_arenas(cmd)
+        pass.push_constants_floats(self.shadow_pipe, shadow_pc_floats(st.vp))
+        for b in shadow_static {
+          let mesh = self.meshes[b.mesh]
+          pass.draw_indexed_full(
+            mesh.index_count(),
+            b.count,
+            mesh.first_index(),
+            mesh.first_vertex(),
+            b.first,
+          )
+          self.stats.shadow_passes = self.stats.shadow_passes + 1
+        }
+      }
+      if shadow_skinned.length() > 0 && self.bone_cursor > 0 {
+        pass.bind_pipeline(self.shadow_skin_pipe)
+        pass.bind_uniform(
+          self.shadow_skin_pipe,
+          0,
+          self.frame_ubo,
+          offset=slot * FRAME_SLOT_BYTES,
+          size=FRAME_BYTES,
+        )
+        pass.bind_storage(
+          self.shadow_skin_pipe,
+          0,
+          self.object_ring.buffer(),
+          offset=object_offset,
+          size=bind_objects_bytes(object_count),
+        )
+        pass.bind_storage(
+          self.shadow_skin_pipe,
+          1,
+          self.bone_ssbo,
+          offset=0,
+          size=bind_bones_bytes(self.bone_cursor),
+        )
+        self.bind_skin_arenas(cmd)
+        pass.push_constants_floats(self.shadow_skin_pipe, shadow_pc_floats(st.vp))
+        for b in shadow_skinned {
+          let mesh = self.meshes[b.mesh]
+          pass.draw_indexed_full(
+            mesh.index_count(),
+            b.count,
+            mesh.first_index(),
+            mesh.first_vertex(),
+            b.first,
+          )
+          self.stats.shadow_passes = self.stats.shadow_passes + 1
+        }
+      }
+      if shadow_morph.length() > 0 {
+        pass.bind_pipeline(self.morph_shadow_pipe)
+        pass.bind_uniform(
+          self.morph_shadow_pipe,
+          0,
+          self.frame_ubo,
+          offset=slot * FRAME_SLOT_BYTES,
+          size=FRAME_BYTES,
+        )
+        pass.bind_storage(
+          self.morph_shadow_pipe,
+          0,
+          self.object_ring.buffer(),
+          offset=object_offset,
+          size=bind_objects_bytes(object_count),
+        )
+        self.bind_morph_arenas(cmd)
+        for b in shadow_morph {
+          pass.push_constants_floats(self.morph_shadow_pipe, shadow_morph_pc(st.vp, b.morph_w0, b.morph_w1))
+          let mesh = self.meshes[b.mesh]
+          pass.draw_indexed_full(
+            mesh.index_count(),
+            b.count,
+            mesh.first_index(),
+            mesh.first_vertex(),
+            b.first,
+          )
+          self.stats.shadow_passes = self.stats.shadow_passes + 1
+        }
       }
     }
-    if shadow_skinned.length() > 0 && self.bone_cursor > 0 {
-      cmd.bind_pipeline(self.shadow_skin_pipe)
-      cmd.bind_uniform(
-        self.shadow_skin_pipe,
-        0,
-        self.frame_ubo,
-        offset=slot * FRAME_SLOT_BYTES,
-        size=FRAME_BYTES,
-      )
-      cmd.bind_storage(
-        self.shadow_skin_pipe,
-        0,
-        self.object_ring.buffer(),
-        offset=object_offset,
-        size=bind_objects_bytes(object_count),
-      )
-      cmd.bind_storage(
-        self.shadow_skin_pipe,
-        1,
-        self.bone_ssbo,
-        offset=0,
-        size=bind_bones_bytes(self.bone_cursor),
-      )
-      self.bind_skin_arenas(cmd)
-      cmd.push_constants_floats(self.shadow_skin_pipe, shadow_pc_floats(st.vp))
-      for b in shadow_skinned {
-        let mesh = self.meshes[b.mesh]
-        cmd.draw_indexed_full(
-          mesh.index_count(),
-          b.count,
-          mesh.first_index(),
-          mesh.first_vertex(),
-          b.first,
-        )
-        self.stats.shadow_passes = self.stats.shadow_passes + 1
-      }
-    }
-    if shadow_morph.length() > 0 {
-      cmd.bind_pipeline(self.morph_shadow_pipe)
-      cmd.bind_uniform(
-        self.morph_shadow_pipe,
-        0,
-        self.frame_ubo,
-        offset=slot * FRAME_SLOT_BYTES,
-        size=FRAME_BYTES,
-      )
-      cmd.bind_storage(
-        self.morph_shadow_pipe,
-        0,
-        self.object_ring.buffer(),
-        offset=object_offset,
-        size=bind_objects_bytes(object_count),
-      )
-      self.bind_morph_arenas(cmd)
-      for b in shadow_morph {
-        cmd.push_constants_floats(self.morph_shadow_pipe, shadow_morph_pc(st.vp, b.morph_w0, b.morph_w1))
-        let mesh = self.meshes[b.mesh]
-        cmd.draw_indexed_full(
-          mesh.index_count(),
-          b.count,
-          mesh.first_index(),
-          mesh.first_vertex(),
-          b.first,
-        )
-        self.stats.shadow_passes = self.stats.shadow_passes + 1
-      }
-    }
-  }
-  cmd.end_render_pass()
+  
+  },
+)
 
   // Main HDR pass.
   let resolved = match targets.hdr_resolve {
     Some(t) => t
     None => targets.hdr
   }
-  cmd.begin_render_pass(
+  cmd.render_pass(
     [
       @tycho.RenderTargetDesc::new(
         targets.hdr,
@@ -2581,117 +2585,181 @@ fn Renderer3D::render_frame(
         clear_depth=0.0,
       )
     ,
-  )
-  cmd.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
-  cmd.set_scissor(0, 0, w, h)
-  cmd.bind_pipeline(self.sky_pipe)
-  cmd.bind_uniform(
-    self.sky_pipe,
-    0,
-    self.sky_ubo,
-    offset=slot * SKY_SLOT_BYTES,
-    size=SKY_BYTES,
-  )
-  cmd.bind_texture(self.sky_pipe, 0, self.env_cube, self.env_sampler)
-  cmd.draw(3, 1)
-  if main_count > 0 {
-    self.bind_arenas(cmd)
-    let culling = cull_cmd_count > 0
-    let use_rt = self.rt_enabled && self.rt_tlas is Some(_)
-    let mut pipe_is_rt = false
-    let pipe = if culling {
-      match (if use_rt { self.rt_cull_pipe } else { None }) {
-        Some(p) => {
-          pipe_is_rt = true
-          p
+  fn(pass) {
+    pass.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
+    pass.set_scissor(0, 0, w, h)
+    pass.bind_pipeline(self.sky_pipe)
+    pass.bind_uniform(
+      self.sky_pipe,
+      0,
+      self.sky_ubo,
+      offset=slot * SKY_SLOT_BYTES,
+      size=SKY_BYTES,
+    )
+    pass.bind_texture(self.sky_pipe, 0, self.env_cube, self.env_sampler)
+    pass.draw(3, 1)
+    if main_count > 0 {
+      self.bind_arenas(cmd)
+      let culling = cull_cmd_count > 0
+      let use_rt = self.rt_enabled && self.rt_tlas is Some(_)
+      let mut pipe_is_rt = false
+      let pipe = if culling {
+        match (if use_rt { self.rt_cull_pipe } else { None }) {
+          Some(p) => {
+            pipe_is_rt = true
+            p
+          }
+          None => match self.pbr_cull_pipe {
+            Some(p) => p
+            None => self.pbr_pipe
+          }
         }
-        None => match self.pbr_cull_pipe {
-          Some(p) => p
+      } else if use_rt {
+        match self.rt_pipe {
+          Some(p) => {
+            pipe_is_rt = true
+            p
+          }
           None => self.pbr_pipe
         }
-      }
-    } else if use_rt {
-      match self.rt_pipe {
-        Some(p) => {
-          pipe_is_rt = true
-          p
-        }
-        None => self.pbr_pipe
-      }
-    } else {
-      self.pbr_pipe
-    }
-    cmd.bind_pipeline(pipe)
-    if pipe_is_rt {
-      match self.rt_tlas {
-        Some(t) => cmd.bind_accel_struct(pipe, 0, t)
-        None => ()
-      }
-    }
-    self.bind_material_heap(cmd, pipe)
-    cmd.bind_uniform(
-      pipe,
-      0,
-      self.frame_ubo,
-      offset=slot * FRAME_SLOT_BYTES,
-      size=FRAME_BYTES,
-    )
-    cmd.bind_storage(
-      pipe,
-      0,
-      self.object_ring.buffer(),
-      offset=object_offset,
-      size=bind_objects_bytes(object_count),
-    )
-    cmd.bind_storage(
-      pipe,
-      1,
-      self.material_ssbo,
-      offset=0,
-      size=self.desc.max_materials * MATERIAL_BYTES,
-    )
-    cmd.bind_storage(
-      pipe,
-      2,
-      self.light_ring.buffer(),
-      offset=light_offset,
-      size=bind_lights_bytes(light_count),
-    )
-    cmd.bind_storage(
-      pipe,
-      if culling { 4 } else { 3 },
-      self.shadow_tiles_ssbo,
-      offset=0,
-      size=bind_shadow_tiles_bytes(shadow_tiles.length()),
-    )
-    if culling {
-      cmd.bind_storage(
-        pipe,
-        3,
-        self.cull_vis[slot & 1],
-        offset=0,
-        size=self.desc.max_objects * 4,
-      )
-    }
-    cmd.bind_texture(pipe, 0, self.shadow_atlas, self.shadow_sampler)
-    cmd.bind_texture(pipe, 1, self.shadow_atlas, self.shadow_sampler)
-    cmd.bind_texture(pipe, 2, self.env_cube, self.env_sampler)
-    cmd.bind_texture(pipe, 3, self.brdf_lut, self.linear_sampler)
-    if batch_count > 0 {
-      if self.bindless_ok {
-        cmd.draw_indexed_indirect_count(
-          self.cull_cmds[slot & 1],
-          self.draw_count,
-          batch_count,
-        )
-        self.stats.draw_calls = self.stats.draw_calls + 1
       } else {
-        // The fallback binds albedo/normal per material, which a single
-        // multi-draw cannot express, so it keeps one draw per batch.
-        for b in static_batches {
-          self.bind_material_textures(cmd, pipe, b.material)
+        self.pbr_pipe
+      }
+      pass.bind_pipeline(pipe)
+      if pipe_is_rt {
+        match self.rt_tlas {
+          Some(t) => pass.bind_accel_struct(pipe, 0, t)
+          None => ()
+        }
+      }
+      self.bind_material_heap(cmd, pipe)
+      pass.bind_uniform(
+        pipe,
+        0,
+        self.frame_ubo,
+        offset=slot * FRAME_SLOT_BYTES,
+        size=FRAME_BYTES,
+      )
+      pass.bind_storage(
+        pipe,
+        0,
+        self.object_ring.buffer(),
+        offset=object_offset,
+        size=bind_objects_bytes(object_count),
+      )
+      pass.bind_storage(
+        pipe,
+        1,
+        self.material_ssbo,
+        offset=0,
+        size=self.desc.max_materials * MATERIAL_BYTES,
+      )
+      pass.bind_storage(
+        pipe,
+        2,
+        self.light_ring.buffer(),
+        offset=light_offset,
+        size=bind_lights_bytes(light_count),
+      )
+      pass.bind_storage(
+        pipe,
+        if culling { 4 } else { 3 },
+        self.shadow_tiles_ssbo,
+        offset=0,
+        size=bind_shadow_tiles_bytes(shadow_tiles.length()),
+      )
+      if culling {
+        pass.bind_storage(
+          pipe,
+          3,
+          self.cull_vis[slot & 1],
+          offset=0,
+          size=self.desc.max_objects * 4,
+        )
+      }
+      pass.bind_texture(pipe, 0, self.shadow_atlas, self.shadow_sampler)
+      pass.bind_texture(pipe, 1, self.shadow_atlas, self.shadow_sampler)
+      pass.bind_texture(pipe, 2, self.env_cube, self.env_sampler)
+      pass.bind_texture(pipe, 3, self.brdf_lut, self.linear_sampler)
+      if batch_count > 0 {
+        if self.bindless_ok {
+          pass.draw_indexed_indirect_count(
+            self.cull_cmds[slot & 1],
+            self.draw_count,
+            batch_count,
+          )
+          self.stats.draw_calls = self.stats.draw_calls + 1
+        } else {
+          // The fallback binds albedo/normal per material, which a single
+          // multi-draw cannot express, so it keeps one draw per batch.
+          for b in static_batches {
+            self.bind_material_textures(cmd, pipe, b.material)
+            let mesh = self.meshes[b.mesh]
+            pass.draw_indexed_full(
+              mesh.index_count(),
+              b.count,
+              mesh.first_index(),
+              mesh.first_vertex(),
+              b.first,
+            )
+            self.stats.draw_calls = self.stats.draw_calls + 1
+          }
+        }
+      }
+      if skin_batches.length() > 0 && self.bone_cursor > 0 {
+        self.bind_skin_arenas(cmd)
+        pass.bind_pipeline(self.skin_pipe)
+        self.bind_material_heap(cmd, self.skin_pipe)
+        pass.bind_uniform(
+          self.skin_pipe,
+          0,
+          self.frame_ubo,
+          offset=slot * FRAME_SLOT_BYTES,
+          size=FRAME_BYTES,
+        )
+        pass.bind_storage(
+          self.skin_pipe,
+          0,
+          self.object_ring.buffer(),
+          offset=object_offset,
+          size=bind_objects_bytes(object_count),
+        )
+        pass.bind_storage(
+          self.skin_pipe,
+          1,
+          self.material_ssbo,
+          offset=0,
+          size=self.desc.max_materials * MATERIAL_BYTES,
+        )
+        pass.bind_storage(
+          self.skin_pipe,
+          2,
+          self.light_ring.buffer(),
+          offset=light_offset,
+          size=bind_lights_bytes(light_count),
+        )
+        pass.bind_storage(
+          self.skin_pipe,
+          3,
+          self.bone_ssbo,
+          offset=0,
+          size=bind_bones_bytes(self.bone_cursor),
+        )
+        pass.bind_storage(
+          self.skin_pipe,
+          4,
+          self.shadow_tiles_ssbo,
+          offset=0,
+          size=bind_shadow_tiles_bytes(shadow_tiles.length()),
+        )
+        pass.bind_texture(self.skin_pipe, 0, self.shadow_atlas, self.shadow_sampler)
+        pass.bind_texture(self.skin_pipe, 1, self.shadow_atlas, self.shadow_sampler)
+        pass.bind_texture(self.skin_pipe, 2, self.env_cube, self.env_sampler)
+        pass.bind_texture(self.skin_pipe, 3, self.brdf_lut, self.linear_sampler)
+        for b in skin_batches {
+          self.bind_material_textures(cmd, self.skin_pipe, b.material)
           let mesh = self.meshes[b.mesh]
-          cmd.draw_indexed_full(
+          pass.draw_indexed_full(
             mesh.index_count(),
             b.count,
             mesh.first_index(),
@@ -2700,250 +2768,188 @@ fn Renderer3D::render_frame(
           )
           self.stats.draw_calls = self.stats.draw_calls + 1
         }
+        self.bind_arenas(cmd)
       }
-    }
-    if skin_batches.length() > 0 && self.bone_cursor > 0 {
-      self.bind_skin_arenas(cmd)
-      cmd.bind_pipeline(self.skin_pipe)
-      self.bind_material_heap(cmd, self.skin_pipe)
-      cmd.bind_uniform(
-        self.skin_pipe,
-        0,
-        self.frame_ubo,
-        offset=slot * FRAME_SLOT_BYTES,
-        size=FRAME_BYTES,
-      )
-      cmd.bind_storage(
-        self.skin_pipe,
-        0,
-        self.object_ring.buffer(),
-        offset=object_offset,
-        size=bind_objects_bytes(object_count),
-      )
-      cmd.bind_storage(
-        self.skin_pipe,
-        1,
-        self.material_ssbo,
-        offset=0,
-        size=self.desc.max_materials * MATERIAL_BYTES,
-      )
-      cmd.bind_storage(
-        self.skin_pipe,
-        2,
-        self.light_ring.buffer(),
-        offset=light_offset,
-        size=bind_lights_bytes(light_count),
-      )
-      cmd.bind_storage(
-        self.skin_pipe,
-        3,
-        self.bone_ssbo,
-        offset=0,
-        size=bind_bones_bytes(self.bone_cursor),
-      )
-      cmd.bind_storage(
-        self.skin_pipe,
-        4,
-        self.shadow_tiles_ssbo,
-        offset=0,
-        size=bind_shadow_tiles_bytes(shadow_tiles.length()),
-      )
-      cmd.bind_texture(self.skin_pipe, 0, self.shadow_atlas, self.shadow_sampler)
-      cmd.bind_texture(self.skin_pipe, 1, self.shadow_atlas, self.shadow_sampler)
-      cmd.bind_texture(self.skin_pipe, 2, self.env_cube, self.env_sampler)
-      cmd.bind_texture(self.skin_pipe, 3, self.brdf_lut, self.linear_sampler)
-      for b in skin_batches {
-        self.bind_material_textures(cmd, self.skin_pipe, b.material)
-        let mesh = self.meshes[b.mesh]
-        cmd.draw_indexed_full(
-          mesh.index_count(),
-          b.count,
-          mesh.first_index(),
-          mesh.first_vertex(),
-          b.first,
+      if morph_batches.length() > 0 {
+        self.bind_morph_arenas(cmd)
+        pass.bind_pipeline(self.morph_pipe)
+        self.bind_material_heap(cmd, self.morph_pipe)
+        pass.bind_uniform(
+          self.morph_pipe,
+          0,
+          self.frame_ubo,
+          offset=slot * FRAME_SLOT_BYTES,
+          size=FRAME_BYTES,
         )
-        self.stats.draw_calls = self.stats.draw_calls + 1
-      }
-      self.bind_arenas(cmd)
-    }
-    if morph_batches.length() > 0 {
-      self.bind_morph_arenas(cmd)
-      cmd.bind_pipeline(self.morph_pipe)
-      self.bind_material_heap(cmd, self.morph_pipe)
-      cmd.bind_uniform(
-        self.morph_pipe,
-        0,
-        self.frame_ubo,
-        offset=slot * FRAME_SLOT_BYTES,
-        size=FRAME_BYTES,
-      )
-      cmd.bind_storage(
-        self.morph_pipe,
-        0,
-        self.object_ring.buffer(),
-        offset=object_offset,
-        size=bind_objects_bytes(object_count),
-      )
-      cmd.bind_storage(
-        self.morph_pipe,
-        1,
-        self.material_ssbo,
-        offset=0,
-        size=self.desc.max_materials * MATERIAL_BYTES,
-      )
-      cmd.bind_storage(
-        self.morph_pipe,
-        2,
-        self.light_ring.buffer(),
-        offset=light_offset,
-        size=bind_lights_bytes(light_count),
-      )
-      cmd.bind_storage(
-        self.morph_pipe,
-        3,
-        self.shadow_tiles_ssbo,
-        offset=0,
-        size=bind_shadow_tiles_bytes(shadow_tiles.length()),
-      )
-      cmd.bind_texture(self.morph_pipe, 0, self.shadow_atlas, self.shadow_sampler)
-      cmd.bind_texture(self.morph_pipe, 1, self.shadow_atlas, self.shadow_sampler)
-      cmd.bind_texture(self.morph_pipe, 2, self.env_cube, self.env_sampler)
-      cmd.bind_texture(self.morph_pipe, 3, self.brdf_lut, self.linear_sampler)
-      for b in morph_batches {
-        self.bind_material_textures(cmd, self.morph_pipe, b.material)
-        cmd.push_constants_floats(self.morph_pipe, [
-          b.morph_w0,
-          b.morph_w1,
-          (0.0 : Float),
-          (0.0 : Float),
-        ])
-        let mesh = self.meshes[b.mesh]
-        cmd.draw_indexed_full(
-          mesh.index_count(),
-          b.count,
-          mesh.first_index(),
-          mesh.first_vertex(),
-          b.first,
+        pass.bind_storage(
+          self.morph_pipe,
+          0,
+          self.object_ring.buffer(),
+          offset=object_offset,
+          size=bind_objects_bytes(object_count),
         )
-        self.stats.draw_calls = self.stats.draw_calls + 1
-      }
-      self.bind_arenas(cmd)
-    }
-    for b in solid_batches {
-      let mesh = self.meshes[b.mesh]
-      self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
-      if b.count > 1 {
-        self.stats.instance_batches = self.stats.instance_batches + 1
-      }
-    }
-    if transparent.length() > 0 {
-      cmd.bind_pipeline(self.pbr_blend_pipe)
-      self.bind_material_heap(cmd, self.pbr_blend_pipe)
-      cmd.bind_uniform(
-        self.pbr_blend_pipe,
-        0,
-        self.frame_ubo,
-        offset=slot * FRAME_SLOT_BYTES,
-        size=FRAME_BYTES,
-      )
-      cmd.bind_storage(
-        self.pbr_blend_pipe,
-        0,
-        self.object_ring.buffer(),
-        offset=object_offset,
-        size=bind_objects_bytes(object_count),
-      )
-      cmd.bind_storage(
-        self.pbr_blend_pipe,
-        1,
-        self.material_ssbo,
-        offset=0,
-        size=self.desc.max_materials * MATERIAL_BYTES,
-      )
-      cmd.bind_storage(
-        self.pbr_blend_pipe,
-        2,
-        self.light_ring.buffer(),
-        offset=light_offset,
-        size=bind_lights_bytes(light_count),
-      )
-      cmd.bind_storage(
-        self.pbr_blend_pipe,
-        3,
-        self.shadow_tiles_ssbo,
-        offset=0,
-        size=bind_shadow_tiles_bytes(shadow_tiles.length()),
-      )
-      cmd.bind_texture(self.pbr_blend_pipe, 0, self.shadow_atlas, self.shadow_sampler)
-      cmd.bind_texture(self.pbr_blend_pipe, 1, self.shadow_atlas, self.shadow_sampler)
-      cmd.bind_texture(self.pbr_blend_pipe, 2, self.env_cube, self.env_sampler)
-      cmd.bind_texture(self.pbr_blend_pipe, 3, self.brdf_lut, self.linear_sampler)
-      for b in transparent_batches {
-        self.bind_material_textures(cmd, self.pbr_blend_pipe, b.material)
-        let mesh = self.meshes[b.mesh]
-        cmd.draw_indexed_full(
-          mesh.index_count(),
-          b.count,
-          mesh.first_index(),
-          mesh.first_vertex(),
-          b.first,
+        pass.bind_storage(
+          self.morph_pipe,
+          1,
+          self.material_ssbo,
+          offset=0,
+          size=self.desc.max_materials * MATERIAL_BYTES,
         )
-        self.stats.draw_calls = self.stats.draw_calls + 1
-        self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
-      }
-    }
-  }
-  if line_verts > 0 || line_items.length() > 0 {
-    cmd.bind_pipeline(self.line_pipe)
-    cmd.bind_uniform(
-      self.line_pipe,
-      0,
-      self.frame_ubo,
-      offset=slot * FRAME_SLOT_BYTES,
-      size=FRAME_BYTES,
-    )
-    if line_verts > 0 {
-      // Debug segments are already in world space.
-      cmd.push_constants_floats(
-        self.line_pipe,
-        line_push_constants(@tmath.Mat4::identity().to_cols_array(), @tmath.Vec3::one()),
-      )
-      cmd.bind_vertex(0, self.line_vbuf)
-      cmd.draw(line_verts, 1)
-      self.stats.draw_calls = self.stats.draw_calls + 1
-      self.stats.line_segments = self.stats.line_segments + line_verts / 2
-    }
-    // Line scene nodes: per-node model matrix plus material tint.
-    for item in line_items {
-      let (node, inst) = item
-      let li = inst.lines.id()
-      if li >= 0 && li < self.line_sets.length() {
-        let set = self.line_sets[li]
-        if set.vertex_count > 0 {
-          cmd.push_constants_floats(
-            self.line_pipe,
-            line_push_constants(
-              scene.world_transform(node).to_mat4_array(),
-              inst.material.color,
-            ),
+        pass.bind_storage(
+          self.morph_pipe,
+          2,
+          self.light_ring.buffer(),
+          offset=light_offset,
+          size=bind_lights_bytes(light_count),
+        )
+        pass.bind_storage(
+          self.morph_pipe,
+          3,
+          self.shadow_tiles_ssbo,
+          offset=0,
+          size=bind_shadow_tiles_bytes(shadow_tiles.length()),
+        )
+        pass.bind_texture(self.morph_pipe, 0, self.shadow_atlas, self.shadow_sampler)
+        pass.bind_texture(self.morph_pipe, 1, self.shadow_atlas, self.shadow_sampler)
+        pass.bind_texture(self.morph_pipe, 2, self.env_cube, self.env_sampler)
+        pass.bind_texture(self.morph_pipe, 3, self.brdf_lut, self.linear_sampler)
+        for b in morph_batches {
+          self.bind_material_textures(cmd, self.morph_pipe, b.material)
+          pass.push_constants_floats(self.morph_pipe, [
+            b.morph_w0,
+            b.morph_w1,
+            (0.0 : Float),
+            (0.0 : Float),
+          ])
+          let mesh = self.meshes[b.mesh]
+          pass.draw_indexed_full(
+            mesh.index_count(),
+            b.count,
+            mesh.first_index(),
+            mesh.first_vertex(),
+            b.first,
           )
-          cmd.bind_vertex(0, set.buffer)
-          cmd.draw(set.vertex_count, 1)
           self.stats.draw_calls = self.stats.draw_calls + 1
-          self.stats.line_segments = self.stats.line_segments + set.segment_count
+        }
+        self.bind_arenas(cmd)
+      }
+      for b in solid_batches {
+        let mesh = self.meshes[b.mesh]
+        self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
+        if b.count > 1 {
+          self.stats.instance_batches = self.stats.instance_batches + 1
+        }
+      }
+      if transparent.length() > 0 {
+        pass.bind_pipeline(self.pbr_blend_pipe)
+        self.bind_material_heap(cmd, self.pbr_blend_pipe)
+        pass.bind_uniform(
+          self.pbr_blend_pipe,
+          0,
+          self.frame_ubo,
+          offset=slot * FRAME_SLOT_BYTES,
+          size=FRAME_BYTES,
+        )
+        pass.bind_storage(
+          self.pbr_blend_pipe,
+          0,
+          self.object_ring.buffer(),
+          offset=object_offset,
+          size=bind_objects_bytes(object_count),
+        )
+        pass.bind_storage(
+          self.pbr_blend_pipe,
+          1,
+          self.material_ssbo,
+          offset=0,
+          size=self.desc.max_materials * MATERIAL_BYTES,
+        )
+        pass.bind_storage(
+          self.pbr_blend_pipe,
+          2,
+          self.light_ring.buffer(),
+          offset=light_offset,
+          size=bind_lights_bytes(light_count),
+        )
+        pass.bind_storage(
+          self.pbr_blend_pipe,
+          3,
+          self.shadow_tiles_ssbo,
+          offset=0,
+          size=bind_shadow_tiles_bytes(shadow_tiles.length()),
+        )
+        pass.bind_texture(self.pbr_blend_pipe, 0, self.shadow_atlas, self.shadow_sampler)
+        pass.bind_texture(self.pbr_blend_pipe, 1, self.shadow_atlas, self.shadow_sampler)
+        pass.bind_texture(self.pbr_blend_pipe, 2, self.env_cube, self.env_sampler)
+        pass.bind_texture(self.pbr_blend_pipe, 3, self.brdf_lut, self.linear_sampler)
+        for b in transparent_batches {
+          self.bind_material_textures(cmd, self.pbr_blend_pipe, b.material)
+          let mesh = self.meshes[b.mesh]
+          pass.draw_indexed_full(
+            mesh.index_count(),
+            b.count,
+            mesh.first_index(),
+            mesh.first_vertex(),
+            b.first,
+          )
+          self.stats.draw_calls = self.stats.draw_calls + 1
+          self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
         }
       }
     }
-  }
-  self.line_floats.clear()
-  cmd.end_render_pass()
+    if line_verts > 0 || line_items.length() > 0 {
+      pass.bind_pipeline(self.line_pipe)
+      pass.bind_uniform(
+        self.line_pipe,
+        0,
+        self.frame_ubo,
+        offset=slot * FRAME_SLOT_BYTES,
+        size=FRAME_BYTES,
+      )
+      if line_verts > 0 {
+        // Debug segments are already in world space.
+        pass.push_constants_floats(
+          self.line_pipe,
+          line_push_constants(@tmath.Mat4::identity().to_cols_array(), @tmath.Vec3::one()),
+        )
+        pass.bind_vertex(0, self.line_vbuf)
+        pass.draw(line_verts, 1)
+        self.stats.draw_calls = self.stats.draw_calls + 1
+        self.stats.line_segments = self.stats.line_segments + line_verts / 2
+      }
+      // Line scene nodes: per-node model matrix plus material tint.
+      for item in line_items {
+        let (node, inst) = item
+        let li = inst.lines.id()
+        if li >= 0 && li < self.line_sets.length() {
+          let set = self.line_sets[li]
+          if set.vertex_count > 0 {
+            pass.push_constants_floats(
+              self.line_pipe,
+              line_push_constants(
+                scene.world_transform(node).to_mat4_array(),
+                inst.material.color,
+              ),
+            )
+            pass.bind_vertex(0, set.buffer)
+            pass.draw(set.vertex_count, 1)
+            self.stats.draw_calls = self.stats.draw_calls + 1
+            self.stats.line_segments = self.stats.line_segments + set.segment_count
+          }
+        }
+      }
+    }
+    self.line_floats.clear()
+  
+  },
+)
 
   // Bloom chain.
   let mut bloom_result = resolved
   if self.desc.bloom {
     let bw = targets.bloom_a.width()
     let bh = targets.bloom_a.height()
-    cmd.begin_render_pass(
+    cmd.render_pass(
       [
         @tycho.RenderTargetDesc::new(
           targets.bloom_a,
@@ -2952,14 +2958,16 @@ fn Renderer3D::render_frame(
           clear_color=@tycho.ClearColor::black(),
         ),
       ],
-    )
-    cmd.set_viewport(0.0, 0.0, f_of_int(bw), f_of_int(bh))
-    cmd.set_scissor(0, 0, bw, bh)
-    cmd.bind_pipeline(self.bloom_extract_pipe)
-    cmd.bind_texture(self.bloom_extract_pipe, 0, resolved, self.linear_sampler)
-    cmd.draw(3, 1)
-    cmd.end_render_pass()
-    cmd.begin_render_pass(
+  fn(pass) {
+      pass.set_viewport(0.0, 0.0, f_of_int(bw), f_of_int(bh))
+      pass.set_scissor(0, 0, bw, bh)
+      pass.bind_pipeline(self.bloom_extract_pipe)
+      pass.bind_texture(self.bloom_extract_pipe, 0, resolved, self.linear_sampler)
+      pass.draw(3, 1)
+    
+  },
+)
+    cmd.render_pass(
       [
         @tycho.RenderTargetDesc::new(
           targets.bloom_b,
@@ -2968,18 +2976,20 @@ fn Renderer3D::render_frame(
           clear_color=@tycho.ClearColor::black(),
         ),
       ],
-    )
-    cmd.set_viewport(0.0, 0.0, f_of_int(bw), f_of_int(bh))
-    cmd.set_scissor(0, 0, bw, bh)
-    cmd.bind_pipeline(self.bloom_blur_pipe)
-    cmd.bind_texture(self.bloom_blur_pipe, 0, targets.bloom_a, self.linear_sampler)
-    cmd.push_constants_floats(
-      self.bloom_blur_pipe,
-      [1.0 / f_of_int(bw), (0.0 : Float), (0.0 : Float), (0.0 : Float)],
-    )
-    cmd.draw(3, 1)
-    cmd.end_render_pass()
-    cmd.begin_render_pass(
+  fn(pass) {
+      pass.set_viewport(0.0, 0.0, f_of_int(bw), f_of_int(bh))
+      pass.set_scissor(0, 0, bw, bh)
+      pass.bind_pipeline(self.bloom_blur_pipe)
+      pass.bind_texture(self.bloom_blur_pipe, 0, targets.bloom_a, self.linear_sampler)
+      pass.push_constants_floats(
+        self.bloom_blur_pipe,
+        [1.0 / f_of_int(bw), (0.0 : Float), (0.0 : Float), (0.0 : Float)],
+      )
+      pass.draw(3, 1)
+    
+  },
+)
+    cmd.render_pass(
       [
         @tycho.RenderTargetDesc::new(
           targets.bloom_a,
@@ -2988,17 +2998,19 @@ fn Renderer3D::render_frame(
           clear_color=@tycho.ClearColor::black(),
         ),
       ],
-    )
-    cmd.set_viewport(0.0, 0.0, f_of_int(bw), f_of_int(bh))
-    cmd.set_scissor(0, 0, bw, bh)
-    cmd.bind_pipeline(self.bloom_blur_pipe)
-    cmd.bind_texture(self.bloom_blur_pipe, 0, targets.bloom_b, self.linear_sampler)
-    cmd.push_constants_floats(
-      self.bloom_blur_pipe,
-      [(0.0 : Float), 1.0 / f_of_int(bh), (0.0 : Float), (0.0 : Float)],
-    )
-    cmd.draw(3, 1)
-    cmd.end_render_pass()
+  fn(pass) {
+      pass.set_viewport(0.0, 0.0, f_of_int(bw), f_of_int(bh))
+      pass.set_scissor(0, 0, bw, bh)
+      pass.bind_pipeline(self.bloom_blur_pipe)
+      pass.bind_texture(self.bloom_blur_pipe, 0, targets.bloom_b, self.linear_sampler)
+      pass.push_constants_floats(
+        self.bloom_blur_pipe,
+        [(0.0 : Float), 1.0 / f_of_int(bh), (0.0 : Float), (0.0 : Float)],
+      )
+      pass.draw(3, 1)
+    
+  },
+)
     bloom_result = targets.bloom_a
   }
 
@@ -3011,7 +3023,7 @@ fn Renderer3D::render_frame(
       self.tonemap_linear_pipe
     }
   }
-  cmd.begin_render_pass(
+  cmd.render_pass(
     [
       @tycho.RenderTargetDesc::new(
         dst,
@@ -3020,14 +3032,16 @@ fn Renderer3D::render_frame(
         clear_color=@tycho.ClearColor::black(),
       ),
     ],
-  )
-  cmd.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
-  cmd.set_scissor(0, 0, w, h)
-  cmd.bind_pipeline(tm_pipe)
-  cmd.bind_texture(tm_pipe, 0, resolved, self.linear_sampler)
-  cmd.bind_texture(tm_pipe, 1, bloom_result, self.linear_sampler)
-  cmd.draw(3, 1)
-  cmd.end_render_pass()
+  fn(pass) {
+    pass.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
+    pass.set_scissor(0, 0, w, h)
+    pass.bind_pipeline(tm_pipe)
+    pass.bind_texture(tm_pipe, 0, resolved, self.linear_sampler)
+    pass.bind_texture(tm_pipe, 1, bloom_result, self.linear_sampler)
+    pass.draw(3, 1)
+  
+  },
+)
   self.stats.draw_calls = self.stats.draw_calls + 4
 }
 

@@ -226,6 +226,7 @@ pub fn CommandBuffer::reset_timestamps(Self, TimestampPool) -> Unit
 pub fn CommandBuffer::set_scissor(Self, Int32, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::set_stencil_reference(Self, Int32) -> Unit
 pub fn CommandBuffer::set_viewport(Self, Float, Float, Float, Float) -> Unit
+pub fn CommandBuffer::swapchain_pass(Self, Swapchain, load_op? : LoadOp, clear_color? : ClearColor, (RenderPass) -> Unit raise RhiError) -> Unit raise RhiError
 pub fn CommandBuffer::transition_for_compute(Self, Texture) -> Unit
 pub fn CommandBuffer::transition_for_sampling(Self, Texture) -> Unit
 pub fn CommandBuffer::write_timestamp(Self, TimestampPool, Int32, at_start? : Bool) -> Unit
@@ -247,6 +248,7 @@ pub struct ComputePass {
 }
 pub fn ComputePass::bind_bindless_heap(Self, Pipeline, BindlessHeap, set_index? : Int32) -> Unit
 pub fn ComputePass::bind_group(Self, BindGroup) -> Unit
+pub fn ComputePass::bind_pipeline(Self, Pipeline) -> Unit
 pub fn ComputePass::bind_storage(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
 pub fn ComputePass::bind_storage_image(Self, Pipeline, Int32, Texture) -> Unit
 pub fn ComputePass::bind_uniform(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
@@ -254,7 +256,6 @@ pub fn ComputePass::dispatch(Self, Int32, Int32, Int32) -> Unit
 pub fn ComputePass::dispatch_indirect(Self, Buffer, offset? : Int32) -> Unit
 pub fn ComputePass::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int32) -> Unit
 pub fn ComputePass::push_constants_floats(Self, Pipeline, FixedArray[Float], offset? : Int32) -> Unit
-pub fn ComputePass::set_pipeline(Self, Pipeline) -> Unit
 pub fn ComputePass::transition_for_compute(Self, Texture) -> Unit
 pub fn ComputePass::write_timestamp(Self, TimestampPool, Int32, at_start? : Bool) -> Unit
 
@@ -509,6 +510,7 @@ pub fn RenderPass::bind_accel_struct(Self, Pipeline, Int32, AccelStruct) -> Unit
 pub fn RenderPass::bind_bindless_heap(Self, Pipeline, BindlessHeap, set_index? : Int32) -> Unit
 pub fn RenderPass::bind_group(Self, BindGroup) -> Unit
 pub fn RenderPass::bind_index(Self, Buffer, IndexType, offset? : Int32) -> Unit
+pub fn RenderPass::bind_pipeline(Self, Pipeline) -> Unit
 pub fn RenderPass::bind_storage(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
 pub fn RenderPass::bind_texture(Self, Pipeline, Int32, Texture, Sampler) -> Unit
 pub fn RenderPass::bind_uniform(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
@@ -525,7 +527,6 @@ pub fn RenderPass::draw_mesh_tasks(Self, Int32, Int32, Int32) -> Unit
 pub fn RenderPass::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int32) -> Unit
 pub fn RenderPass::push_constants_floats(Self, Pipeline, FixedArray[Float], offset? : Int32) -> Unit
 pub fn RenderPass::push_constants_mat4(Self, Pipeline, @tycho_math.Mat4) -> Unit
-pub fn RenderPass::set_pipeline(Self, Pipeline) -> Unit
 pub fn RenderPass::set_scissor(Self, Int32, Int32, Int32, Int32) -> Unit
 pub fn RenderPass::set_stencil_reference(Self, Int32) -> Unit
 pub fn RenderPass::set_viewport(Self, Float, Float, Float, Float) -> Unit

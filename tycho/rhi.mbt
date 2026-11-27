@@ -2482,7 +2482,7 @@ pub fn CommandBuffer::render_pass(
 }
 
 ///|
-pub fn RenderPass::set_pipeline(self : RenderPass, pipeline : Pipeline) -> Unit {
+pub fn RenderPass::bind_pipeline(self : RenderPass, pipeline : Pipeline) -> Unit {
   self.cmd.bind_pipeline(pipeline)
 }
 
@@ -2741,6 +2741,31 @@ pub fn RenderPass::transition_for_sampling(
 }
 
 ///|
+/// Records `draw` inside a `begin_swapchain_pass` / `end_swapchain_pass` pair,
+/// closing the pass even when the callback raises.
+pub fn CommandBuffer::swapchain_pass(
+  self : CommandBuffer,
+  swapchain : Swapchain,
+  load_op? : LoadOp = LoadOp::Clear,
+  clear_color? : ClearColor,
+  draw : (RenderPass) -> Unit raise RhiError,
+) -> Unit raise RhiError {
+  self.begin_swapchain_pass(swapchain, load_op=load_op, clear_color?=clear_color)
+  let pass : RenderPass = { cmd: self }
+  let pending : RhiError? = try {
+    draw(pass)
+    None
+  } catch {
+    e => Some(e)
+  }
+  self.end_swapchain_pass()
+  match pending {
+    Some(e) => raise e
+    None => ()
+  }
+}
+
+///|
 /// A scoped compute encoder. Compute has no begin/end on either backend, so the
 /// handle only narrows the API surface to compute-relevant calls.
 pub struct ComputePass {
@@ -2756,7 +2781,7 @@ pub fn CommandBuffer::compute_pass(
 }
 
 ///|
-pub fn ComputePass::set_pipeline(self : ComputePass, pipeline : Pipeline) -> Unit {
+pub fn ComputePass::bind_pipeline(self : ComputePass, pipeline : Pipeline) -> Unit {
   self.cmd.bind_pipeline(pipeline)
 }
 

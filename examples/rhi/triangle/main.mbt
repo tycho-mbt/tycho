@@ -66,7 +66,7 @@ fn main {
       )
       let cmd = dev.begin_commands()
       cmd.render_pass([@tycho.RenderTargetDesc::new(rt)], fn(pass) {
-        pass.set_pipeline(pipe)
+        pass.bind_pipeline(pipe)
         pass.draw(3, 1)
       })
       dev.end_commands(cmd)

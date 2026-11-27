@@ -125,7 +125,10 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   renderer never allocated. `Scene::add_camera` returns a typed `CameraId`
   (`Scene::camera_of(node)` validates an existing node), and the render entries
   take it — `render_offscreen(target, scene, camera)` /
-  `render_swapchain(sc, scene, camera)` share one target-first argument order
+  `render_swapchain(sc, scene, camera)` share one target-first argument order.
+- Passes: `render_frame` records the shadow atlas, the main opaque/transparent
+  pass, the bloom extract/blur pair and the tonemap through `cmd.render_pass(…)`
+  scopes, so every pass is closed even when recording fails.
   and cannot be handed a mesh node.
 - Typed failures: renderer and scene helpers raise `Render3DError`
   (`InvalidMesh` / `InvalidMaterial` / `InvalidTexture` / `InvalidCamera` /
