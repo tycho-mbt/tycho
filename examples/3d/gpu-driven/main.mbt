@@ -12,7 +12,7 @@ fn to_f(i : Int) -> Float {
 fn build_field(
   renderer : @t3d.Renderer3D,
   dev : @tycho.Device,
-) -> (@t3d.Scene, @t3d.NodeId, @tycho.Texture) raise {
+) -> (@t3d.Scene, @t3d.CameraId, @tycho.Texture) raise {
   let scene = @t3d.Scene::new()
   let ground_mat = renderer.create_material(
     @t3d.MaterialDesc::pbr(@t3d.srgb(0.20, 0.22, 0.26), metallic=0.0, roughness=0.95),
@@ -77,10 +77,7 @@ fn build_field(
     pitch=0.62,
   )
   let cam = @t3d.Camera::perspective(1.0, (800.0 : Float) / (600.0 : Float), near=0.1)
-  let cam_node = scene.create_node(
-    transform=orbit.transform(),
-    payload=@t3d.NodePayload::Camera(cam),
-  )
+  let cam_node = scene.add_camera(cam, transform=orbit.transform())
   (scene, cam_node, env)
 }
 

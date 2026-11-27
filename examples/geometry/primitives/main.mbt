@@ -158,10 +158,7 @@ fn main {
     )
     let fov : Float = 2.0 * @tmath.atan((1.0 : Float) / (1.8 : Float))
     let cam = @t3d.Camera::perspective(fov, (800.0 : Float) / (600.0 : Float), near=0.1)
-    let cam_node = scene.create_node(
-      transform=orbit.transform(),
-      payload=@t3d.NodePayload::Camera(cam),
-    )
+    let cam_node = scene.add_camera(cam, transform=orbit.transform())
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
@@ -186,7 +183,7 @@ fn main {
               let clip = vp.mul_vec4(
                 @tmath.Vec4::new(centre.x, centre.y, centre.z, 1.0),
               )
-              let hit = renderer.pick(scene, cam_node, clip.x / clip.w, clip.y / clip.w)
+              let hit = renderer.pick(scene, cam_node.node(), clip.x / clip.w, clip.y / clip.w)
               match hit {
                 Some(h) => pick_ok = h.node == cn
                 None => ()
@@ -219,7 +216,7 @@ fn main {
         }
         for ev in events {
           if orbit.apply(ev) {
-            scene.set_transform(cam_node, orbit.transform())
+            scene.set_transform(cam_node.node(), orbit.transform())
           }
         }
         renderer.render_swapchain(sc, scene, cam_node)

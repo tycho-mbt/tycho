@@ -48,7 +48,7 @@ fn ripple_normal74(size : Int) -> FixedArray[Byte] {
 fn build_scene74(
   renderer : @t3d.Renderer3D,
   dev : @tycho.Device,
-) -> (@t3d.Scene, @t3d.NodeId, @tycho.Texture) raise {
+) -> (@t3d.Scene, @t3d.CameraId, @tycho.Texture) raise {
   let scene = @t3d.Scene::new()
   let albedo = renderer.create_texture(16, 16, checker74(16), srgb=true)
   let normal = renderer.create_texture(16, 16, ripple_normal74(16), srgb=false)
@@ -115,10 +115,7 @@ fn build_scene74(
   )
   let fov : Float = 2.0 * @tmath.atan((1.0 : Float) / (1.8 : Float))
   let cam = @t3d.Camera::perspective(fov, (800.0 : Float) / (600.0 : Float), near=0.1)
-  let cam_node = scene.create_node(
-    transform=orbit.transform(),
-    payload=@t3d.NodePayload::Camera(cam),
-  )
+  let cam_node = scene.add_camera(cam, transform=orbit.transform())
   (scene, cam_node, env)
 }
 

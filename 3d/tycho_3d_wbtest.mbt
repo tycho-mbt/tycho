@@ -434,3 +434,25 @@ test "gltf instance aggregates nodes and animations" {
   assert_eq(instance.roots.length(), 0)
   assert_eq(instance.animations.length(), 0)
 }
+
+///|
+test "camera handles are typed and validated" {
+  let s = Scene::new()
+  let cam = Camera::perspective(@tmath.FRAC_PI_2, 1.0, near=0.1, far=100.0)
+  let cam_id = s.add_camera(
+    cam,
+    transform=@tmath.Transform::from_translation(@tmath.Vec3::new(0.0, 1.0, 3.0)),
+  )
+  need(s.is_alive(cam_id.node()), "add_camera creates a live node")
+  match s.camera_of(cam_id.node()) {
+    Some(v) => assert_eq(v.index(), cam_id.index())
+    None => fail("camera_of must accept a camera node")
+  }
+  let light = s.create_node(
+    payload=NodePayload::Light(Light::ambient(@tmath.Vec3::one(), 0.2)),
+  )
+  match s.camera_of(light) {
+    None => ()
+    Some(_) => fail("camera_of must reject a non-camera node")
+  }
+}

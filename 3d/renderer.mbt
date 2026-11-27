@@ -1379,7 +1379,7 @@ pub fn Renderer3D::create_texture(
 ) -> TextureHandle raise {
   let expected = width * height * 4
   if width <= 0 || height <= 0 || rgba8.length() != expected {
-    fail("Renderer3D: create_texture expects width*height*4 bytes")
+    raise Render3DError::InvalidTexture("Renderer3D: create_texture expects width*height*4 bytes")
   }
   let arr : Array[Byte] = []
   for b in rgba8 {
@@ -1402,7 +1402,7 @@ pub fn Renderer3D::create_texture(
 ///|
 pub fn Renderer3D::create_material(self : Renderer3D, m : MaterialDesc) -> MaterialHandle raise {
   if self.materials.length() >= self.desc.max_materials {
-    fail("Renderer3D: material capacity exhausted")
+    raise Render3DError::CapacityExceeded("Renderer3D: material capacity exhausted")
   }
   self.materials.push(m)
   self.repack_materials()
@@ -1417,7 +1417,7 @@ pub fn Renderer3D::update_material(
 ) -> Unit raise {
   let i = h.id()
   if i < 0 || i >= self.materials.length() {
-    fail("Renderer3D: invalid material handle")
+    raise Render3DError::InvalidMaterial("Renderer3D: invalid material handle")
   }
   self.materials[i] = m
   self.repack_materials()
@@ -1945,12 +1945,12 @@ fn Renderer3D::render_frame(
   self.rebuild_rt_tlas(scene)
   let cam = match scene.payload(camera) {
     Some(NodePayload::Camera(c)) => c
-    _ => fail("Renderer3D: camera node has no Camera payload")
+    _ => raise Render3DError::InvalidCamera("Renderer3D: camera node has no Camera payload")
   }
   let cam_world = scene.world_transform(camera)
   let vp = match cam.view_proj(cam_world) {
     Some(v) => v
-    None => fail("Renderer3D: camera matrix is singular")
+    None => raise Render3DError::InvalidCamera("Renderer3D: camera matrix is singular")
   }
   let eye = cam_world.translation
   let targets = self.ensure_targets(w, h)
@@ -2224,7 +2224,7 @@ fn Renderer3D::render_frame(
     object_count * OBJECT_FLOATS,
   ) {
     Some(o) => o
-    None => fail("Renderer3D: object ring capacity exhausted")
+    None => raise Render3DError::CapacityExceeded("Renderer3D: object ring capacity exhausted")
   }
   self.light_ring.begin_frame(slot)
   let light_offset = match self.light_ring.upload_floats(
@@ -2232,7 +2232,7 @@ fn Renderer3D::render_frame(
     light_count * LIGHT_FLOATS,
   ) {
     Some(o) => o
-    None => fail("Renderer3D: light ring capacity exhausted")
+    None => raise Render3DError::CapacityExceeded("Renderer3D: light ring capacity exhausted")
   }
   let mut upload_bytes = object_count * OBJECT_BYTES
   upload_bytes = upload_bytes + light_count * LIGHT_BYTES
@@ -2881,7 +2881,7 @@ fn Renderer3D::render_frame(
     @tycho.TextureFormat::RGBA8Srgb => self.tonemap_srgb_pipe
     @tycho.TextureFormat::RGBA8 => self.tonemap_linear_pipe
     _ => {
-      fail("Renderer3D: unsupported dst target format")
+      raise Render3DError::Unsupported("Renderer3D: unsupported dst target format")
       self.tonemap_linear_pipe
     }
   }
@@ -2910,7 +2910,7 @@ pub fn Renderer3D::render_swapchain(
   self : Renderer3D,
   sc : @tycho.Swapchain,
   scene : Scene,
-  camera : NodeId,
+  camera : CameraId,
 ) -> Unit raise {
   let cmd = sc.begin_frame_commands()
   self.render_swapchain_into(cmd, sc, scene, camera)
@@ -2926,13 +2926,13 @@ pub fn Renderer3D::render_swapchain_into(
   cmd : @tycho.CommandBuffer,
   sc : @tycho.Swapchain,
   scene : Scene,
-  camera : NodeId,
+  camera : CameraId,
 ) -> Unit raise {
   let w = sc.width()
   let h = sc.height()
   let slot = cmd.frame_slot()
   let out = self.ensure_present(w, h)
-  self.render_frame(cmd, scene, camera, w, h, out, @tycho.TextureFormat::RGBA8Srgb, slot)
+  self.render_frame(cmd, scene, camera.node(), w, h, out, @tycho.TextureFormat::RGBA8Srgb, slot)
   cmd.blit_to_swapchain(out, sc)
 }
 
@@ -2941,14 +2941,14 @@ pub fn Renderer3D::render_offscreen(
   self : Renderer3D,
   target : @tycho.Texture,
   scene : Scene,
-  camera : NodeId,
+  camera : CameraId,
 ) -> Unit raise {
   let cmd = self.dev.begin_commands()
   let slot = cmd.frame_slot()
   self.render_frame(
     cmd,
     scene,
-    camera,
+    camera.node(),
     target.width(),
     target.height(),
     target,
@@ -3124,7 +3124,7 @@ pub fn Renderer3D::set_morph_weights(
   weights : Array[Float],
 ) -> Unit raise {
   if weights.length() > MORPH_TARGETS_MAX {
-    fail("Renderer3D::set_morph_weights: at most two targets are supported")
+    raise Render3DError::Unsupported("Renderer3D::set_morph_weights: at most two targets are supported")
   }
   for i = 0; i < self.morph_weights.length(); i = i + 1 {
     if self.morph_weights[i].0.index() == node.index() {
@@ -3148,21 +3148,21 @@ pub fn Renderer3D::create_morph_mesh_node(
 ) -> NodeId raise {
   let mi = mesh.id()
   if mi < 0 || mi >= self.meshes.length() || self.meshes[mi].morph() == 0 {
-    fail("Renderer3D::create_morph_mesh_node: mesh has no morph targets")
+    raise Render3DError::InvalidMesh("Renderer3D::create_morph_mesh_node: mesh has no morph targets")
   }
   if self.meshes[mi].skinned() {
-    fail("Renderer3D::create_morph_mesh_node: morph and skin cannot be combined yet")
+    raise Render3DError::Unsupported("Renderer3D::create_morph_mesh_node: morph and skin cannot be combined yet")
   }
   let mati = material.id()
   if mati < 0 || mati >= self.materials.length() {
-    fail("Renderer3D::create_morph_mesh_node: invalid material handle")
+    raise Render3DError::InvalidMaterial("Renderer3D::create_morph_mesh_node: invalid material handle")
   }
   match self.materials[mati].alpha_mode {
-    Blend(_) => fail("Renderer3D::create_morph_mesh_node: opaque materials only")
+    Blend(_) => raise Render3DError::Unsupported("Renderer3D::create_morph_mesh_node: opaque materials only")
     _ => ()
   }
   if weights.length() > self.meshes[mi].morph() {
-    fail("Renderer3D::create_morph_mesh_node: more weights than morph targets")
+    raise Render3DError::InvalidMesh("Renderer3D::create_morph_mesh_node: more weights than morph targets")
   }
   let node = self.create_mesh_node(scene, mesh, material, transform~, name~)
   self.set_morph_weights(node, weights)
@@ -3183,17 +3183,17 @@ pub fn Renderer3D::create_morph_node(
 ) -> NodeId raise {
   let mi = mesh.id()
   if mi < 0 || mi >= self.meshes.length() || self.meshes[mi].morph() == 0 {
-    fail("Renderer3D::create_morph_node: mesh has no morph targets")
+    raise Render3DError::InvalidMesh("Renderer3D::create_morph_node: mesh has no morph targets")
   }
   if self.meshes[mi].skinned() {
-    fail("Renderer3D::create_morph_node: morph and skin cannot be combined yet")
+    raise Render3DError::Unsupported("Renderer3D::create_morph_node: morph and skin cannot be combined yet")
   }
   match desc.alpha_mode {
-    Blend(_) => fail("Renderer3D::create_morph_node: opaque materials only")
+    Blend(_) => raise Render3DError::Unsupported("Renderer3D::create_morph_node: opaque materials only")
     _ => ()
   }
   if weights.length() > self.meshes[mi].morph() {
-    fail("Renderer3D::create_morph_node: more weights than morph targets")
+    raise Render3DError::InvalidMesh("Renderer3D::create_morph_node: more weights than morph targets")
   }
   let material = self.create_material(desc)
   self.create_morph_mesh_node(scene, mesh, material, weights, transform~, name~)
@@ -3213,25 +3213,25 @@ pub fn Renderer3D::create_lod_node(
   name? : String = "",
 ) -> NodeId raise {
   if levels.length() == 0 || switch_distances.length() != levels.length() - 1 {
-    fail("Renderer3D::create_lod_node: levels/distances mismatch")
+    raise Render3DError::InvalidMesh("Renderer3D::create_lod_node: levels/distances mismatch")
   }
   for i = 0; i < levels.length(); i = i + 1 {
     let mi = levels[i].id()
     if mi < 0 || mi >= self.meshes.length() {
-      fail("Renderer3D::create_lod_node: invalid mesh handle")
+      raise Render3DError::InvalidMesh("Renderer3D::create_lod_node: invalid mesh handle")
     }
     if self.meshes[mi].skinned() {
-      fail("Renderer3D::create_lod_node: skinned LOD is not supported")
+      raise Render3DError::Unsupported("Renderer3D::create_lod_node: skinned LOD is not supported")
     }
   }
   for i = 1; i < switch_distances.length(); i = i + 1 {
     if switch_distances[i] <= switch_distances[i - 1] {
-      fail("Renderer3D::create_lod_node: switch distances must increase")
+      raise Render3DError::InvalidMesh("Renderer3D::create_lod_node: switch distances must increase")
     }
   }
   let mati = material.id()
   if mati < 0 || mati >= self.materials.length() {
-    fail("Renderer3D::create_lod_node: invalid material handle")
+    raise Render3DError::InvalidMaterial("Renderer3D::create_lod_node: invalid material handle")
   }
   let node = scene.create_node(
     transform=transform,
@@ -3266,18 +3266,18 @@ pub fn Renderer3D::create_skinned_mesh_node(
   name? : String = "",
 ) -> NodeId raise {
   if joints.length() == 0 || joints.length() != inverse_bind.length() {
-    fail("Renderer3D::create_skinned_mesh_node: joints and inverse_bind must match")
+    raise Render3DError::InvalidMesh("Renderer3D::create_skinned_mesh_node: joints and inverse_bind must match")
   }
   let mi = mesh.id()
   if mi < 0 || mi >= self.meshes.length() || !self.meshes[mi].skinned() {
-    fail("Renderer3D::create_skinned_mesh_node: mesh has no skin data")
+    raise Render3DError::InvalidMesh("Renderer3D::create_skinned_mesh_node: mesh has no skin data")
   }
   let mati = material.id()
   if mati < 0 || mati >= self.materials.length() {
-    fail("Renderer3D::create_skinned_mesh_node: invalid material handle")
+    raise Render3DError::InvalidMaterial("Renderer3D::create_skinned_mesh_node: invalid material handle")
   }
   if self.bone_cursor + joints.length() > MAX_BONES {
-    fail("Renderer3D::create_skinned_mesh_node: bone palette exhausted")
+    raise Render3DError::CapacityExceeded("Renderer3D::create_skinned_mesh_node: bone palette exhausted")
   }
   let node = scene.create_node(
     transform=transform,
@@ -3310,14 +3310,14 @@ pub fn Renderer3D::create_skinned_node(
   name? : String = "",
 ) -> NodeId raise {
   if joints.length() == 0 || joints.length() != inverse_bind.length() {
-    fail("Renderer3D::create_skinned_node: joints and inverse_bind must match")
+    raise Render3DError::InvalidMesh("Renderer3D::create_skinned_node: joints and inverse_bind must match")
   }
   let mi = mesh.id()
   if mi < 0 || mi >= self.meshes.length() || !self.meshes[mi].skinned() {
-    fail("Renderer3D::create_skinned_node: mesh has no skin data")
+    raise Render3DError::InvalidMesh("Renderer3D::create_skinned_node: mesh has no skin data")
   }
   if self.bone_cursor + joints.length() > MAX_BONES {
-    fail("Renderer3D::create_skinned_node: bone palette exhausted")
+    raise Render3DError::CapacityExceeded("Renderer3D::create_skinned_node: bone palette exhausted")
   }
   let mat = self.create_material(desc)
   self.create_skinned_mesh_node(scene, mesh, mat, joints, inverse_bind, transform~, name~)

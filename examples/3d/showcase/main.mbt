@@ -87,7 +87,7 @@ fn main {
       yaw=0.0,
       pitch=-0.46,
     )
-    let cam_node = scene.create_node(transform=fly.transform(), payload=@t3d.NodePayload::Camera(cam))
+    let cam_node = scene.add_camera(cam, transform=fly.transform())
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
@@ -118,7 +118,7 @@ fn main {
         for ev in events {
           let _ = fly.apply(ev)
         }
-        scene.set_transform(cam_node, fly.transform())
+        scene.set_transform(cam_node.node(), fly.transform())
         renderer.render_swapchain(sc, scene, cam_node)
       }
       sc.destroy()

@@ -46,6 +46,37 @@ pub fn NodeId::index(self : NodeId) -> Int {
 }
 
 ///|
+/// Failures raised by the 3D renderer and scene helpers.
+pub suberror Render3DError {
+  InvalidMesh(String)
+  InvalidMaterial(String)
+  InvalidTexture(String)
+  InvalidCamera(String)
+  CapacityExceeded(String)
+  Unsupported(String)
+}
+
+///|
+/// A camera node handle. Only `Scene::add_camera` / `Scene::camera_of` produce
+/// one, so the render entry points cannot be handed a mesh or light node.
+#derive(Eq, Debug)
+pub(all) struct CameraId {
+  priv node : NodeId
+}
+
+///|
+/// The underlying scene node, for APIs that still take a `NodeId`
+/// (transforms, parenting, picking).
+pub fn CameraId::node(self : CameraId) -> NodeId {
+  self.node
+}
+
+///|
+pub fn CameraId::index(self : CameraId) -> Int {
+  self.node.index()
+}
+
+///|
 /// A mesh node's drawable pair. The renderer resolves both handles to GPU
 /// state; `MeshInstance` itself stays a small value struct.
 pub(all) struct MeshInstance {
@@ -175,6 +206,31 @@ pub fn Scene::create_node(
     None => self.roots.push(id)
   }
   id
+}
+
+///|
+/// Create a camera node and return its typed handle.
+pub fn Scene::add_camera(
+  self : Scene,
+  camera : Camera,
+  transform? : @tmath.Transform = @tmath.Transform::identity(),
+  name? : String = "",
+) -> CameraId {
+  let node = self.create_node(
+    transform~,
+    payload=NodePayload::Camera(camera),
+    name~,
+  )
+  { node, }
+}
+
+///|
+/// The typed camera handle for `node`, or `None` when the node is not a camera.
+pub fn Scene::camera_of(self : Scene, node : NodeId) -> CameraId? {
+  match self.payload(node) {
+    Some(NodePayload::Camera(_)) => Some({ node, })
+    _ => None
+  }
 }
 
 ///|

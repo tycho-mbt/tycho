@@ -65,6 +65,14 @@ pub fn srgb(Float, Float, Float, a? : Float) -> @tycho_math.Vec4
 pub fn srgb_to_linear(Float) -> Float
 
 // Errors
+pub suberror Render3DError {
+  InvalidMesh(String)
+  InvalidMaterial(String)
+  InvalidTexture(String)
+  InvalidCamera(String)
+  CapacityExceeded(String)
+  Unsupported(String)
+}
 
 // Types and methods
 pub(all) enum AlphaMode {
@@ -119,6 +127,13 @@ pub fn Camera::sky_ray_matrix(Self, @tycho_math.Affine3) -> @tycho_math.Mat3?
 pub fn Camera::view_matrix(Self, @tycho_math.Affine3) -> @tycho_math.Mat4?
 pub fn Camera::view_proj(Self, @tycho_math.Affine3) -> @tycho_math.Mat4?
 pub fn Camera::with_aspect(Self, Float) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) struct CameraId {
+  // private fields
+}
+pub fn CameraId::index(Self) -> Int32
+pub fn CameraId::node(Self) -> NodeId
 
 pub(all) struct DirectionalLight {
   color : @tycho_math.Vec3
@@ -355,9 +370,9 @@ pub fn Renderer3D::mesh_bounds(Self, MeshHandle) -> @tycho_math.Aabb3?
 pub fn Renderer3D::new(@tycho.Device, desc? : RendererDesc) -> Self raise
 pub fn Renderer3D::pick(Self, Scene, NodeId, Float, Float, layer_mask? : UInt32) -> PickHit?
 pub fn Renderer3D::ray_shadows_supported(Self) -> Bool
-pub fn Renderer3D::render_offscreen(Self, @tycho.Texture, Scene, NodeId) -> Unit raise
-pub fn Renderer3D::render_swapchain(Self, @tycho.Swapchain, Scene, NodeId) -> Unit raise
-pub fn Renderer3D::render_swapchain_into(Self, @tycho.CommandBuffer, @tycho.Swapchain, Scene, NodeId) -> Unit raise
+pub fn Renderer3D::render_offscreen(Self, @tycho.Texture, Scene, CameraId) -> Unit raise
+pub fn Renderer3D::render_swapchain(Self, @tycho.Swapchain, Scene, CameraId) -> Unit raise
+pub fn Renderer3D::render_swapchain_into(Self, @tycho.CommandBuffer, @tycho.Swapchain, Scene, CameraId) -> Unit raise
 pub fn Renderer3D::set_environment(Self, @tycho.Texture, @tycho_math.Vec3, intensity? : Float) -> Unit
 pub fn Renderer3D::set_morph_weights(Self, NodeId, Array[Float]) -> Unit raise
 pub fn Renderer3D::set_procedural_environment(Self, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> Unit raise
@@ -386,7 +401,9 @@ pub fn RendererDesc::with_shadows(Self, Bool) -> Self
 pub struct Scene {
   // private fields
 }
+pub fn Scene::add_camera(Self, Camera, transform? : @tycho_math.Transform, name? : String) -> CameraId
 pub fn Scene::alive_count(Self) -> Int32
+pub fn Scene::camera_of(Self, NodeId) -> CameraId?
 pub fn Scene::children_of(Self, NodeId) -> Array[NodeId]
 pub fn Scene::collect_visible(Self, @tycho_math.Frustum, UInt32) -> Array[NodeId]
 pub fn Scene::create_node(Self, parent? : NodeId, transform? : @tycho_math.Transform, payload? : NodePayload, name? : String, layer_mask? : UInt32) -> NodeId

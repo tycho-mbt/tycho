@@ -51,10 +51,7 @@ fn main {
       payload=@t3d.NodePayload::Light(@t3d.Light::ambient(@tmath.Vec3::one(), 0.0)),
     )
     let cam = @t3d.Camera::perspective(1.0, (800.0 : Float) / (600.0 : Float), near=0.1)
-    let cam_node = scene.create_node(
-      transform=@tmath.Transform::from_translation(@tmath.Vec3::new(0.0, 0.0, 6.0)),
-      payload=@t3d.NodePayload::Camera(cam),
-    )
+    let cam_node = scene.add_camera(cam, transform=@tmath.Transform::from_translation(@tmath.Vec3::new(0.0, 0.0, 6.0)))
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
