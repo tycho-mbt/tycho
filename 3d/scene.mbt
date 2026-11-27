@@ -27,6 +27,26 @@ pub fn MeshHandle::id(self : MeshHandle) -> Int {
 }
 
 ///|
+/// Renderer-owned GPU line list (`@tgeo.LineData`) drawn as world-space
+/// overlays. Lines are not scene nodes yet: they are replayed every frame with
+/// the colour fixed at upload time.
+#derive(Eq, Debug)
+pub(all) struct LineHandle {
+  priv id : Int
+}
+
+///|
+/// Crate-internal: line handles are only produced by `Renderer3D::upload_lines`.
+fn LineHandle::from_id(id : Int) -> LineHandle {
+  { id, }
+}
+
+///|
+pub fn LineHandle::id(self : LineHandle) -> Int {
+  self.id
+}
+
+///|
 /// Generation-checked arena index. Destroying a node bumps its generation, so
 /// stale handles can never alias a reused slot.
 #derive(Eq, Debug)

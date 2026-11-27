@@ -210,6 +210,12 @@ pub fn Light::hemisphere(@tycho_math.Vec3, @tycho_math.Vec3, Float) -> Self
 pub fn Light::point(@tycho_math.Vec3, Float, range? : Float, decay? : Float, shadow? : ShadowDesc) -> Self
 pub fn Light::spot(@tycho_math.Vec3, Float, range? : Float, inner_angle? : Float, outer_angle? : Float, shadow? : ShadowDesc) -> Self
 
+#derive(Eq, @debug.Debug)
+pub(all) struct LineHandle {
+  // private fields
+}
+pub fn LineHandle::id(Self) -> Int32
+
 pub(all) struct MaterialDesc {
   shading : Shading
   base_color : @tycho_math.Vec4
@@ -366,6 +372,7 @@ pub fn Renderer3D::create_skinned_mesh_node(Self, Scene, MeshHandle, MaterialHan
 pub fn Renderer3D::create_skinned_node(Self, Scene, MeshHandle, MaterialDesc, Array[NodeId], Array[@tycho_math.Mat4], transform? : @tycho_math.Transform, name? : String) -> NodeId raise
 pub fn Renderer3D::create_texture(Self, Int32, Int32, FixedArray[Byte], srgb? : Bool) -> TextureHandle raise
 pub fn Renderer3D::destroy(Self) -> Unit
+pub fn Renderer3D::lines_bounds(Self, LineHandle) -> @tycho_math.Aabb3?
 pub fn Renderer3D::mesh_bounds(Self, MeshHandle) -> @tycho_math.Aabb3?
 pub fn Renderer3D::new(@tycho.Device, desc? : RendererDesc) -> Self raise
 pub fn Renderer3D::pick(Self, Scene, NodeId, Float, Float, layer_mask? : UInt32) -> PickHit?
@@ -379,6 +386,7 @@ pub fn Renderer3D::set_procedural_environment(Self, @tycho_math.Vec3, size? : In
 pub fn Renderer3D::set_ray_shadows(Self, Bool) -> Unit
 pub fn Renderer3D::stats(Self) -> RenderStats3D
 pub fn Renderer3D::update_material(Self, MaterialHandle, MaterialDesc) -> Unit raise
+pub fn Renderer3D::upload_lines(Self, @tycho_geometry.LineData, color? : @tycho_math.Vec3) -> LineHandle raise
 pub fn Renderer3D::upload_mesh(Self, @tycho_geometry.MeshData) -> MeshHandle raise
 
 pub(all) struct RendererDesc {

@@ -153,6 +153,16 @@ priv struct GpuTexture {
 }
 
 ///|
+/// A resident line list uploaded from `@tgeo.LineData`: interleaved
+/// position/colour vertices drawn through the shared `LineList` pipeline.
+priv struct GpuLines {
+  buffer : @tycho.Buffer
+  vertex_count : Int
+  segment_count : Int
+  bounds : @tmath.Aabb3
+}
+
+///|
 pub struct Renderer3D {
   priv dev : @tycho.Device
   priv desc : RendererDesc
@@ -228,6 +238,7 @@ pub struct Renderer3D {
   priv mut line_vbuf : @tycho.Buffer
   priv mut line_capacity : Int
   priv line_floats : Array[Float]
+  priv line_sets : Array[GpuLines]
   priv object_writer : @tmath.GpuPackWriter
   priv light_writer : @tmath.GpuPackWriter
   priv material_writer : @tmath.GpuPackWriter
@@ -988,6 +999,7 @@ pub fn Renderer3D::new(
     ),
     line_capacity: 1024,
     line_floats: [],
+    line_sets: [],
     object_writer: @tmath.GpuPackWriter::std430(desc.max_objects * OBJECT_FLOATS),
     light_writer: @tmath.GpuPackWriter::std430(desc.max_lights * LIGHT_FLOATS),
     material_writer: @tmath.GpuPackWriter::std430(desc.max_materials * MATERIAL_FLOATS),
@@ -1071,6 +1083,63 @@ fn Renderer3D::build_mesh_blas(self : Renderer3D, mesh : @tgeo.MeshData) -> RtMe
     ),
   ])
   { blas, vbuf, ibuf }
+}
+
+///|
+/// Upload a `@tgeo.LineData` line list for persistent, world-space drawing.
+///
+/// Lines are replayed every frame through the shared `LineList` pipeline (the
+/// same one used by debug lines), so edge/wireframe overlays need no scene
+/// node. `color` is baked into the vertices at upload time.
+pub fn Renderer3D::upload_lines(
+  self : Renderer3D,
+  lines : @tgeo.LineData,
+  color? : @tmath.Vec3 = @tmath.Vec3::one(),
+) -> LineHandle raise {
+  let segments = lines.segment_count()
+  let floats : Array[Float] = []
+  for i = 0; i < segments; i = i + 1 {
+    let ia = lines.indices[2 * i].reinterpret_as_int()
+    let ib = lines.indices[2 * i + 1].reinterpret_as_int()
+    for p in [lines.positions[ia], lines.positions[ib]] {
+      floats.push(p.x)
+      floats.push(p.y)
+      floats.push(p.z)
+      floats.push(color.x)
+      floats.push(color.y)
+      floats.push(color.z)
+    }
+  }
+  let vertex_count = segments * 2
+  let buffer = self.dev.create_buffer_with(
+    if vertex_count == 0 { 24 } else { vertex_count * 24 },
+    @tycho.BufferKind::Vertex,
+    location=@tycho.MemoryLocation::GpuOnly,
+  )
+  if vertex_count > 0 {
+    buffer.upload_floats(FixedArray::from_array(floats))
+  }
+  self.line_sets.push({
+    buffer,
+    vertex_count,
+    segment_count: segments,
+    bounds: lines.bounds(),
+  })
+  LineHandle::from_id(self.line_sets.length() - 1)
+}
+
+///|
+/// Bounds of an uploaded line list, or `None` for a stale handle.
+pub fn Renderer3D::lines_bounds(
+  self : Renderer3D,
+  h : LineHandle,
+) -> @tmath.Aabb3? {
+  let id = h.id()
+  if id >= 0 && id < self.line_sets.length() {
+    Some(self.line_sets[id].bounds)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -2795,7 +2864,7 @@ fn Renderer3D::render_frame(
       }
     }
   }
-  if line_verts > 0 {
+  if line_verts > 0 || self.line_sets.length() > 0 {
     cmd.bind_pipeline(self.line_pipe)
     cmd.bind_uniform(
       self.line_pipe,
@@ -2804,10 +2873,21 @@ fn Renderer3D::render_frame(
       offset=slot * FRAME_SLOT_BYTES,
       size=FRAME_BYTES,
     )
-    cmd.bind_vertex(0, self.line_vbuf)
-    cmd.draw(line_verts, 1)
-    self.stats.draw_calls = self.stats.draw_calls + 1
-    self.stats.line_segments = self.stats.line_segments + line_verts / 2
+    if line_verts > 0 {
+      cmd.bind_vertex(0, self.line_vbuf)
+      cmd.draw(line_verts, 1)
+      self.stats.draw_calls = self.stats.draw_calls + 1
+      self.stats.line_segments = self.stats.line_segments + line_verts / 2
+    }
+    // Resident line lists from `upload_lines` (edges / wireframes).
+    for set in self.line_sets {
+      if set.vertex_count > 0 {
+        cmd.bind_vertex(0, set.buffer)
+        cmd.draw(set.vertex_count, 1)
+        self.stats.draw_calls = self.stats.draw_calls + 1
+        self.stats.line_segments = self.stats.line_segments + set.segment_count
+      }
+    }
   }
   self.line_floats.clear()
   cmd.end_render_pass()
@@ -3075,6 +3155,9 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   }
   self.line_pipe.destroy()
   self.line_vbuf.destroy()
+  for set in self.line_sets {
+    set.buffer.destroy()
+  }
   self.tonemap_linear_pipe.destroy()
   self.tonemap_srgb_pipe.destroy()
   self.bloom_blur_pipe.destroy()

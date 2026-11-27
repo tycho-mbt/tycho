@@ -1,6 +1,30 @@
 // geometry/primitives — geometry primitive gallery.
-// Nine tycho_geometry generators rendered through tycho_3d, with an OrbitCamera
-// controller and a picker assertion at the projected centre sphere.
+// Eleven tycho_geometry generators plus edges/wireframe line overlays rendered
+// through tycho_3d, with an OrbitCamera controller and a picker assertion at
+// the projected centre sphere.
+
+///|
+fn square_ring(half : Float) -> Array[@tmath.Vec2] {
+  [
+    @tmath.Vec2::new(-half, -half),
+    @tmath.Vec2::new(half, -half),
+    @tmath.Vec2::new(half, half),
+    @tmath.Vec2::new(-half, half),
+  ]
+}
+
+///|
+/// Concave L outline (exercises the ear-cut triangulation).
+fn l_ring() -> Array[@tmath.Vec2] {
+  [
+    @tmath.Vec2::new(-0.6, -0.6),
+    @tmath.Vec2::new(0.6, -0.6),
+    @tmath.Vec2::new(0.6, 0.0),
+    @tmath.Vec2::new(0.0, 0.0),
+    @tmath.Vec2::new(0.0, 0.6),
+    @tmath.Vec2::new(-0.6, 0.6),
+  ]
+}
 
 ///|
 struct ShapeSpec {
@@ -14,7 +38,7 @@ struct ShapeSpec {
   x : Float
   y : Float
   z : Float
-  tilt_x : Bool
+  rot_x : Float
 }
 
 ///|
@@ -47,55 +71,72 @@ fn main {
         name: "plane",
         mesh: @tgeo.plane(width=1.7, height=1.7),
         r: 0.85, g: 0.85, b: 0.90, metallic: 0.0, roughness: 0.40,
-        x: -2.4, y: 0.90, z: -2.0, tilt_x: false,
+        x: -2.4, y: 0.90, z: -2.0, rot_x: 0.0,
       },
       {
         name: "circle",
         mesh: @tgeo.circle(radius=0.85),
         r: 0.92, g: 0.45, b: 0.18, metallic: 0.0, roughness: 0.50,
-        x: 0.0, y: 0.90, z: -2.0, tilt_x: false,
+        x: 0.0, y: 0.90, z: -2.0, rot_x: 0.0,
       },
       {
         name: "ring",
         mesh: @tgeo.ring(inner=0.35, outer=0.85),
         r: 0.30, g: 0.70, b: 0.95, metallic: 1.0, roughness: 0.20,
-        x: 2.4, y: 0.90, z: -2.0, tilt_x: false,
+        x: 2.4, y: 0.90, z: -2.0, rot_x: 0.0,
       },
       {
         name: "box",
         mesh: @tgeo.box(width=1.5, height=1.5, depth=1.5),
         r: 0.86, g: 0.20, b: 0.20, metallic: 0.0, roughness: 0.45,
-        x: -2.4, y: 0.25, z: 0.0, tilt_x: false,
+        x: -2.4, y: 0.25, z: 0.0, rot_x: 0.0,
       },
       {
         name: "sphere",
         mesh: @tgeo.sphere(radius=0.75, width_segments=32, height_segments=16),
         r: 0.95, g: 0.95, b: 0.95, metallic: 0.2, roughness: 0.15,
-        x: 0.0, y: 0.25, z: 0.0, tilt_x: false,
+        x: 0.0, y: 0.25, z: 0.0, rot_x: 0.0,
       },
       {
         name: "cylinder",
         mesh: @tgeo.cylinder(radius_top=0.6, radius_bottom=0.6, height=1.5, radial_segments=32),
         r: 0.95, g: 0.75, b: 0.30, metallic: 1.0, roughness: 0.30,
-        x: 2.4, y: 0.25, z: 0.0, tilt_x: false,
+        x: 2.4, y: 0.25, z: 0.0, rot_x: 0.0,
       },
       {
         name: "cone",
         mesh: @tgeo.cone(radius=0.75, height=1.6, radial_segments=32),
         r: 0.25, g: 0.75, b: 0.45, metallic: 0.0, roughness: 0.40,
-        x: -2.4, y: 0.30, z: 2.0, tilt_x: false,
+        x: -2.4, y: 0.30, z: 2.0, rot_x: 0.0,
       },
       {
         name: "capsule",
         mesh: @tgeo.capsule(radius=0.42, length=0.9, radial_segments=32),
         r: 0.35, g: 0.50, b: 0.95, metallic: 0.1, roughness: 0.25,
-        x: 0.0, y: 0.37, z: 2.0, tilt_x: false,
+        x: 0.0, y: 0.37, z: 2.0, rot_x: 0.0,
       },
       {
         name: "torus",
         mesh: @tgeo.torus(radius=0.62, tube=0.20, radial_segments=16, tubular_segments=48),
         r: 0.90, g: 0.30, b: 0.70, metallic: 1.0, roughness: 0.20,
-        x: 2.4, y: -0.30, z: 2.0, tilt_x: true,
+        x: 2.4, y: -0.30, z: 2.0, rot_x: @tmath.FRAC_PI_2,
+      },
+      {
+        name: "shape",
+        mesh: @tgeo.shape(
+          @tgeo.Shape2D::new(square_ring(0.85), holes=[square_ring(0.35)]),
+        ),
+        r: 0.90, g: 0.62, b: 0.25, metallic: 0.0, roughness: 0.45,
+        x: -2.4, y: 0.90, z: -4.0, rot_x: 0.0,
+      },
+      {
+        name: "extrude",
+        mesh: @tgeo.extrude(
+          @tgeo.Shape2D::new(l_ring()),
+          options=@tgeo.ExtrudeOptions::new(depth=0.8),
+        ),
+        r: 0.30, g: 0.80, b: 0.70, metallic: 0.1, roughness: 0.35,
+        x: 0.0, y: -0.5, z: -4.0, rot_x: -@tmath.FRAC_PI_2,
       },
     ]
     let mut centre_node : @t3d.NodeId? = None
@@ -108,8 +149,8 @@ fn main {
         ),
       )
       let mesh = renderer.upload_mesh(s.mesh)
-      let rot = if s.tilt_x {
-        @tmath.Quat::from_rotation_x(@tmath.FRAC_PI_2)
+      let rot = if s.rot_x != 0.0 {
+        @tmath.Quat::from_rotation_x(s.rot_x)
       } else {
         @tmath.Quat::identity()
       }
@@ -127,6 +168,28 @@ fn main {
         centre_node = Some(node)
       }
     }
+
+    // Line overlays: crease edges of the box and the wireframe of a torus knot
+    // are uploaded once and replayed every frame through the LineList pipeline.
+    let _box_edges = renderer.upload_lines(
+      @tgeo.edges(@tgeo.box(width=1.5, height=1.5, depth=1.5)).transformed(
+        @tmath.Affine3::from_translation(@tmath.Vec3::new(-2.4, 0.25, 0.0)),
+      ),
+      color=@tmath.Vec3::new(1.0, 0.85, 0.2),
+    )
+    let _knot_wire = renderer.upload_lines(
+      @tgeo.wireframe(
+        @tgeo.torus_knot(
+          radius=0.5,
+          tube=0.16,
+          tubular_segments=64,
+          radial_segments=6,
+        ),
+      ).transformed(
+        @tmath.Affine3::from_translation(@tmath.Vec3::new(2.4, 0.9, -4.0)),
+      ),
+      color=@tmath.Vec3::new(0.3, 0.95, 1.0),
+    )
 
     let sun = @tmath.Vec3::new(4.0, 3.8, -2.4).normalize()
     let _sun_node = scene.create_node(
@@ -200,7 +263,7 @@ fn main {
         "[geometry/primitives] \{renderer.stats().summary()} lit=\{lit} pick=\{pick_ok} validation=\{errs}",
       )
       if errs == 0 && lit > 10000 && pick_ok {
-        println("[geometry/primitives] OK — 9 generators + orbit + picking")
+        println("[geometry/primitives] OK — 11 generators + lines + orbit + picking")
       } else {
         println(
           "[geometry/primitives] FAIL — lit=\{lit} pick=\{pick_ok} errs=\{errs}",

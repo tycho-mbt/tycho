@@ -98,6 +98,10 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
 - Debug lines: `add_debug_line` / `add_debug_aabb` queue world-space segments
   drawn through a depth-tested `LineList` pipeline after the transparent pass;
   `clear_debug_lines` resets them and `stats().line_segments` reports them.
+- Resident lines: `upload_lines(@tgeo.LineData, color?)` keeps an edge or
+  wireframe line list on the GPU and replays it every frame through the same
+  pipeline (`lines_bounds` reports its extent); `tycho_geometry::edges` /
+  `wireframe` are the intended producers.
 - glTF 2.0 subset: `@tgeo.parse_gltf` handles base64 data-URI buffers,
   POSITION/NORMAL/TEXCOORD_0, 8/16/32-bit indices, node TRS/matrix hierarchy
   and pbrMetallicRoughness factors; `@t3d.load_gltf` uploads meshes/materials
