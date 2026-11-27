@@ -121,7 +121,7 @@ fn main {
     let dl = c.finish()
     let renderer = @g2d.Renderer2D::new(dev)
     let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
-    renderer.render_offscreen(dl, rt, clear_color=@g2d.Color::from_rgba8(18, 22, 34))
+    renderer.render_offscreen( rt,dl, clear_color=@g2d.Color::from_rgba8(18, 22, 34))
     if opts.screenshot != "" {
       let px = rt.readback()
       opts.capture(w, h, px)

@@ -129,10 +129,10 @@ fn main {
       let dl = render_at(font, size, w, h, bg)
       last_dl = dl
       renderer.set_msdf_enabled(true)
-      renderer.render_offscreen(dl, rt, clear_color=bg)
+      renderer.render_offscreen( rt,dl, clear_color=bg)
       let msdf_px = rt.readback()
       renderer.set_msdf_enabled(false)
-      renderer.render_offscreen(dl, rt, clear_color=bg)
+      renderer.render_offscreen( rt,dl, clear_color=bg)
       let bmp_px = rt.readback()
 
       let score = windowed_ssim61(msdf_px, bmp_px, w, h)

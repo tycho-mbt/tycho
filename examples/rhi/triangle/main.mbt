@@ -57,7 +57,7 @@ fn main {
         @tycho.PipelineDesc::new(
           vert,
           frag,
-          color_format=Some(@tycho.TextureFormat::RGBA8),
+          color_format=@tycho.TextureFormat::RGBA8,
         ),
       )
       let cmd = dev.begin_commands()

@@ -108,11 +108,11 @@ fn main {
     if !show_win {
       let rt_ok = renderer.ray_shadows_supported()
       let rt = dev.create_render_target(640, 480, @tycho.TextureFormat::RGBA8Srgb)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px_rt = rt.readback()
 
       renderer.set_ray_shadows(false)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px_plain = rt.readback()
 
       let diff = diff90(px_rt, px_plain)

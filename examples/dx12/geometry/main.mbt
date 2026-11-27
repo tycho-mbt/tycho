@@ -79,7 +79,7 @@ fn main {
           @tycho.VertexFormat::Float3,
           @tycho.VertexFormat::Float4,
         ],
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        color_format=@tycho.TextureFormat::RGBA8,
       ),
     )
     let vbuf = dev.create_buffer(VERTEX_BYTES, @tycho.BufferKind::Vertex)

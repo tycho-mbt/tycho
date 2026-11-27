@@ -65,7 +65,7 @@ fn build_scene75(
       @t3d.Light::directional(
         @tmath.Vec3::new(1.0, 0.97, 0.9),
         0.8,
-        shadow=Some(@t3d.ShadowDesc::default()),
+        shadow=@t3d.ShadowDesc::default(),
       ),
     ),
   )
@@ -80,7 +80,7 @@ fn build_scene75(
       range=18.0,
       inner_angle=0.36,
       outer_angle=0.50,
-      shadow=Some(@t3d.ShadowDesc::default()),
+      shadow=@t3d.ShadowDesc::default(),
     ),
   )
   spot_node75(
@@ -93,7 +93,7 @@ fn build_scene75(
       range=18.0,
       inner_angle=0.36,
       outer_angle=0.50,
-      shadow=Some(@t3d.ShadowDesc::default()),
+      shadow=@t3d.ShadowDesc::default(),
     ),
   )
   let _ambient = scene.create_node(
@@ -151,10 +151,10 @@ fn main {
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
-      r_on.render_offscreen(scene_on, cam_on, rt)
+      r_on.render_offscreen( rt,scene_on, cam_on)
       let px_on = rt.readback()
       let passes = r_on.stats().shadow_passes
-      r_off.render_offscreen(scene_off, cam_off, rt)
+      r_off.render_offscreen( rt,scene_off, cam_off)
       let px_off = rt.readback()
 
       let shadow_diff = diff75(px_on, px_off)

@@ -60,7 +60,7 @@ fn build_field(
       @t3d.Light::directional(
         @tmath.Vec3::new(1.0, 0.97, 0.9),
         3.6,
-        shadow=Some(@t3d.ShadowDesc::default()),
+        shadow=@t3d.ShadowDesc::default(),
       ),
     ),
   )
@@ -143,10 +143,10 @@ fn main {
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
-      r_gpu.render_offscreen(scene_gpu, cam_gpu, rt)
+      r_gpu.render_offscreen( rt,scene_gpu, cam_gpu)
       let px_gpu = rt.readback()
       opts.capture(800, 600, px_gpu)
-      r_cpu.render_offscreen(scene_cpu, cam_cpu, rt)
+      r_cpu.render_offscreen( rt,scene_cpu, cam_cpu)
       let px_cpu = rt.readback()
       let diff = diff_pixels(px_gpu, px_cpu)
       let sg = r_gpu.stats()

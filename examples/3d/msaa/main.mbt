@@ -61,7 +61,7 @@ fn build_scene(renderer : @t3d.Renderer3D, dev : @tycho.Device) -> (@t3d.Scene, 
       @t3d.Light::directional(
         @tmath.Vec3::new(1.0, 0.97, 0.9),
         3.6,
-        shadow=Some(@t3d.ShadowDesc::default()),
+        shadow=@t3d.ShadowDesc::default(),
       ),
     ),
   )
@@ -144,10 +144,10 @@ fn main {
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
-      r_msaa.render_offscreen(scene, cam_node, rt)
+      r_msaa.render_offscreen( rt,scene, cam_node)
       let aa = rt.readback()
       opts.capture(800, 600, aa)
-      r_plain.render_offscreen(scene2, cam_node2, rt)
+      r_plain.render_offscreen( rt,scene2, cam_node2)
       let plain = rt.readback()
       let diff = diff_pixels(aa, plain)
       let errs = dev.validation_errors()

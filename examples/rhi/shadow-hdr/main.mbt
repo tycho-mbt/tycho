@@ -280,7 +280,7 @@ fn main {
         depth_test=true,
         depth_write=true,
         depth_compare=@tycho.CompareOp::LessEqual,
-        depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+        depth_format=@tycho.TextureFormat::Depth24Stencil8,
         depth_only=true,
         depth_bias=true,
         depth_bias_constant=(1.5 : Float),
@@ -295,8 +295,8 @@ fn main {
         depth_test=true,
         depth_write=true,
         depth_compare=@tycho.CompareOp::LessEqual,
-        depth_format=Some(@tycho.TextureFormat::Depth32F),
-        color_format=Some(@tycho.TextureFormat::RGBA16F),
+        depth_format=@tycho.TextureFormat::Depth32F,
+        color_format=@tycho.TextureFormat::RGBA16F,
         vertex_layouts=obj_layouts,
       ),
     )
@@ -304,7 +304,7 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         tm_vert,
         tm_frag,
-        color_format=Some(@tycho.TextureFormat::RGBA8Srgb),
+        color_format=@tycho.TextureFormat::RGBA8Srgb,
       ),
     )
 
@@ -336,7 +336,7 @@ fn main {
         mipmap=@tycho.Filter::Nearest,
         address=@tycho.AddressMode::ClampToBorder,
         border_color=@tycho.BorderColor::OpaqueWhite,
-        compare_op=Some(@tycho.CompareOp::LessEqual),
+        compare_op=@tycho.CompareOp::LessEqual,
       ),
     )
     let color_samp = dev.create_sampler_desc(
@@ -389,14 +389,14 @@ fn main {
     // Pass 1: Depth-only shadow map into Depth24Stencil8
     cmd.begin_render_pass(
       [],
-      depth=Some(
+      depth=
         @tycho.DepthTargetDesc::new(
           shadow_depth,
           load_op=@tycho.LoadOp::Clear,
           store_op=@tycho.StoreOp::Store,
           clear_depth=(1.0 : Float),
-        ),
-      ),
+        )
+      ,
     )
     cmd.bind_pipeline(shadow_pipe)
     cmd.bind_vertex(0, vbuf)
@@ -412,14 +412,14 @@ fn main {
           clear_color=@tycho.ClearColor::rgba(0.02, 0.02, 0.04, 1.0),
         ),
       ],
-      depth=Some(
+      depth=
         @tycho.DepthTargetDesc::new(
           scene_depth,
           load_op=@tycho.LoadOp::Clear,
           store_op=@tycho.StoreOp::DontCare,
           clear_depth=(1.0 : Float),
-        ),
-      ),
+        )
+      ,
     )
     cmd.bind_pipeline(lit_pipe)
     cmd.bind_uniform(lit_pipe, 0, scene_ubo)

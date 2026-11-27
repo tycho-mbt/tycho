@@ -20,7 +20,7 @@ fn make_badge_image() -> @g2d.Image2D {
       px[i + 3] = (255 : Byte)
     }
   }
-  @g2d.Image2D::from_bytes(1, w, h, Bytes::from_array(px[:]))
+  @g2d.Image2D::from_bytes(w, h, Bytes::from_array(px[:]))
 }
 
 ///|
@@ -40,7 +40,7 @@ fn make_checker_image() -> @g2d.Image2D {
       px[i + 3] = (255 : Byte)
     }
   }
-  @g2d.Image2D::from_bytes(2, w, h, Bytes::from_array(px[:]))
+  @g2d.Image2D::from_bytes(w, h, Bytes::from_array(px[:]))
 }
 
 ///|
@@ -92,7 +92,14 @@ fn build_scene(
   // 1. Header bar with linear gradient & analytical shadow
   let hdr_rect = @g2d.Rect::new((28.0 : Float), (20.0 : Float), (744.0 : Float), (68.0 : Float))
   let hdr_rrect = @g2d.RRect::per_corner(hdr_rect, (16.0 : Float), (16.0 : Float), (10.0 : Float), (10.0 : Float))
-  c.draw_rrect_shadow(hdr_rrect, (0.0 : Float), (6.0 : Float), (16.0 : Float), (0.0 : Float), @g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.02 : Float), (0.65 : Float)))
+  c.draw_rrect_shadow(
+    hdr_rrect,
+    @g2d.BoxShadow::new(
+      @g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.02 : Float), (0.65 : Float)),
+      dy=(6.0 : Float),
+      blur=(16.0 : Float),
+    ),
+  )
   let hdr_grad = @g2d.Shader2D::LinearGradient(
     @g2d.Point::new((28.0 : Float), (20.0 : Float)),
     @g2d.Point::new((772.0 : Float), (88.0 : Float)),
@@ -103,7 +110,7 @@ fn build_scene(
     ],
     @g2d.TileMode::Clamp,
   )
-  c.draw_rrect(hdr_rrect, @g2d.Paint::new(shader=Some(hdr_grad)))
+  c.draw_rrect(hdr_rrect, @g2d.Paint::new(shader=hdr_grad))
   // Elliptical-corner pill (Tier-1 SDF, rx=24 != ry=14).
   let pill_rect = @g2d.Rect::new((648.0 : Float), (34.0 : Float), (104.0 : Float), (28.0 : Float))
   let pill = @g2d.RRect::per_corner_xy(
@@ -179,7 +186,7 @@ fn build_scene(
     ],
     @g2d.TileMode::Clamp,
   )
-  c.draw_circle(@g2d.Point::new((500.0 : Float), (232.0 : Float)), (60.0 : Float), @g2d.Paint::new(shader=Some(rad_grad)))
+  c.draw_circle(@g2d.Point::new((500.0 : Float), (232.0 : Float)), (60.0 : Float), @g2d.Paint::new(shader=rad_grad))
 
   // save_layer group alpha + ColorMatrix tint + ImagePattern + ClipOp::Difference
   let _ = c.save_layer(paint=@g2d.Paint::fill(@g2d.Color::rgba((1.0 : Float), (1.0 : Float), (1.0 : Float), (0.55 : Float))))
@@ -205,7 +212,7 @@ fn build_scene(
   c.clip_rect(@g2d.Rect::new((712.0 : Float), (190.0 : Float), (20.0 : Float), (20.0 : Float)), op=@g2d.ClipOp::Difference)
   c.draw_rrect(
     @g2d.RRect::uniform(@g2d.Rect::new((696.0 : Float), (170.0 : Float), (54.0 : Float), (54.0 : Float)), (8.0 : Float)),
-    @g2d.Paint::new(shader=Some(pat_shader)),
+    @g2d.Paint::new(shader=pat_shader),
   )
   c.restore()
 
@@ -215,7 +222,7 @@ fn build_scene(
   cmat[5] = (0.35 : Float); cmat[6] = (0.55 : Float); cmat[7] = (0.10 : Float)
   cmat[10] = (0.35 : Float); cmat[11] = (0.55 : Float); cmat[12] = (0.10 : Float)
   cmat[18] = (1.0 : Float)
-  let _ = c.save_layer(paint=@g2d.Paint::new(image_filter=Some(@g2d.ImageFilter::ColorMatrix(cmat))))
+  let _ = c.save_layer(paint=@g2d.Paint::new(image_filter=@g2d.ImageFilter::ColorMatrix(cmat)))
   c.draw_rrect(
     @g2d.RRect::uniform(@g2d.Rect::new((702.0 : Float), (242.0 : Float), (48.0 : Float), (48.0 : Float)), (10.0 : Float)),
     @g2d.Paint::fill(@g2d.Color::from_rgba8(240, 80, 120)),
@@ -319,7 +326,7 @@ fn main {
     let h = 600
     let renderer = @g2d.Renderer2D::new(dev)
     let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
-    renderer.render_offscreen(dl, rt, clear_color=@g2d.Color::from_rgba8(14, 18, 30))
+    renderer.render_offscreen( rt,dl, clear_color=@g2d.Color::from_rgba8(14, 18, 30))
     let path_batches = renderer.path_batch_count()
     let st = renderer.stats()
     let stats_ok = st.draw_calls > 0 &&
@@ -405,7 +412,7 @@ fn main {
       @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
       @g2d.Paint::fill(@g2d.Color::from_rgba8(0, 0, 255)),
     )
-    renderer.render_offscreen(cb.finish(), rt_bgra)
+    renderer.render_offscreen( rt_bgra,cb.finish())
     let bgra_px = rt_bgra.readback()
     let bi = (16 * w2 + 16) * 4
     let bgra_ok = bgra_px[bi].to_int() > 200 &&
@@ -431,7 +438,7 @@ fn main {
       )
       cc.restore()
     }
-    renderer.render_offscreen(cc.finish(), rt_clip)
+    renderer.render_offscreen( rt_clip,cc.finish())
     let clip_batches = renderer.prim_draw_count()
     let cpx = rt_clip.readback()
     let ci = (32 * w3 + 16) * 4
@@ -455,7 +462,7 @@ fn main {
       @g2d.Rect::new((32.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
       @g2d.Paint::fill(@g2d.Color::from_rgba8(0, 0, 255)),
     )
-    renderer.render_offscreen(d1.finish(), rt_dmg)
+    renderer.render_offscreen( rt_dmg,d1.finish())
     let d2 = @g2d.Canvas::new()
     d2.clear(@g2d.Color::from_rgba8(0, 0, 0))
     d2.draw_rect(
@@ -463,11 +470,10 @@ fn main {
       @g2d.Paint::fill(@g2d.Color::from_rgba8(0, 255, 0)),
     )
     renderer.render_offscreen(
-      d2.finish(),
       rt_dmg,
-      damage=Some(
+      d2.finish(),
+      damage=
         @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
-      ),
     )
     let dpx = rt_dmg.readback()
     let dl_i = (32 * w4 + 16) * 4
@@ -502,7 +508,7 @@ fn main {
         blend_mode=@g2d.BlendMode2D::Lighten,
       ),
     )
-    renderer.render_offscreen(cb2.finish(), rt_b2)
+    renderer.render_offscreen( rt_b2,cb2.finish())
     let b2px = rt_b2.readback()
     let bl_i = (32 * 64 + 16) * 4
     let br_i = (32 * 64 + 48) * 4
@@ -526,13 +532,13 @@ fn main {
     let alpha_px : Array[Byte] = [
       255, 255, 255, 128, 255, 255, 255, 128, 255, 255, 255, 128, 255, 255, 255, 128,
     ]
-    let img_a = @g2d.Image2D::from_bytes(3, 2, 2, Bytes::from_array(alpha_px))
+    let img_a = @g2d.Image2D::from_bytes(2, 2, Bytes::from_array(alpha_px))
     ca.draw_image_rect(
       img_a,
       @g2d.Rect::new((0.0 : Float), (0.0 : Float), (2.0 : Float), (2.0 : Float)),
       @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
     )
-    renderer.render_offscreen(ca.finish(), rt_a)
+    renderer.render_offscreen( rt_a,ca.finish())
     let apx = rt_a.readback()
     let ai = (16 * 32 + 16) * 4
     let alpha_ok = near(apx[ai].to_int(), 128)
@@ -552,11 +558,10 @@ fn main {
     inv[14] = (1.0 : Float)
     inv[18] = (1.0 : Float)
     let _ = ccf.save_layer(
-      bounds=Some(
+      bounds=
         @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
-      ),
       paint=@g2d.Paint::new(
-        color_filter=Some(@g2d.ColorFilter::Matrix(inv)),
+        color_filter=@g2d.ColorFilter::Matrix(inv),
       ),
     )
     ccf.draw_rect(
@@ -564,7 +569,7 @@ fn main {
       @g2d.Paint::fill(@g2d.Color::white()),
     )
     ccf.restore()
-    renderer.render_offscreen(ccf.finish(), rt_cf)
+    renderer.render_offscreen( rt_cf,ccf.finish())
     let cfpx = rt_cf.readback()
     let cfi = (16 * 32 + 16) * 4
     let cf_ok = cfpx[cfi].to_int() < 30 &&
@@ -581,10 +586,10 @@ fn main {
       @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
       @g2d.Paint::new(
         color=@g2d.Color::white(),
-        color_filter=Some(@g2d.ColorFilter::Matrix(inv)),
+        color_filter=@g2d.ColorFilter::Matrix(inv),
       ),
     )
-    renderer.render_offscreen(cdf.finish(), rt_df)
+    renderer.render_offscreen( rt_df,cdf.finish())
     let dfpx = rt_df.readback()
     let df_ok = dfpx[dfi].to_int() < 30 &&
       dfpx[dfi + 1].to_int() < 30 &&
@@ -595,15 +600,14 @@ fn main {
       @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
       @g2d.Paint::new(
         color=@g2d.Color::white(),
-        color_filter=Some(
+        color_filter=
           @g2d.ColorFilter::Blend(
             @g2d.Color::rgba((0.5 : Float), (0.5 : Float), (0.5 : Float), (1.0 : Float)),
             @g2d.BlendMode2D::Multiply,
           ),
-        ),
       ),
     )
-    renderer.render_offscreen(cbm.finish(), rt_df)
+    renderer.render_offscreen( rt_df,cbm.finish())
     let bmpx = rt_df.readback()
     let bm_ok = near(bmpx[dfi].to_int(), 128) &&
       near(bmpx[dfi + 1].to_int(), 128) &&
@@ -622,7 +626,7 @@ fn main {
     let cv = @g2d.Canvas::new()
     cv.clear(@g2d.Color::from_rgba8(0, 0, 0))
     cv.draw_vertices(vs, [0, 1, 2, 0, 2, 3])
-    renderer.render_offscreen(cv.finish(), rt_v)
+    renderer.render_offscreen( rt_v,cv.finish())
     let vpx = rt_v.readback()
     let vi = (32 * 64 + 32) * 4
     let verts_ok = near(vpx[vi].to_int(), 51) &&
@@ -632,7 +636,7 @@ fn main {
     let mag : Array[Byte] = [
       255, 0, 255, 255, 255, 0, 255, 255, 255, 0, 255, 255, 255, 0, 255, 255,
     ]
-    let img_v = @g2d.Image2D::from_bytes(5, 2, 2, Bytes::from_array(mag))
+    let img_v = @g2d.Image2D::from_bytes(2, 2, Bytes::from_array(mag))
     let vs2 : Array[@g2d.Vertex2D] = [
       @g2d.Vertex2D::new((0.0 : Float), (0.0 : Float), u=(0.0 : Float), v=(0.0 : Float)),
       @g2d.Vertex2D::new((64.0 : Float), (0.0 : Float), u=(1.0 : Float), v=(0.0 : Float)),
@@ -641,8 +645,8 @@ fn main {
     ]
     let cv2 = @g2d.Canvas::new()
     cv2.clear(@g2d.Color::from_rgba8(0, 0, 0))
-    cv2.draw_vertices(vs2, [0, 1, 2, 0, 2, 3], image=Some(img_v))
-    renderer.render_offscreen(cv2.finish(), rt_v)
+    cv2.draw_vertices(vs2, [0, 1, 2, 0, 2, 3], image=img_v)
+    renderer.render_offscreen( rt_v,cv2.finish())
     let vpx2 = rt_v.readback()
     let verts_tex_ok = near(vpx2[vi].to_int(), 255) &&
       near(vpx2[vi + 1].to_int(), 0) &&

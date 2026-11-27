@@ -608,9 +608,9 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert_spv,
         frag_spv,
-        blend_mode=Some(@tycho.BlendMode::Premultiplied),
+        blend_mode=@tycho.BlendMode::Premultiplied,
         cull_mode=@tycho.CullMode::None,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        color_format=@tycho.TextureFormat::RGBA8,
       ),
     )
     let dash_batcher = UiBatcher::new(64)
@@ -679,9 +679,9 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert_spv,
         frag_spv,
-        blend_mode=Some(@tycho.BlendMode::Premultiplied),
+        blend_mode=@tycho.BlendMode::Premultiplied,
         cull_mode=@tycho.CullMode::None,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        color_format=@tycho.TextureFormat::RGBA8,
       ),
     )
     let stress_batcher = UiBatcher::new(stress_quads)
@@ -784,9 +784,9 @@ fn main {
         @tycho.PipelineDesc::from_spirv(
           vert_spv,
           frag_spv,
-          blend_mode=Some(@tycho.BlendMode::Premultiplied),
+          blend_mode=@tycho.BlendMode::Premultiplied,
           cull_mode=@tycho.CullMode::None,
-          color_format=Some(sc.color_format()),
+          color_format=sc.color_format(),
         ),
       )
       let win_batcher = UiBatcher::new(64)

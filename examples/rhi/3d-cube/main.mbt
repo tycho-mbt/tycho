@@ -138,17 +138,17 @@ fn main {
           push_constant_size=64,
           depth_test=true,
           depth_write=true,
-          depth_format=Some(@tycho.TextureFormat::Depth32F),
+          depth_format=@tycho.TextureFormat::Depth32F,
           cull_mode=@tycho.CullMode::Back,
           front_face=@tycho.FrontFace::CounterClockwise,
-          color_format=Some(@tycho.TextureFormat::RGBA8),
+          color_format=@tycho.TextureFormat::RGBA8,
         ),
       )
       let mvp0 = make_mvp((0.0 : Float), (800.0 : Float) / (600.0 : Float))
       let cmd = dev.begin_commands()
       cmd.begin_render_pass(
         [@tycho.RenderTargetDesc::new(rt, clear_color=@tycho.ClearColor::rgba(0.08, 0.08, 0.12, 1.0))],
-        depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+        depth=@tycho.DepthTargetDesc::new(depth_rt),
       )
       cmd.bind_pipeline(pipe)
       cmd.push_constants_mat4(pipe, mvp0)
@@ -164,7 +164,7 @@ fn main {
         let cmd_s = dev.begin_commands()
         cmd_s.begin_render_pass(
           [@tycho.RenderTargetDesc::new(rt, clear_color=@tycho.ClearColor::rgba(0.08, 0.08, 0.12, 1.0))],
-          depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+          depth=@tycho.DepthTargetDesc::new(depth_rt),
         )
         cmd_s.bind_pipeline(pipe)
         cmd_s.push_constants_mat4(pipe, mvp_s)

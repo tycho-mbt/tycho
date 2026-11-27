@@ -47,7 +47,7 @@ pub fn poll(win : UInt64) -> (Array[@win.Event], Bool) {
   for ev in events {
     match ev {
       @win.Event::CloseRequested => quit = true
-      @win.Event::KeyDown(k, _) => if k == @win.KEY_ESCAPE { quit = true }
+      @win.Event::KeyDown(k, _) => if k == @win.KeyCode::Escape { quit = true }
       _ => ()
     }
   }

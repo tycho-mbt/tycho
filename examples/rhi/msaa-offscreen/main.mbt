@@ -40,7 +40,7 @@ fn main {
         tri_vert,
         tri_frag,
         samples=@tycho.SampleCount::X4,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        color_format=@tycho.TextureFormat::RGBA8,
       ),
     )
 
@@ -51,7 +51,7 @@ fn main {
         load_op=@tycho.LoadOp::Clear,
         store_op=@tycho.StoreOp::DontCare,
         clear_color=@tycho.ClearColor::black(),
-        resolve_texture=Some(resolve_tex),
+        resolve_texture=resolve_tex,
       ),
     ])
     off_cmd.bind_pipeline(off_pipe)

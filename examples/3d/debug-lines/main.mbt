@@ -82,7 +82,7 @@ fn main {
         @t3d.Light::directional(
           @tmath.Vec3::new(1.0, 0.97, 0.9),
           3.6,
-          shadow=Some(@t3d.ShadowDesc::default()),
+          shadow=@t3d.ShadowDesc::default(),
         ),
       ),
     )
@@ -132,13 +132,13 @@ fn main {
         @tmath.Vec3::new(0.0, 0.0, 2.2),
         @tmath.Vec3::new(0.2, 0.4, 1.0),
       )
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let with_lines = rt.readback()
       let st = renderer.stats()
       let lines = st.line_segments
       opts.capture(800, 600, with_lines)
       renderer.clear_debug_lines()
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let without = rt.readback()
       let diff = diff_pixels(with_lines, without)
       let after = renderer.stats().line_segments

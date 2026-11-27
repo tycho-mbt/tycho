@@ -113,7 +113,7 @@ fn main {
     let mut parent = root
     for i = 1; i < 4; i = i + 1 {
       let b = scene.create_node(
-        parent=Some(parent),
+        parent=parent,
         transform=@tmath.Transform::new(
           @tmath.Vec3::new(0.0, 1.0, 0.0),
           @tmath.Quat::identity(),
@@ -159,7 +159,7 @@ fn main {
         @t3d.Light::directional(
           @tmath.Vec3::new(1.0, 0.96, 0.9),
           2.2,
-          shadow=Some(@t3d.ShadowDesc::default()),
+          shadow=@t3d.ShadowDesc::default(),
         ),
       ),
     )
@@ -185,11 +185,11 @@ fn main {
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
       pose79(scene, bones, 0.0)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px0 = rt.readback()
 
       pose79(scene, bones, 1.0)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px1 = rt.readback()
 
       let diff = diff79(px0, px1)
@@ -223,7 +223,7 @@ fn main {
         for ev in sc.poll_events() {
           match ev {
             @tycho.Event::CloseRequested => quit = true
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE {
+            @tycho.Event::KeyDown(k, _) => if k == @tycho.KeyCode::Escape {
               quit = true
             }
             _ => ()

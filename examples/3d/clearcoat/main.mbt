@@ -75,7 +75,7 @@ fn main {
         @t3d.Light::directional(
           @tmath.Vec3::new(1.0, 0.98, 0.94),
           3.0,
-          shadow=Some(@t3d.ShadowDesc::default()),
+          shadow=@t3d.ShadowDesc::default(),
         ),
       ),
     )
@@ -100,12 +100,12 @@ fn main {
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px_off = rt.readback()
 
       scene.set_visible(plain_node, false)
       scene.set_visible(coat_node, true)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px_on = rt.readback()
 
       let diff = diff87(px_off, px_on)
@@ -133,9 +133,9 @@ fn main {
           match ev {
             @tycho.Event::CloseRequested => quit = true
             @tycho.Event::KeyDown(k, _) => {
-              if k == @tycho.KEY_ESCAPE {
+              if k == @tycho.KeyCode::Escape {
                 quit = true
-              } else if k == @tycho.KEY_SPACE {
+              } else if k == @tycho.KeyCode::Space {
                 coated_on = !coated_on
                 scene.set_visible(plain_node, !coated_on)
                 scene.set_visible(coat_node, coated_on)

@@ -57,7 +57,7 @@ fn main {
             font=latin_f,
             font_size=size,
             color=color,
-            fallback=Some(chain),
+            fallback=chain,
           )
         }
         let p1 = @g2d.ParagraphBuilder::new()
@@ -95,7 +95,7 @@ fn main {
               color=@g2d.Color::from_rgba8(200, 215, 240),
               bold=true,
               italic=true,
-              fallback=Some(chain),
+              fallback=chain,
             ),
           )
           .build()
@@ -130,9 +130,7 @@ fn main {
           255, 130, 40, 255, 40, 180, 255, 255, 255, 220, 80, 255, 80, 220,
           120, 255,
         ]
-        let inline_img = @g2d.Image2D::from_bytes(
-          99,
-          2,
+        let inline_img = @g2d.Image2D::from_bytes(2,
           2,
           Bytes::from_array(inline_px),
         )
@@ -222,7 +220,7 @@ fn main {
         let dl = c.finish()
         let renderer = @g2d.Renderer2D::new(dev)
         let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
-        renderer.render_offscreen(dl, rt, clear_color=bg)
+        renderer.render_offscreen( rt,dl, clear_color=bg)
         let px = rt.readback()
         opts.capture(w, h, px)
 

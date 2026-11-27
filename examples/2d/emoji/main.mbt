@@ -48,7 +48,7 @@ fn main {
           font=latin_f,
           font_size=(64.0 : Float),
           color=@g2d.Color::white(),
-          fallback=Some(chain),
+          fallback=chain,
         )
         let para = @g2d.ParagraphBuilder::new()
           .add_text("Hi 😀 中", style=style)
@@ -60,7 +60,7 @@ fn main {
         let dl = c.finish()
         let renderer = @g2d.Renderer2D::new(dev)
         let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
-        renderer.render_offscreen(dl, rt, clear_color=bg)
+        renderer.render_offscreen( rt,dl, clear_color=bg)
         let px = rt.readback()
         opts.capture(w, h, px)
         let mut yellow = 0

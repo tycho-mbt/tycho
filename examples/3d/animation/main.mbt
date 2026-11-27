@@ -103,7 +103,7 @@ fn main {
         @t3d.AnimationChannel::new(
           bouncer,
           @t3d.TransformTrack::new(
-            translation=Some(
+            translation=
               @t3d.Vec3Track::new(
                 [0.0, 0.5, 1.0, 1.5, 2.0],
                 [
@@ -113,14 +113,14 @@ fn main {
                   @tmath.Vec3::new(-2.6, 1.6, 0.0),
                   @tmath.Vec3::new(-2.6, 0.5, 0.0),
                 ],
-              ),
-            ),
+              )
+            ,
           ),
         ),
         @t3d.AnimationChannel::new(
           spinner,
           @t3d.TransformTrack::new(
-            rotation=Some(
+            rotation=
               @t3d.QuatTrack::new(
                 [0.0, 0.5, 1.0, 1.5, 2.0],
                 [
@@ -130,14 +130,14 @@ fn main {
                   @tmath.Quat::from_rotation_y(@tmath.PI * 0.75),
                   @tmath.Quat::from_rotation_y(@tmath.PI),
                 ],
-              ),
-            ),
+              )
+            ,
           ),
         ),
         @t3d.AnimationChannel::new(
           pulser,
           @t3d.TransformTrack::new(
-            scale=Some(
+            scale=
               @t3d.Vec3Track::new(
                 [0.0, 0.5, 1.0, 1.5, 2.0],
                 [
@@ -147,8 +147,8 @@ fn main {
                   @tmath.Vec3::new(1.6, 1.05, 1.6),
                   @tmath.Vec3::one(),
                 ],
-              ),
-            ),
+              )
+            ,
           ),
         ),
       ],
@@ -166,7 +166,7 @@ fn main {
         @t3d.Light::directional(
           @tmath.Vec3::new(1.0, 0.96, 0.9),
           2.0,
-          shadow=Some(@t3d.ShadowDesc::default()),
+          shadow=@t3d.ShadowDesc::default(),
         ),
       ),
     )
@@ -193,12 +193,12 @@ fn main {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
       player.seek(0.0)
       player.apply(scene)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px0 = rt.readback()
 
       player.seek(0.5)
       player.apply(scene)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px1 = rt.readback()
 
       // Sampled transforms at t=1 (the mid keyframe of every track).

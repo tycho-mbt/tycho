@@ -82,7 +82,7 @@ fn main {
         vert,
         frag,
         texture_slots=2,
-        color_format=Some(@tycho.TextureFormat::RGBA16F),
+        color_format=@tycho.TextureFormat::RGBA16F,
       ),
     )
 

@@ -73,7 +73,7 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert,
         frag,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        color_format=@tycho.TextureFormat::RGBA8,
       ),
     )
     let ts = dev.create_timestamp_pool(2)

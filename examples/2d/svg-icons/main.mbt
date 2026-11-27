@@ -147,13 +147,13 @@ fn main {
     let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
 
     renderer.set_coverage_enabled(true)
-    renderer.render_offscreen(dl, rt, clear_color=bg)
+    renderer.render_offscreen( rt,dl, clear_color=bg)
     let cov_stats = renderer.stats()
     let cov_px = rt.readback()
     opts.capture(w, h, cov_px)
 
     renderer.set_coverage_enabled(false)
-    renderer.render_offscreen(dl, rt, clear_color=bg)
+    renderer.render_offscreen( rt,dl, clear_color=bg)
     let msaa_stats = renderer.stats()
     let msaa_px = rt.readback()
 
@@ -173,7 +173,7 @@ fn main {
       cz.draw_path(p, @g2d.Paint::fill(@g2d.Color::from_rgba8(r, g, b)))
     }
     renderer.set_coverage_enabled(true)
-    renderer.render_offscreen(cz.finish(), rt, clear_color=bg)
+    renderer.render_offscreen( rt,cz.finish(), clear_color=bg)
     let zoom_stats = renderer.stats()
 
     let score = windowed_ssim(cov_px, msaa_px, w, h)

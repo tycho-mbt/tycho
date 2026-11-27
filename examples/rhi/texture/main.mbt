@@ -53,7 +53,7 @@ fn main {
           vert,
           frag,
           texture_slots=1,
-          color_format=Some(@tycho.TextureFormat::RGBA8),
+          color_format=@tycho.TextureFormat::RGBA8,
         ),
       )
       let cmd = dev.begin_commands()

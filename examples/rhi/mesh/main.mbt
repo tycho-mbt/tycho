@@ -36,10 +36,10 @@ fn main {
       @tycho.MeshPipelineDesc::new(
         mesh_spv,
         frag_spv,
-        task=Some(task_spv),
+        task=task_spv,
         storage_slots=1,
         push_constant_size=20,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        color_format=@tycho.TextureFormat::RGBA8,
       ),
     )
 

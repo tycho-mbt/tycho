@@ -62,9 +62,9 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert,
         frag,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
-        depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
-        stencil=Some(st_write),
+        color_format=@tycho.TextureFormat::RGBA8,
+        depth_format=@tycho.TextureFormat::Depth24Stencil8,
+        stencil=st_write,
       ),
     )
 
@@ -82,9 +82,9 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert,
         frag,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
-        depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
-        stencil=Some(st_test),
+        color_format=@tycho.TextureFormat::RGBA8,
+        depth_format=@tycho.TextureFormat::Depth24Stencil8,
+        stencil=st_test,
       ),
     )
 
@@ -98,7 +98,7 @@ fn main {
           clear_color=@tycho.ClearColor::black(),
         ),
       ],
-      depth=Some(
+      depth=
         @tycho.DepthTargetDesc::new(
           ds,
           load_op=@tycho.LoadOp::Clear,
@@ -106,8 +106,8 @@ fn main {
           stencil_load_op=@tycho.LoadOp::Clear,
           stencil_store_op=@tycho.StoreOp::Store,
           clear_stencil=0,
-        ),
-      ),
+        )
+      ,
     )
     cmd.set_viewport(0.0, 0.0, 256.0, 256.0)
     cmd.set_scissor(0, 0, 256, 256)
@@ -142,7 +142,7 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert,
         frag,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        color_format=@tycho.TextureFormat::RGBA8,
       ),
     )
     let mut indirect_count_ok = true
@@ -205,7 +205,7 @@ fn main {
         @tycho.RayGeometryDesc::new(
           rq_vbuf,
           3,
-          index_buffer=Some(rq_ibuf),
+          index_buffer=rq_ibuf,
           index_count=3,
         ),
       ])

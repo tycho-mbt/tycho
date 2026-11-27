@@ -119,7 +119,9 @@ fn main {
     let mut pixels : FixedArray[Byte] = []
     let mut scale = 1.0
     let mut is_fs = false
-    let keys_ok = @tycho.KEY_W != 0 && @tycho.KEY_F1 != 0 && @tycho.KEY_LSHIFT != 0
+    let keys_ok = @tycho.KeyCode::W.to_keysym() != 0 &&
+      @tycho.KeyCode::F1.to_keysym() != 0 &&
+      @tycho.KeyCode::LShift.to_keysym() != 0
     let mut is_bgra = false
     if show_win {
       let sc = @exwin_rhi.open(dev, opts, present_mode=@tycho.PresentMode::Mailbox)
@@ -162,7 +164,7 @@ fn main {
           vert,
           frag,
           uniform_slots=1,
-          color_format=Some(@tycho.TextureFormat::RGBA8),
+          color_format=@tycho.TextureFormat::RGBA8,
         ),
       )
       for f = 0; f < 6; f = f + 1 {

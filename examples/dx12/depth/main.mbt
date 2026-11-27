@@ -84,8 +84,8 @@ fn main {
         shader_vs_dxil,
         shader_fs_dxil,
         uniform_slots=1,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
-        depth_format=Some(@tycho.TextureFormat::Depth32F),
+        color_format=@tycho.TextureFormat::RGBA8,
+        depth_format=@tycho.TextureFormat::Depth32F,
         depth_test=true,
         depth_write=true,
       ),
@@ -106,7 +106,7 @@ fn main {
             clear_color=@tycho.ClearColor::rgba(0.05, 0.05, 0.1, 1.0),
           ),
         ],
-        depth=Some(@tycho.DepthTargetDesc::new(depth)),
+        depth=@tycho.DepthTargetDesc::new(depth),
       )
       cmd.bind_pipeline(pipe)
       cmd.bind_uniform(pipe, 0, first)

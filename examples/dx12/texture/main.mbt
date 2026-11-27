@@ -86,7 +86,7 @@ fn main {
         shader_vs_dxil,
         shader_fs_dxil,
         texture_slots=1,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        color_format=@tycho.TextureFormat::RGBA8,
       ),
     )
 

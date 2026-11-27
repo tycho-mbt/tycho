@@ -90,7 +90,7 @@ fn main {
             @tycho.VertexFormat::Float2,
             @tycho.VertexFormat::Float3,
           ],
-          color_format=Some(@tycho.TextureFormat::RGBA8),
+          color_format=@tycho.TextureFormat::RGBA8,
         ),
       )
       let cmd = dev.begin_commands()

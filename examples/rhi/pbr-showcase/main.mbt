@@ -172,7 +172,7 @@ fn main {
         mipmap=@tycho.Filter::Nearest,
         address=@tycho.AddressMode::ClampToBorder,
         border_color=@tycho.BorderColor::OpaqueWhite,
-        compare_op=Some(@tycho.CompareOp::LessEqual),
+        compare_op=@tycho.CompareOp::LessEqual,
       ),
     )
     let lin_samp = dev.create_sampler_desc(
@@ -212,7 +212,7 @@ fn main {
         depth_test=true,
         depth_write=true,
         depth_compare=@tycho.CompareOp::LessEqual,
-        depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+        depth_format=@tycho.TextureFormat::Depth24Stencil8,
         depth_only=true,
         depth_bias=true,
         depth_bias_constant=(1.5 : Float),
@@ -224,8 +224,8 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         sky_vert,
         sky_frag,
-        depth_format=Some(@tycho.TextureFormat::Depth32F),
-        color_format=Some(@tycho.TextureFormat::RGBA16F),
+        depth_format=@tycho.TextureFormat::Depth32F,
+        color_format=@tycho.TextureFormat::RGBA16F,
       ),
     )
     let pbr_pipe = dev.create_graphics_pipeline(
@@ -235,21 +235,21 @@ fn main {
         depth_test=true,
         depth_write=true,
         depth_compare=@tycho.CompareOp::LessEqual,
-        depth_format=Some(@tycho.TextureFormat::Depth32F),
+        depth_format=@tycho.TextureFormat::Depth32F,
         cull_mode=@tycho.CullMode::Back,
         front_face=@tycho.FrontFace::CounterClockwise,
-        color_format=Some(@tycho.TextureFormat::RGBA16F),
+        color_format=@tycho.TextureFormat::RGBA16F,
         vertex_layouts=mesh_layouts,
       ),
     )
     let bloom_ext_pipe = dev.create_graphics_pipeline(
-      @tycho.PipelineDesc::from_spirv(fs_vert, be_frag, color_format=Some(@tycho.TextureFormat::RGBA16F)),
+      @tycho.PipelineDesc::from_spirv(fs_vert, be_frag, color_format=@tycho.TextureFormat::RGBA16F),
     )
     let bloom_blur_pipe = dev.create_graphics_pipeline(
-      @tycho.PipelineDesc::from_spirv(fs_vert, bb_frag, color_format=Some(@tycho.TextureFormat::RGBA16F)),
+      @tycho.PipelineDesc::from_spirv(fs_vert, bb_frag, color_format=@tycho.TextureFormat::RGBA16F),
     )
     let tm_pipe = dev.create_graphics_pipeline(
-      @tycho.PipelineDesc::from_spirv(fs_vert, tm_frag, color_format=Some(@tycho.TextureFormat::RGBA8Srgb)),
+      @tycho.PipelineDesc::from_spirv(fs_vert, tm_frag, color_format=@tycho.TextureFormat::RGBA8Srgb),
     )
 
     let shadow_depth = dev.create_depth_texture_format(512, 512, @tycho.TextureFormat::Depth24Stencil8)
@@ -354,7 +354,7 @@ fn main {
       // Pass 1: Depth-only Shadow Map
       cmd.begin_render_pass(
         [],
-        depth=Some(@tycho.DepthTargetDesc::new(shadow_depth, load_op=@tycho.LoadOp::Clear, store_op=@tycho.StoreOp::Store)),
+        depth=@tycho.DepthTargetDesc::new(shadow_depth, load_op=@tycho.LoadOp::Clear, store_op=@tycho.StoreOp::Store),
       )
       cmd.bind_pipeline(shadow_pipe)
       cmd.bind_vertex(0, vbuf)
@@ -379,7 +379,7 @@ fn main {
       // Pass 2: Skybox + PBR Forward into RGBA16F
       cmd.begin_render_pass(
         [@tycho.RenderTargetDesc::new(hdr_rt, clear_color=@tycho.ClearColor::black())],
-        depth=Some(@tycho.DepthTargetDesc::new(scene_depth, load_op=@tycho.LoadOp::Clear, store_op=@tycho.StoreOp::DontCare)),
+        depth=@tycho.DepthTargetDesc::new(scene_depth, load_op=@tycho.LoadOp::Clear, store_op=@tycho.StoreOp::DontCare),
       )
       cmd.bind_pipeline(sky_pipe)
       cmd.bind_uniform(sky_pipe, 0, sky_ubo)
@@ -511,35 +511,35 @@ fn main {
             @tycho.Event::KeyDown(k, _) => {
               let (sy, cy) = (@math.sin(yaw), @math.cos(yaw))
               let step = 0.18
-              if k == @tycho.KEY_W {
+              if k == @tycho.KeyCode::W {
                 cam_pos = @dmath.DVec3::new(cam_pos.x + cy * step, cam_pos.y, cam_pos.z + sy * step)
-              } else if k == @tycho.KEY_S {
+              } else if k == @tycho.KeyCode::S {
                 cam_pos = @dmath.DVec3::new(cam_pos.x - cy * step, cam_pos.y, cam_pos.z - sy * step)
-              } else if k == @tycho.KEY_A {
+              } else if k == @tycho.KeyCode::A {
                 cam_pos = @dmath.DVec3::new(cam_pos.x + sy * step, cam_pos.y, cam_pos.z - cy * step)
-              } else if k == @tycho.KEY_D {
+              } else if k == @tycho.KeyCode::D {
                 cam_pos = @dmath.DVec3::new(cam_pos.x - sy * step, cam_pos.y, cam_pos.z + cy * step)
-              } else if k == @tycho.KEY_E {
+              } else if k == @tycho.KeyCode::E {
                 cam_pos = @dmath.DVec3::new(cam_pos.x, cam_pos.y + step, cam_pos.z)
-              } else if k == @tycho.KEY_Q {
+              } else if k == @tycho.KeyCode::Q {
                 cam_pos = @dmath.DVec3::new(cam_pos.x, cam_pos.y - step, cam_pos.z)
-              } else if k == @tycho.KEY_LEFT {
+              } else if k == @tycho.KeyCode::Left {
                 yaw = yaw - 0.06
-              } else if k == @tycho.KEY_RIGHT {
+              } else if k == @tycho.KeyCode::Right {
                 yaw = yaw + 0.06
-              } else if k == @tycho.KEY_UP {
+              } else if k == @tycho.KeyCode::Up {
                 pitch = if pitch + 0.05 > 1.2 { 1.2 } else { pitch + 0.05 }
-              } else if k == @tycho.KEY_DOWN {
+              } else if k == @tycho.KeyCode::Down {
                 pitch = if pitch - 0.05 < -1.2 { -1.2 } else { pitch - 0.05 }
               }
             }
             @tycho.Event::MouseDown(btn, mx, my) =>
-              if btn == 1 {
+              if btn == @tycho.MouseButton::Left {
                 dragging = true
                 last_mx = mx
                 last_my = my
               }
-            @tycho.Event::MouseUp(btn, _, _) => if btn == 1 { dragging = false }
+            @tycho.Event::MouseUp(btn, _, _) => if btn == @tycho.MouseButton::Left { dragging = false }
             @tycho.Event::MouseMove(mx, my) =>
               if dragging {
                 yaw = yaw + (mx - last_mx).to_double() * 0.006

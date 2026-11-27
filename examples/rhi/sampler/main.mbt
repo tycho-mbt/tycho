@@ -80,7 +80,7 @@ fn main {
           vert,
           frag,
           texture_slots=1,
-          color_format=Some(@tycho.TextureFormat::RGBA8),
+          color_format=@tycho.TextureFormat::RGBA8,
         ),
       )
       for phase = 0; phase < 2; phase = phase + 1 {

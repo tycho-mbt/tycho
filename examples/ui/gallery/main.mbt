@@ -32,8 +32,8 @@ fn build_gallery_ui(
             main_axis=@ui.MainAxisAlignment::SpaceBetween,
             [
               @ui.column(gap=(4.0 : Float), main_size=@ui.MainAxisSize::Min, [
-                @ui.text("TYCHO UI GALLERY", size=(18.0 : Float), color=Some(c.text_primary)),
-                @ui.text("Three-Tree Widgets + Signals + 100K Virtual List", size=(12.0 : Float), color=Some(c.text_secondary)),
+                @ui.text("TYCHO UI GALLERY", size=(18.0 : Float), color=c.text_primary),
+                @ui.text("Three-Tree Widgets + Signals + 100K Virtual List", size=(12.0 : Float), color=c.text_secondary),
               ]),
               @ui.row(gap=(10.0 : Float), main_size=@ui.MainAxisSize::Min, [
                 @ui.tooltip(
@@ -53,18 +53,18 @@ fn build_gallery_ui(
         )
 
         let left_panel = @ui.sized_box(
-          width=Some((390.0 : Float)),
-          child=Some(
+          width=(390.0 : Float),
+          child=
             @ui.card(
               @ui.column(gap=(14.0 : Float), [
-                @ui.text("Reactive Controls", size=(16.0 : Float), color=Some(c.text_primary)),
+                @ui.text("Reactive Controls", size=(16.0 : Float), color=c.text_primary),
                 @ui.divider(),
                 @ui.row(
                   main_axis=@ui.MainAxisAlignment::SpaceBetween,
                   [
                     @ui.builder(tag=3, fn(cctx) {
                       let n = counter.get(cctx)
-                      @ui.text("Counter: \{n}", size=(16.0 : Float), color=Some(c.primary))
+                      @ui.text("Counter: \{n}", size=(16.0 : Float), color=c.primary)
                     }),
                     @ui.filled_button("Increment +1", fn() {
                       counter.update(fn(n) { n + 1 })
@@ -82,19 +82,18 @@ fn build_gallery_ui(
                     let v = slider_val.get(sctx)
                     let pct = (v * (100.0 : Float)).to_int()
                     @ui.column(gap=(6.0 : Float), main_size=@ui.MainAxisSize::Min, [
-                      @ui.text("Progress / Slider: \{pct}%", size=(13.0 : Float), color=Some(c.text_secondary)),
+                      @ui.text("Progress / Slider: \{pct}%", size=(13.0 : Float), color=c.text_secondary),
                       @ui.slider(slider_val, width=(340.0 : Float)),
-                      @ui.progress_bar(v, width=(340.0 : Float), color=Some(c.secondary)),
+                      @ui.progress_bar(v, width=(340.0 : Float), color=c.secondary),
                     ])
                   }),
                 ]),
                 @ui.column(gap=(6.0 : Float), main_size=@ui.MainAxisSize::Min, [
-                  @ui.text("Editable TextField:", size=(13.0 : Float), color=Some(c.text_secondary)),
+                  @ui.text("Editable TextField:", size=(13.0 : Float), color=c.text_secondary),
                   @ui.text_field(text_ctrl, width=(340.0 : Float), placeholder="Enter text..."),
                 ]),
               ]),
             ),
-          ),
         )
 
         let right_panel = @ui.expanded(
@@ -103,10 +102,10 @@ fn build_gallery_ui(
               @ui.row(
                 main_axis=@ui.MainAxisAlignment::SpaceBetween,
                 [
-                  @ui.text("100,000-Row Virtual List", size=(16.0 : Float), color=Some(c.text_primary)),
+                  @ui.text("100,000-Row Virtual List", size=(16.0 : Float), color=c.text_primary),
                   @ui.builder(tag=5, fn(lctx) {
                     let sy = scroll_ctrl.offset.get(lctx).to_int()
-                    @ui.text("y=\{sy}px", size=(12.0 : Float), color=Some(c.secondary))
+                    @ui.text("y=\{sy}px", size=(12.0 : Float), color=c.secondary)
                   }),
                 ],
               ),
@@ -126,20 +125,19 @@ fn build_gallery_ui(
                   @ui.padding(
                     @ui.EdgeInsets::symmetric(vertical=(3.0 : Float)),
                     @ui.container(
-                      pad=Some(@ui.EdgeInsets::symmetric(horizontal=(12.0 : Float), vertical=(6.0 : Float))),
-                      color=Some(bg),
+                      pad=@ui.EdgeInsets::symmetric(horizontal=(12.0 : Float), vertical=(6.0 : Float)),
+                      color=bg,
                       radius=(8.0 : Float),
-                      child=Some(
+                      child=
                         @ui.row(gap=(10.0 : Float), [
                           @ui.container(
-                            width=Some((24.0 : Float)),
-                            height=Some((24.0 : Float)),
-                            color=Some(badge_col),
+                            width=(24.0 : Float),
+                            height=(24.0 : Float),
+                            color=badge_col,
                             radius=(6.0 : Float),
                           ),
-                          @ui.text("Virtual Item #\{idx}", size=(14.0 : Float), color=Some(c.text_primary)),
+                          @ui.text("Virtual Item #\{idx}", size=(14.0 : Float), color=c.text_primary),
                         ]),
-                      ),
                     ),
                   )
                 }),
@@ -150,14 +148,13 @@ fn build_gallery_ui(
         )
 
         let main_shell = @ui.container(
-          color=Some(c.background),
-          pad=Some(@ui.EdgeInsets::all((18.0 : Float))),
-          child=Some(
+          color=c.background,
+          pad=@ui.EdgeInsets::all((18.0 : Float)),
+          child=
             @ui.column(gap=(16.0 : Float), [
               header,
               @ui.expanded(@ui.row(gap=(16.0 : Float), cross_axis=@ui.CrossAxisAlignment::Stretch, [left_panel, right_panel])),
             ]),
-          ),
         )
 
         if modal_open {

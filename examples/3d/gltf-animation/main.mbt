@@ -80,7 +80,7 @@ fn main {
         @t3d.Light::directional(
           @tmath.Vec3::new(1.0, 0.96, 0.9),
           2.2,
-          shadow=Some(@t3d.ShadowDesc::default()),
+          shadow=@t3d.ShadowDesc::default(),
         ),
       ),
     )
@@ -107,7 +107,7 @@ fn main {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
       player.seek(0.0)
       player.apply(scene)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px0 = rt.readback()
 
       player.seek(1.0)
@@ -116,7 +116,7 @@ fn main {
         @tmath.Vec3::new(0.0, 0.0, 1.0),
       )
       let anim_ok = clip_ok && close78(spin_axis.x, 0.7071, 1.0e-2)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px1 = rt.readback()
 
       let frame_diff = diff78(px0, px1)

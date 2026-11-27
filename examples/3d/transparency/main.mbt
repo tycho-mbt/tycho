@@ -59,7 +59,7 @@ fn main {
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
       let centre = (300 * 800 + 400) * 4
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let front = rt.readback()
       let fr = front[centre].to_int()
       let fg = front[centre + 1].to_int()
@@ -67,7 +67,7 @@ fn main {
       opts.capture(800, 600, front)
       // Push the red quad behind the blue one; sorting must reverse the blend.
       scene.set_transform(red, @tmath.Transform::from_translation(@tmath.Vec3::new(0.0, 0.0, -3.0)))
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let back = rt.readback()
       let br = back[centre].to_int()
       let bg = back[centre + 1].to_int()

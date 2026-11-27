@@ -125,7 +125,7 @@ fn main {
         @t3d.Light::directional(
           @tmath.Vec3::new(1.0, 0.96, 0.88),
           3.6,
-          shadow=Some(@t3d.ShadowDesc::default()),
+          shadow=@t3d.ShadowDesc::default(),
         ),
       ),
     )
@@ -151,11 +151,11 @@ fn main {
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen(rt, scene, cam_node)
       let base = rt.readback()
       g2d.render_offscreen(
-        hud,
         rt,
+        hud,
         clear_color=@g2d.Color::transparent(),
         load_op=@tycho.LoadOp::Load,
       )

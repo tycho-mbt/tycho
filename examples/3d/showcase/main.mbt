@@ -91,7 +91,7 @@ fn main {
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let px = rt.readback()
       let mut lit = 0
       for i = 0; i + 3 < px.length(); i = i + 4 {

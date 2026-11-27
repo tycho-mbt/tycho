@@ -167,7 +167,7 @@ fn main {
         @t3d.Light::directional(
           @tmath.Vec3::new(1.0, 0.97, 0.9),
           3.8,
-          shadow=Some(@t3d.ShadowDesc::default()),
+          shadow=@t3d.ShadowDesc::default(),
         ),
       ),
     )
@@ -191,7 +191,7 @@ fn main {
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let base = rt.readback()
       let mut lit = 0
       let mut i = 0
@@ -211,7 +211,7 @@ fn main {
       )
         .with_albedo_tex(checker)
       renderer.update_material(sphere_mat, sphere_flat)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let no_normal = rt.readback()
       let normal_diff = diff_pixels(base, no_normal)
       // A cutoff above 1 discards every alpha value, removing the panel.
@@ -223,7 +223,7 @@ fn main {
         .with_albedo_tex(holes)
         .with_alpha(@t3d.AlphaMode::Mask(2.0))
       renderer.update_material(panel_mat, panel_gone)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let no_panel = rt.readback()
       let mask_diff = diff_pixels(no_normal, no_panel)
       let errs = dev.validation_errors()

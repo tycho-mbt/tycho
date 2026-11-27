@@ -53,7 +53,7 @@ pub fn poll(sc : @tycho.Swapchain) -> (Array[@tycho.Event], Bool) {
   for ev in events {
     match ev {
       @tycho.Event::CloseRequested => quit = true
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
+      @tycho.Event::KeyDown(k, _) => if k == @tycho.KeyCode::Escape { quit = true }
       _ => ()
     }
   }

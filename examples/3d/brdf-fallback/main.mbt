@@ -97,7 +97,7 @@ fn build_scene74(
       @t3d.Light::directional(
         @tmath.Vec3::new(1.0, 0.95, 0.88),
         2.4,
-        shadow=Some(@t3d.ShadowDesc::default()),
+        shadow=@t3d.ShadowDesc::default(),
       ),
     ),
   )
@@ -170,9 +170,9 @@ fn main {
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
-      r_bindless.render_offscreen(scene_a, cam_a, rt)
+      r_bindless.render_offscreen( rt,scene_a, cam_a)
       let px_a = rt.readback()
-      r_fallback.render_offscreen(scene_b, cam_b, rt)
+      r_fallback.render_offscreen( rt,scene_b, cam_b)
       let px_b = rt.readback()
 
       let diff = diff74(px_a, px_b)

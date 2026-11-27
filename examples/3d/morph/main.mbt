@@ -75,7 +75,7 @@ fn main {
         @t3d.Light::directional(
           @tmath.Vec3::new(1.0, 0.97, 0.92),
           2.6,
-          shadow=Some(@t3d.ShadowDesc::default()),
+          shadow=@t3d.ShadowDesc::default(),
         ),
       ),
     )
@@ -100,15 +100,15 @@ fn main {
 
     if !show_win {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let rest = rt.readback()
 
       renderer.set_morph_weights(node, [1.0, 0.0])
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let inflated = rt.readback()
 
       renderer.set_morph_weights(node, [0.0, 1.0])
-      renderer.render_offscreen(scene, cam_node, rt)
+      renderer.render_offscreen( rt,scene, cam_node)
       let rippled = rt.readback()
 
       let d_inflate = diff88(rest, inflated)
@@ -140,7 +140,7 @@ fn main {
         for ev in sc.poll_events() {
           match ev {
             @tycho.Event::CloseRequested => quit = true
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE {
+            @tycho.Event::KeyDown(k, _) => if k == @tycho.KeyCode::Escape {
               quit = true
             }
             _ => ()

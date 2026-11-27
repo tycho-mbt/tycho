@@ -84,8 +84,8 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert_spv,
         frag_spv,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
-        bindless_heap=Some(heap),
+        color_format=@tycho.TextureFormat::RGBA8,
+        bindless_heap=heap,
       ),
     )
 

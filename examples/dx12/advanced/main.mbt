@@ -67,7 +67,7 @@ fn main {
         shader_vs_dxil,
         shader_fs_dxil,
         push_constant_size=16,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        color_format=@tycho.TextureFormat::RGBA8,
       ),
     )
     let clear = @tycho.ClearColor::rgba(0.05, 0.05, 0.1, 1.0)

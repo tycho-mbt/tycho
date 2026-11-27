@@ -153,7 +153,7 @@ fn main {
               clear_color=@tycho.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
             ),
           ],
-          depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+          depth=@tycho.DepthTargetDesc::new(depth_rt),
         )
         cmd.bind_pipeline(gbuf_pipe)
         cmd.push_constants_mat4(gbuf_pipe, mvp)
@@ -190,7 +190,7 @@ fn main {
         @tycho.PipelineDesc::from_spirv(
           cvert,
           cfrag,
-          color_format=Some(@tycho.TextureFormat::RGBA8),
+          color_format=@tycho.TextureFormat::RGBA8,
         ),
       )
       let cmd = dev.begin_commands()
@@ -207,7 +207,7 @@ fn main {
             clear_color=@tycho.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
           ),
         ],
-        depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+        depth=@tycho.DepthTargetDesc::new(depth_rt),
       )
       cmd.bind_pipeline(gbuf_pipe)
       cmd.push_constants_mat4(gbuf_pipe, mvp0)
@@ -240,7 +240,7 @@ fn main {
               clear_color=@tycho.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
             ),
           ],
-          depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+          depth=@tycho.DepthTargetDesc::new(depth_rt),
         )
         cmd_s.bind_pipeline(gbuf_pipe)
         cmd_s.push_constants_mat4(gbuf_pipe, mvp_s)
@@ -269,7 +269,7 @@ fn main {
               clear_color=@tycho.ClearColor::rgba(0.5, 0.5, 0.5, 1.0),
             ),
           ],
-          depth=Some(@tycho.DepthTargetDesc::new(depth_rt)),
+          depth=@tycho.DepthTargetDesc::new(depth_rt),
         )
         cmd_r.bind_pipeline(gbuf_pipe)
         cmd_r.push_constants_mat4(gbuf_pipe, mvp0)

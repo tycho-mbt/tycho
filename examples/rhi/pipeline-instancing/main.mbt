@@ -63,8 +63,8 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert,
         frag,
-        blend_mode=Some(@tycho.BlendMode::Additive),
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        blend_mode=@tycho.BlendMode::Additive,
+        color_format=@tycho.TextureFormat::RGBA8,
         vertex_layouts=layouts,
       ),
     )
@@ -73,7 +73,7 @@ fn main {
         vert,
         frag,
         topology=@tycho.PrimitiveTopology::LineList,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        color_format=@tycho.TextureFormat::RGBA8,
         vertex_layouts=layouts,
       ),
     )
@@ -81,8 +81,8 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert,
         frag,
-        blend_mode=Some(@tycho.BlendMode::Alpha),
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        blend_mode=@tycho.BlendMode::Alpha,
+        color_format=@tycho.TextureFormat::RGBA8,
         vertex_layouts=layouts,
       ),
     )
@@ -90,8 +90,8 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert,
         frag,
-        blend_mode=Some(@tycho.BlendMode::Premultiplied),
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        blend_mode=@tycho.BlendMode::Premultiplied,
+        color_format=@tycho.TextureFormat::RGBA8,
         vertex_layouts=layouts,
       ),
     )
@@ -99,8 +99,8 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert,
         frag,
-        blend_mode=Some(@tycho.BlendMode::Multiply),
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        blend_mode=@tycho.BlendMode::Multiply,
+        color_format=@tycho.TextureFormat::RGBA8,
         vertex_layouts=layouts,
       ),
     )
@@ -111,8 +111,8 @@ fn main {
         depth_test=true,
         depth_write=true,
         depth_compare=@tycho.CompareOp::GreaterEqual,
-        depth_format=Some(@tycho.TextureFormat::Depth32F),
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        depth_format=@tycho.TextureFormat::Depth32F,
+        color_format=@tycho.TextureFormat::RGBA8,
         vertex_layouts=layouts,
       ),
     )
@@ -365,14 +365,14 @@ fn main {
           clear_color=@tycho.ClearColor::black(),
         ),
       ],
-      depth=Some(
+      depth=
         @tycho.DepthTargetDesc::new(
           depth_revz,
           load_op=@tycho.LoadOp::Clear,
           store_op=@tycho.StoreOp::DontCare,
           clear_depth=(0.0 : Float),
-        ),
-      ),
+        )
+      ,
     )
     cmd.bind_pipeline(revz_pipe)
     cmd.bind_vertex(0, revz_vbuf, offset=0)
@@ -436,8 +436,8 @@ fn main {
       @tycho.PipelineDesc::from_spirv(
         vert,
         frag,
-        blend_mode=Some(@tycho.BlendMode::Additive),
-        color_format=Some(@tycho.TextureFormat::RGBA8),
+        blend_mode=@tycho.BlendMode::Additive,
+        color_format=@tycho.TextureFormat::RGBA8,
         vertex_layouts=layouts,
       ),
     )
