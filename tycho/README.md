@@ -26,6 +26,8 @@ present at runtime (standard on desktop Linux, Windows, and macOS).
 - Pure-MoonBit free-list GPU memory sub-allocator (`RegionPool` / `SubAllocator`) with `GpuOnly`/`CpuToGpu`/`GpuToCpu` tiers, deferred deletion queue, and `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT` when Ray Query is supported
 - **SPIR-V Auto-Reflection**: `PipelineDesc::from_spirv` and `Device::create_compute_pipeline_auto` derive vertex layouts, descriptor bindings (UBO, texture, SSBO, storage image, `OpTypeAccelerationStructureKHR`), push constant ranges, and MRT attachment counts directly from SPIR-V bytecode
 - **Modern GPU Features**: **MRT**, **4x MSAA Offscreen Resolve**, **Hardware Mipmap Generation**, **Compute Storage Images**, **Indirect / Indirect-Count Draw**, **Bindless Heap**, **Mesh Shaders**, **StencilState + dynamic `set_stencil_reference`**, **Inline Ray Query (`create_blas` / `create_tlas` / `bind_accel_struct`)**, and **GPU Timestamp Queries** (`TimestampPool`)
+- **Deterministic backend errors**: a cross-backend misuse (DX12 resource on a Vulkan command buffer or vice versa, a command the other backend does not implement) is recorded in `CommandBuffer::first_error` and raised from `Device::end_commands` / `Swapchain::end_frame` as `RhiError::BackendUnsupported`. Recording calls never drop a mistake silently.
+- **Native optional parameters**: pipeline/sampler/render-target descriptions use MoonBit optional arguments (`depth_format? : TextureFormat`, `compare_op? : CompareOp`, `resolve_texture? : Texture`, …), so call sites read `depth_format=TextureFormat::Depth32F` instead of `depth_format=Some(TextureFormat::Depth32F)`, and an existing `Option` forwards with `depth_format?=maybe_depth`.
 
 ## Math
 

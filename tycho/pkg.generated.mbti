@@ -9,132 +9,6 @@ import {
 }
 
 // Values
-pub const KEY_0 : Int32 = 0x0030
-
-pub const KEY_1 : Int32 = 0x0031
-
-pub const KEY_2 : Int32 = 0x0032
-
-pub const KEY_3 : Int32 = 0x0033
-
-pub const KEY_4 : Int32 = 0x0034
-
-pub const KEY_5 : Int32 = 0x0035
-
-pub const KEY_6 : Int32 = 0x0036
-
-pub const KEY_7 : Int32 = 0x0037
-
-pub const KEY_8 : Int32 = 0x0038
-
-pub const KEY_9 : Int32 = 0x0039
-
-pub const KEY_A : Int32 = 0x0061
-
-pub const KEY_B : Int32 = 0x0062
-
-pub const KEY_BACKSPACE : Int32 = 0xff08
-
-pub const KEY_C : Int32 = 0x0063
-
-pub const KEY_D : Int32 = 0x0064
-
-pub const KEY_DOWN : Int32 = 0xff54
-
-pub const KEY_E : Int32 = 0x0065
-
-pub const KEY_ESCAPE : Int32 = 0xff1b
-
-pub const KEY_F : Int32 = 0x0066
-
-pub const KEY_F1 : Int32 = 0xffbe
-
-pub const KEY_F10 : Int32 = 0xffc7
-
-pub const KEY_F11 : Int32 = 0xffc8
-
-pub const KEY_F12 : Int32 = 0xffc9
-
-pub const KEY_F2 : Int32 = 0xffbf
-
-pub const KEY_F3 : Int32 = 0xffc0
-
-pub const KEY_F4 : Int32 = 0xffc1
-
-pub const KEY_F5 : Int32 = 0xffc2
-
-pub const KEY_F6 : Int32 = 0xffc3
-
-pub const KEY_F7 : Int32 = 0xffc4
-
-pub const KEY_F8 : Int32 = 0xffc5
-
-pub const KEY_F9 : Int32 = 0xffc6
-
-pub const KEY_G : Int32 = 0x0067
-
-pub const KEY_H : Int32 = 0x0068
-
-pub const KEY_I : Int32 = 0x0069
-
-pub const KEY_J : Int32 = 0x006a
-
-pub const KEY_K : Int32 = 0x006b
-
-pub const KEY_L : Int32 = 0x006c
-
-pub const KEY_LALT : Int32 = 0xffe9
-
-pub const KEY_LCTRL : Int32 = 0xffe3
-
-pub const KEY_LEFT : Int32 = 0xff51
-
-pub const KEY_LSHIFT : Int32 = 0xffe1
-
-pub const KEY_M : Int32 = 0x006d
-
-pub const KEY_N : Int32 = 0x006e
-
-pub const KEY_O : Int32 = 0x006f
-
-pub const KEY_P : Int32 = 0x0070
-
-pub const KEY_Q : Int32 = 0x0071
-
-pub const KEY_R : Int32 = 0x0072
-
-pub const KEY_RALT : Int32 = 0xffea
-
-pub const KEY_RCTRL : Int32 = 0xffe4
-
-pub const KEY_RETURN : Int32 = 0xff0d
-
-pub const KEY_RIGHT : Int32 = 0xff53
-
-pub const KEY_RSHIFT : Int32 = 0xffe2
-
-pub const KEY_S : Int32 = 0x0073
-
-pub const KEY_SPACE : Int32 = 0x0020
-
-pub const KEY_T : Int32 = 0x0074
-
-pub const KEY_TAB : Int32 = 0xff09
-
-pub const KEY_U : Int32 = 0x0075
-
-pub const KEY_UP : Int32 = 0xff52
-
-pub const KEY_V : Int32 = 0x0076
-
-pub const KEY_W : Int32 = 0x0077
-
-pub const KEY_X : Int32 = 0x0078
-
-pub const KEY_Y : Int32 = 0x0079
-
-pub const KEY_Z : Int32 = 0x007a
-
 pub fn compile_glsl(String, ShaderStage) -> FixedArray[UInt32]
 
 pub fn compile_glsl_source(String, ShaderStage) -> FixedArray[UInt32]
@@ -290,8 +164,8 @@ pub struct CommandBuffer {
   // private fields
 }
 pub fn CommandBuffer::barrier(Self) -> Unit
-pub fn CommandBuffer::begin_render_pass(Self, Array[RenderTargetDesc], depth? : DepthTargetDesc?) -> Unit raise RhiError
-pub fn CommandBuffer::begin_swapchain_pass(Self, Swapchain, load_op? : LoadOp, clear_color? : ClearColor?) -> Unit
+pub fn CommandBuffer::begin_render_pass(Self, Array[RenderTargetDesc], depth? : DepthTargetDesc) -> Unit raise RhiError
+pub fn CommandBuffer::begin_swapchain_pass(Self, Swapchain, load_op? : LoadOp, clear_color? : ClearColor) -> Unit
 pub fn CommandBuffer::bind_accel_struct(Self, Pipeline, Int32, AccelStruct) -> Unit
 pub fn CommandBuffer::bind_bindless_heap(Self, Pipeline, BindlessHeap, set_index? : Int32) -> Unit
 pub fn CommandBuffer::bind_index(Self, Buffer, IndexType, offset? : Int32) -> Unit
@@ -318,6 +192,7 @@ pub fn CommandBuffer::draw_mesh_tasks(Self, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::draw_mesh_tasks_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
 pub fn CommandBuffer::end_render_pass(Self) -> Unit
 pub fn CommandBuffer::end_swapchain_pass(Self) -> Unit
+pub fn CommandBuffer::first_error(Self) -> String?
 pub fn CommandBuffer::frame_slot(Self) -> Int32
 pub fn CommandBuffer::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int32) -> Unit
 pub fn CommandBuffer::push_constants_floats(Self, Pipeline, FixedArray[Float], offset? : Int32) -> Unit
@@ -495,7 +370,7 @@ pub(all) struct MeshPipelineDesc {
   color_formats : Array[TextureFormat]
   bindless_heap : BindlessHeap?
 }
-pub fn MeshPipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], task? : FixedArray[UInt32]?, task_entry? : String, mesh_entry? : String, frag_entry? : String, uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], push_constant_size? : Int32, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap?) -> Self
+pub fn MeshPipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], task? : FixedArray[UInt32], task_entry? : String, mesh_entry? : String, frag_entry? : String, uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], push_constant_size? : Int32, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap) -> Self
 
 pub struct Pipeline {
   // private fields
@@ -541,8 +416,8 @@ pub(all) struct PipelineDesc {
   color_formats : Array[TextureFormat]
   bindless_heap : BindlessHeap?
 }
-pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState?, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, blend_state? : BlendState?, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout], bindless_heap? : BindlessHeap?) -> Self
-pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, accel_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], accel_bindings? : Array[Int32], push_constant_size? : Int32, topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat?, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState?, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode?, blend_state? : BlendState?, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat?, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap?) -> Self
+pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode, blend_state? : BlendState, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout], bindless_heap? : BindlessHeap) -> Self
+pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, accel_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], accel_bindings? : Array[Int32], push_constant_size? : Int32, topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode, blend_state? : BlendState, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum PresentMode {
@@ -569,7 +444,7 @@ pub(all) struct RayGeometryDesc {
   index_type : IndexType
   is_opaque : Bool
 }
-pub fn RayGeometryDesc::new(Buffer, Int32, vertex_stride? : Int32, index_buffer? : Buffer?, index_count? : Int32, index_type? : IndexType, is_opaque? : Bool) -> Self
+pub fn RayGeometryDesc::new(Buffer, Int32, vertex_stride? : Int32, index_buffer? : Buffer, index_count? : Int32, index_type? : IndexType, is_opaque? : Bool) -> Self
 
 pub(all) struct RayInstanceDesc {
   blas : AccelStruct
@@ -587,7 +462,7 @@ pub(all) struct RenderTargetDesc {
   clear_color : ClearColor
   resolve_texture : Texture?
 }
-pub fn RenderTargetDesc::new(Texture, load_op? : LoadOp, store_op? : StoreOp, clear_color? : ClearColor, resolve_texture? : Texture?) -> Self
+pub fn RenderTargetDesc::new(Texture, load_op? : LoadOp, store_op? : StoreOp, clear_color? : ClearColor, resolve_texture? : Texture) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum SampleCount {
@@ -612,7 +487,7 @@ pub(all) struct SamplerDesc {
   anisotropy : Float
   compare_op : CompareOp?
 }
-pub fn SamplerDesc::new(mag? : Filter, min? : Filter, mipmap? : Filter, address? : AddressMode, border_color? : BorderColor, min_lod? : Float, max_lod? : Float, mip_lod_bias? : Float, anisotropy? : Float, compare_op? : CompareOp?) -> Self
+pub fn SamplerDesc::new(mag? : Filter, min? : Filter, mipmap? : Filter, address? : AddressMode, border_color? : BorderColor, min_lod? : Float, max_lod? : Float, mip_lod_bias? : Float, anisotropy? : Float, compare_op? : CompareOp) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum ShaderStage {
@@ -676,7 +551,7 @@ pub fn Swapchain::framebuffer_size(Self) -> (Int32, Int32)
 pub fn Swapchain::has_depth(Self) -> Bool
 pub fn Swapchain::height(Self) -> Int32
 pub fn Swapchain::is_fullscreen(Self) -> Bool
-pub fn Swapchain::is_mouse_down(Self, Int32) -> Bool
+pub fn Swapchain::is_mouse_down(Self, @tycho_window.MouseButton) -> Bool
 pub fn Swapchain::mouse_pos(Self) -> (Double, Double)
 pub fn Swapchain::poll_events(Self) -> Array[@tycho_window.Event]
 pub fn Swapchain::present_texture(Self, Texture) -> Unit raise RhiError
@@ -691,6 +566,7 @@ pub fn Swapchain::sync_size(Self) -> Unit raise RhiError
 pub fn Swapchain::time() -> Double
 pub fn Swapchain::wait_events(timeout_ms? : Int32) -> Unit
 pub fn Swapchain::width(Self) -> Int32
+pub fn Swapchain::window(Self) -> @tycho_window.Window
 
 pub(all) struct SwapchainDesc {
   title : String
@@ -772,6 +648,12 @@ pub using @tycho_window {type CursorMode}
 pub using @tycho_window {type CursorShape}
 
 pub using @tycho_window {type Event}
+
+pub using @tycho_window {type KeyCode}
+
+pub using @tycho_window {type Modifiers}
+
+pub using @tycho_window {type MouseButton}
 
 pub using @tycho_shader {type ReflectedBinding}
 

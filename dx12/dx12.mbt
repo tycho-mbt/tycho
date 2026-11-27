@@ -723,7 +723,7 @@ pub fn CommandList::set_texture(
   root_index : Int,
   sampler_root : Int,
   tex : Texture,
-  sampler? : Sampler? = None,
+  sampler? : Sampler,
 ) -> Bool {
   let sampler_handle = match sampler {
     Some(s) => s.handle
@@ -922,7 +922,7 @@ pub fn CommandList::execute_indirect_counted(
   buffer : Buffer,
   count_buffer : Buffer,
   max_count? : Int = 1,
-  tex? : Texture? = None,
+  tex? : Texture,
   offset? : Int = 0,
   count_offset? : Int = 0,
   flip_y? : Bool = false,
@@ -1044,7 +1044,7 @@ pub fn CommandList::execute_indirect(
   self : CommandList,
   kind : IndirectKind,
   buffer : Buffer,
-  tex? : Texture? = None,
+  tex? : Texture,
   count? : Int = 1,
   offset? : Int = 0,
   flip_y? : Bool = false,

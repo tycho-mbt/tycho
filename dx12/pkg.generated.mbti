@@ -5554,10 +5554,11 @@ pub fn CommandList::copy_to_readback(Self, Texture, Readback) -> Bool
 pub fn CommandList::create(Device) -> Self?
 pub fn CommandList::destroy(Self) -> Unit
 pub fn CommandList::dispatch(Self, Int32, Int32, z? : Int32) -> Bool
+pub fn CommandList::dispatch_mesh(Self, Texture, Int32, y? : Int32, z? : Int32, flip_y? : Bool) -> Bool
 pub fn CommandList::draw(Self, Texture, Int32, instances? : Int32, flip_y? : Bool) -> Bool
 pub fn CommandList::draw_indexed(Self, Texture, Int32, instances? : Int32, first_index? : Int32, vertex_offset? : Int32, flip_y? : Bool) -> Bool
-pub fn CommandList::execute_indirect(Self, IndirectKind, Buffer, tex? : Texture?, count? : Int32, offset? : Int32, flip_y? : Bool) -> Bool
-pub fn CommandList::execute_indirect_counted(Self, IndirectKind, Buffer, Buffer, max_count? : Int32, tex? : Texture?, offset? : Int32, count_offset? : Int32, flip_y? : Bool) -> Bool
+pub fn CommandList::execute_indirect(Self, IndirectKind, Buffer, tex? : Texture, count? : Int32, offset? : Int32, flip_y? : Bool) -> Bool
+pub fn CommandList::execute_indirect_counted(Self, IndirectKind, Buffer, Buffer, max_count? : Int32, tex? : Texture, offset? : Int32, count_offset? : Int32, flip_y? : Bool) -> Bool
 pub fn CommandList::execute_wait(Self, Device) -> Bool
 pub fn CommandList::handle(Self) -> UInt64
 pub fn CommandList::set_buffer_uav(Self, Int32, Buffer) -> Bool
@@ -5566,17 +5567,19 @@ pub fn CommandList::set_compute_pipeline(Self, ComputePipeline) -> Bool
 pub fn CommandList::set_compute_root_constants(Self, Int32, FixedArray[Float]) -> Bool
 pub fn CommandList::set_compute_root_constants_bytes(Self, Int32, Bytes) -> Bool
 pub fn CommandList::set_depth(Self, Texture) -> Bool
+pub fn CommandList::set_extra_targets(Self, Texture?, Texture?, Texture?) -> Bool
+pub fn CommandList::set_mesh_pipeline(Self, MeshPipeline) -> Bool
 pub fn CommandList::set_pipeline(Self, Pipeline) -> Bool
 pub fn CommandList::set_root_constants(Self, Int32, FixedArray[Float]) -> Bool
 pub fn CommandList::set_root_constants_bytes(Self, Int32, Bytes) -> Bool
-pub fn CommandList::set_texture(Self, Int32, Texture, sampler? : Sampler?) -> Bool
+pub fn CommandList::set_texture(Self, Int32, Int32, Texture, sampler? : Sampler) -> Bool
 pub fn CommandList::set_uav(Self, Int32, Texture) -> Bool
 pub fn CommandList::transition(Self, Texture, ResourceState) -> Bool
 
 pub struct ComputePipeline {
   handle : UInt64
 }
-pub fn ComputePipeline::create(Device, FixedArray[UInt32], Int32, cbv_count? : Int32, uav_tables? : Int32) -> Self?
+pub fn ComputePipeline::create(Device, FixedArray[UInt32], Int32, cbv_count? : Int32, uav_tables? : Int32, push_bytes? : Int32) -> Self?
 pub fn ComputePipeline::destroy(Self) -> Unit
 pub fn ComputePipeline::handle(Self) -> UInt64
 
@@ -5600,10 +5603,17 @@ pub(all) enum IndirectKind {
   Dispatch
 }
 
+pub struct MeshPipeline {
+  handle : UInt64
+}
+pub fn MeshPipeline::create(Device, FixedArray[UInt32], FixedArray[UInt32], color_format? : Int32, depth? : Bool, depth_write? : Bool, flip_y? : Bool) -> Self?
+pub fn MeshPipeline::destroy(Self) -> Unit
+pub fn MeshPipeline::handle(Self) -> UInt64
+
 pub struct Pipeline {
   handle : UInt64
 }
-pub fn Pipeline::create(Device, FixedArray[UInt32], Int32, FixedArray[UInt32], Int32, cbv_count? : Int32, flip_y? : Bool, depth? : Bool, depth_write? : Bool, srv_tables? : Int32, push_bytes? : Int32, inputs? : FixedArray[Int32]) -> Self?
+pub fn Pipeline::create(Device, FixedArray[UInt32], Int32, FixedArray[UInt32], Int32, cbv_count? : Int32, flip_y? : Bool, depth? : Bool, depth_write? : Bool, srv_tables? : Int32, push_bytes? : Int32, color_formats? : FixedArray[Int32], inputs? : FixedArray[Int32]) -> Self?
 pub fn Pipeline::destroy(Self) -> Unit
 pub fn Pipeline::handle(Self) -> UInt64
 
@@ -5669,13 +5679,14 @@ pub fn Swapchain::width(Self) -> Int32
 pub struct Texture {
   handle : UInt64
 }
-pub fn Texture::create(Device, Int32, Int32) -> Self?
-pub fn Texture::create_depth(Device, Int32, Int32) -> Self?
+pub fn Texture::create(Device, Int32, Int32, format? : Int32) -> Self?
+pub fn Texture::create_depth(Device, Int32, Int32, format? : Int32) -> Self?
 pub fn Texture::create_storage(Device, Int32, Int32) -> Self?
-pub fn Texture::create_uploaded(Device, Int32, Int32, Bytes) -> Self?
+pub fn Texture::create_uploaded(Device, Int32, Int32, Bytes, format? : Int32) -> Self?
 pub fn Texture::destroy(Self) -> Unit
 pub fn Texture::handle(Self) -> UInt64
 pub fn Texture::is_depth(Self) -> Bool
+pub fn Texture::none() -> Self
 pub fn Texture::state(Self) -> ResourceState?
 
 pub struct TimestampPool {

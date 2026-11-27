@@ -1021,7 +1021,7 @@ fn dx12_indirect(
       let _ = cmd.commands.execute_indirect(
         kind,
         buffer.buffer,
-        tex=Some(target),
+        tex=target,
         count=draw_count,
         offset~,
         flip_y=true,
@@ -1105,7 +1105,7 @@ fn dx12_indirect_counted(
         args.buffer,
         counts.buffer,
         max_count=max_count,
-        tex=Some(target),
+        tex=target,
         offset~,
         count_offset~,
         flip_y=true,

@@ -177,6 +177,33 @@ pub struct AccelStruct {
 ///|
 pub struct CommandBuffer {
   priv backend : CommandsBackend
+  // First backend misuse / unsupported command recorded while recording. Both
+  // backends funnel it through `end_commands` (or `Swapchain::end_frame`) so a
+  // cross-backend mistake is reported deterministically instead of being
+  // silently dropped at the call site.
+  priv mut first_error : String?
+}
+
+///|
+/// Keeps the first recorded error so a later, less specific message cannot mask
+/// the original cause.
+fn record_first(current : String?, what : String) -> String? {
+  match current {
+    None => Some(what)
+    Some(_) => current
+  }
+}
+
+///|
+fn CommandBuffer::fail_later(self : CommandBuffer, what : String) -> Unit {
+  self.first_error = record_first(self.first_error, what)
+}
+
+///|
+/// The first recorded error, if any. `end_commands` raises it; callers can also
+/// inspect it when they only want to log.
+pub fn CommandBuffer::first_error(self : CommandBuffer) -> String? {
+  self.first_error
 }
 
 ///|
@@ -373,19 +400,20 @@ pub fn Swapchain::depth_format(self : Swapchain) -> TextureFormat {
 
 ///|
 /// The native window handle backing this swapchain (HWND on Windows).
-fn Swapchain::window(self : Swapchain) -> UInt64 {
-  match self.backend {
+///|
+/// The window this swapchain presents to, as a typed `@win.Window` so callers
+/// never handle the raw platform pointer.
+pub fn Swapchain::window(self : Swapchain) -> @win.Window {
+  let handle = match self.backend {
     VkSwapchain(state) => state.window
     Dx12Swapchain(state) => state.window
   }
+  @win.Window::from_handle(handle)
 }
 
 ///|
 pub fn Swapchain::should_close(self : Swapchain) -> Bool {
-  match self.backend {
-    VkSwapchain(state) => @win.should_close(state.window) != 0
-    Dx12Swapchain(state) => @win.should_close(state.window) != 0
-  }
+  self.window().should_close()
 }
 
 ///|
@@ -400,20 +428,17 @@ pub fn Swapchain::wait_events(timeout_ms? : Int = 4) -> Unit {
 
 ///|
 pub fn Swapchain::poll_events(self : Swapchain) -> Array[Event] {
-  match self.backend {
-    VkSwapchain(state) => @win.poll_events(state.window)
-    Dx12Swapchain(state) => @win.poll_events(state.window)
-  }
+  self.window().poll_events()
 }
 
 ///|
 pub fn Swapchain::set_title(self : Swapchain, title : String) -> Unit {
-  @win.set_title(self.window(), title)
+  self.window().set_title(title)
 }
 
 ///|
 pub fn Swapchain::set_cursor_mode(self : Swapchain, mode : CursorMode) -> Unit {
-  @win.set_cursor_mode(self.window(), mode)
+  self.window().set_cursor_mode(mode)
 }
 
 ///|
@@ -421,47 +446,47 @@ pub fn Swapchain::set_cursor_shape(
   self : Swapchain,
   shape : CursorShape,
 ) -> Unit {
-  @win.set_cursor_shape(self.window(), shape)
+  self.window().set_cursor_shape(shape)
 }
 
 ///|
 pub fn Swapchain::clipboard_text(self : Swapchain) -> String {
-  @win.clipboard_text(self.window())
+  self.window().clipboard_text()
 }
 
 ///|
 pub fn Swapchain::set_clipboard_text(self : Swapchain, text : String) -> Unit {
-  @win.set_clipboard_text(self.window(), text)
+  self.window().set_clipboard_text(text)
 }
 
 ///|
 pub fn Swapchain::set_fullscreen(self : Swapchain, fullscreen : Bool) -> Unit {
-  @win.set_fullscreen(self.window(), fullscreen)
+  self.window().set_fullscreen(fullscreen)
 }
 
 ///|
 pub fn Swapchain::is_fullscreen(self : Swapchain) -> Bool {
-  @win.is_fullscreen(self.window())
+  self.window().is_fullscreen()
 }
 
 ///|
 pub fn Swapchain::content_scale(self : Swapchain) -> Double {
-  @win.content_scale(self.window())
+  self.window().content_scale()
 }
 
 ///|
 pub fn Swapchain::framebuffer_size(self : Swapchain) -> (Int, Int) {
-  @win.framebuffer_size(self.window())
+  self.window().framebuffer_size()
 }
 
 ///|
 pub fn Swapchain::mouse_pos(self : Swapchain) -> (Double, Double) {
-  @win.mouse_pos(self.window())
+  self.window().mouse_pos()
 }
 
 ///|
-pub fn Swapchain::is_mouse_down(self : Swapchain, button : Int) -> Bool {
-  @win.is_mouse_down(self.window(), button)
+pub fn Swapchain::is_mouse_down(self : Swapchain, button : @win.MouseButton) -> Bool {
+  self.window().is_mouse_down(button)
 }
 
 ///|
@@ -472,8 +497,14 @@ pub fn Swapchain::time() -> Double {
 ///|
 pub fn Swapchain::begin_frame(self : Swapchain) -> CommandBuffer raise RhiError {
   match self.backend {
-    VkSwapchain(state) => { backend: VkCommands(vk_swapchain_begin_frame(state)) }
-    Dx12Swapchain(state) => { backend: Dx12Commands(dx12_begin_frame(state)) }
+    VkSwapchain(state) => {
+      backend: VkCommands(vk_swapchain_begin_frame(state)),
+      first_error: None,
+    }
+    Dx12Swapchain(state) => {
+      backend: Dx12Commands(dx12_begin_frame(state)),
+      first_error: None,
+    }
   }
 }
 
@@ -482,8 +513,14 @@ pub fn Swapchain::begin_frame_commands(
   self : Swapchain,
 ) -> CommandBuffer raise RhiError {
   match self.backend {
-    VkSwapchain(state) => { backend: VkCommands(vk_swapchain_begin_frame_commands(state)) }
-    Dx12Swapchain(state) => { backend: Dx12Commands(dx12_begin_frame_commands(state)) }
+    VkSwapchain(state) => {
+      backend: VkCommands(vk_swapchain_begin_frame_commands(state)),
+      first_error: None,
+    }
+    Dx12Swapchain(state) => {
+      backend: Dx12Commands(dx12_begin_frame_commands(state)),
+      first_error: None,
+    }
   }
 }
 
@@ -498,29 +535,34 @@ fn CommandBuffer::dx12_unsupported(self : CommandBuffer, what : String) -> Unit 
 }
 
 ///|
-/// Runs `apply` with the Vulkan command state; a no-op on the DX12 backend,
-/// which does not implement these recording calls yet.
+/// Runs `apply` with the Vulkan command state. On the DX12 backend the command
+/// is recorded as an error (surfacing from `end_commands`) instead of being
+/// dropped silently.
 fn CommandBuffer::on_vk(
   self : CommandBuffer,
   apply : (VkCmdState) -> Unit,
+  what? : String = "this command",
 ) -> Unit {
   match self.backend {
     VkCommands(state) => apply(state)
-    Dx12Commands(_) => ()
+    Dx12Commands(_) => self.fail_later("\{what} is not implemented on the DX12 backend")
   }
 }
 
 ///|
-/// Runs `apply` with the Vulkan command state and a Vulkan buffer; a no-op when
-/// either side belongs to another backend.
+/// Runs `apply` with the Vulkan command state and a Vulkan buffer. A mismatch
+/// is recorded as an error instead of being ignored.
 fn CommandBuffer::on_vk_buffer(
   self : CommandBuffer,
   buffer : Buffer,
   apply : (VkCmdState, VkBufferState) -> Unit,
+  what? : String = "this buffer binding",
 ) -> Unit {
   match (self.backend, buffer.backend) {
     (VkCommands(cmd), VkBuffer(state)) => apply(cmd, state)
-    _ => ()
+    (Dx12Commands(_), _) => self.fail_later("\{what} is not implemented on the DX12 backend")
+    (VkCommands(_), Dx12Buffer(_)) =>
+      self.fail_later("\{what} received a DX12 buffer on a Vulkan command buffer")
   }
 }
 
@@ -530,10 +572,12 @@ fn CommandBuffer::on_vk_buffers(
   first : Buffer,
   second : Buffer,
   apply : (VkCmdState, VkBufferState, VkBufferState) -> Unit,
+  what? : String = "this buffer copy",
 ) -> Unit {
   match (self.backend, first.backend, second.backend) {
     (VkCommands(cmd), VkBuffer(a), VkBuffer(b)) => apply(cmd, a, b)
-    _ => ()
+    (Dx12Commands(_), _, _) => self.fail_later("\{what} is not implemented on the DX12 backend")
+    _ => self.fail_later("\{what} mixes buffers from different backends")
   }
 }
 
@@ -557,9 +601,11 @@ pub fn CommandBuffer::blit_to_swapchain(
         VkSwapchain(sc) =>
           match src.backend {
             VkTexture(texture) => vk_cmd_blit_to_swapchain(state, texture, sc)
-            Dx12Texture(_) => ()
+            Dx12Texture(_) =>
+              self.fail_later("blit_to_swapchain received a DX12 texture on a Vulkan command buffer")
           }
-        Dx12Swapchain(_) => ()
+        Dx12Swapchain(_) =>
+          self.fail_later("blit_to_swapchain received a DX12 swapchain on a Vulkan command buffer")
       }
     // Texture upload/blit is a Vulkan-backend feature today.
     Dx12Commands(_) => self.dx12_unsupported("a blit to the swapchain")
@@ -581,7 +627,7 @@ pub fn CommandBuffer::begin_swapchain_pass(
   self : CommandBuffer,
   swapchain : Swapchain,
   load_op? : LoadOp = LoadOp::Clear,
-  clear_color? : ClearColor? = None,
+  clear_color? : ClearColor,
 ) -> Unit {
   match self.backend {
     VkCommands(state) =>
@@ -620,6 +666,12 @@ pub fn Swapchain::end_frame(
         VkCommands(_) =>
           raise RhiError::InvalidArgument("Vulkan command buffer given to a DX12 swapchain")
       }
+  }
+  // The frame is submitted either way; a recorded backend misuse is reported
+  // now instead of being lost with the command buffer.
+  match cmd.first_error {
+    Some(message) => raise RhiError::BackendUnsupported(message)
+    None => ()
   }
 }
 
@@ -1536,7 +1588,8 @@ pub fn BindlessHeap::destroy(self : BindlessHeap) -> Unit {
 ///|
 pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
   match self.backend {
-    Dx12Device(state) => return { backend: Dx12Commands(dx12_commands_create(state)) }
+    Dx12Device(state) =>
+      return { backend: Dx12Commands(dx12_commands_create(state)), first_error: None }
     VkDevice(_) => ()
   }
   let d = self.vk()
@@ -1564,6 +1617,7 @@ pub fn Device::begin_commands(self : Device) -> CommandBuffer raise RhiError {
       render_w: 0,
       render_h: 0,
     }),
+    first_error: None,
   }
 }
 
@@ -1588,6 +1642,10 @@ pub fn Device::end_commands(
   d.completed_gen = d.current_gen
   d.current_gen = d.current_gen + (1 : UInt64)
   flush_deletes(d, false)
+  match cmd.first_error {
+    Some(message) => raise RhiError::BackendUnsupported(message)
+    None => ()
+  }
 }
 
 ///|
@@ -1603,7 +1661,7 @@ pub fn Device::submit_commands(
 pub fn CommandBuffer::begin_render_pass(
   self : CommandBuffer,
   colors : Array[RenderTargetDesc],
-  depth? : DepthTargetDesc? = None,
+  depth? : DepthTargetDesc,
 ) -> Unit raise RhiError {
   match self.backend {
     VkCommands(state) => vk_cmd_begin_render_pass(state, colors, depth)
@@ -1615,12 +1673,12 @@ pub fn CommandBuffer::begin_render_pass(
 pub fn CommandBuffer::end_render_pass(self : CommandBuffer) -> Unit {
   match self.backend {
     VkCommands(state) =>
-      // The Vulkan helper can only fail on a backend mix-up, which the tags
-      // already prevent; the signature stays non-raising like before.
+      // The signature stays non-raising, but a failure is recorded so
+      // `end_commands` reports it instead of losing the message.
       try {
-        vk_cmd_end_render_pass(state)
+        let _ = vk_cmd_end_render_pass(state)
       } catch {
-        _ => ()
+        err => self.fail_later("end_render_pass failed: \{err}")
       }
     Dx12Commands(state) => dx12_end_render_pass(state)
   }
@@ -1635,14 +1693,15 @@ pub fn CommandBuffer::bind_pipeline(
     VkCommands(state) =>
       match pipeline.backend {
         VkPipeline(pipe) => vk_cmd_bind_pipeline(state, pipe)
-        Dx12Pipeline(_) => ()
-        Dx12Compute(_) => ()
-  }
+        Dx12Pipeline(_) | Dx12Compute(_) =>
+          self.fail_later("bind_pipeline received a DX12 pipeline on a Vulkan command buffer")
+      }
     Dx12Commands(state) =>
       match pipeline.backend {
         Dx12Pipeline(pipe) => dx12_bind_pipeline(state, pipe)
         Dx12Compute(pipe) => dx12_bind_compute_pipeline(state, pipe)
-        VkPipeline(_) => ()
+        VkPipeline(_) =>
+          self.fail_later("bind_pipeline received a Vulkan pipeline on a DX12 command buffer")
       }
   }
 }
@@ -1662,7 +1721,7 @@ pub fn CommandBuffer::bind_uniform(
         (VkPipeline(pipe), VkBuffer(b)) => self.on_vk(fn(state) {
           state.pending_uniforms.push((pipe, slot, b, offset, size))
         })
-        _ => ()
+        _ => self.fail_later("bind_uniform mixes pipelines/buffers from different backends")
       }
     Dx12Commands(cmd) =>
       match (pipeline.backend, buffer.backend) {
@@ -1674,7 +1733,7 @@ pub fn CommandBuffer::bind_uniform(
         (Dx12Compute(pipe), Dx12Buffer(state)) => {
           let _ = dx12_bind_uniform(cmd, pipe.uniform_slots, slot, state, offset)
         }
-        _ => ()
+        _ => self.fail_later("bind_uniform mixes pipelines/buffers from different backends")
       }
   }
 }
@@ -1693,7 +1752,7 @@ pub fn CommandBuffer::bind_texture(
         (VkPipeline(pipe), VkTexture(tex), VkSampler(samp)) => self.on_vk(fn(state) {
           state.pending_textures.push((pipe, slot, tex, samp))
         })
-        _ => ()
+        _ => self.fail_later("bind_texture mixes pipelines/textures/samplers from different backends")
       }
     Dx12Commands(cmd) =>
       match (pipeline.backend, texture.backend) {
@@ -1710,10 +1769,10 @@ pub fn CommandBuffer::bind_texture(
             pipe.uniform_slots + slot,
             pipe.uniform_slots + pipe.texture_slots,
             tex.tex,
-            sampler=dx12_sampler,
+            sampler?=dx12_sampler,
           )
         }
-        _ => ()
+        _ => self.fail_later("bind_texture mixes pipelines/textures from different backends")
       }
   }
 }
@@ -1738,9 +1797,10 @@ pub fn CommandBuffer::bind_storage(
             dx12_unsupported(cmd, "this storage buffer binding")
           }
         }
-        VkCommands(_) => ()
+        VkCommands(_) =>
+          self.fail_later("bind_storage received a DX12 storage buffer on a Vulkan command buffer")
       }
-    _ => ()
+    _ => self.fail_later("bind_storage mixes pipelines/buffers from different backends")
   }
 }
 
@@ -1756,14 +1816,14 @@ pub fn CommandBuffer::bind_storage_image(
       match (pipeline.backend, texture.backend) {
         (VkPipeline(pipe), VkTexture(tex)) =>
           self.on_vk(fn(state) { state.pending_storage_images.push((pipe, slot, tex)) })
-        _ => ()
+        _ => self.fail_later("bind_storage_image mixes pipelines/textures from different backends")
       }
     Dx12Commands(cmd) =>
       match (pipeline.backend, texture.backend) {
         (Dx12Compute(pipe), Dx12Texture(tex)) => {
           let _ = dx12_bind_uav(cmd, pipe, slot, tex)
         }
-        _ => ()
+        _ => self.fail_later("bind_storage_image mixes pipelines/textures from different backends")
       }
   }
 }
@@ -1777,7 +1837,8 @@ pub fn CommandBuffer::transition_for_compute(
     VkCommands(state) =>
       match texture.backend {
         VkTexture(texture) => vk_cmd_transition_for_compute(state, texture)
-        Dx12Texture(_) => ()
+        Dx12Texture(_) =>
+          self.fail_later("transition_for_compute received a DX12 texture on a Vulkan command buffer")
       }
     Dx12Commands(state) =>
       match state.target {
@@ -1798,14 +1859,16 @@ pub fn CommandBuffer::transition_for_sampling(
     VkCommands(state) =>
       match texture.backend {
         VkTexture(texture) => vk_cmd_transition_for_sampling(state, texture)
-        Dx12Texture(_) => ()
+        Dx12Texture(_) =>
+          self.fail_later("transition_for_sampling received a DX12 texture on a Vulkan command buffer")
       }
     Dx12Commands(state) =>
       match texture.backend {
         Dx12Texture(tex) => {
           let _ = state.commands.transition(tex.tex, @dx12.ResourceState::ShaderResource)
         }
-        VkTexture(_) => ()
+        VkTexture(_) =>
+          self.fail_later("transition_for_sampling received a Vulkan texture on a DX12 command buffer")
       }
   }
 }
@@ -1820,7 +1883,7 @@ pub fn CommandBuffer::blit_texture(
   match (src.backend, dst.backend) {
     (VkTexture(a), VkTexture(b)) =>
       self.on_vk(fn(state) { vk_cmd_blit_texture(state, a, b, filter) })
-    _ => self.dx12_unsupported("a texture blit")
+    _ => self.fail_later("blit_texture mixes textures from different backends")
   }
 }
 
@@ -1834,7 +1897,7 @@ pub fn CommandBuffer::reset_timestamps(
     // D3D12 has no reset: a query is overwritten by the next EndQuery and the
     // resolve copies the heap wholesale, so there is nothing to clear.
     (Dx12Commands(_), Dx12TimestampPool(_)) => ()
-    _ => ()
+    _ => self.fail_later("reset_timestamps received a pool from a different backend")
   }
 }
 
@@ -1862,7 +1925,7 @@ pub fn CommandBuffer::write_timestamp(
         cmd.ts_pools.push(pool)
       }
     }
-    _ => ()
+    _ => self.fail_later("write_timestamp received a pool from a different backend")
   }
 }
 
@@ -1881,7 +1944,8 @@ pub fn CommandBuffer::bind_vertex(
         Dx12Buffer(state) => {
           let _ = dx12_bind_vertex(cmd, slot, state, offset)
         }
-        VkBuffer(_) => ()
+        VkBuffer(_) =>
+          self.fail_later("bind_vertex received a Vulkan buffer on a DX12 command buffer")
       }
   }
 }
@@ -1901,7 +1965,8 @@ pub fn CommandBuffer::bind_index(
         Dx12Buffer(state) => {
           let _ = dx12_bind_index(cmd, state, index_type, offset)
         }
-        VkBuffer(_) => ()
+        VkBuffer(_) =>
+          self.fail_later("bind_index received a Vulkan buffer on a DX12 command buffer")
       }
   }
 }
@@ -2026,8 +2091,8 @@ pub fn CommandBuffer::bind_accel_struct(
 ) -> Unit {
   match pipeline.backend {
     VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_accel.push((pipe, slot, accel)) })
-    Dx12Pipeline(_) => ()
-    Dx12Compute(_) => ()
+    Dx12Pipeline(_) | Dx12Compute(_) =>
+      self.fail_later("bind_accel_struct is not implemented on the DX12 backend")
   }
 }
 
@@ -2140,7 +2205,8 @@ pub fn CommandBuffer::draw_indirect(
       match buffer.backend {
         Dx12Buffer(state) =>
           dx12_indirect(cmd, state, @dx12.IndirectKind::Draw, draw_count, offset, stride)
-        VkBuffer(_) => ()
+        VkBuffer(_) =>
+          self.fail_later("draw_indirect received a Vulkan buffer on a DX12 command buffer")
       }
   }
 }
@@ -2167,7 +2233,8 @@ pub fn CommandBuffer::draw_indexed_indirect(
           offset,
           stride,
         )
-        VkBuffer(_) => ()
+        VkBuffer(_) =>
+          self.fail_later("draw_indexed_indirect received a Vulkan buffer on a DX12 command buffer")
       }
   }
 }
@@ -2199,7 +2266,7 @@ pub fn CommandBuffer::draw_indirect_count(
             count_offset,
             stride,
           )
-        _ => ()
+        _ => self.fail_later("draw_indirect_count mixes buffers from different backends")
       }
   }
 }
@@ -2239,7 +2306,7 @@ pub fn CommandBuffer::draw_indexed_indirect_count(
             count_offset,
             stride,
           )
-        _ => ()
+        _ => self.fail_later("draw_indexed_indirect_count mixes buffers from different backends")
       }
   }
 }
@@ -2257,7 +2324,8 @@ pub fn CommandBuffer::dispatch_indirect(
       match buffer.backend {
         Dx12Buffer(state) =>
           dx12_indirect(cmd, state, @dx12.IndirectKind::Dispatch, 1, offset, 12)
-        VkBuffer(_) => ()
+        VkBuffer(_) =>
+          self.fail_later("dispatch_indirect received a Vulkan buffer on a DX12 command buffer")
       }
   }
 }

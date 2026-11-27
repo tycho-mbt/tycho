@@ -42,3 +42,11 @@ test "resolve_upload_count validates element counts" {
   }
   assert_eq(oob_err, true)
 }
+
+///|
+test "record_first keeps the earliest recorded error" {
+  let first = record_first(None, "bind_pipeline: backend mismatch")
+  assert_eq(first, Some("bind_pipeline: backend mismatch"))
+  let second = record_first(first, "end_commands: later message")
+  assert_eq(second, Some("bind_pipeline: backend mismatch"))
+}
