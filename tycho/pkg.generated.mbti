@@ -135,6 +135,23 @@ pub(all) enum BufferKind {
   Indirect
 }
 
+pub(all) struct BufferUsage {
+  // private fields
+}
+pub fn BufferUsage::as_kind(Self) -> BufferKind
+pub fn BufferUsage::bits(Self) -> UInt32
+pub fn BufferUsage::combine(Self, Self) -> Self
+pub fn BufferUsage::contains(Self, Self) -> Bool
+pub fn BufferUsage::copy_dst() -> Self
+pub fn BufferUsage::copy_src() -> Self
+pub fn BufferUsage::from_kind(BufferKind) -> Self
+pub fn BufferUsage::index() -> Self
+pub fn BufferUsage::indirect() -> Self
+pub fn BufferUsage::none() -> Self
+pub fn BufferUsage::storage() -> Self
+pub fn BufferUsage::uniform() -> Self
+pub fn BufferUsage::vertex() -> Self
+
 pub(all) struct ClearColor {
   r : Float
   g : Float
@@ -230,6 +247,7 @@ pub fn Device::capabilities(Self) -> DeviceCapabilities
 pub fn Device::create_bindless_heap(Self, max_textures? : Int32) -> BindlessHeap raise RhiError
 pub fn Device::create_blas(Self, Array[RayGeometryDesc]) -> AccelStruct raise RhiError
 pub fn Device::create_buffer(Self, Int32, BufferKind) -> Buffer raise RhiError
+pub fn Device::create_buffer_usage(Self, Int32, BufferUsage, location? : MemoryLocation) -> Buffer raise RhiError
 pub fn Device::create_buffer_with(Self, Int32, BufferKind, location? : MemoryLocation) -> Buffer raise RhiError
 pub fn Device::create_compute_pipeline(Self, FixedArray[UInt32], Int32, Int32, storage_image_slots? : Int32, accel_slots? : Int32, push_constant_size? : Int32) -> Pipeline raise RhiError
 pub fn Device::create_compute_pipeline_auto(Self, FixedArray[UInt32]) -> Pipeline raise RhiError
@@ -248,6 +266,7 @@ pub fn Device::create_swapchain(Self, String, Int32, Int32) -> Swapchain raise R
 pub fn Device::create_swapchain_desc(Self, SwapchainDesc) -> Swapchain raise RhiError
 pub fn Device::create_texture(Self, Int32, Int32, Bytes) -> Texture raise RhiError
 pub fn Device::create_texture_array(Self, Int32, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
+pub fn Device::create_texture_desc(Self, TextureDesc, data? : Bytes) -> Texture raise RhiError
 pub fn Device::create_texture_format(Self, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
 pub fn Device::create_texture_mipmapped(Self, Int32, Int32, TextureFormat, Bytes) -> Texture raise RhiError
 pub fn Device::create_timestamp_pool(Self, Int32) -> TimestampPool raise RhiError
@@ -569,6 +588,23 @@ pub fn Texture::upload_subregion(Self, Int32, Int32, Int32, Int32, Bytes, layer?
 pub fn Texture::upload_subregions(Self, Array[(Int32, Int32, Int32, Int32, Bytes)]) -> Unit raise RhiError
 pub fn Texture::width(Self) -> Int32
 
+pub(all) struct TextureDesc {
+  width : Int32
+  height : Int32
+  format : TextureFormat
+  usage : TextureUsage
+  dimension : TextureDimension
+  mip_levels : Int32
+  samples : SampleCount
+}
+pub fn TextureDesc::new(Int32, Int32, TextureFormat, usage? : TextureUsage, dimension? : TextureDimension, mip_levels? : Int32, samples? : SampleCount) -> Self
+
+pub(all) enum TextureDimension {
+  D2
+  D2Array(Int32)
+  Cube
+}
+
 #derive(Eq, @debug.Debug)
 pub(all) enum TextureFormat {
   RGBA8
@@ -582,6 +618,19 @@ pub(all) enum TextureFormat {
   Depth32F
   Depth24Stencil8
 }
+
+pub(all) struct TextureUsage {
+  // private fields
+}
+pub fn TextureUsage::bits(Self) -> UInt32
+pub fn TextureUsage::combine(Self, Self) -> Self
+pub fn TextureUsage::contains(Self, Self) -> Bool
+pub fn TextureUsage::copy_dst() -> Self
+pub fn TextureUsage::copy_src() -> Self
+pub fn TextureUsage::none() -> Self
+pub fn TextureUsage::render_attachment() -> Self
+pub fn TextureUsage::sampled() -> Self
+pub fn TextureUsage::storage() -> Self
 
 pub struct TimestampPool {
   // private fields
@@ -609,7 +658,14 @@ pub(all) enum VertexFormat {
   Float2
   Float3
   Float4
+  Float1
+  Int1
+  Uint1
+  Unorm8x4
+  Uint16x4
 }
+pub fn VertexFormat::bytes(Self) -> Int32
+pub fn VertexFormat::code(Self) -> Int32
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VertexStepMode {

@@ -1002,9 +1002,17 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
   memset(&pso_desc, 0, sizeof pso_desc);
   if (input_count > 0) {
     // Five int32 per element: location, format, slot, offset, per-instance flag.
-    static const DXGI_FORMAT kFormats[3] = {DXGI_FORMAT_R32G32_FLOAT,
-                                            DXGI_FORMAT_R32G32B32_FLOAT,
-                                            DXGI_FORMAT_R32G32B32A32_FLOAT};
+    // Indexed by `VertexFormat::code()`; keep the order in sync.
+    static const DXGI_FORMAT kFormats[8] = {
+        DXGI_FORMAT_R32G32_FLOAT,       /* 0 Float2 */
+        DXGI_FORMAT_R32G32B32_FLOAT,    /* 1 Float3 */
+        DXGI_FORMAT_R32G32B32A32_FLOAT, /* 2 Float4 */
+        DXGI_FORMAT_R32_FLOAT,          /* 3 Float1 */
+        DXGI_FORMAT_R32_SINT,           /* 4 Int1 */
+        DXGI_FORMAT_R32_UINT,           /* 5 Uint1 */
+        DXGI_FORMAT_R8G8B8A8_UNORM,     /* 6 Unorm8x4 */
+        DXGI_FORMAT_R16G16B16A16_UINT,  /* 7 Uint16x4 */
+    };
     input_elements = (D3D12_INPUT_ELEMENT_DESC *)calloc((size_t)input_count,
                                                         sizeof(D3D12_INPUT_ELEMENT_DESC));
     if (!input_elements) {
@@ -1019,7 +1027,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
       // so a SPIR-V location n maps to TEXCOORD(n * 10) here.
       dst->SemanticName = "TEXCOORD";
       dst->SemanticIndex = (UINT)(e[0] * 10);
-      dst->Format = kFormats[e[1] < 0 || e[1] > 2 ? 0 : e[1]];
+      dst->Format = kFormats[e[1] < 0 || e[1] > 7 ? 0 : e[1]];
       dst->InputSlot = (UINT)e[2];
       dst->AlignedByteOffset = (UINT)e[3];
       dst->InputSlotClass =

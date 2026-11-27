@@ -215,19 +215,20 @@ priv struct VkCmdState {
 ///|
 fn vk_vertex_format(f : VertexFormat) -> UInt32 {
   match f {
+    VertexFormat::Float1 => @vk.VK_FORMAT_R32_SFLOAT
     VertexFormat::Float2 => @vk.VK_FORMAT_R32G32_SFLOAT
     VertexFormat::Float3 => @vk.VK_FORMAT_R32G32B32_SFLOAT
     VertexFormat::Float4 => @vk.VK_FORMAT_R32G32B32A32_SFLOAT
+    VertexFormat::Int1 => @vk.VK_FORMAT_R32_SINT
+    VertexFormat::Uint1 => @vk.VK_FORMAT_R32_UINT
+    VertexFormat::Unorm8x4 => @vk.VK_FORMAT_R8G8B8A8_UNORM
+    VertexFormat::Uint16x4 => @vk.VK_FORMAT_R16G16B16A16_UINT
   }
 }
 
 ///|
 fn vertex_format_bytes(f : VertexFormat) -> Int {
-  match f {
-    VertexFormat::Float2 => 8
-    VertexFormat::Float3 => 12
-    VertexFormat::Float4 => 16
-  }
+  f.bytes()
 }
 
 ///|
@@ -1136,27 +1137,46 @@ fn vk_buffer_create(
   kind : BufferKind,
   location? : MemoryLocation = MemoryLocation::CpuToGpu,
 ) -> VkBufferState raise RhiError {
+  vk_buffer_create_usage(d, size, BufferUsage::from_kind(kind), location~)
+}
+
+///|
+/// Allocates a buffer from composable usage flags so one buffer can serve
+/// several roles (e.g. `Storage | Indirect` for GPU-driven draw lists).
+fn vk_buffer_create_usage(
+  d : VkDeviceState,
+  size : Int,
+  usage_flags : BufferUsage,
+  location? : MemoryLocation = MemoryLocation::CpuToGpu,
+) -> VkBufferState raise RhiError {
   if size <= 0 {
     raise InvalidArgument("Buffer size must be positive (got \{size})")
   }
   let na = @vk.VkAllocationCallbacks::null()
-  let mut usage = match kind {
-    BufferKind::Vertex =>
-      @vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT
-    BufferKind::Index =>
-      @vk.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT
-    BufferKind::Uniform => @vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
-    BufferKind::Staging =>
-      @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT
-    BufferKind::Storage =>
-      @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-      @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-      @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT
-    BufferKind::Indirect =>
-      @vk.VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-      @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-      @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-      @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT
+  let mut usage = (0 : UInt32)
+  if usage_flags.contains(BufferUsage::vertex()) {
+    usage = usage | @vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+  }
+  if usage_flags.contains(BufferUsage::index()) {
+    usage = usage | @vk.VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+  }
+  if usage_flags.contains(BufferUsage::uniform()) {
+    usage = usage | @vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+  }
+  if usage_flags.contains(BufferUsage::storage()) {
+    usage = usage | @vk.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+  }
+  if usage_flags.contains(BufferUsage::indirect()) {
+    usage = usage | @vk.VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
+  }
+  if usage_flags.contains(BufferUsage::copy_src()) {
+    usage = usage | @vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+  }
+  if usage_flags.contains(BufferUsage::copy_dst()) {
+    usage = usage | @vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT
+  }
+  if usage == (0 : UInt32) {
+    raise InvalidArgument("Buffer usage must request at least one role")
   }
   if location == MemoryLocation::GpuOnly {
     usage = usage |
@@ -1165,11 +1185,11 @@ fn vk_buffer_create(
   }
   if d.caps.supports_ray_query {
     usage = usage | @vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-    match kind {
-      BufferKind::Vertex | BufferKind::Index | BufferKind::Storage =>
-        usage = usage |
-          @vk.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
-      _ => ()
+    if usage_flags.contains(BufferUsage::vertex()) ||
+      usage_flags.contains(BufferUsage::index()) ||
+      usage_flags.contains(BufferUsage::storage()) {
+      usage = usage |
+        @vk.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
     }
   }
   let bci = @vk.VkBufferCreateInfo::new()
@@ -1424,26 +1444,6 @@ fn create_image_and_view(
     aspect,
     layout: @vk.VK_IMAGE_LAYOUT_UNDEFINED,
   }
-}
-
-///|
-fn vk_texture_create_uploaded(
-  d : VkDeviceState,
-  width : Int,
-  height : Int,
-  format : TextureFormat,
-  pixels : Bytes,
-) -> VkTextureState raise RhiError {
-  vk_texture_create_layered(
-    d,
-    width,
-    height,
-    1,
-    format,
-    pixels,
-    (0 : UInt32),
-    @vk.VK_IMAGE_VIEW_TYPE_2D,
-  )
 }
 
 ///|
@@ -5432,52 +5432,101 @@ fn vk_texture_create_2d_array(
 }
 
 ///|
-fn vk_texture_create_render_target(
+/// Creates a texture from a `TextureDesc`. Pixel upload covers single-mip,
+/// single-sample colour textures; other shapes are created empty for the caller
+/// to fill.
+fn vk_texture_create_desc(
   d : VkDeviceState,
-  width : Int,
-  height : Int,
-  format : TextureFormat,
-  samples : SampleCount,
+  desc : TextureDesc,
+  data : Bytes,
 ) -> VkTextureState raise RhiError {
-  let usage = match samples {
-    SampleCount::X1 =>
-      @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-      @vk.VK_IMAGE_USAGE_SAMPLED_BIT |
-      @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-      @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT
-    SampleCount::X4 => @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+  if desc.width <= 0 || desc.height <= 0 {
+    raise InvalidArgument("Texture dimensions must be positive")
+  }
+  let depth = is_depth_format(desc.format)
+  if depth && desc.usage.contains(TextureUsage::storage()) {
+    raise InvalidArgument("Depth textures cannot be storage images")
+  }
+  let mut usage = (0 : UInt32)
+  if desc.usage.contains(TextureUsage::sampled()) {
+    usage = usage | @vk.VK_IMAGE_USAGE_SAMPLED_BIT
+  }
+  if desc.usage.contains(TextureUsage::storage()) {
+    usage = usage | @vk.VK_IMAGE_USAGE_STORAGE_BIT
+  }
+  if desc.usage.contains(TextureUsage::render_attachment()) {
+    usage = usage | (if depth {
+      @vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
+    } else {
+      @vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+    })
+  }
+  if desc.usage.contains(TextureUsage::copy_src()) {
+    usage = usage | @vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+  }
+  if desc.usage.contains(TextureUsage::copy_dst()) {
+    usage = usage | @vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT
+  }
+  if usage == (0 : UInt32) {
+    raise InvalidArgument("Texture usage must request at least one role")
+  }
+  // `mip_levels == 0` asks for the full chain.
+  let mut levels = desc.mip_levels
+  if levels < 1 {
+    let longest = if desc.width > desc.height { desc.width } else { desc.height }
+    levels = 1
+    let mut remaining = longest
+    while remaining > 1 {
+      remaining = remaining / 2
+      levels = levels + 1
+    }
+  }
+  let (layers, view_type, flags) = match desc.dimension {
+    TextureDimension::D2 => (1, @vk.VK_IMAGE_VIEW_TYPE_2D, (0 : UInt32))
+    TextureDimension::D2Array(n) =>
+      (if n < 1 { 1 } else { n }, @vk.VK_IMAGE_VIEW_TYPE_2D_ARRAY, (0 : UInt32))
+    TextureDimension::Cube =>
+      (6, @vk.VK_IMAGE_VIEW_TYPE_CUBE, @vk.VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
+  }
+  if data.length() > 0 {
+    if depth {
+      raise InvalidArgument("Cannot upload pixels to a depth texture")
+    }
+    if desc.samples != SampleCount::X1 {
+      raise InvalidArgument("Cannot upload pixels to a multisampled texture")
+    }
+    if levels > 1 {
+      raise InvalidArgument("Pixel upload fills mip 0 only")
+    }
+    return vk_texture_create_layered(
+      d,
+      desc.width,
+      desc.height,
+      layers,
+      desc.format,
+      data,
+      flags,
+      view_type,
+    )
+  }
+  let aspect = if depth {
+    depth_barrier_aspect(desc.format)
+  } else {
+    @vk.VK_IMAGE_ASPECT_COLOR_BIT
   }
   create_image_and_view(
     d,
-    width,
-    height,
-    vk_texture_format_for(d, format),
+    desc.width,
+    desc.height,
+    vk_texture_format_for(d, desc.format),
     usage,
-    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
-    samples,
-    format,
-  )
-}
-
-///|
-fn vk_texture_create_depth_target(
-  d : VkDeviceState,
-  width : Int,
-  height : Int,
-  format : TextureFormat,
-  samples : SampleCount,
-) -> VkTextureState raise RhiError {
-  let usage = @vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-    @vk.VK_IMAGE_USAGE_SAMPLED_BIT
-  create_image_and_view(
-    d,
-    width,
-    height,
-    vk_texture_format_for(d, format),
-    usage,
-    depth_barrier_aspect(format),
-    samples,
-    format,
+    aspect,
+    desc.samples,
+    desc.format,
+    mip_levels=levels,
+    layers~,
+    flags~,
+    view_type~,
   )
 }
 

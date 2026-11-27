@@ -962,6 +962,24 @@ pub fn Device::create_buffer_with(
 }
 
 ///|
+/// Allocate a buffer with composable usage flags. This is the entry point for
+/// combinations the single-role `BufferKind` cannot express, e.g.
+/// `BufferUsage::storage().combine(BufferUsage::indirect())`.
+pub fn Device::create_buffer_usage(
+  self : Device,
+  size : Int,
+  usage : BufferUsage,
+  location? : MemoryLocation = MemoryLocation::CpuToGpu,
+) -> Buffer raise RhiError {
+  match self.backend {
+    VkDevice(state) =>
+      { backend: VkBuffer(vk_buffer_create_usage(state, size, usage, location~)) }
+    Dx12Device(state) =>
+      { backend: Dx12Buffer(dx12_buffer_create(state, size, usage.as_kind(), location)) }
+  }
+}
+
+///|
 pub fn Buffer::size(self : Buffer) -> Int {
   match self.backend {
     VkBuffer(state) => state.size
@@ -1102,6 +1120,61 @@ pub fn Buffer::destroy(self : Buffer) -> Unit {
 }
 
 ///|
+/// The single texture-creation entry point: shape, usage flags, format, mips
+/// and sample count come from one `TextureDesc`, instead of a factory per
+/// combination. The `create_texture*` helpers below are thin wrappers.
+pub fn Device::create_texture_desc(
+  self : Device,
+  desc : TextureDesc,
+  data? : Bytes = b"",
+) -> Texture raise RhiError {
+  match self.backend {
+    VkDevice(state) => { backend: VkTexture(vk_texture_create_desc(state, desc, data)) }
+    Dx12Device(state) => {
+      match desc.dimension {
+        TextureDimension::D2 => ()
+        _ =>
+          raise RhiError::BackendUnsupported(
+            "the DX12 backend only creates 2D textures so far",
+          )
+      }
+      if desc.samples != SampleCount::X1 {
+        raise RhiError::BackendUnsupported("MSAA textures are not implemented on DX12")
+      }
+      if is_depth_format(desc.format) {
+        if desc.format != TextureFormat::Depth32F {
+          raise RhiError::BackendUnsupported("the DX12 depth path only allocates Depth32F so far")
+        }
+        { backend: Dx12Texture(dx12_depth_create(state, desc.width, desc.height, desc.format)) }
+      } else if desc.usage.contains(TextureUsage::render_attachment()) {
+        if !dx12_is_linear_4bpp(desc.format) {
+          raise RhiError::BackendUnsupported(
+            "the DX12 render-target path takes 4-byte colour formats (RGBA8/BGRA8 and their sRGB variants)",
+          )
+        }
+        { backend: Dx12Texture(dx12_render_target_create(state, desc.width, desc.height, desc.format)) }
+      } else if desc.usage.contains(TextureUsage::storage()) {
+        if desc.format != TextureFormat::RGBA8 {
+          raise RhiError::BackendUnsupported("the DX12 UAV path only takes RGBA8 so far")
+        }
+        { backend: Dx12Texture(dx12_storage_texture_create(state, desc.width, desc.height)) }
+      } else if data.length() > 0 {
+        if !dx12_is_linear_4bpp(desc.format) {
+          raise RhiError::BackendUnsupported(
+            "the DX12 upload path takes 4-byte colour formats (RGBA8/BGRA8 and their sRGB variants)",
+          )
+        }
+        { backend: Dx12Texture(dx12_texture_upload_create(state, desc.width, desc.height, data, desc.format)) }
+      } else {
+        raise RhiError::BackendUnsupported(
+          "the DX12 backend cannot create an empty sampled texture yet",
+        )
+      }
+    }
+  }
+}
+
+///|
 pub fn Device::create_texture(
   self : Device,
   width : Int,
@@ -1119,24 +1192,17 @@ pub fn Device::create_texture_format(
   format : TextureFormat,
   pixels : Bytes,
 ) -> Texture raise RhiError {
-  match self.backend {
-    Dx12Device(state) => {
-      // Four bytes per pixel keeps the upload pitch and the readback layout
-      // uniform; sRGB variants share it.
-      if !dx12_is_linear_4bpp(format) {
-        raise RhiError::BackendUnsupported(
-          "the DX12 upload path takes 4-byte colour formats (RGBA8/BGRA8 and their sRGB variants)",
-        )
-      }
-      { backend: Dx12Texture(dx12_texture_upload_create(state, width, height, pixels, format)) }
-    }
-    VkDevice(_) =>
-      {
-        backend: VkTexture(
-          vk_texture_create_uploaded(self.vk(), width, height, format, pixels),
-        ),
-      }
-  }
+  self.create_texture_desc(
+    TextureDesc::new(
+      width,
+      height,
+      format,
+      usage=TextureUsage::sampled()
+      .combine(TextureUsage::copy_src())
+      .combine(TextureUsage::copy_dst()),
+    ),
+    data=pixels,
+  )
 }
 
 ///|
@@ -1259,22 +1325,23 @@ pub fn Device::create_render_target(
   if is_depth_format(format) {
     raise InvalidArgument("Use create_depth_texture for depth targets")
   }
-  match self.backend {
-    Dx12Device(state) => {
-      if !dx12_is_linear_4bpp(format) {
-        raise RhiError::BackendUnsupported(
-          "the DX12 render-target path takes 4-byte colour formats (RGBA8/BGRA8 and their sRGB variants)",
-        )
-      }
-      { backend: Dx12Texture(dx12_render_target_create(state, width, height, format)) }
-    }
-    VkDevice(_) =>
-      {
-        backend: VkTexture(
-          vk_texture_create_render_target(self.vk(), width, height, format, samples),
-        ),
-      }
+  // A single-sample colour target is sampled and copied from later; an MSAA
+  // target is only ever an attachment.
+  let usage = match samples {
+    SampleCount::X1 =>
+      TextureUsage::render_attachment()
+      .combine(TextureUsage::sampled())
+      .combine(TextureUsage::copy_src())
+      .combine(TextureUsage::copy_dst())
+    SampleCount::X4 => TextureUsage::render_attachment()
   }
+  self.create_texture_desc(TextureDesc::new(
+    width,
+    height,
+    format,
+    usage=usage,
+    samples=samples,
+  ))
 }
 
 ///|
@@ -1303,27 +1370,13 @@ pub fn Device::create_depth_texture_format(
   if !is_depth_format(format) {
     raise InvalidArgument("Expected Depth32F or Depth24Stencil8 format")
   }
-  match self.backend {
-    Dx12Device(state) => {
-      if format != TextureFormat::Depth32F {
-        raise RhiError::BackendUnsupported(
-          "the DX12 depth path only allocates Depth32F so far",
-        )
-      }
-      if samples != SampleCount::X1 {
-        raise RhiError::BackendUnsupported(
-          "MSAA depth targets are not implemented on DX12",
-        )
-      }
-      { backend: Dx12Texture(dx12_depth_create(state, width, height, format)) }
-    }
-    VkDevice(_) =>
-      {
-        backend: VkTexture(
-          vk_texture_create_depth_target(self.vk(), width, height, format, samples),
-        ),
-      }
-  }
+  self.create_texture_desc(TextureDesc::new(
+    width,
+    height,
+    format,
+    usage=TextureUsage::render_attachment().combine(TextureUsage::sampled()),
+    samples=samples,
+  ))
 }
 
 ///|

@@ -98,6 +98,108 @@ pub(all) enum BufferKind {
 }
 
 ///|
+/// Composable buffer usage flags. `BufferKind` remains the shortcut for the
+/// common single-purpose cases; this type expresses the combinations GPU-driven
+/// pipelines need (`Storage | Indirect`, `Storage | Vertex`, ...).
+pub(all) struct BufferUsage {
+  priv bits : UInt32
+}
+
+///|
+pub fn BufferUsage::none() -> BufferUsage {
+  { bits: (0 : UInt32) }
+}
+
+///|
+pub fn BufferUsage::vertex() -> BufferUsage {
+  { bits: (1 : UInt32) }
+}
+
+///|
+pub fn BufferUsage::index() -> BufferUsage {
+  { bits: (2 : UInt32) }
+}
+
+///|
+pub fn BufferUsage::uniform() -> BufferUsage {
+  { bits: (4 : UInt32) }
+}
+
+///|
+pub fn BufferUsage::storage() -> BufferUsage {
+  { bits: (8 : UInt32) }
+}
+
+///|
+pub fn BufferUsage::indirect() -> BufferUsage {
+  { bits: (16 : UInt32) }
+}
+
+///|
+pub fn BufferUsage::copy_src() -> BufferUsage {
+  { bits: (32 : UInt32) }
+}
+
+///|
+pub fn BufferUsage::copy_dst() -> BufferUsage {
+  { bits: (64 : UInt32) }
+}
+
+///|
+pub fn BufferUsage::combine(self : BufferUsage, other : BufferUsage) -> BufferUsage {
+  { bits: self.bits | other.bits }
+}
+
+///|
+pub fn BufferUsage::contains(self : BufferUsage, other : BufferUsage) -> Bool {
+  (self.bits & other.bits) == other.bits
+}
+
+///|
+pub fn BufferUsage::bits(self : BufferUsage) -> UInt32 {
+  self.bits
+}
+
+///|
+/// The usage set the legacy `BufferKind` implies (including the transfer bits
+/// the backends used to add implicitly).
+pub fn BufferUsage::from_kind(kind : BufferKind) -> BufferUsage {
+  let u = match kind {
+    BufferKind::Vertex => BufferUsage::vertex().combine(BufferUsage::copy_dst())
+    BufferKind::Index => BufferUsage::index().combine(BufferUsage::copy_dst())
+    BufferKind::Uniform => BufferUsage::uniform()
+    BufferKind::Storage =>
+      BufferUsage::storage().combine(BufferUsage::copy_src()).combine(BufferUsage::copy_dst())
+    BufferKind::Staging => BufferUsage::copy_src().combine(BufferUsage::copy_dst())
+    BufferKind::Indirect =>
+      BufferUsage::indirect()
+      .combine(BufferUsage::storage())
+      .combine(BufferUsage::copy_src())
+      .combine(BufferUsage::copy_dst())
+  }
+  u
+}
+
+///|
+/// The single-purpose kind that best describes `usage`, for backends that only
+/// distinguish storage from everything else.
+pub fn BufferUsage::as_kind(self : BufferUsage) -> BufferKind {
+  if self.contains(BufferUsage::indirect()) {
+    BufferKind::Indirect
+  } else if self.contains(BufferUsage::storage()) {
+    BufferKind::Storage
+  } else if self.contains(BufferUsage::uniform()) {
+    BufferKind::Uniform
+  } else if self.contains(BufferUsage::index()) {
+    BufferKind::Index
+  } else if self.contains(BufferUsage::vertex()) {
+    BufferKind::Vertex
+  } else {
+    BufferKind::Staging
+  }
+}
+
+///|
 #derive(Eq, Debug)
 pub(all) enum IndexType {
   Uint16
@@ -119,6 +221,124 @@ pub(all) enum VertexFormat {
   Float2
   Float3
   Float4
+  Float1
+  Int1
+  Uint1
+  Unorm8x4
+  Uint16x4
+}
+
+///|
+/// Backend-neutral encoding index. The DX12 shim uses the same numbering for
+/// its `DXGI_FORMAT` table, so keep the two in sync.
+pub fn VertexFormat::code(self : VertexFormat) -> Int {
+  match self {
+    Float2 => 0
+    Float3 => 1
+    Float4 => 2
+    Float1 => 3
+    Int1 => 4
+    Uint1 => 5
+    Unorm8x4 => 6
+    Uint16x4 => 7
+  }
+}
+
+///|
+/// Bytes consumed per vertex attribute.
+pub fn VertexFormat::bytes(self : VertexFormat) -> Int {
+  match self {
+    Float1 | Int1 | Uint1 | Unorm8x4 => 4
+    Float2 | Uint16x4 => 8
+    Float3 => 12
+    Float4 => 16
+  }
+}
+
+///|
+/// Composable texture usage flags.
+pub(all) struct TextureUsage {
+  priv bits : UInt32
+}
+
+///|
+pub fn TextureUsage::none() -> TextureUsage {
+  { bits: (0 : UInt32) }
+}
+
+///|
+pub fn TextureUsage::sampled() -> TextureUsage {
+  { bits: (1 : UInt32) }
+}
+
+///|
+pub fn TextureUsage::storage() -> TextureUsage {
+  { bits: (2 : UInt32) }
+}
+
+///|
+pub fn TextureUsage::render_attachment() -> TextureUsage {
+  { bits: (4 : UInt32) }
+}
+
+///|
+pub fn TextureUsage::copy_src() -> TextureUsage {
+  { bits: (8 : UInt32) }
+}
+
+///|
+pub fn TextureUsage::copy_dst() -> TextureUsage {
+  { bits: (16 : UInt32) }
+}
+
+///|
+pub fn TextureUsage::combine(self : TextureUsage, other : TextureUsage) -> TextureUsage {
+  { bits: self.bits | other.bits }
+}
+
+///|
+pub fn TextureUsage::contains(self : TextureUsage, other : TextureUsage) -> Bool {
+  (self.bits & other.bits) == other.bits
+}
+
+///|
+pub fn TextureUsage::bits(self : TextureUsage) -> UInt32 {
+  self.bits
+}
+
+///|
+pub(all) enum TextureDimension {
+  D2
+  D2Array(Int)
+  Cube
+}
+
+///|
+/// One descriptor for every texture shape: 2D, 2D array and cubemap, with
+/// composable usage flags instead of a factory per combination.
+pub(all) struct TextureDesc {
+  width : Int
+  height : Int
+  format : TextureFormat
+  usage : TextureUsage
+  dimension : TextureDimension
+  /// `1` for a single level; `0` asks the backend for the full chain when the
+  /// backend supports generating it.
+  mip_levels : Int
+  samples : SampleCount
+}
+
+///|
+pub fn TextureDesc::new(
+  width : Int,
+  height : Int,
+  format : TextureFormat,
+  usage? : TextureUsage = TextureUsage::sampled(),
+  dimension? : TextureDimension = TextureDimension::D2,
+  mip_levels? : Int = 1,
+  samples? : SampleCount = SampleCount::X1,
+) -> TextureDesc {
+  { width, height, format, usage, dimension, mip_levels, samples }
 }
 
 ///|
@@ -665,12 +885,18 @@ pub fn PipelineDesc::from_spirv(
   let vertex_formats : Array[VertexFormat] = []
   for vi in vr.vertex_inputs {
     match vi.format {
+      @shader.ReflectedVertexFormat::Float1 =>
+        vertex_formats.push(VertexFormat::Float1)
       @shader.ReflectedVertexFormat::Float2 =>
         vertex_formats.push(VertexFormat::Float2)
       @shader.ReflectedVertexFormat::Float3 =>
         vertex_formats.push(VertexFormat::Float3)
       @shader.ReflectedVertexFormat::Float4 =>
         vertex_formats.push(VertexFormat::Float4)
+      @shader.ReflectedVertexFormat::Int1 =>
+        vertex_formats.push(VertexFormat::Int1)
+      @shader.ReflectedVertexFormat::Uint1 =>
+        vertex_formats.push(VertexFormat::Uint1)
       _ => ()
     }
   }

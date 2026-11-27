@@ -50,3 +50,60 @@ test "record_first keeps the earliest recorded error" {
   let second = record_first(first, "end_commands: later message")
   assert_eq(second, Some("bind_pipeline: backend mismatch"))
 }
+
+///|
+test "vertex formats expose stable codes and byte sizes" {
+  let formats : Array[VertexFormat] = [
+    VertexFormat::Float2, VertexFormat::Float3, VertexFormat::Float4,
+    VertexFormat::Float1, VertexFormat::Int1, VertexFormat::Uint1,
+    VertexFormat::Unorm8x4, VertexFormat::Uint16x4,
+  ]
+  for i = 0; i < formats.length(); i = i + 1 {
+    assert_eq(formats[i].code(), i)
+  }
+  assert_eq(VertexFormat::Float1.bytes(), 4)
+  assert_eq(VertexFormat::Unorm8x4.bytes(), 4)
+  assert_eq(VertexFormat::Uint16x4.bytes(), 8)
+  assert_eq(VertexFormat::Float2.bytes(), 8)
+  assert_eq(VertexFormat::Float3.bytes(), 12)
+  assert_eq(VertexFormat::Float4.bytes(), 16)
+}
+
+///|
+test "buffer usage combines roles and maps back to a kind" {
+  let u = BufferUsage::storage().combine(BufferUsage::indirect())
+  assert_true(u.contains(BufferUsage::storage()))
+  assert_true(u.contains(BufferUsage::indirect()))
+  assert_true(!u.contains(BufferUsage::vertex()))
+  assert_eq(u.as_kind(), BufferKind::Indirect)
+  // The legacy shortcuts keep the transfer bits the backends used to add.
+  assert_true(BufferUsage::from_kind(BufferKind::Storage).contains(BufferUsage::copy_src()))
+  assert_true(BufferUsage::from_kind(BufferKind::Vertex).contains(BufferUsage::copy_dst()))
+  assert_true(BufferUsage::from_kind(BufferKind::Uniform).bits() != (0 : UInt32))
+}
+
+///|
+test "texture desc defaults and usage flags" {
+  let desc = TextureDesc::new(
+    64,
+    32,
+    TextureFormat::RGBA8,
+    usage=TextureUsage::sampled().combine(TextureUsage::render_attachment()),
+  )
+  assert_eq(desc.width, 64)
+  assert_eq(desc.height, 32)
+  assert_eq(desc.mip_levels, 1)
+  assert_eq(desc.samples, SampleCount::X1)
+  assert_true(desc.usage.contains(TextureUsage::sampled()))
+  assert_true(desc.usage.contains(TextureUsage::render_attachment()))
+  assert_true(!desc.usage.contains(TextureUsage::storage()))
+  match desc.dimension {
+    TextureDimension::D2 => ()
+    _ => fail("default dimension must be D2")
+  }
+  let arr = TextureDesc::new(8, 8, TextureFormat::RGBA8, dimension=TextureDimension::D2Array(4))
+  match arr.dimension {
+    TextureDimension::D2Array(n) => assert_eq(n, 4)
+    _ => fail("array dimension must round-trip")
+  }
+}

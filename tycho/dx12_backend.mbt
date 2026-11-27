@@ -876,11 +876,7 @@ fn dx12_vertex_input(desc : PipelineDesc) -> (FixedArray[Int], FixedArray[Int]) 
       strides[bi] = layout.stride
       for attr in layout.attributes {
         packed[i * 5] = attr.location
-        packed[i * 5 + 1] = match attr.format {
-          VertexFormat::Float2 => 0
-          VertexFormat::Float3 => 1
-          VertexFormat::Float4 => 2
-        }
+        packed[i * 5 + 1] = attr.format.code()
         packed[i * 5 + 2] = bi
         packed[i * 5 + 3] = attr.offset
         packed[i * 5 + 4] = match layout.step_mode {
@@ -895,11 +891,7 @@ fn dx12_vertex_input(desc : PipelineDesc) -> (FixedArray[Int], FixedArray[Int]) 
     for fi = 0; fi < formats.length(); fi = fi + 1 {
       let format = formats[fi]
       packed[i * 5] = fi
-      packed[i * 5 + 1] = match format {
-        VertexFormat::Float2 => 0
-        VertexFormat::Float3 => 1
-        VertexFormat::Float4 => 2
-      }
+      packed[i * 5 + 1] = format.code()
       packed[i * 5 + 2] = 0
       packed[i * 5 + 3] = offset
       packed[i * 5 + 4] = 0
