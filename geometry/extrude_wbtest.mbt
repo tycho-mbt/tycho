@@ -170,3 +170,71 @@ test "extrude multiple shapes" {
   let empty : Array[Shape2D] = []
   need(extrude_shapes(empty).vertex_count() == 0, "empty multi extrude")
 }
+
+///|
+test "extrude bevel" {
+  let m = extrude(
+    Shape2D::new(ccw_square(0.5)),
+    options=ExtrudeOptions::new(depth=1.0, bevel_enabled=true),
+  )
+  // 3 front + 2 body + 3 back slices -> 7 wall gaps x 4 edges x 2 triangles.
+  need(m.triangle_count() == 4 + 56, "bevel tris")
+  need(m.vertex_count() == 180, "bevel verts")
+  need(watertight(m), "bevel watertight")
+  need(all_units(m), "bevel normals")
+  // The base volume is 1 (unit square x depth 1); the bevel bulges it out.
+  need(signed_volume(m) > 1.0, "bevel adds volume")
+  // At a 90 degree corner the miter is diagonal: the axis reach is bevel_size.
+  let reach : Float = 0.5 + 0.1
+  let b = m.bounds()
+  need(close(b.max.x, reach, eps=1.0e-3), "bevel x reach")
+  need(close(b.min.x, -reach, eps=1.0e-3), "bevel -x reach")
+  need(close(b.min.z, -0.2, eps=1.0e-3), "bevel front")
+  need(close(b.max.z, 1.2, eps=1.0e-3), "bevel back")
+  need(m.groups.length() == 2, "bevel groups")
+  need(m.groups[0].count == 12, "bevel lid group")
+  need(m.groups[1].count == 168, "bevel wall group")
+}
+
+///|
+test "extrude bevel offset" {
+  let m = extrude(
+    Shape2D::new(ccw_square(0.5)),
+    options=ExtrudeOptions::new(depth=1.0, bevel_enabled=true, bevel_offset=0.05),
+  )
+  need(watertight(m), "bevel offset watertight")
+  // The body ring is at bevel_size + offset = 0.15.
+  let reach : Float = 0.5 + 0.15
+  need(close(m.bounds().max.x, reach, eps=1.0e-3), "bevel offset reach")
+}
+
+///|
+test "extrude bevel with hole" {
+  let m = extrude(
+    Shape2D::new(ccw_square(1.0), holes=[cw_square(0.25)]),
+    options=ExtrudeOptions::new(depth=1.0, bevel_enabled=true),
+  )
+  need(watertight(m), "bevel hole watertight")
+  need(all_units(m), "bevel hole normals")
+  // The bevel grows the solid into the hole, so the volume exceeds 3.75.
+  need(signed_volume(m) > 3.75, "bevel hole volume")
+}
+
+///|
+test "bevel is ignored on path extrusion" {
+  let straight : Array[@tmath.Vec3] = [
+    @tmath.Vec3::new(0.0, 0.0, 0.0),
+    @tmath.Vec3::new(0.0, 0.0, 2.0),
+  ]
+  let m = extrude(
+    Shape2D::new(ccw_square(0.5)),
+    options=ExtrudeOptions::new(
+      steps=2,
+      extrude_path=Some(straight),
+      bevel_enabled=true,
+    ),
+  )
+  need_vec3(m.bounds().min, @tmath.Vec3::new(-0.5, -0.5, 0.0), eps=1.0e-3)
+  need_vec3(m.bounds().max, @tmath.Vec3::new(0.5, 0.5, 2.0), eps=1.0e-3)
+  need(close(signed_volume(m), 2.0, eps=1.0e-2), "path ignores bevel")
+}

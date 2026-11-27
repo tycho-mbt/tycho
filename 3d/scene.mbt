@@ -27,9 +27,9 @@ pub fn MeshHandle::id(self : MeshHandle) -> Int {
 }
 
 ///|
-/// Renderer-owned GPU line list (`@tgeo.LineData`) drawn as world-space
-/// overlays. Lines are not scene nodes yet: they are replayed every frame with
-/// the colour fixed at upload time.
+/// Renderer-owned GPU line list (`@tgeo.LineData`) kept in local space. It is
+/// drawn by a `NodePayload::Lines` scene node, which supplies the world
+/// transform and the `LineMaterial` colour.
 #derive(Eq, Debug)
 pub(all) struct LineHandle {
   priv id : Int
@@ -112,9 +112,34 @@ pub fn MeshInstance::new(mesh : MeshHandle, material : MaterialHandle) -> MeshIn
 }
 
 ///|
+/// Material for line nodes: colour only. Line vertices carry no normals or
+/// UVs, so lighting/texturing do not apply.
+pub(all) struct LineMaterial {
+  color : @tmath.Vec3
+}
+
+///|
+pub fn LineMaterial::new(color? : @tmath.Vec3 = @tmath.Vec3::one()) -> LineMaterial {
+  { color, }
+}
+
+///|
+/// A line node's drawable pair: GPU line list plus its colour.
+pub(all) struct LineInstance {
+  lines : LineHandle
+  material : LineMaterial
+}
+
+///|
+pub fn LineInstance::new(lines : LineHandle, material : LineMaterial) -> LineInstance {
+  { lines, material }
+}
+
+///|
 pub(all) enum NodePayload {
   Empty
   Mesh(MeshInstance)
+  Lines(LineInstance)
   Light(Light)
   Camera(Camera)
 }
@@ -571,15 +596,18 @@ pub fn Scene::collect_visible(
     if n.alive &&
       n.visible &&
       (n.layer_mask & camera_mask) != (0 : UInt) {
-      match n.payload {
-        Mesh(_) =>
-          match n.local_bounds {
-            Some(b) => if frustum.intersects_aabb(b.transform(n.world)) {
-              out.push(NodeId::new(i, n.generation))
-            }
-            None => out.push(NodeId::new(i, n.generation))
+      let drawable = match n.payload {
+        Mesh(_) => true
+        Lines(_) => true
+        _ => false
+      }
+      if drawable {
+        match n.local_bounds {
+          Some(b) => if frustum.intersects_aabb(b.transform(n.world)) {
+            out.push(NodeId::new(i, n.generation))
           }
-        _ => ()
+          None => out.push(NodeId::new(i, n.generation))
+        }
       }
     }
   }

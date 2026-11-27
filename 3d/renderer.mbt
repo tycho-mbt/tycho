@@ -155,8 +155,10 @@ priv struct GpuTexture {
 ///|
 /// A resident line list uploaded from `@tgeo.LineData`: interleaved
 /// position/colour vertices drawn through the shared `LineList` pipeline.
+/// The CPU copy is kept for line picking (segments have no BVH).
 priv struct GpuLines {
   buffer : @tycho.Buffer
+  cpu : @tgeo.LineData
   vertex_count : Int
   segment_count : Int
   bounds : @tmath.Aabb3
@@ -1086,15 +1088,14 @@ fn Renderer3D::build_mesh_blas(self : Renderer3D, mesh : @tgeo.MeshData) -> RtMe
 }
 
 ///|
-/// Upload a `@tgeo.LineData` line list for persistent, world-space drawing.
+/// Upload a `@tgeo.LineData` line list as a *local-space* drawable.
 ///
-/// Lines are replayed every frame through the shared `LineList` pipeline (the
-/// same one used by debug lines), so edge/wireframe overlays need no scene
-/// node. `color` is baked into the vertices at upload time.
+/// The list is drawn by `NodePayload::Lines` scene nodes, which supply the
+/// world transform and the colour tint through push constants. Vertices bake
+/// white, so the node's `LineMaterial` fully controls the colour.
 pub fn Renderer3D::upload_lines(
   self : Renderer3D,
   lines : @tgeo.LineData,
-  color? : @tmath.Vec3 = @tmath.Vec3::one(),
 ) -> LineHandle raise {
   let segments = lines.segment_count()
   let floats : Array[Float] = []
@@ -1105,9 +1106,9 @@ pub fn Renderer3D::upload_lines(
       floats.push(p.x)
       floats.push(p.y)
       floats.push(p.z)
-      floats.push(color.x)
-      floats.push(color.y)
-      floats.push(color.z)
+      floats.push(1.0)
+      floats.push(1.0)
+      floats.push(1.0)
     }
   }
   let vertex_count = segments * 2
@@ -1121,6 +1122,7 @@ pub fn Renderer3D::upload_lines(
   }
   self.line_sets.push({
     buffer,
+    cpu: lines,
     vertex_count,
     segment_count: segments,
     bounds: lines.bounds(),
@@ -1997,6 +1999,24 @@ fn push_light_point(
 }
 
 ///|
+/// Push-constant payload for `lines.vert`: a 4x4 model matrix followed by an
+/// RGBA tint (20 floats / 80 bytes).
+fn line_push_constants(
+  model : FixedArray[Float],
+  color : @tmath.Vec3,
+) -> FixedArray[Float] {
+  let out : FixedArray[Float] = FixedArray::make(20, 0.0)
+  for i = 0; i < 16; i = i + 1 {
+    out[i] = model[i]
+  }
+  out[16] = color.x
+  out[17] = color.y
+  out[18] = color.z
+  out[19] = 1.0
+  out
+}
+
+///|
 fn Renderer3D::render_frame(
   self : Renderer3D,
   cmd : @tycho.CommandBuffer,
@@ -2038,14 +2058,23 @@ fn Renderer3D::render_frame(
         _ => ()
       }
     })
+    // Lines have no GPU cull path: reuse the CPU visibility test for them.
+    for id in scene.collect_visible(frustum, (0xFFFFFFFF : UInt)) {
+      match scene.payload(id) {
+        Some(NodePayload::Lines(_)) => all.push(id)
+        _ => ()
+      }
+    }
     all
   } else {
     scene.collect_visible(frustum, (0xFFFFFFFF : UInt))
   }
   let solid : Array[DrawItem] = []
   let transparent : Array[DrawItem] = []
+  let line_items : Array[(NodeId, LineInstance)] = []
   for id in visible {
     match scene.payload(id) {
+      Some(NodePayload::Lines(inst)) => line_items.push((id, inst))
       Some(NodePayload::Mesh(inst)) => {
         let world = scene.world_transform(id)
         let dist = (world.translation - eye).length()
@@ -2864,7 +2893,7 @@ fn Renderer3D::render_frame(
       }
     }
   }
-  if line_verts > 0 || self.line_sets.length() > 0 {
+  if line_verts > 0 || line_items.length() > 0 {
     cmd.bind_pipeline(self.line_pipe)
     cmd.bind_uniform(
       self.line_pipe,
@@ -2874,18 +2903,35 @@ fn Renderer3D::render_frame(
       size=FRAME_BYTES,
     )
     if line_verts > 0 {
+      // Debug segments are already in world space.
+      cmd.push_constants_floats(
+        self.line_pipe,
+        line_push_constants(@tmath.Mat4::identity().to_cols_array(), @tmath.Vec3::one()),
+      )
       cmd.bind_vertex(0, self.line_vbuf)
       cmd.draw(line_verts, 1)
       self.stats.draw_calls = self.stats.draw_calls + 1
       self.stats.line_segments = self.stats.line_segments + line_verts / 2
     }
-    // Resident line lists from `upload_lines` (edges / wireframes).
-    for set in self.line_sets {
-      if set.vertex_count > 0 {
-        cmd.bind_vertex(0, set.buffer)
-        cmd.draw(set.vertex_count, 1)
-        self.stats.draw_calls = self.stats.draw_calls + 1
-        self.stats.line_segments = self.stats.line_segments + set.segment_count
+    // Line scene nodes: per-node model matrix plus material tint.
+    for item in line_items {
+      let (node, inst) = item
+      let li = inst.lines.id()
+      if li >= 0 && li < self.line_sets.length() {
+        let set = self.line_sets[li]
+        if set.vertex_count > 0 {
+          cmd.push_constants_floats(
+            self.line_pipe,
+            line_push_constants(
+              scene.world_transform(node).to_mat4_array(),
+              inst.material.color,
+            ),
+          )
+          cmd.bind_vertex(0, set.buffer)
+          cmd.draw(set.vertex_count, 1)
+          self.stats.draw_calls = self.stats.draw_calls + 1
+          self.stats.line_segments = self.stats.line_segments + set.segment_count
+        }
       }
     }
   }
@@ -3422,6 +3468,29 @@ pub fn Renderer3D::create_mesh_node(
     name=name,
   )
   scene.set_local_bounds(node, self.mesh_bounds(mesh))
+  node
+}
+
+///|
+/// Create a scene node that draws an uploaded line list.
+///
+/// The node's world transform is applied to the (local-space) vertices and
+/// `material.color` tints them. Lines are depth-tested overlays: they do not
+/// cast shadows, are not ray-traceable, and have no normals/UVs.
+pub fn Renderer3D::create_line_node(
+  self : Renderer3D,
+  scene : Scene,
+  lines : LineHandle,
+  material? : LineMaterial = LineMaterial::new(),
+  transform? : @tmath.Transform = @tmath.Transform::identity(),
+  name? : String = "",
+) -> NodeId {
+  let node = scene.create_node(
+    transform=transform,
+    payload=NodePayload::Lines(LineInstance::new(lines, material)),
+    name=name,
+  )
+  scene.set_local_bounds(node, self.lines_bounds(lines))
   node
 }
 

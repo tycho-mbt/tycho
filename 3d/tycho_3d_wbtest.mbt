@@ -456,3 +456,90 @@ test "camera handles are typed and validated" {
     Some(_) => fail("camera_of must reject a non-camera node")
   }
 }
+
+///|
+test "ray segment closest" {
+  let ray = @tmath.Ray::new(@tmath.Vec3::zero(), @tmath.Vec3::unit_y())
+  // Segment crossing the ray: closest at t = 2, distance 1.
+  let (d0, t0) = ray_segment_closest(
+    ray,
+    @tmath.Vec3::new(1.0, 2.0, 0.0),
+    @tmath.Vec3::new(1.0, 3.0, 0.0),
+  )
+  need(close(d0, 1.0), "perpendicular distance")
+  need(close(t0, 2.0), "perpendicular t")
+  // Segment behind the origin clamps to t = 0.
+  let (d1, t1) = ray_segment_closest(
+    ray,
+    @tmath.Vec3::new(0.5, -2.0, 0.0),
+    @tmath.Vec3::new(0.5, -1.0, 0.0),
+  )
+  need(close(t1, 0.0), "behind clamp")
+  need(close(d1, @tmath.sqrt(1.25)), "behind distance")
+  // Parallel segment.
+  let (d2, _) = ray_segment_closest(
+    ray,
+    @tmath.Vec3::new(2.0, 0.0, 0.0),
+    @tmath.Vec3::new(2.0, 5.0, 0.0),
+  )
+  need(close(d2, 2.0), "parallel distance")
+}
+
+///|
+test "line node payload and bounds" {
+  let s = Scene::new()
+  let handle = LineHandle::from_id(7)
+  let node = s.create_node(
+    payload=NodePayload::Lines(
+      LineInstance::new(
+        handle,
+        LineMaterial::new(color=@tmath.Vec3::new(0.5, 0.25, 0.75)),
+      ),
+    ),
+  )
+  match s.payload(node) {
+    Some(NodePayload::Lines(inst)) => {
+      need(inst.lines.id() == 7, "line handle")
+      need(close(inst.material.color.y, 0.25), "line colour")
+    }
+    _ => fail("line payload")
+  }
+  s.set_local_bounds(
+    node,
+    Some(@tmath.Aabb3::new(@tmath.Vec3::zero(), @tmath.Vec3::one())),
+  )
+  s.update()
+  match s.world_bounds(node) {
+    Some(b) => need(close(b.max.x, 1.0), "line bounds")
+    None => fail("line bounds missing")
+  }
+}
+
+///|
+test "ray lines hit" {
+  let lines = @tgeo.LineData::new(
+    [
+      @tmath.Vec3::new(-1.0, 1.0, 0.0),
+      @tmath.Vec3::new(1.0, 1.0, 0.0),
+    ],
+    [0, 1],
+  )
+  let ray = @tmath.Ray::new(@tmath.Vec3::zero(), @tmath.Vec3::unit_y())
+  match ray_lines_hit(ray, lines, @tmath.Affine3::identity(), LINE_PICK_RADIUS) {
+    Some(h) => {
+      need(close(h.distance, 1.0), "line hit distance")
+      need(h.triangle == 0, "line hit segment")
+      need(close(h.position.y, 1.0), "line hit position")
+    }
+    None => fail("line hit")
+  }
+  // 5 cm away is outside the 2 cm pick radius.
+  let far = @tmath.Ray::new(
+    @tmath.Vec3::new(0.0, 0.0, 0.05),
+    @tmath.Vec3::unit_y(),
+  )
+  match ray_lines_hit(far, lines, @tmath.Affine3::identity(), LINE_PICK_RADIUS) {
+    Some(_) => fail("line should miss")
+    None => ()
+  }
+}

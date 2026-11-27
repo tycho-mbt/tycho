@@ -24,9 +24,11 @@ This module is the CPU content layer of the Tycho graphics stack (see
   `ring` a `phi_segments` radial split.
 - **Shapes** — `Shape2D` (outer contour + holes, polylines only), `shape` /
   `shapes` (flat ear-cut triangulation), and `extrude` / `extrude_shapes`
-  (lids + walls, either along `depth` or along a sampled `extrude_path`).
-  The ear-cut kernel is a pure-MoonBit port of mapbox/earcut and lives in
-  `earcut.mbt`.
+  (lids + walls, either along `depth` or along a sampled `extrude_path`,
+  with an optional three.js-style bevel: `bevel_enabled` / `bevel_thickness` /
+  `bevel_size` / `bevel_offset` / `bevel_segments`; opt-in unlike three.js and
+  ignored on path extrusion). The ear-cut kernel is a pure-MoonBit port of
+  mapbox/earcut and lives in `earcut.mbt`.
 - **Operations** — `bounds`, `compute_vertex_normals`, `compute_tangents`,
   `transformed`, `merge`, `to_non_indexed`, `flipped`; `LineData` mirrors
   `bounds` / `transformed` / `merge` / `to_non_indexed`.

@@ -10,6 +10,8 @@ import {
 }
 
 // Values
+pub const LINE_PICK_RADIUS : Float = 0.02
+
 pub const MESH_VERTEX_BYTES : Int32 = 48
 
 pub const MESH_VERTEX_FLOATS : Int32 = 12
@@ -57,6 +59,8 @@ pub fn mesh_skinned_vertex_floats(@tycho_geometry.MeshData) -> FixedArray[Float]
 pub fn mesh_vertex_floats(@tycho_geometry.MeshData) -> FixedArray[Float]
 
 pub fn procedural_environment_cubemap(@tycho.Device, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> @tycho.Texture raise
+
+pub fn ray_lines_hit(@tycho_math.Ray, @tycho_geometry.LineData, @tycho_math.Affine3, Float) -> MeshHit?
 
 pub fn ray_mesh_hit(@tycho_math.Ray, @tycho_geometry.MeshData, @tycho_math.Affine3) -> MeshHit?
 
@@ -216,6 +220,17 @@ pub(all) struct LineHandle {
 }
 pub fn LineHandle::id(Self) -> Int32
 
+pub(all) struct LineInstance {
+  lines : LineHandle
+  material : LineMaterial
+}
+pub fn LineInstance::new(LineHandle, LineMaterial) -> Self
+
+pub(all) struct LineMaterial {
+  color : @tycho_math.Vec3
+}
+pub fn LineMaterial::new(color? : @tycho_math.Vec3) -> Self
+
 pub(all) struct MaterialDesc {
   shading : Shading
   base_color : @tycho_math.Vec4
@@ -276,6 +291,7 @@ pub fn NodeId::index(Self) -> Int32
 pub(all) enum NodePayload {
   Empty
   Mesh(MeshInstance)
+  Lines(LineInstance)
   Light(Light)
   Camera(Camera)
 }
@@ -362,6 +378,7 @@ pub fn Renderer3D::add_debug_aabb(Self, @tycho_math.Aabb3, @tycho_math.Vec3) -> 
 pub fn Renderer3D::add_debug_line(Self, @tycho_math.Vec3, @tycho_math.Vec3, @tycho_math.Vec3) -> Unit
 pub fn Renderer3D::brdf_lut(Self) -> @tycho.Texture
 pub fn Renderer3D::clear_debug_lines(Self) -> Unit
+pub fn Renderer3D::create_line_node(Self, Scene, LineHandle, material? : LineMaterial, transform? : @tycho_math.Transform, name? : String) -> NodeId
 pub fn Renderer3D::create_lod_node(Self, Scene, Array[MeshHandle], Array[Float], MaterialHandle, transform? : @tycho_math.Transform, name? : String) -> NodeId raise
 pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
 pub fn Renderer3D::create_mesh_node(Self, Scene, MeshHandle, MaterialHandle, transform? : @tycho_math.Transform, name? : String) -> NodeId
@@ -386,7 +403,7 @@ pub fn Renderer3D::set_procedural_environment(Self, @tycho_math.Vec3, size? : In
 pub fn Renderer3D::set_ray_shadows(Self, Bool) -> Unit
 pub fn Renderer3D::stats(Self) -> RenderStats3D
 pub fn Renderer3D::update_material(Self, MaterialHandle, MaterialDesc) -> Unit raise
-pub fn Renderer3D::upload_lines(Self, @tycho_geometry.LineData, color? : @tycho_math.Vec3) -> LineHandle raise
+pub fn Renderer3D::upload_lines(Self, @tycho_geometry.LineData) -> LineHandle raise
 pub fn Renderer3D::upload_mesh(Self, @tycho_geometry.MeshData) -> MeshHandle raise
 
 pub(all) struct RendererDesc {

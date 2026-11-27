@@ -9,9 +9,16 @@ layout(binding = 0) uniform FrameUBO {
     vec4 params;
 } frame;
 
+// Per-draw state: the node's world transform plus a colour tint. Debug lines
+// push the identity matrix and a white tint.
+layout(push_constant) uniform LinePush {
+    mat4 model;
+    vec4 tint;
+} pc;
+
 layout(location = 0) out vec3 vColor;
 
 void main() {
-    vColor = inColor;
-    gl_Position = frame.viewProj * vec4(inPos, 1.0);
+    vColor = inColor * pc.tint.rgb;
+    gl_Position = frame.viewProj * pc.model * vec4(inPos, 1.0);
 }

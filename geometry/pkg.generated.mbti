@@ -77,8 +77,13 @@ pub(all) struct ExtrudeOptions {
   depth : Float
   steps : Int32
   extrude_path : Array[@tycho_math.Vec3]?
+  bevel_enabled : Bool
+  bevel_thickness : Float
+  bevel_size : Float
+  bevel_offset : Float
+  bevel_segments : Int32
 }
-pub fn ExtrudeOptions::new(depth? : Float, steps? : Int32, extrude_path? : Array[@tycho_math.Vec3]?) -> Self
+pub fn ExtrudeOptions::new(depth? : Float, steps? : Int32, extrude_path? : Array[@tycho_math.Vec3]?, bevel_enabled? : Bool, bevel_thickness? : Float, bevel_size? : Float, bevel_offset? : Float, bevel_segments? : Int32) -> Self
 
 pub(all) enum GltfAlphaMode {
   Opaque

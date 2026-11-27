@@ -133,7 +133,13 @@ fn main {
         name: "extrude",
         mesh: @tgeo.extrude(
           @tgeo.Shape2D::new(l_ring()),
-          options=@tgeo.ExtrudeOptions::new(depth=0.8),
+          options=@tgeo.ExtrudeOptions::new(
+            depth=0.8,
+            bevel_enabled=true,
+            bevel_thickness=0.06,
+            bevel_size=0.05,
+            bevel_segments=2,
+          ),
         ),
         r: 0.30, g: 0.80, b: 0.70, metallic: 0.1, roughness: 0.35,
         x: 0.0, y: -0.5, z: -4.0, rot_x: -@tmath.FRAC_PI_2,
@@ -169,15 +175,21 @@ fn main {
       }
     }
 
-    // Line overlays: crease edges of the box and the wireframe of a torus knot
-    // are uploaded once and replayed every frame through the LineList pipeline.
-    let _box_edges = renderer.upload_lines(
-      @tgeo.edges(@tgeo.box(width=1.5, height=1.5, depth=1.5)).transformed(
-        @tmath.Affine3::from_translation(@tmath.Vec3::new(-2.4, 0.25, 0.0)),
-      ),
-      color=@tmath.Vec3::new(1.0, 0.85, 0.2),
+    // Line scene nodes: local-space line lists drawn with the node transform
+    // and a per-node colour (box creases, torus-knot wireframe).
+    let box_edges = renderer.upload_lines(
+      @tgeo.edges(@tgeo.box(width=1.5, height=1.5, depth=1.5)),
     )
-    let _knot_wire = renderer.upload_lines(
+    let _edge_node = renderer.create_line_node(
+      scene,
+      box_edges,
+      material=@t3d.LineMaterial::new(color=@tmath.Vec3::new(1.0, 0.85, 0.2)),
+      transform=@tmath.Transform::from_translation(
+        @tmath.Vec3::new(-2.4, 0.25, 0.0),
+      ),
+      name="box_edges",
+    )
+    let knot_wire = renderer.upload_lines(
       @tgeo.wireframe(
         @tgeo.torus_knot(
           radius=0.5,
@@ -185,10 +197,16 @@ fn main {
           tubular_segments=64,
           radial_segments=6,
         ),
-      ).transformed(
-        @tmath.Affine3::from_translation(@tmath.Vec3::new(2.4, 0.9, -4.0)),
       ),
-      color=@tmath.Vec3::new(0.3, 0.95, 1.0),
+    )
+    let _wire_node = renderer.create_line_node(
+      scene,
+      knot_wire,
+      material=@t3d.LineMaterial::new(color=@tmath.Vec3::new(0.3, 0.95, 1.0)),
+      transform=@tmath.Transform::from_translation(
+        @tmath.Vec3::new(2.4, 0.9, -4.0),
+      ),
+      name="knot_wireframe",
     )
 
     let sun = @tmath.Vec3::new(4.0, 3.8, -2.4).normalize()
@@ -262,11 +280,14 @@ fn main {
       println(
         "[geometry/primitives] \{renderer.stats().summary()} lit=\{lit} pick=\{pick_ok} validation=\{errs}",
       )
-      if errs == 0 && lit > 10000 && pick_ok {
-        println("[geometry/primitives] OK — 11 generators + lines + orbit + picking")
+      let line_segments = renderer.stats().line_segments
+      if errs == 0 && lit > 10000 && pick_ok && line_segments > 0 {
+        println(
+          "[geometry/primitives] OK — 11 generators + \{line_segments} line segments + orbit + picking",
+        )
       } else {
         println(
-          "[geometry/primitives] FAIL — lit=\{lit} pick=\{pick_ok} errs=\{errs}",
+          "[geometry/primitives] FAIL — lit=\{lit} pick=\{pick_ok} lines=\{line_segments} errs=\{errs}",
         )
       }
       rt.destroy()
