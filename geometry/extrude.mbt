@@ -92,14 +92,16 @@ fn extrude_triangle(
 }
 
 ///|
-/// Extrude `s` into a closed solid.
-///
-/// The contour is normalized to CCW and holes to CW, so lids face +Z and side
-/// walls face outwards regardless of the caller's ring order.
-pub fn extrude(s : Shape2D, options? : ExtrudeOptions = ExtrudeOptions::new()) -> MeshData {
-  let builder = MeshBuilder::new()
+/// Emit one shape's lids (group slot 0) and walls (group slot 1) into
+/// `builder`. Empty shapes are skipped so multi-shape extrusion can share one
+/// accumulator.
+fn extrude_shape_into(
+  builder : MeshBuilder,
+  s : Shape2D,
+  options : ExtrudeOptions,
+) -> Unit {
   if s.is_empty() {
-    return builder.build()
+    return
   }
   let steps = if options.steps < 1 { 1 } else { options.steps }
   let path = match options.extrude_path {
@@ -204,6 +206,34 @@ pub fn extrude(s : Shape2D, options? : ExtrudeOptions = ExtrudeOptions::new()) -
     ring_offset = ring_offset + n
   }
   builder.group_end(side_group)
+}
+
+///|
+/// Extrude one shape into a closed solid.
+///
+/// The contour is normalized to CCW and holes to CW, so lids face +Z and side
+/// walls face outwards regardless of the caller's ring order. Groups match
+/// three.js: `0` = lids, `1` = walls.
+pub fn extrude(s : Shape2D, options? : ExtrudeOptions = ExtrudeOptions::new()) -> MeshData {
+  let builder = MeshBuilder::new()
+  extrude_shape_into(builder, s, options)
+  let mesh = builder.build()
+  mesh.compute_vertex_normals()
+  mesh
+}
+
+///|
+/// Extrude several shapes into one mesh (three.js `ExtrudeGeometry` accepts a
+/// `Shape[]` too). Every shape contributes a lid group (`material_slot` 0) and
+/// a wall group (`material_slot` 1), so one two-material setup covers them all.
+pub fn extrude_shapes(
+  items : Array[Shape2D],
+  options? : ExtrudeOptions = ExtrudeOptions::new(),
+) -> MeshData {
+  let builder = MeshBuilder::new()
+  for s in items {
+    extrude_shape_into(builder, s, options)
+  }
   let mesh = builder.build()
   mesh.compute_vertex_normals()
   mesh

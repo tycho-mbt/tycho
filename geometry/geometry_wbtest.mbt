@@ -294,3 +294,38 @@ test "geometry failures carry a typed error" {
   }
   need(gltf_error, "parse_gltf must raise InvalidGltf")
 }
+
+
+///|
+test "circle sector and ring bands" {
+  // Half disc: centre + 9 rim vertices, 8 triangles in the upper half.
+  let half = circle(
+    radius=1.0,
+    segments=8,
+    theta_start=0.0,
+    theta_length=@tmath.PI,
+  )
+  need(half.vertex_count() == 10, "half circle verts")
+  need(half.triangle_count() == 8, "half circle tris")
+  let b = half.bounds()
+  need_vec3(b.min, @tmath.Vec3::new(-1.0, 0.0, 0.0), eps=1.0e-3)
+  need_vec3(b.max, @tmath.Vec3::new(1.0, 1.0, 0.0), eps=1.0e-3)
+  need(winding_consistent(half), "half circle winding")
+  // Quarter annulus split into two radial bands.
+  let quarter = ring(
+    inner=0.5,
+    outer=1.0,
+    theta_segments=8,
+    phi_segments=2,
+    theta_start=0.0,
+    theta_length=@tmath.FRAC_PI_2,
+  )
+  need(quarter.vertex_count() == 9 * 3, "banded ring verts")
+  need(quarter.triangle_count() == 8 * 2 * 2, "banded ring tris")
+  need(all_units(quarter), "banded ring normals")
+  need(winding_consistent(quarter), "banded ring winding")
+  let qb = quarter.bounds()
+  need(qb.min.x > -1.0e-4, "quarter ring x")
+  need(qb.min.y > -1.0e-4, "quarter ring y")
+  need(close(qb.max.x, 1.0, eps=1.0e-3), "quarter ring radius")
+}

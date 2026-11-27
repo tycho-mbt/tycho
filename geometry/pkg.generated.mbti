@@ -12,7 +12,7 @@ pub fn capsule(radius? : Float, length? : Float, cap_segments? : Int32, radial_s
 
 pub fn catmull_rom_chain(Array[@tycho_math.Vec3], samples_per_segment? : Int32, closed? : Bool) -> Array[@tycho_math.Vec3]
 
-pub fn circle(radius? : Float, segments? : Int32) -> MeshData
+pub fn circle(radius? : Float, segments? : Int32, theta_start? : Float, theta_length? : Float) -> MeshData
 
 pub fn cone(radius? : Float, height? : Float, radial_segments? : Int32, height_segments? : Int32, open_ended? : Bool, theta_start? : Float, theta_length? : Float) -> MeshData
 
@@ -23,6 +23,8 @@ pub fn dodecahedron(radius? : Float, detail? : Int32) -> MeshData
 pub fn edges(MeshData, threshold_angle? : Float) -> LineData
 
 pub fn extrude(Shape2D, options? : ExtrudeOptions) -> MeshData
+
+pub fn extrude_shapes(Array[Shape2D], options? : ExtrudeOptions) -> MeshData
 
 pub fn icosahedron(radius? : Float, detail? : Int32) -> MeshData
 
@@ -44,7 +46,7 @@ pub fn polygon_area(Array[@tycho_math.Vec2]) -> Float
 
 pub fn polyhedron(Array[@tycho_math.Vec3], Array[Int32], radius? : Float, detail? : Int32) -> MeshData
 
-pub fn ring(inner? : Float, outer? : Float, theta_segments? : Int32) -> MeshData
+pub fn ring(inner? : Float, outer? : Float, theta_segments? : Int32, phi_segments? : Int32, theta_start? : Float, theta_length? : Float) -> MeshData
 
 pub fn shape(Shape2D) -> MeshData
 

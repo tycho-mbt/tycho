@@ -135,3 +135,38 @@ test "extrude empty shape" {
   need(m.vertex_count() == 0, "empty extrude")
   need(m.index_count() == 0, "empty extrude indices")
 }
+
+
+///|
+fn ccw_square_at(cx : Float, cy : Float, half : Float) -> Array[@tmath.Vec2] {
+  [
+    @tmath.Vec2::new(cx - half, cy - half),
+    @tmath.Vec2::new(cx + half, cy - half),
+    @tmath.Vec2::new(cx + half, cy + half),
+    @tmath.Vec2::new(cx - half, cy + half),
+  ]
+}
+
+///|
+test "extrude multiple shapes" {
+  let m = extrude_shapes(
+    [
+      Shape2D::new(ccw_square_at(-1.0, 0.0, 0.5)),
+      Shape2D::new(ccw_square_at(1.0, 0.0, 0.5)),
+    ],
+    options=ExtrudeOptions::new(depth=1.0),
+  )
+  // Two independent 1x1x1 solids.
+  need(close(signed_volume(m), 2.0, eps=1.0e-3), "multi extrude volume")
+  need(watertight(m), "multi extrude watertight")
+  need(m.groups.length() == 4, "multi extrude groups")
+  need(m.groups[0].material_slot == 0, "multi lid slot 1")
+  need(m.groups[1].material_slot == 1, "multi wall slot 1")
+  need(m.groups[2].material_slot == 0, "multi lid slot 2")
+  need(m.groups[3].material_slot == 1, "multi wall slot 2")
+  need(close(m.bounds().min.x, -1.5, eps=1.0e-3), "multi bounds min")
+  need(close(m.bounds().max.x, 1.5, eps=1.0e-3), "multi bounds max")
+  // Empty input is a no-op rather than an error.
+  let empty : Array[Shape2D] = []
+  need(extrude_shapes(empty).vertex_count() == 0, "empty multi extrude")
+}

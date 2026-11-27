@@ -193,9 +193,14 @@ pub fn plane(
 }
 
 ///|
-/// Disc in the XY plane facing +Z. The seam vertex is duplicated so UVs stay
-/// in `[0, 1]` without wrapping.
-pub fn circle(radius? : Float = 1.0, segments? : Int = 32) -> MeshData {
+/// Disc (or disc sector) in the XY plane facing +Z. The seam vertex is
+/// duplicated so UVs stay in `[0, 1]` without wrapping.
+pub fn circle(
+  radius? : Float = 1.0,
+  segments? : Int = 32,
+  theta_start? : Float = 0.0,
+  theta_length? : Float = @tmath.TAU,
+) -> MeshData {
   let segs = clamp_segs(segments, 3)
   let builder = MeshBuilder::new()
   let normal = @tmath.Vec3::unit_z()
@@ -207,7 +212,7 @@ pub fn circle(radius? : Float = 1.0, segments? : Int = 32) -> MeshData {
   let rim : Array[UInt] = []
   for i = 0; i <= segs; i = i + 1 {
     let u = f_of_int(i) / f_of_int(segs)
-    let theta = u * @tmath.TAU
+    let theta = theta_start + u * theta_length
     let (s, c) = @tmath.sin_cos(theta)
     let p = @tmath.Vec3::new(c * radius, s * radius, 0.0)
     let uv = @tmath.Vec2::new(0.5 + 0.5 * c, 0.5 + 0.5 * s)
@@ -220,13 +225,18 @@ pub fn circle(radius? : Float = 1.0, segments? : Int = 32) -> MeshData {
 }
 
 ///|
-/// Flat annulus in the XY plane facing +Z.
+/// Flat annulus (or annulus sector) in the XY plane facing +Z. `phi_segments`
+/// subdivides radially between `inner` and `outer`.
 pub fn ring(
   inner? : Float = 0.5,
   outer? : Float = 1.0,
   theta_segments? : Int = 32,
+  phi_segments? : Int = 1,
+  theta_start? : Float = 0.0,
+  theta_length? : Float = @tmath.TAU,
 ) -> MeshData {
   let segs = clamp_segs(theta_segments, 3)
+  let bands = clamp_segs(phi_segments, 1)
   let builder = MeshBuilder::new()
   let normal = @tmath.Vec3::unit_z()
   let inv_outer : Float = if outer.abs() > (1.0e-12 : Float) {
@@ -234,24 +244,31 @@ pub fn ring(
   } else {
     0.0
   }
-  for i = 0; i <= segs; i = i + 1 {
-    let u = f_of_int(i) / f_of_int(segs)
-    let theta = u * @tmath.TAU
-    let (s, c) = @tmath.sin_cos(theta)
-    let pi = @tmath.Vec3::new(c * inner, s * inner, 0.0)
-    let po = @tmath.Vec3::new(c * outer, s * outer, 0.0)
-    let uvi = @tmath.Vec2::new(0.5 + 0.5 * pi.x * inv_outer, 0.5 + 0.5 * pi.y * inv_outer)
-    let uvo = @tmath.Vec2::new(0.5 + 0.5 * po.x * inv_outer, 0.5 + 0.5 * po.y * inv_outer)
-    let _ = builder.vertex(pi, normal, uvi)
-    let _ = builder.vertex(po, normal, uvo)
+  let radial_step = (outer - inner) / f_of_int(bands)
+  for j = 0; j <= bands; j = j + 1 {
+    let radius = inner + radial_step * f_of_int(j)
+    for i = 0; i <= segs; i = i + 1 {
+      let u = f_of_int(i) / f_of_int(segs)
+      let theta = theta_start + u * theta_length
+      let (s, c) = @tmath.sin_cos(theta)
+      let p = @tmath.Vec3::new(c * radius, s * radius, 0.0)
+      let uv = @tmath.Vec2::new(
+        0.5 + 0.5 * p.x * inv_outer,
+        0.5 + 0.5 * p.y * inv_outer,
+      )
+      let _ = builder.vertex(p, normal, uv)
+    }
   }
-  for i = 0; i < segs; i = i + 1 {
-    let a = (2 * i).reinterpret_as_uint()
-    let b = (2 * i + 1).reinterpret_as_uint()
-    let c = (2 * i + 3).reinterpret_as_uint()
-    let d = (2 * i + 2).reinterpret_as_uint()
-    builder.tri(a, b, c)
-    builder.tri(a, c, d)
+  let row = segs + 1
+  for j = 0; j < bands; j = j + 1 {
+    for i = 0; i < segs; i = i + 1 {
+      let a = (i + j * row).reinterpret_as_uint()
+      let b = (i + (j + 1) * row).reinterpret_as_uint()
+      let c = (i + 1 + (j + 1) * row).reinterpret_as_uint()
+      let d = (i + 1 + j * row).reinterpret_as_uint()
+      builder.tri(a, b, d)
+      builder.tri(b, c, d)
+    }
   }
   builder.build()
 }
