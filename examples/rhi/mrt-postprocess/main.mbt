@@ -66,7 +66,7 @@ fn main {
     )
     let mrt_refl_ok = gbuf_desc.vertex_formats.length() == 3 &&
       gbuf_desc.push_constant_size == 64 &&
-      gbuf_desc.color_formats.length() == 2
+      gbuf_desc.color_targets.length() == 2
     let gbuf_pipe = dev.create_graphics_pipeline(gbuf_desc)
 
     let cvert = @tycho.compile_glsl(

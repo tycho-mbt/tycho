@@ -671,11 +671,12 @@ fn dx12_pipeline_create_from_desc(
       "the DX12 graphics path implements uniform slots and sampled textures so far",
     )
   }
-  let has_depth = match desc.depth_format {
+  let ds = desc.depth_or_default()
+  let has_depth = match ds.format {
     Some(_) => true
     None => false
   }
-  let depth = desc.depth_test && has_depth
+  let depth = ds.depth_test && has_depth
   let (inputs, strides) = dx12_vertex_input(desc)
   let color_formats = dx12_color_formats(desc)
   dx12_pipeline_create(
@@ -684,7 +685,7 @@ fn dx12_pipeline_create_from_desc(
     desc.frag,
     desc.uniform_slots,
     depth,
-    desc.depth_write,
+    ds.write,
     desc.texture_slots,
     desc.push_constant_size,
     color_formats,
@@ -1129,15 +1130,15 @@ fn dx12_format_code(format : TextureFormat) -> Int {
 /// The colour formats a pipeline writes, in MRT order. `color_formats` wins over
 /// the single `color_format`, matching the Vulkan path.
 fn dx12_color_formats(desc : PipelineDesc) -> FixedArray[Int] {
-  if desc.color_formats.length() > 0 {
-    FixedArray::makei(desc.color_formats.length(), fn(i) {
-      dx12_format_code(desc.color_formats[i])
+  if desc.color_targets.length() > 0 {
+    FixedArray::makei(desc.color_targets.length(), fn(i) {
+      match desc.color_targets[i].format {
+        Some(f) => dx12_format_code(f)
+        None => 0
+      }
     })
   } else {
-    match desc.color_format {
-      Some(format) => FixedArray::make(1, dx12_format_code(format))
-      None => FixedArray::make(1, 0)
-    }
+    FixedArray::make(1, 0)
   }
 }
 
@@ -1176,17 +1177,22 @@ fn dx12_mesh_pipeline_create(
       "the DX12 mesh path uses an empty root signature so far (no uniforms/textures/push constants)",
     )
   }
-  let has_depth = match desc.depth_format {
+  let ds = desc.depth_or_default()
+  let has_depth = match ds.format {
     Some(_) => true
     None => false
   }
-  let formats = if desc.color_formats.length() > 0 {
-    desc.color_formats
-  } else {
-    match desc.color_format {
-      Some(format) => [format]
-      None => [TextureFormat::RGBA8]
+  let formats : Array[TextureFormat] = if desc.color_targets.length() > 0 {
+    let out : Array[TextureFormat] = []
+    for t in desc.color_targets {
+      match t.format {
+        Some(f) => out.push(f)
+        None => ()
+      }
     }
+    out
+  } else {
+    [TextureFormat::RGBA8]
   }
   if formats.length() != 1 {
     raise RhiError::BackendUnsupported("the DX12 mesh path writes exactly one colour target")
@@ -1196,8 +1202,8 @@ fn dx12_mesh_pipeline_create(
     desc.mesh,
     desc.frag,
     color_format=dx12_format_code(formats[0]),
-    depth=desc.depth_test && has_depth,
-    depth_write=desc.depth_write,
+    depth=ds.depth_test && has_depth,
+    depth_write=ds.write,
     flip_y=true,
   ) {
     Some(p) => {

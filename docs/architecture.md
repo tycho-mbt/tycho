@@ -54,7 +54,7 @@ examples/(laplaceliu/tycho_vulkan_examples) ── pure-MoonBit examples grouped
   - Per-pipeline descriptor pools expand dynamically when draw counts exceed a single pool's capacity.
   - Optional `BindlessHeap` binds a descriptor-indexed texture array (`set=1` by default) via `CommandBuffer::bind_bindless_heap`.
 - **Stencil, Indirect-Count & Inline Ray Query**:
-  - `PipelineDesc.stencil` (`StencilState` / `StencilFaceState`) pairs with `DepthTargetDesc` stencil load/store ops on `Depth24Stencil8` targets and dynamic `CommandBuffer::set_stencil_reference`.
+  - `PipelineDesc.depth_stencil.stencil` (`StencilState` / `StencilFaceState`) pairs with `DepthTargetDesc` stencil load/store ops on `Depth24Stencil8` targets and dynamic `CommandBuffer::set_stencil_reference`.
   - `draw_indirect_count` / `draw_indexed_indirect_count` use Vulkan 1.2 `drawIndirectCount`.
   - When `DeviceCapabilities.supports_ray_query` is true, `Device::create_blas` / `Device::create_tlas` build device-local acceleration structures (`AccelStruct`) backed by device-address-enabled `SubAllocator` blocks and bound via `CommandBuffer::bind_accel_struct`.
 

@@ -740,6 +740,7 @@ pub fn Swapchain::create_pipeline_desc(
         )
       }
       let (inputs, strides) = dx12_vertex_input(desc)
+      let ds = desc.depth_or_default()
       return {
         backend: Dx12Pipeline(
           dx12_pipeline_create(
@@ -747,11 +748,11 @@ pub fn Swapchain::create_pipeline_desc(
             desc.vert,
             desc.frag,
             desc.uniform_slots,
-            desc.depth_test && (match desc.depth_format {
+            ds.depth_test && (match ds.format {
               Some(_) => true
               None => false
             }),
-            desc.depth_write,
+            ds.write,
             desc.texture_slots,
             desc.push_constant_size,
             dx12_color_formats(desc),

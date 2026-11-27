@@ -179,6 +179,7 @@ pub(all) struct ColorTargetState {
   blend_mode : BlendMode?
   blend_state : BlendState?
 }
+pub fn ColorTargetState::effective_blend_mode(Self) -> BlendMode
 pub fn ColorTargetState::new(format? : TextureFormat, write? : Bool, blend_mode? : BlendMode, blend_state? : BlendState) -> Self
 
 pub struct CommandBuffer {
@@ -411,20 +412,13 @@ pub(all) struct MeshPipelineDesc {
   storage_bindings : Array[Int32]
   storage_image_bindings : Array[Int32]
   push_constant_size : Int32
-  depth_test : Bool
-  depth_write : Bool
-  depth_compare : CompareOp
-  depth_format : TextureFormat?
-  cull_mode : CullMode
-  front_face : FrontFace
-  blend : Bool
-  blend_mode : BlendMode?
-  color_write : Bool
-  samples : SampleCount
-  color_format : TextureFormat?
-  color_formats : Array[TextureFormat]
+  raster : RasterState
+  depth_stencil : DepthStencilState?
+  color_targets : Array[ColorTargetState]
   bindless_heap : BindlessHeap?
 }
+pub fn MeshPipelineDesc::color_target(Self, Int32) -> ColorTargetState
+pub fn MeshPipelineDesc::depth_or_default(Self) -> DepthStencilState
 pub fn MeshPipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], task? : FixedArray[UInt32], task_entry? : String, mesh_entry? : String, frag_entry? : String, uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], push_constant_size? : Int32, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap) -> Self
 
 pub struct Pipeline {
@@ -450,28 +444,14 @@ pub(all) struct PipelineDesc {
   storage_image_bindings : Array[Int32]
   accel_bindings : Array[Int32]
   push_constant_size : Int32
-  topology : PrimitiveTopology
-  depth_test : Bool
-  depth_write : Bool
-  depth_compare : CompareOp
-  depth_format : TextureFormat?
-  depth_only : Bool
-  depth_bias : Bool
-  depth_bias_constant : Float
-  depth_bias_slope : Float
-  stencil : StencilState?
-  cull_mode : CullMode
-  front_face : FrontFace
-  blend : Bool
-  blend_mode : BlendMode?
-  blend_state : BlendState?
-  color_write : Bool
-  samples : SampleCount
-  color_format : TextureFormat?
-  color_formats : Array[TextureFormat]
+  raster : RasterState
+  depth_stencil : DepthStencilState?
+  color_targets : Array[ColorTargetState]
   bindless_heap : BindlessHeap?
 }
+pub fn PipelineDesc::color_target(Self, Int32) -> ColorTargetState
 pub fn PipelineDesc::color_target_states(Self) -> Array[ColorTargetState]
+pub fn PipelineDesc::depth_or_default(Self) -> DepthStencilState
 pub fn PipelineDesc::depth_stencil_state(Self) -> DepthStencilState?
 pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode, blend_state? : BlendState, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout], bindless_heap? : BindlessHeap) -> Self
 pub fn PipelineDesc::graphics(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, raster? : RasterState, depth_stencil? : DepthStencilState, color_targets? : Array[ColorTargetState], vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, accel_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], accel_bindings? : Array[Int32], push_constant_size? : Int32, bindless_heap? : BindlessHeap) -> Self

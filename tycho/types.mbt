@@ -619,25 +619,12 @@ pub(all) struct PipelineDesc {
   storage_image_bindings : Array[Int]
   accel_bindings : Array[Int]
   push_constant_size : Int
-  topology : PrimitiveTopology
-  depth_test : Bool
-  depth_write : Bool
-  depth_compare : CompareOp
-  depth_format : TextureFormat?
-  depth_only : Bool
-  depth_bias : Bool
-  depth_bias_constant : Float
-  depth_bias_slope : Float
-  stencil : StencilState?
-  cull_mode : CullMode
-  front_face : FrontFace
-  blend : Bool
-  blend_mode : BlendMode?
-  blend_state : BlendState?
-  color_write : Bool
-  samples : SampleCount
-  color_format : TextureFormat?
-  color_formats : Array[TextureFormat]
+  // Drawing state is grouped: rasterisation, depth/stencil and one entry per
+  // colour attachment, instead of 20 flat mirror fields.
+  raster : RasterState
+  // `None` when the pipeline has no depth/stencil attachment at all.
+  depth_stencil : DepthStencilState?
+  color_targets : Array[ColorTargetState]
   bindless_heap : BindlessHeap?
 }
 
@@ -839,11 +826,16 @@ pub fn ColorTargetState::new(
 ///|
 /// The rasterisation half of a pipeline description.
 pub fn PipelineDesc::raster_state(self : PipelineDesc) -> RasterState {
-  {
-    topology: self.topology,
-    cull_mode: self.cull_mode,
-    front_face: self.front_face,
-    samples: self.samples,
+  self.raster
+}
+
+///|
+/// The depth/stencil state with defaults filled in, for backends that always
+/// need a value.
+pub fn PipelineDesc::depth_or_default(self : PipelineDesc) -> DepthStencilState {
+  match self.depth_stencil {
+    Some(d) => d
+    None => DepthStencilState::new()
   }
 }
 
@@ -851,55 +843,55 @@ pub fn PipelineDesc::raster_state(self : PipelineDesc) -> RasterState {
 /// The depth/stencil half, or `None` when the pipeline has no depth or stencil
 /// state at all.
 pub fn PipelineDesc::depth_stencil_state(self : PipelineDesc) -> DepthStencilState? {
-  let has_state = self.depth_test ||
-    self.depth_write ||
-    self.depth_only ||
-    self.depth_bias ||
-    self.depth_format is Some(_) ||
-    self.stencil is Some(_)
-  if !has_state {
-    return None
-  }
-  Some({
-    depth_test: self.depth_test,
-    write: self.depth_write,
-    compare: self.depth_compare,
-    format: self.depth_format,
-    depth_only: self.depth_only,
-    bias: self.depth_bias,
-    bias_constant: self.depth_bias_constant,
-    bias_slope: self.depth_bias_slope,
-    stencil: self.stencil,
-  })
+  self.depth_stencil
 }
 
 ///|
 /// The colour attachments, one entry per target. A single target is reported
 /// through `color_format`, an MRT list through `color_formats`.
 pub fn PipelineDesc::color_target_states(self : PipelineDesc) -> Array[ColorTargetState] {
-  let out : Array[ColorTargetState] = []
-  if self.color_formats.length() > 0 {
-    for f in self.color_formats {
-      out.push({
-        format: Some(f),
-        write: self.color_write,
-        blend_mode: self.blend_mode,
-        blend_state: self.blend_state,
-      })
-    }
+  self.color_targets
+}
+
+
+///|
+/// The colour target at `index`, falling back to a default when the descriptor
+/// has no explicit target (single-target pipelines without a format).
+pub fn PipelineDesc::color_target(self : PipelineDesc, index : Int) -> ColorTargetState {
+  if index < self.color_targets.length() {
+    self.color_targets[index]
   } else {
-    match self.color_format {
-      Some(f) =>
-        out.push({
-          format: Some(f),
-          write: self.color_write,
-          blend_mode: self.blend_mode,
-          blend_state: self.blend_state,
-        })
-      None => ()
-    }
+    ColorTargetState::new()
   }
-  out
+}
+
+///|
+/// The resolved blend mode, `Opaque` when the target does not ask for blending.
+pub fn ColorTargetState::effective_blend_mode(self : ColorTargetState) -> BlendMode {
+  match self.blend_mode {
+    Some(m) => m
+    None => BlendMode::Opaque
+  }
+}
+
+///|
+/// The depth/stencil state of a mesh pipeline, with defaults filled in.
+pub fn MeshPipelineDesc::depth_or_default(self : MeshPipelineDesc) -> DepthStencilState {
+  match self.depth_stencil {
+    Some(d) => d
+    None => DepthStencilState::new()
+  }
+}
+
+///|
+/// The colour target at `index`, falling back to a default when the mesh
+/// pipeline descriptor has no explicit target.
+pub fn MeshPipelineDesc::color_target(self : MeshPipelineDesc, index : Int) -> ColorTargetState {
+  if index < self.color_targets.length() {
+    self.color_targets[index]
+  } else {
+    ColorTargetState::new()
+  }
 }
 
 ///|
@@ -1081,27 +1073,93 @@ pub fn PipelineDesc::new(
     storage_image_bindings,
     accel_bindings,
     push_constant_size,
-    topology,
-    depth_test,
-    depth_write,
-    depth_compare,
-    depth_format,
-    depth_only,
-    depth_bias,
-    depth_bias_constant,
-    depth_bias_slope,
-    stencil,
-    cull_mode,
-    front_face,
-    blend,
-    blend_mode,
-    blend_state,
-    color_write,
-    samples,
-    color_format,
-    color_formats,
+    raster: { topology, cull_mode, front_face, samples },
+    depth_stencil: make_depth_stencil(
+      depth_test,
+      depth_write,
+      depth_compare,
+      depth_format,
+      depth_only,
+      depth_bias,
+      depth_bias_constant,
+      depth_bias_slope,
+      stencil,
+    ),
+    color_targets: make_color_targets(
+      color_format,
+      color_formats,
+      color_write,
+      blend,
+      blend_mode,
+      blend_state,
+    ),
     bindless_heap,
   }
+}
+
+///|
+/// Keeps a flat constructor but stores the depth/stencil state as one value.
+fn make_depth_stencil(
+  depth_test : Bool,
+  depth_write : Bool,
+  depth_compare : CompareOp,
+  depth_format : TextureFormat?,
+  depth_only : Bool,
+  depth_bias : Bool,
+  depth_bias_constant : Float,
+  depth_bias_slope : Float,
+  stencil : StencilState?,
+) -> DepthStencilState? {
+  let has_state = depth_test ||
+    depth_write ||
+    depth_only ||
+    depth_bias ||
+    depth_format is Some(_) ||
+    stencil is Some(_)
+  if !has_state {
+    return None
+  }
+  Some({
+    depth_test,
+    write: depth_write,
+    compare: depth_compare,
+    format: depth_format,
+    depth_only,
+    bias: depth_bias,
+    bias_constant: depth_bias_constant,
+    bias_slope: depth_bias_slope,
+    stencil,
+  })
+}
+
+///|
+/// Keeps a flat constructor but stores one target per colour attachment. The
+/// legacy `blend` flag is folded into the resolved blend mode.
+fn make_color_targets(
+  color_format : TextureFormat?,
+  color_formats : Array[TextureFormat],
+  color_write : Bool,
+  blend : Bool,
+  blend_mode : BlendMode?,
+  blend_state : BlendState?,
+) -> Array[ColorTargetState] {
+  let resolved_blend : BlendMode? = match blend_mode {
+    Some(m) => Some(m)
+    None => if blend { Some(BlendMode::Alpha) } else { None }
+  }
+  let out : Array[ColorTargetState] = []
+  if color_formats.length() > 0 {
+    for f in color_formats {
+      out.push({ format: Some(f), write: color_write, blend_mode: resolved_blend, blend_state })
+    }
+  } else {
+    match color_format {
+      Some(f) =>
+        out.push({ format: Some(f), write: color_write, blend_mode: resolved_blend, blend_state })
+      None => ()
+    }
+  }
+  out
 }
 
 ///|
@@ -1274,18 +1332,9 @@ pub(all) struct MeshPipelineDesc {
   storage_bindings : Array[Int]
   storage_image_bindings : Array[Int]
   push_constant_size : Int
-  depth_test : Bool
-  depth_write : Bool
-  depth_compare : CompareOp
-  depth_format : TextureFormat?
-  cull_mode : CullMode
-  front_face : FrontFace
-  blend : Bool
-  blend_mode : BlendMode?
-  color_write : Bool
-  samples : SampleCount
-  color_format : TextureFormat?
-  color_formats : Array[TextureFormat]
+  raster : RasterState
+  depth_stencil : DepthStencilState?
+  color_targets : Array[ColorTargetState]
   bindless_heap : BindlessHeap?
 }
 
@@ -1336,18 +1385,26 @@ pub fn MeshPipelineDesc::new(
     storage_bindings,
     storage_image_bindings,
     push_constant_size,
-    depth_test,
-    depth_write,
-    depth_compare,
-    depth_format,
-    cull_mode,
-    front_face,
-    blend,
-    blend_mode,
-    color_write,
-    samples,
-    color_format,
-    color_formats,
+    raster: { topology: PrimitiveTopology::TriangleList, cull_mode, front_face, samples },
+    depth_stencil: make_depth_stencil(
+      depth_test,
+      depth_write,
+      depth_compare,
+      depth_format,
+      false,
+      false,
+      (0.0 : Float),
+      (0.0 : Float),
+      (None : StencilState?),
+    ),
+    color_targets: make_color_targets(
+      color_format,
+      color_formats,
+      color_write,
+      blend,
+      blend_mode,
+      (None : BlendState?),
+    ),
     bindless_heap,
   }
 }

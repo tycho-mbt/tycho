@@ -128,29 +128,29 @@ test "grouped pipeline state round-trips through the flat descriptor" {
       ColorTargetState::new(format=TextureFormat::RGBA8Srgb, blend_mode=BlendMode::Alpha),
     ],
   )
-  // Grouped input lands in the legacy flat fields.
-  assert_eq(desc.topology, PrimitiveTopology::TriangleStrip)
-  assert_eq(desc.cull_mode, CullMode::Back)
-  assert_eq(desc.samples, SampleCount::X4)
-  assert_true(desc.depth_test)
-  assert_true(desc.depth_write)
-  assert_eq(desc.depth_compare, CompareOp::LessEqual)
-  assert_eq(desc.depth_format, Some(TextureFormat::Depth32F))
-  assert_eq(desc.color_format, Some(TextureFormat::RGBA8Srgb))
-  assert_eq(desc.blend_mode, Some(BlendMode::Alpha))
-  assert_true(desc.blend)
-
-  // Accessors rebuild the grouped view from the flat storage.
-  let raster = desc.raster_state()
-  assert_eq(raster.topology, PrimitiveTopology::TriangleStrip)
-  assert_eq(raster.samples, SampleCount::X4)
-  match desc.depth_stencil_state() {
-    Some(d) => assert_eq(d.compare, CompareOp::LessEqual)
+  // Grouped input is what the descriptor stores.
+  assert_eq(desc.raster.topology, PrimitiveTopology::TriangleStrip)
+  assert_eq(desc.raster.cull_mode, CullMode::Back)
+  assert_eq(desc.raster.samples, SampleCount::X4)
+  match desc.depth_stencil {
+    Some(d) => {
+      assert_true(d.depth_test)
+      assert_true(d.write)
+      assert_eq(d.compare, CompareOp::LessEqual)
+      assert_eq(d.format, Some(TextureFormat::Depth32F))
+    }
     None => fail("depth state must be reported")
   }
-  let targets = desc.color_target_states()
-  assert_eq(targets.length(), 1)
-  assert_eq(targets[0].format, Some(TextureFormat::RGBA8Srgb))
+  assert_eq(desc.color_targets.length(), 1)
+  assert_eq(desc.color_targets[0].format, Some(TextureFormat::RGBA8Srgb))
+  assert_eq(desc.color_targets[0].blend_mode, Some(BlendMode::Alpha))
+  assert_true(desc.color_targets[0].write)
+
+  // The accessors are views over the same storage.
+  assert_eq(desc.raster_state().samples, SampleCount::X4)
+  assert_true(desc.depth_or_default().depth_test)
+  assert_eq(desc.color_target_states().length(), 1)
+  assert_eq(desc.color_target(1).format, None)
 }
 
 ///|
@@ -163,11 +163,9 @@ test "multiple colour targets map to the MRT list" {
       ColorTargetState::new(format=TextureFormat::RGBA16F),
     ],
   )
-  assert_eq(desc.color_format, None)
-  assert_eq(desc.color_formats.length(), 2)
-  let targets = desc.color_target_states()
-  assert_eq(targets.length(), 2)
-  assert_eq(targets[1].format, Some(TextureFormat::RGBA16F))
+  assert_eq(desc.color_targets.length(), 2)
+  assert_eq(desc.color_targets[0].format, Some(TextureFormat::RGBA8))
+  assert_eq(desc.color_targets[1].format, Some(TextureFormat::RGBA16F))
 }
 
 ///|
@@ -181,11 +179,11 @@ test "depth-only pipelines report no colour targets" {
       depth_only=true,
     ),
   )
-  assert_true(desc.depth_only)
-  assert_eq(desc.color_target_states().length(), 0)
+  assert_true(desc.depth_or_default().depth_only)
+  assert_eq(desc.color_targets.length(), 0)
   // A pipeline with no depth or stencil state at all reports none.
   let plain = PipelineDesc::graphics([], [])
-  match plain.depth_stencil_state() {
+  match plain.depth_stencil {
     None => ()
     Some(_) => fail("a pipeline without depth state must report none")
   }

@@ -3382,7 +3382,9 @@ fn vk_graphics_pipeline_create(
   desc : PipelineDesc,
   default_color_vk_fmt : UInt32,
 ) -> VkPipelineState raise RhiError {
-  if desc.vert.length() == 0 || (!desc.depth_only && desc.frag.length() == 0) {
+  let raster = desc.raster
+  let ds = desc.depth_or_default()
+  if desc.vert.length() == 0 || (!ds.depth_only && desc.frag.length() == 0) {
     raise InvalidArgument("Graphics pipeline requires non-empty SPIR-V shaders")
   }
   let has_frag = desc.frag.length() > 0
@@ -3484,13 +3486,13 @@ fn vk_graphics_pipeline_create(
   }
 
   let input_assembly = @vk.VkPipelineInputAssemblyStateCreateInfo::new()
-  input_assembly.set_topology(vk_topology(desc.topology))
+  input_assembly.set_topology(vk_topology(raster.topology))
 
   let viewport_state = @vk.VkPipelineViewportStateCreateInfo::new()
   viewport_state.set_viewportCount((1 : UInt32))
   viewport_state.set_scissorCount((1 : UInt32))
 
-  let has_stencil = desc.stencil is Some(_)
+  let has_stencil = ds.stencil is Some(_)
   let dyn_count = if has_stencil { 3 } else { 2 }
   let dyn_states = FixedArray::make(dyn_count, @vk.VK_DYNAMIC_STATE_VIEWPORT)
   dyn_states[1] = @vk.VK_DYNAMIC_STATE_SCISSOR
@@ -3503,28 +3505,28 @@ fn vk_graphics_pipeline_create(
 
   let rasterizer = @vk.VkPipelineRasterizationStateCreateInfo::new()
   rasterizer.set_polygonMode(@vk.VK_POLYGON_MODE_FILL)
-  rasterizer.set_cullMode(vk_cull(desc.cull_mode))
-  rasterizer.set_frontFace(vk_front_face(desc.front_face))
+  rasterizer.set_cullMode(vk_cull(raster.cull_mode))
+  rasterizer.set_frontFace(vk_front_face(raster.front_face))
   rasterizer.set_lineWidth((1.0 : Float))
-  if desc.depth_bias {
+  if ds.bias {
     rasterizer.set_depthBiasEnable((1 : UInt32))
-    rasterizer.set_depthBiasConstantFactor(desc.depth_bias_constant)
-    rasterizer.set_depthBiasSlopeFactor(desc.depth_bias_slope)
+    rasterizer.set_depthBiasConstantFactor(ds.bias_constant)
+    rasterizer.set_depthBiasSlopeFactor(ds.bias_slope)
   }
 
   let multisample = @vk.VkPipelineMultisampleStateCreateInfo::new()
-  multisample.set_rasterizationSamples(vk_samples(desc.samples))
+  multisample.set_rasterizationSamples(vk_samples(raster.samples))
 
   let depth_stencil = @vk.VkPipelineDepthStencilStateCreateInfo::new()
   depth_stencil.set_depthTestEnable(
-    if desc.depth_test { (1 : UInt32) } else { (0 : UInt32) },
+    if ds.depth_test { (1 : UInt32) } else { (0 : UInt32) },
   )
   depth_stencil.set_depthWriteEnable(
-    if desc.depth_write { (1 : UInt32) } else { (0 : UInt32) },
+    if ds.write { (1 : UInt32) } else { (0 : UInt32) },
   )
-  depth_stencil.set_depthCompareOp(vk_compare_op(desc.depth_compare))
+  depth_stencil.set_depthCompareOp(vk_compare_op(ds.compare))
   let mut stencil_ref_opt : UInt32? = None
-  match desc.stencil {
+  match ds.stencil {
     Some(st) => {
       depth_stencil.set_stencilTestEnable((1 : UInt32))
       let f_st = vk_stencil_op_state(st.front, st.compare_mask, st.write_mask, st.reference)
@@ -3538,29 +3540,25 @@ fn vk_graphics_pipeline_create(
     None => ()
   }
 
-  let color_vk_fmts : FixedArray[UInt32] = if desc.depth_only {
+  let color_vk_fmts : FixedArray[UInt32] = if ds.depth_only {
     FixedArray::make(0, (0 : UInt32))
-  } else if desc.color_formats.length() > 0 {
-    FixedArray::makei(desc.color_formats.length(), fn(i) {
-      vk_texture_format_for(d, desc.color_formats[i])
+  } else if desc.color_targets.length() > 0 {
+    FixedArray::makei(desc.color_targets.length(), fn(i) {
+      match desc.color_targets[i].format {
+        Some(f) => vk_texture_format_for(d, f)
+        None => default_color_vk_fmt
+      }
     })
   } else {
-    let single = match desc.color_format {
-      Some(f) => vk_texture_format_for(d, f)
-      None => default_color_vk_fmt
-    }
-    FixedArray::make(1, single)
+    FixedArray::make(1, default_color_vk_fmt)
   }
   let n_colors = color_vk_fmts.length()
 
-  let effective_blend = match desc.blend_mode {
-    Some(m) => m
-    None => if desc.blend { BlendMode::Alpha } else { BlendMode::Opaque }
-  }
   let blend_atts = @vk.VkPipelineColorBlendAttachmentState::array(n_colors)
   for i = 0; i < n_colors; i = i + 1 {
-    configure_blend_attachment(blend_atts, i, effective_blend, desc.color_write)
-    match desc.blend_state {
+    let target = desc.color_target(i)
+    configure_blend_attachment(blend_atts, i, target.effective_blend_mode(), target.write)
+    match target.blend_state {
       Some(bs) => configure_blend_state(blend_atts, i, bs)
       None => ()
     }
@@ -3666,7 +3664,7 @@ fn vk_graphics_pipeline_create(
   if n_colors > 0 {
     prci.set_pColorAttachmentFormats(color_vk_fmts)
   }
-  match desc.depth_format {
+  match ds.format {
     Some(f) => {
       let vk_df = vk_texture_format_for(d, f)
       prci.set_depthAttachmentFormat(vk_df)
@@ -3675,7 +3673,7 @@ fn vk_graphics_pipeline_create(
       }
     }
     None =>
-      if desc.depth_test || desc.depth_write {
+      if ds.depth_test || ds.write {
         prci.set_depthAttachmentFormat(@vk.VK_FORMAT_D32_SFLOAT)
       }
   }
@@ -5003,6 +5001,8 @@ fn vk_mesh_pipeline_create(
     @vk.VK_SHADER_STAGE_FRAGMENT_BIT |
     (if has_task { @vk.VK_SHADER_STAGE_TASK_BIT_EXT } else { (0 : UInt32) })
 
+  let raster = desc.raster
+  let ds = desc.depth_or_default()
   let viewport_state = @vk.VkPipelineViewportStateCreateInfo::new()
   viewport_state.set_viewportCount((1 : UInt32))
   viewport_state.set_scissorCount((1 : UInt32))
@@ -5013,39 +5013,35 @@ fn vk_mesh_pipeline_create(
   dyn_ci.set_pDynamicStates(dyn_states)
   let rasterizer = @vk.VkPipelineRasterizationStateCreateInfo::new()
   rasterizer.set_polygonMode(@vk.VK_POLYGON_MODE_FILL)
-  rasterizer.set_cullMode(vk_cull(desc.cull_mode))
-  rasterizer.set_frontFace(vk_front_face(desc.front_face))
+  rasterizer.set_cullMode(vk_cull(raster.cull_mode))
+  rasterizer.set_frontFace(vk_front_face(raster.front_face))
   rasterizer.set_lineWidth((1.0 : Float))
   let multisample = @vk.VkPipelineMultisampleStateCreateInfo::new()
-  multisample.set_rasterizationSamples(vk_samples(desc.samples))
+  multisample.set_rasterizationSamples(vk_samples(raster.samples))
   let depth_stencil = @vk.VkPipelineDepthStencilStateCreateInfo::new()
   depth_stencil.set_depthTestEnable(
-    if desc.depth_test { (1 : UInt32) } else { (0 : UInt32) },
+    if ds.depth_test { (1 : UInt32) } else { (0 : UInt32) },
   )
   depth_stencil.set_depthWriteEnable(
-    if desc.depth_write { (1 : UInt32) } else { (0 : UInt32) },
+    if ds.write { (1 : UInt32) } else { (0 : UInt32) },
   )
-  depth_stencil.set_depthCompareOp(vk_compare_op(desc.depth_compare))
+  depth_stencil.set_depthCompareOp(vk_compare_op(ds.compare))
 
-  let color_vk_fmts : FixedArray[UInt32] = if desc.color_formats.length() > 0 {
-    FixedArray::makei(desc.color_formats.length(), fn(i) {
-      vk_texture_format_for(d, desc.color_formats[i])
+  let color_vk_fmts : FixedArray[UInt32] = if desc.color_targets.length() > 0 {
+    FixedArray::makei(desc.color_targets.length(), fn(i) {
+      match desc.color_targets[i].format {
+        Some(f) => vk_texture_format_for(d, f)
+        None => default_color_vk_fmt
+      }
     })
   } else {
-    let single = match desc.color_format {
-      Some(f) => vk_texture_format_for(d, f)
-      None => default_color_vk_fmt
-    }
-    FixedArray::make(1, single)
+    FixedArray::make(1, default_color_vk_fmt)
   }
   let n_colors = color_vk_fmts.length()
-  let effective_blend = match desc.blend_mode {
-    Some(m) => m
-    None => if desc.blend { BlendMode::Alpha } else { BlendMode::Opaque }
-  }
   let blend_atts = @vk.VkPipelineColorBlendAttachmentState::array(n_colors)
   for i = 0; i < n_colors; i = i + 1 {
-    configure_blend_attachment(blend_atts, i, effective_blend, desc.color_write)
+    let target = desc.color_target(i)
+    configure_blend_attachment(blend_atts, i, target.effective_blend_mode(), target.write)
   }
   let color_blend = @vk.VkPipelineColorBlendStateCreateInfo::new()
   color_blend.set_attachmentCount(n_colors.reinterpret_as_uint())
@@ -5109,7 +5105,7 @@ fn vk_mesh_pipeline_create(
   let prci = @vk.VkPipelineRenderingCreateInfo::new()
   prci.set_colorAttachmentCount(n_colors.reinterpret_as_uint())
   prci.set_pColorAttachmentFormats(color_vk_fmts)
-  match desc.depth_format {
+  match ds.format {
     Some(f) => {
       let vk_df = vk_texture_format_for(d, f)
       prci.set_depthAttachmentFormat(vk_df)
@@ -5118,7 +5114,7 @@ fn vk_mesh_pipeline_create(
       }
     }
     None =>
-      if desc.depth_test || desc.depth_write {
+      if ds.depth_test || ds.write {
         prci.set_depthAttachmentFormat(@vk.VK_FORMAT_D32_SFLOAT)
       }
   }
