@@ -16,7 +16,7 @@ pub fn cone(radius? : Float, height? : Float, radial_segments? : Int32, height_s
 
 pub fn cylinder(radius_top? : Float, radius_bottom? : Float, height? : Float, radial_segments? : Int32, height_segments? : Int32, open_ended? : Bool, theta_start? : Float, theta_length? : Float) -> MeshData
 
-pub fn parse_gltf(String) -> GltfScene raise
+pub fn parse_gltf(String) -> GltfScene raise GeometryError
 
 pub fn parse_obj(Bytes) -> Array[(String, MeshData)]
 
@@ -31,6 +31,10 @@ pub fn sphere(radius? : Float, width_segments? : Int32, height_segments? : Int32
 pub fn torus(radius? : Float, tube? : Float, radial_segments? : Int32, tubular_segments? : Int32, arc? : Float) -> MeshData
 
 // Errors
+pub suberror GeometryError {
+  InvalidMesh(String)
+  InvalidGltf(String)
+}
 
 // Types and methods
 pub(all) enum GltfAlphaMode {
@@ -110,7 +114,7 @@ pub(all) struct MeshData {
   mut morph_targets : Array[MorphTarget]
   mut groups : Array[MeshGroup]
 }
-pub fn MeshData::add_morph_target(Self, FixedArray[@tycho_math.Vec3]) -> Unit raise
+pub fn MeshData::add_morph_target(Self, FixedArray[@tycho_math.Vec3]) -> Unit raise GeometryError
 pub fn MeshData::bounds(Self) -> @tycho_math.Aabb3
 pub fn MeshData::compute_tangents(Self) -> Unit
 pub fn MeshData::compute_vertex_normals(Self) -> Unit
@@ -122,7 +126,7 @@ pub fn MeshData::has_tangents(Self) -> Bool
 pub fn MeshData::index_count(Self) -> Int32
 pub fn MeshData::merge(Array[Self]) -> Self
 pub fn MeshData::new(FixedArray[@tycho_math.Vec3], FixedArray[@tycho_math.Vec3], FixedArray[@tycho_math.Vec2], FixedArray[UInt32]) -> Self
-pub fn MeshData::set_skin(Self, FixedArray[@tycho_math.Vec4], FixedArray[@tycho_math.Vec4]) -> Unit raise
+pub fn MeshData::set_skin(Self, FixedArray[@tycho_math.Vec4], FixedArray[@tycho_math.Vec4]) -> Unit raise GeometryError
 pub fn MeshData::to_non_indexed(Self) -> Self
 pub fn MeshData::transformed(Self, @tycho_math.Affine3) -> Self
 pub fn MeshData::triangle_count(Self) -> Int32

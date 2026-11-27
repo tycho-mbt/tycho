@@ -16,6 +16,8 @@ This module is the CPU content layer of the Tycho graphics stack (see
   `cone`, `capsule`, `torus`.
 - **Operations** — `bounds`, `compute_vertex_normals`, `compute_tangents`,
   `transformed`, `merge`, `to_non_indexed`, `flipped`.
+- **Typed errors** — `GeometryError` (`InvalidMesh` / `InvalidGltf`) instead of
+  bare `fail(...)`, so callers can distinguish a bad mesh from a bad document.
 - **IO** — `parse_obj` / `parse_obj_text` (v/vt/vn, polygons, `o`/`g` parts,
   positive and negative indices), and `parse_gltf` (glTF 2.0 subset: embedded
   base64 buffers, POSITION/NORMAL/TEXCOORD_0, sparse accessors, TRS/matrix

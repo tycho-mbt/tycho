@@ -108,14 +108,23 @@ pub fn MeshData::bounds(self : MeshData) -> @tmath.Aabb3 {
 }
 
 ///|
+/// Failures raised by the geometry builders and the glTF parser.
+pub suberror GeometryError {
+  InvalidMesh(String)
+  InvalidGltf(String)
+}
+
+///|
 /// Replace the groups array (builder support; avoids a second constructor).
 ///|
 pub fn MeshData::add_morph_target(
   self : MeshData,
   positions : FixedArray[@tmath.Vec3],
-) -> Unit raise {
+) -> Unit raise GeometryError {
   if positions.length() != self.vertex_count() {
-    fail("MeshData::add_morph_target: delta count must match the vertex count")
+    raise GeometryError::InvalidMesh(
+      "MeshData::add_morph_target: delta count must match the vertex count",
+    )
   }
   self.morph_targets.push({ positions })
 }
@@ -131,9 +140,11 @@ pub fn MeshData::set_skin(
   self : MeshData,
   joints : FixedArray[@tmath.Vec4],
   weights : FixedArray[@tmath.Vec4],
-) -> Unit raise {
+) -> Unit raise GeometryError {
   if joints.length() != self.vertex_count() || weights.length() != self.vertex_count() {
-    fail("MeshData::set_skin: joints/weights must match the vertex count")
+    raise GeometryError::InvalidMesh(
+      "MeshData::set_skin: joints/weights must match the vertex count",
+    )
   }
   self.skin_joints = Some(joints)
   self.skin_weights = Some(weights)

@@ -268,3 +268,29 @@ test "empty mesh safety" {
   empty.compute_tangents()
   need(empty.vertex_count() == 0, "empty normals no-op")
 }
+
+///|
+test "geometry failures carry a typed error" {
+  let mesh = MeshData::new(
+    FixedArray::make(2, @tmath.Vec3::zero()),
+    FixedArray::make(2, @tmath.Vec3::unit_y()),
+    FixedArray::make(2, @tmath.Vec2::zero()),
+    FixedArray::make(0, (0 : UInt)),
+  )
+  let mesh_error = try {
+    mesh.add_morph_target(FixedArray::make(1, @tmath.Vec3::zero()))
+    false
+  } catch {
+    GeometryError::InvalidMesh(msg) => msg.length() > 0
+    _ => false
+  }
+  need(mesh_error, "add_morph_target must raise InvalidMesh")
+  let gltf_error = try {
+    let _ = parse_gltf("{ not json")
+    false
+  } catch {
+    GeometryError::InvalidGltf(msg) => msg.length() > 0
+    _ => false
+  }
+  need(gltf_error, "parse_gltf must raise InvalidGltf")
+}

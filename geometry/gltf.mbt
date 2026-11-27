@@ -353,15 +353,23 @@ fn read_indices(acc : Accessor, buffers : Array[Bytes]) -> FixedArray[UInt] {
 
 ///|
 /// Parse a glTF document. Buffers must be base64 `data:` URIs.
-pub fn parse_gltf(text : String) -> GltfScene raise {
-  let root = @json.parse(text)
+pub fn parse_gltf(text : String) -> GltfScene raise GeometryError {
+  let root = try {
+    @json.parse(text)
+  } catch {
+    _ => raise GeometryError::InvalidGltf("document is not valid JSON")
+  }
   let buffers : Array[Bytes] = []
   for b in jarr(root, "buffers") {
     let uri = jstr(b, "uri", "")
     let bytes = match uri.split_once(",") {
       Some((head, data)) =>
         if head.has_prefix("data:") {
-          @base64.decode(data)
+          try {
+            @base64.decode(data)
+          } catch {
+            _ => raise GeometryError::InvalidGltf("buffer is not valid base64")
+          }
         } else {
           Bytes::make(0, b'\x00')
         }
@@ -511,7 +519,11 @@ pub fn parse_gltf(text : String) -> GltfScene raise {
     let bytes = match uri.split_once(",") {
       Some((head, data)) =>
         if head.has_prefix("data:") {
-          @base64.decode(data)
+          try {
+            @base64.decode(data)
+          } catch {
+            _ => raise GeometryError::InvalidGltf("buffer is not valid base64")
+          }
         } else {
           Bytes::make(0, b'\x00')
         }
