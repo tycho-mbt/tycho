@@ -760,6 +760,270 @@ pub fn RayInstanceDesc::from_affine3(
 }
 
 ///|
+/// Rasterisation state, grouped out of the flat `PipelineDesc`.
+pub(all) struct RasterState {
+  topology : PrimitiveTopology
+  cull_mode : CullMode
+  front_face : FrontFace
+  samples : SampleCount
+}
+
+///|
+pub fn RasterState::new(
+  topology? : PrimitiveTopology = PrimitiveTopology::TriangleList,
+  cull_mode? : CullMode = CullMode::None,
+  front_face? : FrontFace = FrontFace::Clockwise,
+  samples? : SampleCount = SampleCount::X1,
+) -> RasterState {
+  { topology, cull_mode, front_face, samples }
+}
+
+///|
+/// Depth/stencil state, grouped out of the flat `PipelineDesc`.
+pub(all) struct DepthStencilState {
+  depth_test : Bool
+  write : Bool
+  compare : CompareOp
+  format : TextureFormat?
+  depth_only : Bool
+  bias : Bool
+  bias_constant : Float
+  bias_slope : Float
+  stencil : StencilState?
+}
+
+///|
+pub fn DepthStencilState::new(
+  depth_test? : Bool = false,
+  write? : Bool = false,
+  compare? : CompareOp = CompareOp::Less,
+  format? : TextureFormat,
+  depth_only? : Bool = false,
+  bias? : Bool = false,
+  bias_constant? : Float = (0.0 : Float),
+  bias_slope? : Float = (0.0 : Float),
+  stencil? : StencilState,
+) -> DepthStencilState {
+  {
+    depth_test,
+    write,
+    compare,
+    format,
+    depth_only,
+    bias,
+    bias_constant,
+    bias_slope,
+    stencil,
+  }
+}
+
+///|
+/// One colour attachment: format plus its write mask and blend state.
+pub(all) struct ColorTargetState {
+  format : TextureFormat?
+  write : Bool
+  blend_mode : BlendMode?
+  blend_state : BlendState?
+}
+
+///|
+pub fn ColorTargetState::new(
+  format? : TextureFormat,
+  write? : Bool = true,
+  blend_mode? : BlendMode,
+  blend_state? : BlendState,
+) -> ColorTargetState {
+  { format, write, blend_mode, blend_state }
+}
+
+///|
+/// The rasterisation half of a pipeline description.
+pub fn PipelineDesc::raster_state(self : PipelineDesc) -> RasterState {
+  {
+    topology: self.topology,
+    cull_mode: self.cull_mode,
+    front_face: self.front_face,
+    samples: self.samples,
+  }
+}
+
+///|
+/// The depth/stencil half, or `None` when the pipeline has no depth or stencil
+/// state at all.
+pub fn PipelineDesc::depth_stencil_state(self : PipelineDesc) -> DepthStencilState? {
+  let has_state = self.depth_test ||
+    self.depth_write ||
+    self.depth_only ||
+    self.depth_bias ||
+    self.depth_format is Some(_) ||
+    self.stencil is Some(_)
+  if !has_state {
+    return None
+  }
+  Some({
+    depth_test: self.depth_test,
+    write: self.depth_write,
+    compare: self.depth_compare,
+    format: self.depth_format,
+    depth_only: self.depth_only,
+    bias: self.depth_bias,
+    bias_constant: self.depth_bias_constant,
+    bias_slope: self.depth_bias_slope,
+    stencil: self.stencil,
+  })
+}
+
+///|
+/// The colour attachments, one entry per target. A single target is reported
+/// through `color_format`, an MRT list through `color_formats`.
+pub fn PipelineDesc::color_target_states(self : PipelineDesc) -> Array[ColorTargetState] {
+  let out : Array[ColorTargetState] = []
+  if self.color_formats.length() > 0 {
+    for f in self.color_formats {
+      out.push({
+        format: Some(f),
+        write: self.color_write,
+        blend_mode: self.blend_mode,
+        blend_state: self.blend_state,
+      })
+    }
+  } else {
+    match self.color_format {
+      Some(f) =>
+        out.push({
+          format: Some(f),
+          write: self.color_write,
+          blend_mode: self.blend_mode,
+          blend_state: self.blend_state,
+        })
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+/// Build a graphics pipeline from grouped state instead of 38 flat arguments.
+/// The result is the same `PipelineDesc` the flat constructor produces, so the
+/// two styles interoperate.
+pub fn PipelineDesc::graphics(
+  vert : FixedArray[UInt32],
+  frag : FixedArray[UInt32],
+  vert_entry? : String = "main",
+  frag_entry? : String = "main",
+  raster? : RasterState = RasterState::new(),
+  depth_stencil? : DepthStencilState,
+  color_targets? : Array[ColorTargetState] = [],
+  vertex_formats? : Array[VertexFormat] = [],
+  vertex_layouts? : Array[VertexBufferLayout] = [],
+  uniform_slots? : Int = 0,
+  texture_slots? : Int = 0,
+  storage_slots? : Int = 0,
+  storage_image_slots? : Int = 0,
+  accel_slots? : Int = 0,
+  uniform_bindings? : Array[Int] = [],
+  texture_bindings? : Array[Int] = [],
+  storage_bindings? : Array[Int] = [],
+  storage_image_bindings? : Array[Int] = [],
+  accel_bindings? : Array[Int] = [],
+  push_constant_size? : Int = 0,
+  bindless_heap? : BindlessHeap,
+) -> PipelineDesc {
+  // Depth/stencil: absent means "no depth attachment".
+  let (d_test, d_write, d_compare, d_format, d_only, d_bias, d_bc, d_bs, d_stencil) =
+    match depth_stencil {
+      Some(d) => (
+        d.depth_test,
+        d.write,
+        d.compare,
+        d.format,
+        d.depth_only,
+        d.bias,
+        d.bias_constant,
+        d.bias_slope,
+        d.stencil,
+      )
+      None => (
+        false,
+        false,
+        CompareOp::Less,
+        None,
+        false,
+        false,
+        (0.0 : Float),
+        (0.0 : Float),
+        (None : StencilState?),
+      )
+    }
+  // Colour: one target maps to `color_format`, several to the MRT list.
+  let formats : Array[TextureFormat] = []
+  for t in color_targets {
+    match t.format {
+      Some(f) => formats.push(f)
+      None => ()
+    }
+  }
+  let single = color_targets.length() <= 1
+  let primary = if single && formats.length() > 0 {
+    Some(formats[0])
+  } else {
+    None
+  }
+  let mrt = if single { [] } else { formats }
+  let color_write = if color_targets.length() > 0 { color_targets[0].write } else { true }
+  let blend_mode = if color_targets.length() > 0 {
+    color_targets[0].blend_mode
+  } else {
+    None
+  }
+  let blend_state = if color_targets.length() > 0 {
+    color_targets[0].blend_state
+  } else {
+    None
+  }
+  let blend = blend_mode is Some(_) || blend_state is Some(_)
+  PipelineDesc::new(
+    vert,
+    frag,
+    vert_entry~,
+    frag_entry~,
+    vertex_formats~,
+    vertex_layouts~,
+    uniform_slots~,
+    texture_slots~,
+    storage_slots~,
+    storage_image_slots~,
+    accel_slots~,
+    uniform_bindings~,
+    texture_bindings~,
+    storage_bindings~,
+    storage_image_bindings~,
+    accel_bindings~,
+    push_constant_size~,
+    topology=raster.topology,
+    depth_test=d_test,
+    depth_write=d_write,
+    depth_compare=d_compare,
+    depth_format?=d_format,
+    depth_only=d_only,
+    depth_bias=d_bias,
+    depth_bias_constant=d_bc,
+    depth_bias_slope=d_bs,
+    stencil?=d_stencil,
+    cull_mode=raster.cull_mode,
+    front_face=raster.front_face,
+    blend=blend,
+    blend_mode?=blend_mode,
+    blend_state?=blend_state,
+    color_write=color_write,
+    samples=raster.samples,
+    color_format?=primary,
+    color_formats=mrt,
+    bindless_heap?=bindless_heap,
+  )
+}
+
+///|
 pub fn PipelineDesc::new(
   vert : FixedArray[UInt32],
   frag : FixedArray[UInt32],

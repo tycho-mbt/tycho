@@ -2446,3 +2446,525 @@ pub fn CommandBuffer::copy_buffer(
 pub fn CommandBuffer::barrier(self : CommandBuffer) -> Unit {
   self.on_vk(fn(state) { vk_cmd_barrier(state) })
 }
+
+///|
+/// A scoped render pass. Drawing goes through this handle instead of the raw
+/// `CommandBuffer`, and the pass is closed even when the closure raises, so a
+/// recording session cannot be left half-open.
+pub struct RenderPass {
+  priv cmd : CommandBuffer
+}
+
+///|
+/// Records `draw` inside a `begin_render_pass` / `end_render_pass` pair.
+pub fn CommandBuffer::render_pass(
+  self : CommandBuffer,
+  colors : Array[RenderTargetDesc],
+  depth? : DepthTargetDesc,
+  draw : (RenderPass) -> Unit raise RhiError,
+) -> Unit raise RhiError {
+  self.begin_render_pass(colors, depth?=depth)
+  let pass : RenderPass = { cmd: self }
+  let pending : RhiError? = try {
+    draw(pass)
+    None
+  } catch {
+    e => Some(e)
+  }
+  // The pass is always closed, then the callback failure is re-raised with its
+  // original type.
+  self.end_render_pass()
+  match pending {
+    Some(e) => raise e
+    None => ()
+  }
+}
+
+///|
+pub fn RenderPass::set_pipeline(self : RenderPass, pipeline : Pipeline) -> Unit {
+  self.cmd.bind_pipeline(pipeline)
+}
+
+///|
+pub fn RenderPass::bind_uniform(
+  self : RenderPass,
+  pipeline : Pipeline,
+  slot : Int,
+  buffer : Buffer,
+  offset? : Int = 0,
+  size? : Int = -1,
+) -> Unit {
+  self.cmd.bind_uniform(pipeline, slot, buffer, offset=offset, size=size)
+}
+
+///|
+pub fn RenderPass::bind_texture(
+  self : RenderPass,
+  pipeline : Pipeline,
+  slot : Int,
+  texture : Texture,
+  sampler : Sampler,
+) -> Unit {
+  self.cmd.bind_texture(pipeline, slot, texture, sampler)
+}
+
+///|
+pub fn RenderPass::bind_storage(
+  self : RenderPass,
+  pipeline : Pipeline,
+  slot : Int,
+  buffer : Buffer,
+  offset? : Int = 0,
+  size? : Int = -1,
+) -> Unit {
+  self.cmd.bind_storage(pipeline, slot, buffer, offset=offset, size=size)
+}
+
+///|
+pub fn RenderPass::bind_accel_struct(
+  self : RenderPass,
+  pipeline : Pipeline,
+  slot : Int,
+  accel : AccelStruct,
+) -> Unit {
+  self.cmd.bind_accel_struct(pipeline, slot, accel)
+}
+
+///|
+pub fn RenderPass::bind_bindless_heap(
+  self : RenderPass,
+  pipeline : Pipeline,
+  heap : BindlessHeap,
+  set_index? : Int = 1,
+) -> Unit {
+  self.cmd.bind_bindless_heap(pipeline, heap, set_index=set_index)
+}
+
+///|
+pub fn RenderPass::bind_group(self : RenderPass, group : BindGroup) -> Unit {
+  self.cmd.bind_group(group)
+}
+
+///|
+pub fn RenderPass::bind_vertex(
+  self : RenderPass,
+  slot : Int,
+  buffer : Buffer,
+  offset? : Int = 0,
+) -> Unit {
+  self.cmd.bind_vertex(slot, buffer, offset=offset)
+}
+
+///|
+pub fn RenderPass::bind_index(
+  self : RenderPass,
+  buffer : Buffer,
+  index_type : IndexType,
+  offset? : Int = 0,
+) -> Unit {
+  self.cmd.bind_index(buffer, index_type, offset=offset)
+}
+
+///|
+pub fn RenderPass::push_constants_floats(
+  self : RenderPass,
+  pipeline : Pipeline,
+  data : FixedArray[Float],
+  offset? : Int = 0,
+) -> Unit {
+  self.cmd.push_constants_floats(pipeline, data, offset=offset)
+}
+
+///|
+pub fn RenderPass::push_constants_bytes(
+  self : RenderPass,
+  pipeline : Pipeline,
+  data : Bytes,
+  offset? : Int = 0,
+) -> Unit {
+  self.cmd.push_constants_bytes(pipeline, data, offset=offset)
+}
+
+///|
+pub fn RenderPass::push_constants_mat4(
+  self : RenderPass,
+  pipeline : Pipeline,
+  value : @tmath.Mat4,
+) -> Unit {
+  self.cmd.push_constants_mat4(pipeline, value)
+}
+
+///|
+pub fn RenderPass::set_viewport(
+  self : RenderPass,
+  x : Float,
+  y : Float,
+  w : Float,
+  h : Float,
+) -> Unit {
+  self.cmd.set_viewport(x, y, w, h)
+}
+
+///|
+pub fn RenderPass::set_scissor(
+  self : RenderPass,
+  x : Int,
+  y : Int,
+  w : Int,
+  h : Int,
+) -> Unit {
+  self.cmd.set_scissor(x, y, w, h)
+}
+
+///|
+pub fn RenderPass::set_stencil_reference(self : RenderPass, reference : Int) -> Unit {
+  self.cmd.set_stencil_reference(reference)
+}
+
+///|
+pub fn RenderPass::draw(self : RenderPass, vertices : Int, instances : Int) -> Unit {
+  self.cmd.draw(vertices, instances)
+}
+
+///|
+pub fn RenderPass::draw_instanced(
+  self : RenderPass,
+  vertices : Int,
+  instances : Int,
+  first_vertex : Int,
+  first_instance : Int,
+) -> Unit {
+  self.cmd.draw_instanced(vertices, instances, first_vertex, first_instance)
+}
+
+///|
+pub fn RenderPass::draw_indexed(
+  self : RenderPass,
+  index_count : Int,
+  instances? : Int = 1,
+) -> Unit {
+  self.cmd.draw_indexed(index_count, instances=instances)
+}
+
+///|
+pub fn RenderPass::draw_indexed_full(
+  self : RenderPass,
+  index_count : Int,
+  instances : Int,
+  first_index : Int,
+  vertex_offset : Int,
+  first_instance : Int,
+) -> Unit {
+  self.cmd.draw_indexed_full(
+    index_count,
+    instances,
+    first_index,
+    vertex_offset,
+    first_instance,
+  )
+}
+
+///|
+pub fn RenderPass::draw_indirect(
+  self : RenderPass,
+  buffer : Buffer,
+  draw_count : Int,
+  offset? : Int = 0,
+  stride? : Int = 16,
+) -> Unit {
+  self.cmd.draw_indirect(buffer, draw_count, offset=offset, stride=stride)
+}
+
+///|
+pub fn RenderPass::draw_indexed_indirect(
+  self : RenderPass,
+  buffer : Buffer,
+  draw_count : Int,
+  offset? : Int = 0,
+  stride? : Int = 20,
+) -> Unit {
+  self.cmd.draw_indexed_indirect(buffer, draw_count, offset=offset, stride=stride)
+}
+
+///|
+pub fn RenderPass::draw_indirect_count(
+  self : RenderPass,
+  buffer : Buffer,
+  count_buffer : Buffer,
+  max_draw_count : Int,
+  offset? : Int = 0,
+  count_offset? : Int = 0,
+  stride? : Int = 16,
+) -> Unit {
+  self.cmd.draw_indirect_count(
+    buffer,
+    count_buffer,
+    max_draw_count,
+    offset=offset,
+    count_offset=count_offset,
+    stride=stride,
+  )
+}
+
+///|
+pub fn RenderPass::draw_indexed_indirect_count(
+  self : RenderPass,
+  buffer : Buffer,
+  count_buffer : Buffer,
+  max_draw_count : Int,
+  offset? : Int = 0,
+  count_offset? : Int = 0,
+  stride? : Int = 20,
+) -> Unit {
+  self.cmd.draw_indexed_indirect_count(
+    buffer,
+    count_buffer,
+    max_draw_count,
+    offset=offset,
+    count_offset=count_offset,
+    stride=stride,
+  )
+}
+
+///|
+pub fn RenderPass::draw_mesh_tasks(self : RenderPass, x : Int, y : Int, z : Int) -> Unit {
+  self.cmd.draw_mesh_tasks(x, y, z)
+}
+
+///|
+pub fn RenderPass::transition_for_sampling(
+  self : RenderPass,
+  texture : Texture,
+) -> Unit {
+  self.cmd.transition_for_sampling(texture)
+}
+
+///|
+/// A scoped compute encoder. Compute has no begin/end on either backend, so the
+/// handle only narrows the API surface to compute-relevant calls.
+pub struct ComputePass {
+  priv cmd : CommandBuffer
+}
+
+///|
+pub fn CommandBuffer::compute_pass(
+  self : CommandBuffer,
+  encode : (ComputePass) -> Unit raise RhiError,
+) -> Unit raise RhiError {
+  encode({ cmd: self })
+}
+
+///|
+pub fn ComputePass::set_pipeline(self : ComputePass, pipeline : Pipeline) -> Unit {
+  self.cmd.bind_pipeline(pipeline)
+}
+
+///|
+pub fn ComputePass::bind_uniform(
+  self : ComputePass,
+  pipeline : Pipeline,
+  slot : Int,
+  buffer : Buffer,
+  offset? : Int = 0,
+  size? : Int = -1,
+) -> Unit {
+  self.cmd.bind_uniform(pipeline, slot, buffer, offset=offset, size=size)
+}
+
+///|
+pub fn ComputePass::bind_storage(
+  self : ComputePass,
+  pipeline : Pipeline,
+  slot : Int,
+  buffer : Buffer,
+  offset? : Int = 0,
+  size? : Int = -1,
+) -> Unit {
+  self.cmd.bind_storage(pipeline, slot, buffer, offset=offset, size=size)
+}
+
+///|
+pub fn ComputePass::bind_storage_image(
+  self : ComputePass,
+  pipeline : Pipeline,
+  slot : Int,
+  texture : Texture,
+) -> Unit {
+  self.cmd.bind_storage_image(pipeline, slot, texture)
+}
+
+///|
+pub fn ComputePass::bind_group(self : ComputePass, group : BindGroup) -> Unit {
+  self.cmd.bind_group(group)
+}
+
+///|
+pub fn ComputePass::bind_bindless_heap(
+  self : ComputePass,
+  pipeline : Pipeline,
+  heap : BindlessHeap,
+  set_index? : Int = 1,
+) -> Unit {
+  self.cmd.bind_bindless_heap(pipeline, heap, set_index=set_index)
+}
+
+///|
+pub fn ComputePass::push_constants_bytes(
+  self : ComputePass,
+  pipeline : Pipeline,
+  data : Bytes,
+  offset? : Int = 0,
+) -> Unit {
+  self.cmd.push_constants_bytes(pipeline, data, offset=offset)
+}
+
+///|
+pub fn ComputePass::push_constants_floats(
+  self : ComputePass,
+  pipeline : Pipeline,
+  data : FixedArray[Float],
+  offset? : Int = 0,
+) -> Unit {
+  self.cmd.push_constants_floats(pipeline, data, offset=offset)
+}
+
+///|
+pub fn ComputePass::transition_for_compute(
+  self : ComputePass,
+  texture : Texture,
+) -> Unit {
+  self.cmd.transition_for_compute(texture)
+}
+
+///|
+pub fn ComputePass::dispatch(self : ComputePass, x : Int, y : Int, z : Int) -> Unit {
+  self.cmd.dispatch(x, y, z)
+}
+
+///|
+pub fn ComputePass::dispatch_indirect(
+  self : ComputePass,
+  buffer : Buffer,
+  offset? : Int = 0,
+) -> Unit {
+  self.cmd.dispatch_indirect(buffer, offset=offset)
+}
+
+///|
+pub fn ComputePass::write_timestamp(
+  self : ComputePass,
+  pool : TimestampPool,
+  index : Int,
+  at_start? : Bool = false,
+) -> Unit {
+  self.cmd.write_timestamp(pool, index, at_start=at_start)
+}
+
+///|
+/// One recorded binding.
+priv enum BindOp {
+  Uniform(Pipeline, Int, Buffer, Int, Int)
+  Texture(Pipeline, Int, Texture, Sampler)
+  Storage(Pipeline, Int, Buffer, Int, Int)
+  StorageImage(Pipeline, Int, Texture)
+  Accel(Pipeline, Int, AccelStruct)
+}
+
+///|
+/// A reusable set of bindings. Recording the descriptor set once and replaying
+/// it per object removes the `bind_uniform(pipeline, slot, ...)` repetition that
+/// the flat `CommandBuffer` API forces on every draw.
+pub(all) struct BindGroup {
+  priv ops : Array[BindOp]
+}
+
+///|
+pub fn BindGroup::new() -> BindGroup {
+  { ops: [] }
+}
+
+///|
+pub fn BindGroup::uniform(
+  self : BindGroup,
+  pipeline : Pipeline,
+  slot : Int,
+  buffer : Buffer,
+  offset? : Int = 0,
+  size? : Int = -1,
+) -> BindGroup {
+  self.ops.push(BindOp::Uniform(pipeline, slot, buffer, offset, size))
+  self
+}
+
+///|
+pub fn BindGroup::texture(
+  self : BindGroup,
+  pipeline : Pipeline,
+  slot : Int,
+  texture : Texture,
+  sampler : Sampler,
+) -> BindGroup {
+  self.ops.push(BindOp::Texture(pipeline, slot, texture, sampler))
+  self
+}
+
+///|
+pub fn BindGroup::storage(
+  self : BindGroup,
+  pipeline : Pipeline,
+  slot : Int,
+  buffer : Buffer,
+  offset? : Int = 0,
+  size? : Int = -1,
+) -> BindGroup {
+  self.ops.push(BindOp::Storage(pipeline, slot, buffer, offset, size))
+  self
+}
+
+///|
+pub fn BindGroup::storage_image(
+  self : BindGroup,
+  pipeline : Pipeline,
+  slot : Int,
+  texture : Texture,
+) -> BindGroup {
+  self.ops.push(BindOp::StorageImage(pipeline, slot, texture))
+  self
+}
+
+///|
+pub fn BindGroup::accel(
+  self : BindGroup,
+  pipeline : Pipeline,
+  slot : Int,
+  accel : AccelStruct,
+) -> BindGroup {
+  self.ops.push(BindOp::Accel(pipeline, slot, accel))
+  self
+}
+
+///|
+pub fn BindGroup::len(self : BindGroup) -> Int {
+  self.ops.length()
+}
+
+///|
+pub fn BindGroup::is_empty(self : BindGroup) -> Bool {
+  self.ops.length() == 0
+}
+
+///|
+/// Replays every recorded binding in insertion order.
+pub fn CommandBuffer::bind_group(self : CommandBuffer, group : BindGroup) -> Unit {
+  for op in group.ops {
+    match op {
+      Uniform(p, slot, b, off, sz) =>
+        self.bind_uniform(p, slot, b, offset=off, size=sz)
+      Texture(p, slot, t, s) => self.bind_texture(p, slot, t, s)
+      Storage(p, slot, b, off, sz) =>
+        self.bind_storage(p, slot, b, offset=off, size=sz)
+      StorageImage(p, slot, t) => self.bind_storage_image(p, slot, t)
+      Accel(p, slot, a) => self.bind_accel_struct(p, slot, a)
+    }
+  }
+}

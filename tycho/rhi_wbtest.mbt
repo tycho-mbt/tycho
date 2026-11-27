@@ -107,3 +107,93 @@ test "texture desc defaults and usage flags" {
     _ => fail("array dimension must round-trip")
   }
 }
+
+///|
+test "grouped pipeline state round-trips through the flat descriptor" {
+  let desc = PipelineDesc::graphics(
+    [],
+    [],
+    raster=RasterState::new(
+      topology=PrimitiveTopology::TriangleStrip,
+      cull_mode=CullMode::Back,
+      samples=SampleCount::X4,
+    ),
+    depth_stencil=DepthStencilState::new(
+      depth_test=true,
+      write=true,
+      compare=CompareOp::LessEqual,
+      format=TextureFormat::Depth32F,
+    ),
+    color_targets=[
+      ColorTargetState::new(format=TextureFormat::RGBA8Srgb, blend_mode=BlendMode::Alpha),
+    ],
+  )
+  // Grouped input lands in the legacy flat fields.
+  assert_eq(desc.topology, PrimitiveTopology::TriangleStrip)
+  assert_eq(desc.cull_mode, CullMode::Back)
+  assert_eq(desc.samples, SampleCount::X4)
+  assert_true(desc.depth_test)
+  assert_true(desc.depth_write)
+  assert_eq(desc.depth_compare, CompareOp::LessEqual)
+  assert_eq(desc.depth_format, Some(TextureFormat::Depth32F))
+  assert_eq(desc.color_format, Some(TextureFormat::RGBA8Srgb))
+  assert_eq(desc.blend_mode, Some(BlendMode::Alpha))
+  assert_true(desc.blend)
+
+  // Accessors rebuild the grouped view from the flat storage.
+  let raster = desc.raster_state()
+  assert_eq(raster.topology, PrimitiveTopology::TriangleStrip)
+  assert_eq(raster.samples, SampleCount::X4)
+  match desc.depth_stencil_state() {
+    Some(d) => assert_eq(d.compare, CompareOp::LessEqual)
+    None => fail("depth state must be reported")
+  }
+  let targets = desc.color_target_states()
+  assert_eq(targets.length(), 1)
+  assert_eq(targets[0].format, Some(TextureFormat::RGBA8Srgb))
+}
+
+///|
+test "multiple colour targets map to the MRT list" {
+  let desc = PipelineDesc::graphics(
+    [],
+    [],
+    color_targets=[
+      ColorTargetState::new(format=TextureFormat::RGBA8),
+      ColorTargetState::new(format=TextureFormat::RGBA16F),
+    ],
+  )
+  assert_eq(desc.color_format, None)
+  assert_eq(desc.color_formats.length(), 2)
+  let targets = desc.color_target_states()
+  assert_eq(targets.length(), 2)
+  assert_eq(targets[1].format, Some(TextureFormat::RGBA16F))
+}
+
+///|
+test "depth-only pipelines report no colour targets" {
+  let desc = PipelineDesc::graphics(
+    [],
+    [],
+    depth_stencil=DepthStencilState::new(
+      depth_test=true,
+      format=TextureFormat::Depth32F,
+      depth_only=true,
+    ),
+  )
+  assert_true(desc.depth_only)
+  assert_eq(desc.color_target_states().length(), 0)
+  // A pipeline with no depth or stencil state at all reports none.
+  let plain = PipelineDesc::graphics([], [])
+  match plain.depth_stencil_state() {
+    None => ()
+    Some(_) => fail("a pipeline without depth state must report none")
+  }
+}
+
+///|
+test "bind groups start empty and expose their length" {
+  let group = BindGroup::new()
+  assert_true(group.is_empty())
+  assert_eq(group.len(), 0)
+}

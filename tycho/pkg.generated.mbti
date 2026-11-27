@@ -53,6 +53,18 @@ pub(all) enum BackendKind {
   Dx12
 }
 
+pub(all) struct BindGroup {
+  // private fields
+}
+pub fn BindGroup::accel(Self, Pipeline, Int32, AccelStruct) -> Self
+pub fn BindGroup::is_empty(Self) -> Bool
+pub fn BindGroup::len(Self) -> Int32
+pub fn BindGroup::new() -> Self
+pub fn BindGroup::storage(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Self
+pub fn BindGroup::storage_image(Self, Pipeline, Int32, Texture) -> Self
+pub fn BindGroup::texture(Self, Pipeline, Int32, Texture, Sampler) -> Self
+pub fn BindGroup::uniform(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Self
+
 pub struct BindlessHeap {
   // private fields
 }
@@ -161,6 +173,14 @@ pub(all) struct ClearColor {
 pub fn ClearColor::black() -> Self
 pub fn ClearColor::rgba(Float, Float, Float, Float) -> Self
 
+pub(all) struct ColorTargetState {
+  format : TextureFormat?
+  write : Bool
+  blend_mode : BlendMode?
+  blend_state : BlendState?
+}
+pub fn ColorTargetState::new(format? : TextureFormat, write? : Bool, blend_mode? : BlendMode, blend_state? : BlendState) -> Self
+
 pub struct CommandBuffer {
   // private fields
 }
@@ -169,6 +189,7 @@ pub fn CommandBuffer::begin_render_pass(Self, Array[RenderTargetDesc], depth? : 
 pub fn CommandBuffer::begin_swapchain_pass(Self, Swapchain, load_op? : LoadOp, clear_color? : ClearColor) -> Unit
 pub fn CommandBuffer::bind_accel_struct(Self, Pipeline, Int32, AccelStruct) -> Unit
 pub fn CommandBuffer::bind_bindless_heap(Self, Pipeline, BindlessHeap, set_index? : Int32) -> Unit
+pub fn CommandBuffer::bind_group(Self, BindGroup) -> Unit
 pub fn CommandBuffer::bind_index(Self, Buffer, IndexType, offset? : Int32) -> Unit
 pub fn CommandBuffer::bind_pipeline(Self, Pipeline) -> Unit
 pub fn CommandBuffer::bind_storage(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
@@ -178,6 +199,7 @@ pub fn CommandBuffer::bind_uniform(Self, Pipeline, Int32, Buffer, offset? : Int3
 pub fn CommandBuffer::bind_vertex(Self, Int32, Buffer, offset? : Int32) -> Unit
 pub fn CommandBuffer::blit_texture(Self, Texture, Texture, filter? : Filter) -> Unit
 pub fn CommandBuffer::blit_to_swapchain(Self, Texture, Swapchain) -> Unit
+pub fn CommandBuffer::compute_pass(Self, (ComputePass) -> Unit raise RhiError) -> Unit raise RhiError
 pub fn CommandBuffer::copy_buffer(Self, Buffer, Buffer, Int32) -> Unit
 pub fn CommandBuffer::dispatch(Self, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::dispatch_indirect(Self, Buffer, offset? : Int32) -> Unit
@@ -198,6 +220,7 @@ pub fn CommandBuffer::frame_slot(Self) -> Int32
 pub fn CommandBuffer::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int32) -> Unit
 pub fn CommandBuffer::push_constants_floats(Self, Pipeline, FixedArray[Float], offset? : Int32) -> Unit
 pub fn CommandBuffer::push_constants_mat4(Self, Pipeline, @tycho_math.Mat4, offset? : Int32) -> Unit
+pub fn CommandBuffer::render_pass(Self, Array[RenderTargetDesc], depth? : DepthTargetDesc, (RenderPass) -> Unit raise RhiError) -> Unit raise RhiError
 pub fn CommandBuffer::reset_timestamps(Self, TimestampPool) -> Unit
 pub fn CommandBuffer::set_scissor(Self, Int32, Int32, Int32, Int32) -> Unit
 pub fn CommandBuffer::set_stencil_reference(Self, Int32) -> Unit
@@ -218,12 +241,41 @@ pub(all) enum CompareOp {
   Always
 }
 
+pub struct ComputePass {
+  // private fields
+}
+pub fn ComputePass::bind_bindless_heap(Self, Pipeline, BindlessHeap, set_index? : Int32) -> Unit
+pub fn ComputePass::bind_group(Self, BindGroup) -> Unit
+pub fn ComputePass::bind_storage(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
+pub fn ComputePass::bind_storage_image(Self, Pipeline, Int32, Texture) -> Unit
+pub fn ComputePass::bind_uniform(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
+pub fn ComputePass::dispatch(Self, Int32, Int32, Int32) -> Unit
+pub fn ComputePass::dispatch_indirect(Self, Buffer, offset? : Int32) -> Unit
+pub fn ComputePass::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int32) -> Unit
+pub fn ComputePass::push_constants_floats(Self, Pipeline, FixedArray[Float], offset? : Int32) -> Unit
+pub fn ComputePass::set_pipeline(Self, Pipeline) -> Unit
+pub fn ComputePass::transition_for_compute(Self, Texture) -> Unit
+pub fn ComputePass::write_timestamp(Self, TimestampPool, Int32, at_start? : Bool) -> Unit
+
 #derive(Eq, @debug.Debug)
 pub(all) enum CullMode {
   None
   Back
   Front
 }
+
+pub(all) struct DepthStencilState {
+  depth_test : Bool
+  write : Bool
+  compare : CompareOp
+  format : TextureFormat?
+  depth_only : Bool
+  bias : Bool
+  bias_constant : Float
+  bias_slope : Float
+  stencil : StencilState?
+}
+pub fn DepthStencilState::new(depth_test? : Bool, write? : Bool, compare? : CompareOp, format? : TextureFormat, depth_only? : Bool, bias? : Bool, bias_constant? : Float, bias_slope? : Float, stencil? : StencilState) -> Self
 
 pub(all) struct DepthTargetDesc {
   texture : Texture
@@ -419,8 +471,12 @@ pub(all) struct PipelineDesc {
   color_formats : Array[TextureFormat]
   bindless_heap : BindlessHeap?
 }
+pub fn PipelineDesc::color_target_states(Self) -> Array[ColorTargetState]
+pub fn PipelineDesc::depth_stencil_state(Self) -> DepthStencilState?
 pub fn PipelineDesc::from_spirv(FixedArray[UInt32], FixedArray[UInt32], topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode, blend_state? : BlendState, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat, color_formats? : Array[TextureFormat], vertex_layouts? : Array[VertexBufferLayout], bindless_heap? : BindlessHeap) -> Self
+pub fn PipelineDesc::graphics(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, raster? : RasterState, depth_stencil? : DepthStencilState, color_targets? : Array[ColorTargetState], vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, accel_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], accel_bindings? : Array[Int32], push_constant_size? : Int32, bindless_heap? : BindlessHeap) -> Self
 pub fn PipelineDesc::new(FixedArray[UInt32], FixedArray[UInt32], vert_entry? : String, frag_entry? : String, vertex_formats? : Array[VertexFormat], vertex_layouts? : Array[VertexBufferLayout], uniform_slots? : Int32, texture_slots? : Int32, storage_slots? : Int32, storage_image_slots? : Int32, accel_slots? : Int32, uniform_bindings? : Array[Int32], texture_bindings? : Array[Int32], storage_bindings? : Array[Int32], storage_image_bindings? : Array[Int32], accel_bindings? : Array[Int32], push_constant_size? : Int32, topology? : PrimitiveTopology, depth_test? : Bool, depth_write? : Bool, depth_compare? : CompareOp, depth_format? : TextureFormat, depth_only? : Bool, depth_bias? : Bool, depth_bias_constant? : Float, depth_bias_slope? : Float, stencil? : StencilState, cull_mode? : CullMode, front_face? : FrontFace, blend? : Bool, blend_mode? : BlendMode, blend_state? : BlendState, color_write? : Bool, samples? : SampleCount, color_format? : TextureFormat, color_formats? : Array[TextureFormat], bindless_heap? : BindlessHeap) -> Self
+pub fn PipelineDesc::raster_state(Self) -> RasterState
 
 #derive(Eq, @debug.Debug)
 pub(all) enum PresentMode {
@@ -437,6 +493,14 @@ pub(all) enum PrimitiveTopology {
   LineStrip
   PointList
 }
+
+pub(all) struct RasterState {
+  topology : PrimitiveTopology
+  cull_mode : CullMode
+  front_face : FrontFace
+  samples : SampleCount
+}
+pub fn RasterState::new(topology? : PrimitiveTopology, cull_mode? : CullMode, front_face? : FrontFace, samples? : SampleCount) -> Self
 
 pub(all) struct RayGeometryDesc {
   vertex_buffer : Buffer
@@ -457,6 +521,35 @@ pub(all) struct RayInstanceDesc {
 }
 pub fn RayInstanceDesc::from_affine3(AccelStruct, @tycho_math.Affine3, custom_index? : Int32, mask? : Int32) -> Self
 pub fn RayInstanceDesc::new(AccelStruct, transform? : FixedArray[Float], custom_index? : Int32, mask? : Int32) -> Self
+
+pub struct RenderPass {
+  // private fields
+}
+pub fn RenderPass::bind_accel_struct(Self, Pipeline, Int32, AccelStruct) -> Unit
+pub fn RenderPass::bind_bindless_heap(Self, Pipeline, BindlessHeap, set_index? : Int32) -> Unit
+pub fn RenderPass::bind_group(Self, BindGroup) -> Unit
+pub fn RenderPass::bind_index(Self, Buffer, IndexType, offset? : Int32) -> Unit
+pub fn RenderPass::bind_storage(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
+pub fn RenderPass::bind_texture(Self, Pipeline, Int32, Texture, Sampler) -> Unit
+pub fn RenderPass::bind_uniform(Self, Pipeline, Int32, Buffer, offset? : Int32, size? : Int32) -> Unit
+pub fn RenderPass::bind_vertex(Self, Int32, Buffer, offset? : Int32) -> Unit
+pub fn RenderPass::draw(Self, Int32, Int32) -> Unit
+pub fn RenderPass::draw_indexed(Self, Int32, instances? : Int32) -> Unit
+pub fn RenderPass::draw_indexed_full(Self, Int32, Int32, Int32, Int32, Int32) -> Unit
+pub fn RenderPass::draw_indexed_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
+pub fn RenderPass::draw_indexed_indirect_count(Self, Buffer, Buffer, Int32, offset? : Int32, count_offset? : Int32, stride? : Int32) -> Unit
+pub fn RenderPass::draw_indirect(Self, Buffer, Int32, offset? : Int32, stride? : Int32) -> Unit
+pub fn RenderPass::draw_indirect_count(Self, Buffer, Buffer, Int32, offset? : Int32, count_offset? : Int32, stride? : Int32) -> Unit
+pub fn RenderPass::draw_instanced(Self, Int32, Int32, Int32, Int32) -> Unit
+pub fn RenderPass::draw_mesh_tasks(Self, Int32, Int32, Int32) -> Unit
+pub fn RenderPass::push_constants_bytes(Self, Pipeline, Bytes, offset? : Int32) -> Unit
+pub fn RenderPass::push_constants_floats(Self, Pipeline, FixedArray[Float], offset? : Int32) -> Unit
+pub fn RenderPass::push_constants_mat4(Self, Pipeline, @tycho_math.Mat4) -> Unit
+pub fn RenderPass::set_pipeline(Self, Pipeline) -> Unit
+pub fn RenderPass::set_scissor(Self, Int32, Int32, Int32, Int32) -> Unit
+pub fn RenderPass::set_stencil_reference(Self, Int32) -> Unit
+pub fn RenderPass::set_viewport(Self, Float, Float, Float, Float) -> Unit
+pub fn RenderPass::transition_for_sampling(Self, Texture) -> Unit
 
 pub(all) struct RenderTargetDesc {
   texture : Texture

@@ -53,18 +53,22 @@ fn main {
       sc.destroy()
     } else {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
+      // Grouped pipeline state + scoped render pass: the pass closes itself even
+      // if the callback fails.
       let pipe = dev.create_graphics_pipeline(
-        @tycho.PipelineDesc::new(
+        @tycho.PipelineDesc::graphics(
           vert,
           frag,
-          color_format=@tycho.TextureFormat::RGBA8,
+          color_targets=[
+            @tycho.ColorTargetState::new(format=@tycho.TextureFormat::RGBA8),
+          ],
         ),
       )
       let cmd = dev.begin_commands()
-      cmd.begin_render_pass([@tycho.RenderTargetDesc::new(rt)])
-      cmd.bind_pipeline(pipe)
-      cmd.draw(3, 1)
-      cmd.end_render_pass()
+      cmd.render_pass([@tycho.RenderTargetDesc::new(rt)], fn(pass) {
+        pass.set_pipeline(pipe)
+        pass.draw(3, 1)
+      })
       dev.end_commands(cmd)
       let px = rt.readback()
       pixels = count_rgb(px)
