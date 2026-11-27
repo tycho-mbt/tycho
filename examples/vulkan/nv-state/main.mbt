@@ -149,8 +149,8 @@ fn main {
   }
 
   // ---- graphics pipeline with the NVIDIA dynamic states ----
-  let vert = @shader.compile_shader_file("examples/vulkan/nv-state/shader.vert", @shader.SHADER_KIND_VERTEX)
-  let frag = @shader.compile_shader_file("examples/vulkan/nv-state/shader.frag", @shader.SHADER_KIND_FRAGMENT)
+  let vert = @shader.compile_shader_file("examples/vulkan/nv-state/shader.vert", @shader.ShaderStage::Vertex)
+  let frag = @shader.compile_shader_file("examples/vulkan/nv-state/shader.frag", @shader.ShaderStage::Fragment)
   let vsmci = @vk.VkShaderModuleCreateInfo::new()
   vsmci.set_codeSize((vert.length() * 4).to_uint64())
   vsmci.set_pCode(vert)
@@ -236,7 +236,7 @@ fn main {
   let pipe = pipe_out[0]
 
   // ---- compute pipeline for the occupancy priority ----
-  let code = @shader.compile_shader_file("examples/vulkan/nv-state/shader.comp", @shader.SHADER_KIND_COMPUTE)
+  let code = @shader.compile_shader_file("examples/vulkan/nv-state/shader.comp", @shader.ShaderStage::Compute)
   let csmci = @vk.VkShaderModuleCreateInfo::new()
   csmci.set_codeSize((code.length() * 4).to_uint64())
   csmci.set_pCode(code)

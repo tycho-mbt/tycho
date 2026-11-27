@@ -369,11 +369,11 @@ fn main {
   // shaders + pipeline (no render pass: VkPipelineRenderingCreateInfo chained)
   let vert_code = @shader.compile_shader_file(
     "examples/vulkan/dynamic-rendering/shader.vert",
-    @shader.SHADER_KIND_VERTEX,
+    @shader.ShaderStage::Vertex,
   )
   let frag_code = @shader.compile_shader_file(
     "examples/vulkan/dynamic-rendering/shader.frag",
-    @shader.SHADER_KIND_FRAGMENT,
+    @shader.ShaderStage::Fragment,
   )
   let vsmci = @vk.VkShaderModuleCreateInfo::new()
   vsmci.set_codeSize((vert_code.length() * 4).to_uint64())

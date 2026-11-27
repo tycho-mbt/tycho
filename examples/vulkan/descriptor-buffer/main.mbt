@@ -232,7 +232,7 @@ fn main {
   }
 
   // compute pipeline using that layout
-  let comp = @shader.compile_shader_file("examples/vulkan/descriptor-buffer/shader.comp", @shader.SHADER_KIND_COMPUTE)
+  let comp = @shader.compile_shader_file("examples/vulkan/descriptor-buffer/shader.comp", @shader.ShaderStage::Compute)
   let smci = @vk.VkShaderModuleCreateInfo::new()
   smci.set_codeSize((comp.length() * 4).to_uint64())
   smci.set_pCode(comp)

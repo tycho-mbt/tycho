@@ -2,8 +2,15 @@
 
 Optional shader compilation and asset loading helpers for the Tycho graphics stack:
 
-- GLSL → SPIR-V compilation by invoking `glslangValidator` (`compile_shader`, `compile_shader_file`, `compile_shader_env`, `compile_shader_file_env`)
-- Slang → SPIR-V compilation by invoking `slangc` (`compile_slang`, `compile_slang_file`)
+- GLSL → SPIR-V compilation by invoking `glslangValidator` (`compile_shader`,
+  `compile_shader_file`, `compile_shader_env`, `compile_shader_file_env`), with
+  `ShaderStage` / `ShaderTarget` enums instead of raw `UInt32` magic numbers
+- Slang → SPIR-V compilation by invoking `slangc` (`compile_slang`,
+  `compile_slang_file`)
+- `*_checked` variants raise `ShaderError` (`CompileFailed(stage, diagnostics)` /
+  `SlangFailed(entry, diagnostics)`): the C shim keeps the last tool output, so
+  `last_error()` and the raised payload carry the real compiler message instead
+  of an empty array
 - Binary `.spv` file loader (`load_spirv`)
 - Pure-MoonBit SPIR-V bytecode reflector (`reflect_spirv` — extracts stage, vertex inputs, descriptor bindings, push constant size, MRT output count with zero external C deps)
 - PPM (P6) / BMP image decoding to RGBA8 (`load_image`)

@@ -6,49 +6,29 @@ import {
 }
 
 // Values
-pub const SHADER_ENV_VULKAN_1_0 : UInt32 = 0
+pub fn compile_shader(String, ShaderStage) -> FixedArray[UInt32]
 
-pub const SHADER_ENV_VULKAN_1_1 : UInt32 = 1
+pub fn compile_shader_checked(String, ShaderStage) -> FixedArray[UInt32] raise ShaderError
 
-pub const SHADER_ENV_VULKAN_1_2 : UInt32 = 2
+pub fn compile_shader_env(String, ShaderStage, ShaderTarget) -> FixedArray[UInt32]
 
-pub const SHADER_ENV_VULKAN_1_3 : UInt32 = 3
+pub fn compile_shader_file(String, ShaderStage) -> FixedArray[UInt32]
 
-pub const SHADER_KIND_ANYHIT : UInt32 = 6
+pub fn compile_shader_file_checked(String, ShaderStage) -> FixedArray[UInt32] raise ShaderError
 
-pub const SHADER_KIND_CALLABLE : UInt32 = 10
+pub fn compile_shader_file_env(String, ShaderStage, ShaderTarget) -> FixedArray[UInt32]
 
-pub const SHADER_KIND_CLOSESTHIT : UInt32 = 7
-
-pub const SHADER_KIND_COMPUTE : UInt32 = 2
-
-pub const SHADER_KIND_FRAGMENT : UInt32 = 1
-
-pub const SHADER_KIND_INTERSECTION : UInt32 = 9
-
-pub const SHADER_KIND_MESH : UInt32 = 4
-
-pub const SHADER_KIND_MISS : UInt32 = 8
-
-pub const SHADER_KIND_RAYGEN : UInt32 = 5
-
-pub const SHADER_KIND_TASK : UInt32 = 3
-
-pub const SHADER_KIND_VERTEX : UInt32 = 0
-
-pub fn compile_shader(String, UInt32) -> FixedArray[UInt32]
-
-pub fn compile_shader_env(String, UInt32, UInt32) -> FixedArray[UInt32]
-
-pub fn compile_shader_file(String, UInt32) -> FixedArray[UInt32]
-
-pub fn compile_shader_file_env(String, UInt32, UInt32) -> FixedArray[UInt32]
+pub fn compile_shader_file_env_checked(String, ShaderStage, ShaderTarget) -> FixedArray[UInt32] raise ShaderError
 
 pub fn compile_slang(String, String) -> FixedArray[UInt32]
+
+pub fn compile_slang_checked(String, String) -> FixedArray[UInt32] raise ShaderError
 
 pub fn compile_slang_file(String, String) -> FixedArray[UInt32]
 
 pub fn decode_image(Bytes) -> (Bytes, Int32, Int32)?
+
+pub fn last_error() -> String
 
 pub fn load_hdr_image(String) -> (FixedArray[Float], Int32, Int32)
 
@@ -69,6 +49,10 @@ pub fn screenshot_path() -> String
 pub fn want_window() -> Bool
 
 // Errors
+pub suberror ShaderError {
+  CompileFailed(ShaderStage, String)
+  SlangFailed(String, String)
+}
 
 // Types and methods
 #derive(Eq, @debug.Debug)
@@ -116,6 +100,34 @@ pub(all) struct ReflectedVertexInput {
   format : ReflectedVertexFormat
   name : String
 }
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ShaderStage {
+  Vertex
+  Fragment
+  Compute
+  Task
+  Mesh
+  RayGen
+  AnyHit
+  ClosestHit
+  Miss
+  Intersection
+  Callable
+}
+pub fn ShaderStage::code(Self) -> UInt32
+pub fn ShaderStage::from_code(UInt32) -> Self
+pub fn ShaderStage::name(Self) -> String
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ShaderTarget {
+  Vulkan10
+  Vulkan11
+  Vulkan12
+  Vulkan13
+}
+pub fn ShaderTarget::code(Self) -> UInt32
+pub fn ShaderTarget::from_code(UInt32) -> Self
 
 pub(all) struct SpirvReflection {
   stage : ReflectedStage

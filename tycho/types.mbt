@@ -105,14 +105,13 @@ pub(all) enum IndexType {
 }
 
 ///|
-#derive(Eq, Debug)
-pub(all) enum ShaderStage {
-  Vertex
-  Fragment
-  Compute
-  Task
-  Mesh
-}
+/// Shader stage identity, re-exported from `laplaceliu/tycho_shader` so the RHI
+/// and the compiler helpers agree on one enum (including ray-tracing stages).
+pub type ShaderStage = @shader.ShaderStage
+
+///|
+/// `glslangValidator --target-env` selection.
+pub type ShaderTarget = @shader.ShaderTarget
 
 ///|
 #derive(Eq, Debug)
@@ -996,26 +995,11 @@ pub fn reflect_spirv(spv : FixedArray[UInt32]) -> SpirvReflection {
 }
 
 ///|
-fn shader_kind(stage : ShaderStage) -> UInt32 {
-  match stage {
-    ShaderStage::Vertex => @shader.SHADER_KIND_VERTEX
-    ShaderStage::Fragment => @shader.SHADER_KIND_FRAGMENT
-    ShaderStage::Compute => @shader.SHADER_KIND_COMPUTE
-    ShaderStage::Task => @shader.SHADER_KIND_TASK
-    ShaderStage::Mesh => @shader.SHADER_KIND_MESH
-  }
-}
-
-///|
 pub fn compile_glsl(path : String, stage : ShaderStage) -> FixedArray[UInt32] {
   match stage {
     ShaderStage::Task | ShaderStage::Mesh =>
-      @shader.compile_shader_file_env(
-        path,
-        shader_kind(stage),
-        @shader.SHADER_ENV_VULKAN_1_3,
-      )
-    _ => @shader.compile_shader_file(path, shader_kind(stage))
+      @shader.compile_shader_file_env(path, stage, @shader.ShaderTarget::Vulkan13)
+    _ => @shader.compile_shader_file(path, stage)
   }
 }
 
@@ -1023,12 +1007,8 @@ pub fn compile_glsl(path : String, stage : ShaderStage) -> FixedArray[UInt32] {
 pub fn compile_glsl_source(source : String, stage : ShaderStage) -> FixedArray[UInt32] {
   match stage {
     ShaderStage::Task | ShaderStage::Mesh =>
-      @shader.compile_shader_env(
-        source,
-        shader_kind(stage),
-        @shader.SHADER_ENV_VULKAN_1_3,
-      )
-    _ => @shader.compile_shader(source, shader_kind(stage))
+      @shader.compile_shader_env(source, stage, @shader.ShaderTarget::Vulkan13)
+    _ => @shader.compile_shader(source, stage)
   }
 }
 
@@ -1053,15 +1033,6 @@ pub fn read_file_bytes(path : String) -> Bytes {
   @shader.read_file_bytes(path)
 }
 
-///|
-pub fn want_window() -> Bool {
-  @shader.want_window()
-}
-
-///|
-pub fn screenshot_path() -> String {
-  @shader.screenshot_path()
-}
 
 ///|
 pub fn save_png(

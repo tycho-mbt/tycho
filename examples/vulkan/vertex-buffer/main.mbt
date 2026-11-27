@@ -447,11 +447,11 @@ fn main {
   // --- Pipeline with vertex input ---
   let vert_code = @shader.compile_shader_file(
     "examples/vulkan/vertex-buffer/shader.vert",
-    @shader.SHADER_KIND_VERTEX,
+    @shader.ShaderStage::Vertex,
   )
   let frag_code = @shader.compile_shader_file(
     "examples/vulkan/vertex-buffer/shader.frag",
-    @shader.SHADER_KIND_FRAGMENT,
+    @shader.ShaderStage::Fragment,
   )
   let vsmci = @vk.VkShaderModuleCreateInfo::new()
   vsmci.set_codeSize((vert_code.length() * 4).to_uint64())

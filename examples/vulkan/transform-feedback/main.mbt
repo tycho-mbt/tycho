@@ -229,8 +229,8 @@ fn main {
   let _ = (dfn.vkCreateImageView)(dev, ivci, na, iv_out)
 
   // Compile transform feedback shaders
-  let vspv = @shader.compile_shader_file_env("examples/vulkan/transform-feedback/tf.vert", @shader.SHADER_KIND_VERTEX, @shader.SHADER_ENV_VULKAN_1_3)
-  let fspv = @shader.compile_shader_file_env("examples/vulkan/transform-feedback/tf.frag", @shader.SHADER_KIND_FRAGMENT, @shader.SHADER_ENV_VULKAN_1_3)
+  let vspv = @shader.compile_shader_file_env("examples/vulkan/transform-feedback/tf.vert", @shader.ShaderStage::Vertex, @shader.ShaderTarget::Vulkan13)
+  let fspv = @shader.compile_shader_file_env("examples/vulkan/transform-feedback/tf.frag", @shader.ShaderStage::Fragment, @shader.ShaderTarget::Vulkan13)
   let vsm_ci = @vk.VkShaderModuleCreateInfo::new()
   vsm_ci.set_codeSize((vspv.length() * 4).to_uint64())
   vsm_ci.set_pCode(vspv)

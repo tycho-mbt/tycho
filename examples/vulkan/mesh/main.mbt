@@ -175,8 +175,8 @@ fn main {
   let view = iv_out[0]
 
   // mesh + fragment pipeline: no vertex input, no input assembly
-  let meshc = @shader.compile_shader_file_env("examples/vulkan/mesh/shader.mesh", @shader.SHADER_KIND_MESH, @shader.SHADER_ENV_VULKAN_1_3)
-  let fragc = @shader.compile_shader_file_env("examples/vulkan/mesh/shader.frag", @shader.SHADER_KIND_FRAGMENT, @shader.SHADER_ENV_VULKAN_1_3)
+  let meshc = @shader.compile_shader_file_env("examples/vulkan/mesh/shader.mesh", @shader.ShaderStage::Mesh, @shader.ShaderTarget::Vulkan13)
+  let fragc = @shader.compile_shader_file_env("examples/vulkan/mesh/shader.frag", @shader.ShaderStage::Fragment, @shader.ShaderTarget::Vulkan13)
   if meshc.length() == 0 {
     println("[vulkan/mesh] FAIL — mesh shader did not compile")
     return

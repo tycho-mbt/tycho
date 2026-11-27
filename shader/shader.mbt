@@ -3,22 +3,126 @@
 // (deflate) PNG encoding. No C link deps.
 // Decoupled from laplaceliu/tycho_vulkan so core Vulkan users need only -lvulkan.
 
-pub const SHADER_KIND_VERTEX : UInt32 = 0
-pub const SHADER_KIND_FRAGMENT : UInt32 = 1
-pub const SHADER_KIND_COMPUTE : UInt32 = 2
-pub const SHADER_KIND_TASK : UInt32 = 3
-pub const SHADER_KIND_MESH : UInt32 = 4
-pub const SHADER_KIND_RAYGEN : UInt32 = 5
-pub const SHADER_KIND_ANYHIT : UInt32 = 6
-pub const SHADER_KIND_CLOSESTHIT : UInt32 = 7
-pub const SHADER_KIND_MISS : UInt32 = 8
-pub const SHADER_KIND_INTERSECTION : UInt32 = 9
-pub const SHADER_KIND_CALLABLE : UInt32 = 10
+///|
+/// Shader stage identity. `code()` / `from_code()` bridge the integer argument
+/// `glslangValidator -S` expects; the enum keeps call sites self-describing and
+/// the compiler from accepting an unrelated number.
+#derive(Eq, Debug)
+pub(all) enum ShaderStage {
+  Vertex
+  Fragment
+  Compute
+  Task
+  Mesh
+  RayGen
+  AnyHit
+  ClosestHit
+  Miss
+  Intersection
+  Callable
+}
 
-pub const SHADER_ENV_VULKAN_1_0 : UInt32 = 0
-pub const SHADER_ENV_VULKAN_1_1 : UInt32 = 1
-pub const SHADER_ENV_VULKAN_1_2 : UInt32 = 2
-pub const SHADER_ENV_VULKAN_1_3 : UInt32 = 3
+///|
+pub fn ShaderStage::code(self : ShaderStage) -> UInt32 {
+  match self {
+    Vertex => 0
+    Fragment => 1
+    Compute => 2
+    Task => 3
+    Mesh => 4
+    RayGen => 5
+    AnyHit => 6
+    ClosestHit => 7
+    Miss => 8
+    Intersection => 9
+    Callable => 10
+  }
+}
+
+///|
+pub fn ShaderStage::from_code(code : UInt32) -> ShaderStage {
+  match code {
+    0 => Vertex
+    1 => Fragment
+    2 => Compute
+    3 => Task
+    4 => Mesh
+    5 => RayGen
+    6 => AnyHit
+    7 => ClosestHit
+    8 => Miss
+    9 => Intersection
+    _ => Callable
+  }
+}
+
+///|
+pub fn ShaderStage::name(self : ShaderStage) -> String {
+  match self {
+    Vertex => "vertex"
+    Fragment => "fragment"
+    Compute => "compute"
+    Task => "task"
+    Mesh => "mesh"
+    RayGen => "raygen"
+    AnyHit => "anyhit"
+    ClosestHit => "closesthit"
+    Miss => "miss"
+    Intersection => "intersection"
+    Callable => "callable"
+  }
+}
+
+///|
+/// `--target-env` selection for `glslangValidator`.
+#derive(Eq, Debug)
+pub(all) enum ShaderTarget {
+  Vulkan10
+  Vulkan11
+  Vulkan12
+  Vulkan13
+}
+
+///|
+pub fn ShaderTarget::code(self : ShaderTarget) -> UInt32 {
+  match self {
+    Vulkan10 => 0
+    Vulkan11 => 1
+    Vulkan12 => 2
+    Vulkan13 => 3
+  }
+}
+
+///|
+pub fn ShaderTarget::from_code(code : UInt32) -> ShaderTarget {
+  match code {
+    0 => Vulkan10
+    1 => Vulkan11
+    2 => Vulkan12
+    _ => Vulkan13
+  }
+}
+
+///|
+/// Shader compilation failure. `diagnostics` carries the compiler output, so the
+/// caller sees the real error instead of an empty SPIR-V array.
+pub suberror ShaderError {
+  CompileFailed(ShaderStage, String)
+  SlangFailed(String, String)
+}
+
+///|
+extern "c" fn last_error_ffi() -> Bytes = "tycho_shader_last_error"
+
+///|
+/// Compiler output from the most recent failed compile (empty on success).
+pub fn last_error() -> String {
+  let b = last_error_ffi()
+  if b.length() == 0 {
+    return ""
+  }
+  @utf8.decode_lossy(b[:])
+}
 
 #borrow(path, out_count)
 extern "c" fn load_spirv_ffi(
@@ -89,9 +193,23 @@ extern "c" fn compile_shader_ffi(
 ) -> FixedArray[UInt32] = "tycho_shader_compile"
 
 ///|
-pub fn compile_shader(source : String, kind : UInt32) -> FixedArray[UInt32] {
+pub fn compile_shader(source : String, stage : ShaderStage) -> FixedArray[UInt32] {
   let b = @utf8.encode(source)
-  compile_shader_ffi(b, b.length(), kind)
+  compile_shader_ffi(b, b.length(), stage.code())
+}
+
+///|
+/// `compile_shader` that raises `ShaderError::CompileFailed` with the compiler
+/// diagnostics instead of returning an empty array.
+pub fn compile_shader_checked(
+  source : String,
+  stage : ShaderStage,
+) -> FixedArray[UInt32] raise ShaderError {
+  let spv = compile_shader(source, stage)
+  if spv.length() == 0 {
+    raise ShaderError::CompileFailed(stage, last_error())
+  }
+  spv
 }
 
 #borrow(path)
@@ -102,9 +220,21 @@ extern "c" fn compile_shader_file_ffi(
 ) -> FixedArray[UInt32] = "tycho_shader_compile_file"
 
 ///|
-pub fn compile_shader_file(path : String, kind : UInt32) -> FixedArray[UInt32] {
+pub fn compile_shader_file(path : String, stage : ShaderStage) -> FixedArray[UInt32] {
   let b = @utf8.encode(path)
-  compile_shader_file_ffi(b, b.length(), kind)
+  compile_shader_file_ffi(b, b.length(), stage.code())
+}
+
+///|
+pub fn compile_shader_file_checked(
+  path : String,
+  stage : ShaderStage,
+) -> FixedArray[UInt32] raise ShaderError {
+  let spv = compile_shader_file(path, stage)
+  if spv.length() == 0 {
+    raise ShaderError::CompileFailed(stage, last_error())
+  }
+  spv
 }
 
 #borrow(source)
@@ -118,11 +248,11 @@ extern "c" fn compile_shader_env_ffi(
 ///|
 pub fn compile_shader_env(
   source : String,
-  kind : UInt32,
-  env : UInt32,
+  stage : ShaderStage,
+  target : ShaderTarget,
 ) -> FixedArray[UInt32] {
   let b = @utf8.encode(source)
-  compile_shader_env_ffi(b, b.length(), kind, env)
+  compile_shader_env_ffi(b, b.length(), stage.code(), target.code())
 }
 
 #borrow(path)
@@ -136,11 +266,24 @@ extern "c" fn compile_shader_file_env_ffi(
 ///|
 pub fn compile_shader_file_env(
   path : String,
-  kind : UInt32,
-  env : UInt32,
+  stage : ShaderStage,
+  target : ShaderTarget,
 ) -> FixedArray[UInt32] {
   let b = @utf8.encode(path)
-  compile_shader_file_env_ffi(b, b.length(), kind, env)
+  compile_shader_file_env_ffi(b, b.length(), stage.code(), target.code())
+}
+
+///|
+pub fn compile_shader_file_env_checked(
+  path : String,
+  stage : ShaderStage,
+  target : ShaderTarget,
+) -> FixedArray[UInt32] raise ShaderError {
+  let spv = compile_shader_file_env(path, stage, target)
+  if spv.length() == 0 {
+    raise ShaderError::CompileFailed(stage, last_error())
+  }
+  spv
 }
 
 #borrow(source, entry)
@@ -156,6 +299,18 @@ pub fn compile_slang(source : String, entry : String) -> FixedArray[UInt32] {
   let s = @utf8.encode(source)
   let e = @utf8.encode(entry)
   compile_slang_ffi(s, s.length(), e, e.length())
+}
+
+///|
+pub fn compile_slang_checked(
+  source : String,
+  entry : String,
+) -> FixedArray[UInt32] raise ShaderError {
+  let spv = compile_slang(source, entry)
+  if spv.length() == 0 {
+    raise ShaderError::SlangFailed(entry, last_error())
+  }
+  spv
 }
 
 #borrow(path, entry)

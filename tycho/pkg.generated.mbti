@@ -9,9 +9,9 @@ import {
 }
 
 // Values
-pub fn compile_glsl(String, ShaderStage) -> FixedArray[UInt32]
+pub fn compile_glsl(String, @tycho_shader.ShaderStage) -> FixedArray[UInt32]
 
-pub fn compile_glsl_source(String, ShaderStage) -> FixedArray[UInt32]
+pub fn compile_glsl_source(String, @tycho_shader.ShaderStage) -> FixedArray[UInt32]
 
 pub fn compile_slang(String, String) -> FixedArray[UInt32]
 
@@ -32,10 +32,6 @@ pub fn read_file_bytes(String) -> Bytes
 pub fn reflect_spirv(FixedArray[UInt32]) -> @tycho_shader.SpirvReflection
 
 pub fn save_png(String, Int32, Int32, FixedArray[Byte], bgra? : Bool) -> Bool
-
-pub fn screenshot_path() -> String
-
-pub fn want_window() -> Bool
 
 // Errors
 pub suberror RhiError {
@@ -489,15 +485,6 @@ pub(all) struct SamplerDesc {
 }
 pub fn SamplerDesc::new(mag? : Filter, min? : Filter, mipmap? : Filter, address? : AddressMode, border_color? : BorderColor, min_lod? : Float, max_lod? : Float, mip_lod_bias? : Float, anisotropy? : Float, compare_op? : CompareOp) -> Self
 
-#derive(Eq, @debug.Debug)
-pub(all) enum ShaderStage {
-  Vertex
-  Fragment
-  Compute
-  Task
-  Mesh
-}
-
 pub(all) struct StencilFaceState {
   fail_op : StencilOp
   pass_op : StencilOp
@@ -664,6 +651,10 @@ pub using @tycho_shader {type ReflectedStage}
 pub using @tycho_shader {type ReflectedVertexFormat}
 
 pub using @tycho_shader {type ReflectedVertexInput}
+
+pub using @tycho_shader {type ShaderStage}
+
+pub using @tycho_shader {type ShaderTarget}
 
 pub using @tycho_shader {type SpirvReflection}
 

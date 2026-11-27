@@ -29,7 +29,7 @@ test "reflect vertex and mrt fragment shaders" {
     #|  gl_Position = ubo.view * pc.mvp * vec4(inPos, 1.0) + pc.tint;
     #|  outUV = inUV + inColor.xy;
     #|}
-  let vert_spv = compile_shader(vert_src, SHADER_KIND_VERTEX)
+  let vert_spv = compile_shader(vert_src, ShaderStage::Vertex)
   let vr = reflect_spirv(vert_spv)
   assert_eq(vr.stage, ReflectedStage::Vertex)
   assert_eq(vr.entry_point, "main")
@@ -55,7 +55,7 @@ test "reflect vertex and mrt fragment shaders" {
     #|  outAlbedo = texture(albedoTex, inUV);
     #|  outNormal = vec4(0.5, 0.5, 1.0, 1.0);
     #|}
-  let frag_spv = compile_shader(frag_src, SHADER_KIND_FRAGMENT)
+  let frag_spv = compile_shader(frag_src, ShaderStage::Fragment)
   let fr = reflect_spirv(frag_spv)
   assert_eq(fr.stage, ReflectedStage::Fragment)
   assert_eq(fr.color_output_count, 2)
@@ -77,7 +77,7 @@ test "reflect compute shader with storage buffer and storage image" {
     #|  buf.vals[xy.x] = p.scale.x;
     #|  imageStore(outImg, xy, p.scale);
     #|}
-  let comp_spv = compile_shader(comp_src, SHADER_KIND_COMPUTE)
+  let comp_spv = compile_shader(comp_src, ShaderStage::Compute)
   let cr = reflect_spirv(comp_spv)
   assert_eq(cr.stage, ReflectedStage::Compute)
   assert_eq(cr.local_size, (8, 8, 1))
@@ -101,7 +101,7 @@ test "reflect multi-set, descriptor arrays, and separate texture/sampler" {
     #|void main() {
     #|  outColor = texture(sampler2D(texArr[1], samp), vUV);
     #|}
-  let spv = compile_shader(frag_src, SHADER_KIND_FRAGMENT)
+  let spv = compile_shader(frag_src, ShaderStage::Fragment)
   let r = reflect_spirv(spv)
   assert_eq(r.bindings.length(), 2)
   assert_eq(r.bindings[0].set, 0)
@@ -176,8 +176,8 @@ test "compile_shader disk cache hits identically and separates stages" {
     #|#version 450
     #|layout(location = 0) out vec4 outColor;
     #|void main() { outColor = vec4(0.25, 0.5, 0.75, 1.0); }
-  let spv1 = compile_shader(src, SHADER_KIND_FRAGMENT)
-  let spv2 = compile_shader(src, SHADER_KIND_FRAGMENT)
+  let spv1 = compile_shader(src, ShaderStage::Fragment)
+  let spv2 = compile_shader(src, ShaderStage::Fragment)
   assert_true(spv1.length() > 5)
   assert_eq(spv1.length(), spv2.length())
   for i = 0; i < spv1.length(); i = i + 1 {
@@ -186,7 +186,7 @@ test "compile_shader disk cache hits identically and separates stages" {
   let vsrc =
     #|#version 450
     #|void main() { gl_Position = vec4(0.0, 0.0, 0.0, 1.0); }
-  let vspv = compile_shader(vsrc, SHADER_KIND_VERTEX)
+  let vspv = compile_shader(vsrc, ShaderStage::Vertex)
   assert_eq(reflect_spirv(vspv).stage, ReflectedStage::Vertex)
   assert_eq(reflect_spirv(spv2).stage, ReflectedStage::Fragment)
 }
@@ -297,4 +297,44 @@ test "decode_image roundtrips png" {
     }
     None => assert_true(false)
   }
+}
+
+///|
+test "shader stage and target codes round-trip" {
+  let stages : Array[ShaderStage] = [
+    ShaderStage::Vertex, ShaderStage::Fragment, ShaderStage::Compute,
+    ShaderStage::Task, ShaderStage::Mesh, ShaderStage::RayGen,
+    ShaderStage::AnyHit, ShaderStage::ClosestHit, ShaderStage::Miss,
+    ShaderStage::Intersection, ShaderStage::Callable,
+  ]
+  for s in stages {
+    assert_eq(ShaderStage::from_code(s.code()), s)
+  }
+  assert_eq(ShaderStage::Compute.name(), "compute")
+  let targets : Array[ShaderTarget] = [
+    ShaderTarget::Vulkan10, ShaderTarget::Vulkan11,
+    ShaderTarget::Vulkan12, ShaderTarget::Vulkan13,
+  ]
+  for t in targets {
+    assert_eq(ShaderTarget::from_code(t.code()), t)
+  }
+}
+
+///|
+test "compile_shader_checked raises with compiler diagnostics" {
+  let src = "#version 450\nvoid main() { this_is_not_glsl; }\n"
+  let reported = try {
+    let _ = compile_shader_checked(src, ShaderStage::Vertex)
+    false
+  } catch {
+    ShaderError::CompileFailed(stage, diagnostics) => {
+      assert_eq(stage, ShaderStage::Vertex)
+      // The whole point of the checked API: the caller gets the tool output
+      // instead of an empty SPIR-V array.
+      assert_true(diagnostics.length() > 0)
+      true
+    }
+    _ => false
+  }
+  assert_true(reported)
 }

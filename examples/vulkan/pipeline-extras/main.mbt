@@ -158,7 +158,7 @@ fn main {
   }
 
   // Create compute pipeline
-  let spv = @shader.compile_shader_file_env("examples/vulkan/pipeline-extras/shader.comp", @shader.SHADER_KIND_COMPUTE, @shader.SHADER_ENV_VULKAN_1_3)
+  let spv = @shader.compile_shader_file_env("examples/vulkan/pipeline-extras/shader.comp", @shader.ShaderStage::Compute, @shader.ShaderTarget::Vulkan13)
   let smci = @vk.VkShaderModuleCreateInfo::new()
   smci.set_codeSize((spv.length() * 4).to_uint64())
   smci.set_pCode(spv)

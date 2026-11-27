@@ -234,7 +234,7 @@ fn main {
   }
 
   // ---- shader module identifiers ----
-  let code = @shader.compile_shader_file("examples/vulkan/nv-misc/shader.comp", @shader.SHADER_KIND_COMPUTE)
+  let code = @shader.compile_shader_file("examples/vulkan/nv-misc/shader.comp", @shader.ShaderStage::Compute)
   let smci = @vk.VkShaderModuleCreateInfo::new()
   smci.set_codeSize((code.length() * 4).to_uint64())
   smci.set_pCode(code)

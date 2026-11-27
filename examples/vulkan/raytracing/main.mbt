@@ -342,9 +342,9 @@ fn main {
   let _tlas_addr = (dfn.vkGetAccelerationStructureDeviceAddressKHR)(dev, taddr_i)
 
   // ray tracing pipeline: raygen + miss + closesthit
-  let rgen = @shader.compile_shader_file_env("examples/vulkan/raytracing/shader.rgen", @shader.SHADER_KIND_RAYGEN, @shader.SHADER_ENV_VULKAN_1_3)
-  let rmiss = @shader.compile_shader_file_env("examples/vulkan/raytracing/shader.rmiss", @shader.SHADER_KIND_MISS, @shader.SHADER_ENV_VULKAN_1_3)
-  let rchit = @shader.compile_shader_file_env("examples/vulkan/raytracing/shader.rchit", @shader.SHADER_KIND_CLOSESTHIT, @shader.SHADER_ENV_VULKAN_1_3)
+  let rgen = @shader.compile_shader_file_env("examples/vulkan/raytracing/shader.rgen", @shader.ShaderStage::RayGen, @shader.ShaderTarget::Vulkan13)
+  let rmiss = @shader.compile_shader_file_env("examples/vulkan/raytracing/shader.rmiss", @shader.ShaderStage::Miss, @shader.ShaderTarget::Vulkan13)
+  let rchit = @shader.compile_shader_file_env("examples/vulkan/raytracing/shader.rchit", @shader.ShaderStage::ClosestHit, @shader.ShaderTarget::Vulkan13)
   if rgen.length() == 0 || rmiss.length() == 0 || rchit.length() == 0 {
     println("[24-rt] FAIL — ray tracing shaders did not compile")
     return

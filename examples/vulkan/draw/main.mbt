@@ -469,8 +469,8 @@ fn main {
   let view = iv_out[0]
 
   // pipeline: push-constant range + fully dynamic state
-  let vert = @shader.compile_shader_file("examples/vulkan/draw/shader.vert", @shader.SHADER_KIND_VERTEX)
-  let frag = @shader.compile_shader_file("examples/vulkan/draw/shader.frag", @shader.SHADER_KIND_FRAGMENT)
+  let vert = @shader.compile_shader_file("examples/vulkan/draw/shader.vert", @shader.ShaderStage::Vertex)
+  let frag = @shader.compile_shader_file("examples/vulkan/draw/shader.frag", @shader.ShaderStage::Fragment)
   let vsmci = @vk.VkShaderModuleCreateInfo::new()
   vsmci.set_codeSize((vert.length() * 4).to_uint64())
   vsmci.set_pCode(vert)

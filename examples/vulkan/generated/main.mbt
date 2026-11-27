@@ -164,7 +164,7 @@ fn main {
   }
 
   // compute pipeline + descriptor set (storage buffer)
-  let comp = @shader.compile_shader_file_env("examples/vulkan/generated/shader.comp", @shader.SHADER_KIND_COMPUTE, @shader.SHADER_ENV_VULKAN_1_3)
+  let comp = @shader.compile_shader_file_env("examples/vulkan/generated/shader.comp", @shader.ShaderStage::Compute, @shader.ShaderTarget::Vulkan13)
   let smci = @vk.VkShaderModuleCreateInfo::new()
   smci.set_codeSize((comp.length() * 4).to_uint64())
   smci.set_pCode(comp)

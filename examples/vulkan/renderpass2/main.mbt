@@ -256,8 +256,8 @@ fn main {
   let layout2 = pl_out[0]
 
   // pipeline
-  let vert = @shader.compile_shader_file("examples/vulkan/renderpass2/shader.vert", @shader.SHADER_KIND_VERTEX)
-  let frag = @shader.compile_shader_file("examples/vulkan/renderpass2/shader.frag", @shader.SHADER_KIND_FRAGMENT)
+  let vert = @shader.compile_shader_file("examples/vulkan/renderpass2/shader.vert", @shader.ShaderStage::Vertex)
+  let frag = @shader.compile_shader_file("examples/vulkan/renderpass2/shader.frag", @shader.ShaderStage::Fragment)
   let vsmci = @vk.VkShaderModuleCreateInfo::new()
   vsmci.set_codeSize((vert.length() * 4).to_uint64())
   vsmci.set_pCode(vert)

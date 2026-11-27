@@ -463,11 +463,11 @@ fn main {
   // --- Pipeline (with descriptor set layout) ---
   let vert_code = @shader.compile_shader_file(
     "examples/vulkan/uniform/shader.vert",
-    @shader.SHADER_KIND_VERTEX,
+    @shader.ShaderStage::Vertex,
   )
   let frag_code = @shader.compile_shader_file(
     "examples/vulkan/uniform/shader.frag",
-    @shader.SHADER_KIND_FRAGMENT,
+    @shader.ShaderStage::Fragment,
   )
   let vsmci = @vk.VkShaderModuleCreateInfo::new()
   vsmci.set_codeSize((vert_code.length() * 4).to_uint64())

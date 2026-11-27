@@ -342,6 +342,16 @@ MOONBIT_FFI_EXPORT uint8_t *tycho_shader_load_image(
   return (uint8_t *)moonbit_make_bytes(0, 0);
 }
 
+/* Last compiler diagnostic, exposed through `tycho_shader_last_error` so the
+   MoonBit side can raise a ShaderError that carries the tool output instead of
+   silently returning an empty SPIR-V array. */
+static char g_shader_error[4096];
+
+static void tycho_shader_set_error(const char *msg) {
+  if (!msg) msg = "";
+  snprintf(g_shader_error, sizeof g_shader_error, "%s", msg);
+}
+
 static const char *tycho_glslang(void) {
   const char *e = getenv("TYCHO_GLSLANG");
   if (e && *e) return e;
@@ -409,6 +419,7 @@ static uint32_t *tycho_glsl_run(const char *in, uint32_t kind, uint32_t env) {
            "\"%s\" -V --target-env %s -S %s \"%s\" -o \"%s\" >\"%s\" 2>&1",
            tycho_glslang(), tycho_env_flag(env), tycho_stage_flag(kind), in, out, err);
 #endif
+  g_shader_error[0] = 0;
   int rc = system(cmd);
   uint32_t *arr;
   if (rc != 0) {
@@ -419,7 +430,12 @@ static uint32_t *tycho_glsl_run(const char *in, uint32_t kind, uint32_t env) {
       size_t n = fread(b, 1, sizeof b - 1, ef);
       b[n] = 0;
       fprintf(stderr, "%s", b);
+      tycho_shader_set_error(b);
       fclose(ef);
+    }
+    if (g_shader_error[0] == 0) {
+      snprintf(g_shader_error, sizeof g_shader_error,
+               "glslangValidator exited with code %d", rc);
     }
     arr = (uint32_t *)moonbit_make_int32_array(0, 0);
   } else {
@@ -459,6 +475,7 @@ MOONBIT_FFI_EXPORT uint32_t *tycho_shader_compile_file_env(
   char p[1280];
   if (!tycho_resolve_path(rel, p, sizeof(p))) {
     fprintf(stderr, "[tycho_shader] shader file not found: %s\n", rel);
+    snprintf(g_shader_error, sizeof g_shader_error, "shader file not found: %s", rel);
     return (uint32_t *)moonbit_make_int32_array(0, 0);
   }
   return tycho_glsl_run(p, kind, env);
@@ -521,6 +538,7 @@ static uint32_t *tycho_slang_run(const char *in, const char *entry) {
            "\"%s\" \"%s\" -target spirv -entry \"%s\" -o \"%s\" 2>\"%s\"",
            tycho_slangc(), in, entry, out, err);
 #endif
+  g_shader_error[0] = 0;
   int rc = system(cmd);
   uint32_t *arr;
   if (rc != 0) {
@@ -531,7 +549,12 @@ static uint32_t *tycho_slang_run(const char *in, const char *entry) {
       size_t n = fread(b, 1, sizeof b - 1, ef);
       b[n] = 0;
       fprintf(stderr, "%s", b);
+      tycho_shader_set_error(b);
       fclose(ef);
+    }
+    if (g_shader_error[0] == 0) {
+      snprintf(g_shader_error, sizeof g_shader_error,
+               "slangc exited with code %d", rc);
     }
     arr = (uint32_t *)moonbit_make_int32_array(0, 0);
   } else {
@@ -569,12 +592,20 @@ MOONBIT_FFI_EXPORT uint32_t *tycho_shader_compile_slang_file(
   char p[1280];
   if (!tycho_resolve_path(rel, p, sizeof p)) {
     fprintf(stderr, "[tycho_shader] slang file not found: %s\n", rel);
+    snprintf(g_shader_error, sizeof g_shader_error, "shader file not found: %s", rel);
     return (uint32_t *)moonbit_make_int32_array(0, 0);
   }
   char en[256];
   memcpy(en, entry, elen);
   en[elen] = 0;
   return tycho_slang_run(p, en);
+}
+
+MOONBIT_FFI_EXPORT uint8_t *tycho_shader_last_error(void) {
+  int32_t n = (int32_t)strlen(g_shader_error);
+  uint8_t *out = (uint8_t *)moonbit_make_bytes(n, 0);
+  if (n > 0) memcpy(out, g_shader_error, (size_t)n);
+  return out;
 }
 
 MOONBIT_FFI_EXPORT uint8_t *tycho_shader_read_file(

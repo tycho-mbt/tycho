@@ -331,8 +331,8 @@ fn main {
 
   // ---- shader objects: create / binary data / destroy ----
   if soq.get_shaderObject() != 0 && has("vkCreateShadersEXT") {
-    let vert = @shader.compile_shader_file("examples/vulkan/draw/shader.vert", @shader.SHADER_KIND_VERTEX)
-    let frag = @shader.compile_shader_file("examples/vulkan/draw/shader.frag", @shader.SHADER_KIND_FRAGMENT)
+    let vert = @shader.compile_shader_file("examples/vulkan/draw/shader.vert", @shader.ShaderStage::Vertex)
+    let frag = @shader.compile_shader_file("examples/vulkan/draw/shader.frag", @shader.ShaderStage::Fragment)
     let scis = @vk.VkShaderCreateInfoEXT::array(2)
     scis.set_stage_at(0, @vk.VK_SHADER_STAGE_VERTEX_BIT)
     scis.set_nextStage_at(0, @vk.VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -372,7 +372,7 @@ fn main {
   }
 
   // ---- compute: dispatch base + sync2 KHR aliases ----
-  let comp = @shader.compile_shader_file("examples/vulkan/hostcopy/shader.comp", @shader.SHADER_KIND_COMPUTE)
+  let comp = @shader.compile_shader_file("examples/vulkan/hostcopy/shader.comp", @shader.ShaderStage::Compute)
   let csmci = @vk.VkShaderModuleCreateInfo::new()
   csmci.set_codeSize((comp.length() * 4).to_uint64())
   csmci.set_pCode(comp)
