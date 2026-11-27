@@ -12,10 +12,21 @@ This module is the CPU content layer of the Tycho graphics stack (see
   `positions : FixedArray[Vec3]`, `normals : FixedArray[Vec3]`,
   `uvs : FixedArray[Vec2]`, `indices : FixedArray[UInt]`, plus optional
   `tangents` / vertex `colors` and multi-material `groups`.
+- **Line data** — `LineData` for segment lists (`positions` + paired
+  `indices`), plus `edges` (boundary + crease edges by dihedral angle, like
+  `EdgesGeometry`) and `wireframe` (every unique triangle edge).
 - **Generators** — `box`, `plane`, `circle`, `ring`, `sphere`, `cylinder`,
-  `cone`, `capsule`, `torus`.
+  `cone`, `capsule`, `torus`, `torus_knot`, the polyhedron family
+  (`polyhedron` + `tetrahedron` / `octahedron` / `dodecahedron` /
+  `icosahedron`, with `detail` subdivision), `lathe`, and `tube` (a
+  `catmull_rom_chain` helper turns control points into a tube path).
+- **Shapes** — `Shape2D` (outer contour + holes, polylines only), `shape` /
+  `shapes` (flat ear-cut triangulation), and `extrude` (lids + walls, either
+  along `depth` or along a sampled `extrude_path`). The ear-cut kernel is a
+  pure-MoonBit port of mapbox/earcut and lives in `earcut.mbt`.
 - **Operations** — `bounds`, `compute_vertex_normals`, `compute_tangents`,
-  `transformed`, `merge`, `to_non_indexed`, `flipped`.
+  `transformed`, `merge`, `to_non_indexed`, `flipped`; `LineData` mirrors
+  `bounds` / `transformed` / `merge` / `to_non_indexed`.
 - **Typed errors** — `GeometryError` (`InvalidMesh` / `InvalidGltf`) instead of
   bare `fail(...)`, so callers can distinguish a bad mesh from a bad document.
 - **IO** — `parse_obj` / `parse_obj_text` (v/vt/vn, polygons, `o`/`g` parts,
@@ -39,6 +50,15 @@ This module is the CPU content layer of the Tycho graphics stack (see
 let cube = @tgeo.box(width=1.0, height=1.0, depth=1.0)
 let ball = @tgeo.sphere(radius=0.5, width_segments=32, height_segments=16)
 let parts = @tgeo.parse_obj_text(text) // Array[(String, MeshData)]
+
+// 2D shape -> flat mesh / solid / wireframe
+let square = @tgeo.Shape2D::new([
+  @tmath.Vec2::new(-0.5, -0.5), @tmath.Vec2::new(0.5, -0.5),
+  @tmath.Vec2::new(0.5, 0.5), @tmath.Vec2::new(-0.5, 0.5),
+])
+let flat = @tgeo.shape(square)
+let solid = @tgeo.extrude(square, options=@tgeo.ExtrudeOptions::new(depth=0.4))
+let outline = @tgeo.edges(solid)   // LineData
 ```
 
 GPU residency (`GpuMesh`) and everything scene/material-related live in

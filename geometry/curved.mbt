@@ -1,4 +1,5 @@
-// Curved parametric primitives: sphere, cylinder, cone, capsule, torus.
+// Curved parametric primitives: sphere, cylinder, cone, capsule, torus,
+// torus_knot.
 // Parameter semantics follow three.js `src/geometries/` so meshes can be
 // compared against the reference implementation.
 
@@ -268,6 +269,91 @@ pub fn torus(
       let b = ((tubular + 1) * (j - 1) + i - 1).reinterpret_as_uint()
       let c = ((tubular + 1) * (j - 1) + i).reinterpret_as_uint()
       let d = ((tubular + 1) * j + i).reinterpret_as_uint()
+      builder.tri(a, b, d)
+      builder.tri(b, c, d)
+    }
+  }
+  builder.build()
+}
+
+///|
+/// Point on the (p, q) torus knot curve, matching three.js
+/// `TorusKnotGeometry.calculatePositionOnCurve`.
+fn torus_knot_point(
+  u : Float,
+  p : Int,
+  q : Int,
+  radius : Float,
+) -> @tmath.Vec3 {
+  let (su, cu) = @tmath.sin_cos(u)
+  let qu_over_p = f_of_int(q) / f_of_int(p) * u
+  let (ss, cs) = @tmath.sin_cos(qu_over_p)
+  @tmath.Vec3::new(
+    radius * (2.0 + cs) * 0.5 * cu,
+    radius * (2.0 + cs) * su * 0.5,
+    radius * ss * 0.5,
+  )
+}
+
+///|
+/// (p, q) torus knot: the tube sweeps a curve that winds `p` times around the
+/// knot axis and `q` times around the torus interior. `p` and `q` must be
+/// coprime for a single knot (otherwise the result is a torus link).
+pub fn torus_knot(
+  radius? : Float = 1.0,
+  tube? : Float = 0.4,
+  tubular_segments? : Int = 64,
+  radial_segments? : Int = 8,
+  p? : Int = 2,
+  q? : Int = 3,
+) -> MeshData {
+  let tubular = clamp_segs(tubular_segments, 3)
+  let radial = clamp_segs(radial_segments, 3)
+  let pv = if p < 1 { 1 } else { p }
+  let qv = if q < 1 { 1 } else { q }
+  let builder = MeshBuilder::new()
+  for i = 0; i <= tubular; i = i + 1 {
+    let u = f_of_int(i) / f_of_int(tubular) * f_of_int(pv) * @tmath.TAU
+    let p1 = torus_knot_point(u, pv, qv, radius)
+    let p2 = torus_knot_point(u + 0.01, pv, qv, radius)
+    // Orthonormal frame: tangent T, then N / B derived from T and P1 + P2.
+    let t = p2 - p1
+    let n0 = p2 + p1
+    let b0 = t.cross(n0)
+    // Degenerate frames only happen for a degenerate curve; fall back to a
+    // fixed orthonormal pair so the mesh stays finite.
+    let n1 = match b0.cross(t).try_normalize() {
+      Some(v) => v
+      None => @tmath.Vec3::unit_y()
+    }
+    let b1 = match b0.try_normalize() {
+      Some(v) => v
+      None => @tmath.Vec3::unit_z()
+    }
+    for j = 0; j <= radial; j = j + 1 {
+      let v = f_of_int(j) / f_of_int(radial) * @tmath.TAU
+      let (sv, cv) = @tmath.sin_cos(v)
+      let cx = -tube * cv
+      let cy = tube * sv
+      let offset = n1.scale(cx) + b1.scale(cy)
+      let position = p1 + offset
+      let normal = offset.normalize()
+      let _ = builder.vertex(
+        position,
+        normal,
+        @tmath.Vec2::new(
+          f_of_int(i) / f_of_int(tubular),
+          f_of_int(j) / f_of_int(radial),
+        ),
+      )
+    }
+  }
+  for j = 1; j <= tubular; j = j + 1 {
+    for i = 1; i <= radial; i = i + 1 {
+      let a = ((radial + 1) * (j - 1) + (i - 1)).reinterpret_as_uint()
+      let b = ((radial + 1) * j + (i - 1)).reinterpret_as_uint()
+      let c = ((radial + 1) * j + i).reinterpret_as_uint()
+      let d = ((radial + 1) * (j - 1) + i).reinterpret_as_uint()
       builder.tri(a, b, d)
       builder.tri(b, c, d)
     }

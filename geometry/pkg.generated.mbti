@@ -10,11 +10,27 @@ pub fn box(width? : Float, height? : Float, depth? : Float, width_segments? : In
 
 pub fn capsule(radius? : Float, length? : Float, cap_segments? : Int32, radial_segments? : Int32) -> MeshData
 
+pub fn catmull_rom_chain(Array[@tycho_math.Vec3], samples_per_segment? : Int32, closed? : Bool) -> Array[@tycho_math.Vec3]
+
 pub fn circle(radius? : Float, segments? : Int32) -> MeshData
 
 pub fn cone(radius? : Float, height? : Float, radial_segments? : Int32, height_segments? : Int32, open_ended? : Bool, theta_start? : Float, theta_length? : Float) -> MeshData
 
 pub fn cylinder(radius_top? : Float, radius_bottom? : Float, height? : Float, radial_segments? : Int32, height_segments? : Int32, open_ended? : Bool, theta_start? : Float, theta_length? : Float) -> MeshData
+
+pub fn dodecahedron(radius? : Float, detail? : Int32) -> MeshData
+
+pub fn edges(MeshData, threshold_angle? : Float) -> LineData
+
+pub fn extrude(Shape2D, options? : ExtrudeOptions) -> MeshData
+
+pub fn icosahedron(radius? : Float, detail? : Int32) -> MeshData
+
+pub fn is_clockwise(Array[@tycho_math.Vec2]) -> Bool
+
+pub fn lathe(Array[@tycho_math.Vec2], segments? : Int32, phi_start? : Float, phi_length? : Float) -> MeshData
+
+pub fn octahedron(radius? : Float, detail? : Int32) -> MeshData
 
 pub fn parse_gltf(String) -> GltfScene raise GeometryError
 
@@ -24,11 +40,29 @@ pub fn parse_obj_text(String) -> Array[(String, MeshData)]
 
 pub fn plane(width? : Float, height? : Float, width_segments? : Int32, height_segments? : Int32) -> MeshData
 
+pub fn polygon_area(Array[@tycho_math.Vec2]) -> Float
+
+pub fn polyhedron(Array[@tycho_math.Vec3], Array[Int32], radius? : Float, detail? : Int32) -> MeshData
+
 pub fn ring(inner? : Float, outer? : Float, theta_segments? : Int32) -> MeshData
+
+pub fn shape(Shape2D) -> MeshData
+
+pub fn shapes(Array[Shape2D]) -> MeshData
 
 pub fn sphere(radius? : Float, width_segments? : Int32, height_segments? : Int32, phi_start? : Float, phi_length? : Float, theta_start? : Float, theta_length? : Float) -> MeshData
 
+pub fn tetrahedron(radius? : Float, detail? : Int32) -> MeshData
+
 pub fn torus(radius? : Float, tube? : Float, radial_segments? : Int32, tubular_segments? : Int32, arc? : Float) -> MeshData
+
+pub fn torus_knot(radius? : Float, tube? : Float, tubular_segments? : Int32, radial_segments? : Int32, p? : Int32, q? : Int32) -> MeshData
+
+pub fn triangulate(Array[@tycho_math.Vec2], Array[Array[@tycho_math.Vec2]]) -> Array[UInt32]
+
+pub fn tube(Array[@tycho_math.Vec3], tubular_segments? : Int32, radius? : Float, radial_segments? : Int32, closed? : Bool) -> MeshData
+
+pub fn wireframe(MeshData) -> LineData
 
 // Errors
 pub suberror GeometryError {
@@ -37,6 +71,13 @@ pub suberror GeometryError {
 }
 
 // Types and methods
+pub(all) struct ExtrudeOptions {
+  depth : Float
+  steps : Int32
+  extrude_path : Array[@tycho_math.Vec3]?
+}
+pub fn ExtrudeOptions::new(depth? : Float, steps? : Int32, extrude_path? : Array[@tycho_math.Vec3]?) -> Self
+
 pub(all) enum GltfAlphaMode {
   Opaque
   Mask(Float)
@@ -102,6 +143,19 @@ pub(all) struct GltfTexture {
   source : Int32
 }
 
+pub(all) struct LineData {
+  positions : FixedArray[@tycho_math.Vec3]
+  indices : FixedArray[UInt32]
+}
+pub fn LineData::bounds(Self) -> @tycho_math.Aabb3
+pub fn LineData::empty() -> Self
+pub fn LineData::merge(Array[Self]) -> Self
+pub fn LineData::new(FixedArray[@tycho_math.Vec3], FixedArray[UInt32]) -> Self
+pub fn LineData::segment_count(Self) -> Int32
+pub fn LineData::to_non_indexed(Self) -> Self
+pub fn LineData::transformed(Self, @tycho_math.Affine3) -> Self
+pub fn LineData::vertex_count(Self) -> Int32
+
 pub(all) struct MeshData {
   positions : FixedArray[@tycho_math.Vec3]
   mut normals : FixedArray[@tycho_math.Vec3]
@@ -143,6 +197,13 @@ pub fn MeshGroup::new(Int32, Int32, Int32) -> Self
 pub(all) struct MorphTarget {
   positions : FixedArray[@tycho_math.Vec3]
 }
+
+pub(all) struct Shape2D {
+  contour : Array[@tycho_math.Vec2]
+  holes : Array[Array[@tycho_math.Vec2]]
+}
+pub fn Shape2D::is_empty(Self) -> Bool
+pub fn Shape2D::new(Array[@tycho_math.Vec2], holes? : Array[Array[@tycho_math.Vec2]]) -> Self
 
 // Type aliases
 

@@ -2,5 +2,6 @@ import {
   "laplaceliu/tycho_math" @tmath,
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/encoding/base64" @base64,
+  "moonbitlang/core/hashmap" @hashmap,
   "moonbitlang/core/json" @json,
 }
