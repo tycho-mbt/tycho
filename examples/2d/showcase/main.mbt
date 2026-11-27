@@ -1,0 +1,697 @@
+// 2d/showcase — Tycho 2D Engine Showcase (Skia / Impeller-inspired):
+// Demonstrates:
+// - Tier-1 SDF rounded rects, gradients, analytical drop shadows, RGBA8 image sprite, & Paragraph text
+// - Tier-2 Stencil-then-Cover vector paths (EvenOdd self-intersecting star + NonZero Bezier stroke)
+// - Tier-3 save_layer group opacity & save_backdrop_layer frosted-glass Gaussian blur inside ClipRRect
+// - Headless pixel assertions + --screenshot <path> + --window preview.
+
+///|
+fn make_badge_image() -> @g2d.Image2D {
+  let w = 32
+  let h = 32
+  let px = Array::make(w * h * 4, (0 : Byte))
+  for y = 0; y < h; y = y + 1 {
+    for x = 0; x < w; x = x + 1 {
+      let i = (y * w + x) * 4
+      let checker = ((x / 8) + (y / 8)) % 2 == 0
+      px[i + 0] = (if checker { 90 } else { 245 }).to_byte()
+      px[i + 1] = (if checker { 195 } else { 145 }).to_byte()
+      px[i + 2] = (if checker { 255 } else { 85 }).to_byte()
+      px[i + 3] = (255 : Byte)
+    }
+  }
+  @g2d.Image2D::from_bytes(1, w, h, Bytes::from_array(px[:]))
+}
+
+///|
+// 128x128 one-pixel checkerboard. Drawn 4x minified it must resolve to a smooth
+// gray via the mip chain (aliases to black/white without mipmaps).
+fn make_checker_image() -> @g2d.Image2D {
+  let w = 128
+  let h = 128
+  let px = Array::make(w * h * 4, (0 : Byte))
+  for y = 0; y < h; y = y + 1 {
+    for x = 0; x < w; x = x + 1 {
+      let i = (y * w + x) * 4
+      let v = if (x + y) % 2 == 0 { 0 } else { 255 }
+      px[i + 0] = v.to_byte()
+      px[i + 1] = v.to_byte()
+      px[i + 2] = v.to_byte()
+      px[i + 3] = (255 : Byte)
+    }
+  }
+  @g2d.Image2D::from_bytes(2, w, h, Bytes::from_array(px[:]))
+}
+
+///|
+fn sin_cos_showcase(theta : Double) -> (Double, Double) {
+  let (s, c) = @tmath.sin_cos(Float::from_double(theta))
+  (s.to_double(), c.to_double())
+}
+
+///|
+fn build_star_path(cx : Float, cy : Float, r : Float) -> @g2d.Path {
+  // 5-point self-intersecting star: vertices connect every 2nd point (0 -> 2 -> 4 -> 1 -> 3 -> 0)
+  // so EvenOdd produces a crisp hollow center pentagon!
+  let pb = @g2d.PathBuilder::new()
+  let two_pi = 6.283185307179586
+  let order : FixedArray[Int] = [0, 2, 4, 1, 3]
+  for k = 0; k < 5; k = k + 1 {
+    let idx = order[k]
+    let ang = -1.5707963267948966 + idx.to_double() * two_pi / 5.0
+    let (sn, cs) = sin_cos_showcase(ang)
+    let vx = cx + Float::from_double(cs) * r
+    let vy = cy + Float::from_double(sn) * r
+    if k == 0 {
+      let _ = pb.move_to(vx, vy)
+    } else {
+      let _ = pb.line_to(vx, vy)
+    }
+  }
+  pb.close().build(fill_rule=@g2d.FillRule::EvenOdd)
+}
+
+///|
+fn build_wave_path(x0 : Float, y0 : Float) -> @g2d.Path {
+  @g2d.PathBuilder::new()
+    .move_to(x0, y0)
+    .cubic_to(x0 + (45.0 : Float), y0 - (55.0 : Float), x0 + (95.0 : Float), y0 + (55.0 : Float), x0 + (145.0 : Float), y0 - (10.0 : Float))
+    .build()
+}
+
+///|
+fn build_scene(
+  font : @g2d.FontFace,
+  badge : @g2d.Image2D,
+  checker : @g2d.Image2D,
+) -> @g2d.DisplayList {
+  let c = @g2d.Canvas::new()
+  let bg = @g2d.Color::from_rgba8(14, 18, 30)
+  c.clear(bg)
+
+  // 1. Header bar with linear gradient & analytical shadow
+  let hdr_rect = @g2d.Rect::new((28.0 : Float), (20.0 : Float), (744.0 : Float), (68.0 : Float))
+  let hdr_rrect = @g2d.RRect::per_corner(hdr_rect, (16.0 : Float), (16.0 : Float), (10.0 : Float), (10.0 : Float))
+  c.draw_rrect_shadow(hdr_rrect, (0.0 : Float), (6.0 : Float), (16.0 : Float), (0.0 : Float), @g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.02 : Float), (0.65 : Float)))
+  let hdr_grad = @g2d.Shader2D::LinearGradient(
+    @g2d.Point::new((28.0 : Float), (20.0 : Float)),
+    @g2d.Point::new((772.0 : Float), (88.0 : Float)),
+    [
+      @g2d.GradientStop::new((0.0 : Float), @g2d.Color::from_rgba8(32, 92, 198)),
+      @g2d.GradientStop::new((0.5 : Float), @g2d.Color::from_rgba8(74, 72, 188)),
+      @g2d.GradientStop::new((1.0 : Float), @g2d.Color::from_rgba8(146, 58, 168)),
+    ],
+    @g2d.TileMode::Clamp,
+  )
+  c.draw_rrect(hdr_rrect, @g2d.Paint::new(shader=Some(hdr_grad)))
+  // Elliptical-corner pill (Tier-1 SDF, rx=24 != ry=14).
+  let pill_rect = @g2d.Rect::new((648.0 : Float), (34.0 : Float), (104.0 : Float), (28.0 : Float))
+  let pill = @g2d.RRect::per_corner_xy(
+    pill_rect,
+    (24.0 : Float),
+    (14.0 : Float),
+    (24.0 : Float),
+    (14.0 : Float),
+    (24.0 : Float),
+    (14.0 : Float),
+    (24.0 : Float),
+    (14.0 : Float),
+  )
+  c.draw_rrect(pill, @g2d.Paint::fill(@g2d.Color::from_rgba8(255, 235, 120)))
+  c.draw_image_rect(
+    badge,
+    @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+    @g2d.Rect::new((44.0 : Float), (36.0 : Float), (36.0 : Float), (36.0 : Float)),
+  )
+  let title_para = @g2d.ParagraphBuilder::new()
+    .add_text(
+      "TYCHO 2D: SDF + STENCIL PATHS + TEXT + BACKDROP BLUR",
+      style=@g2d.TextStyle::new(font~, font_size=(18.0 : Float), color=@g2d.Color::white()),
+    )
+    .build()
+  c.draw_paragraph(title_para, @g2d.Point::new((96.0 : Float), (43.0 : Float)))
+
+  // 2. Left card: Tier-2 Stencil-then-Cover (EvenOdd Star + Cubic Bezier Stroke)
+  let left_rect = @g2d.Rect::new((28.0 : Float), (108.0 : Float), (360.0 : Float), (224.0 : Float))
+  let left_rr = @g2d.RRect::uniform(left_rect, (14.0 : Float))
+  c.draw_rrect(left_rr, @g2d.Paint::fill(@g2d.Color::from_rgba8(24, 30, 48)))
+  c.draw_rrect(left_rr, @g2d.Paint::stroke(@g2d.Color::from_rgba8(64, 152, 245), (2.0 : Float)))
+  let left_lbl = @g2d.ParagraphBuilder::new()
+    .add_text(
+      "Stencil-then-Cover (EvenOdd + Stroke)",
+      style=@g2d.TextStyle::new(font~, font_size=(14.0 : Float), color=@g2d.Color::from_rgba8(180, 205, 245)),
+    )
+    .build()
+  c.draw_paragraph(left_lbl, @g2d.Point::new((46.0 : Float), (122.0 : Float)))
+
+  let star = build_star_path((126.0 : Float), (235.0 : Float), (68.0 : Float))
+  c.draw_path(star, @g2d.Paint::fill(@g2d.Color::from_rgba8(255, 196, 56)))
+  let wave = build_wave_path((218.0 : Float), (235.0 : Float))
+  c.draw_path(
+    wave,
+    @g2d.Paint::stroke(
+      @g2d.Color::from_rgba8(72, 232, 168),
+      (8.0 : Float),
+      cap=@g2d.StrokeCap::Round,
+      join=@g2d.StrokeJoin::Round,
+    ),
+  )
+
+  // 3. Right card: Radial Gradient + ClipRRect + save_layer group opacity
+  let right_rect = @g2d.Rect::new((412.0 : Float), (108.0 : Float), (360.0 : Float), (224.0 : Float))
+  let right_rr = @g2d.RRect::uniform(right_rect, (14.0 : Float))
+  c.draw_rrect(right_rr, @g2d.Paint::fill(@g2d.Color::from_rgba8(24, 30, 48)))
+  c.draw_rrect(right_rr, @g2d.Paint::stroke(@g2d.Color::from_rgba8(96, 212, 164), (2.0 : Float)))
+  let right_lbl = @g2d.ParagraphBuilder::new()
+    .add_text(
+      "Radial Gradient + save_layer Opacity",
+      style=@g2d.TextStyle::new(font~, font_size=(14.0 : Float), color=@g2d.Color::from_rgba8(180, 240, 215)),
+    )
+    .build()
+  c.draw_paragraph(right_lbl, @g2d.Point::new((430.0 : Float), (122.0 : Float)))
+
+  let rad_grad = @g2d.Shader2D::RadialGradient(
+    @g2d.Point::new((500.0 : Float), (232.0 : Float)),
+    (62.0 : Float),
+    [
+      @g2d.GradientStop::new((0.0 : Float), @g2d.Color::from_rgba8(255, 120, 180)),
+      @g2d.GradientStop::new((1.0 : Float), @g2d.Color::from_rgba8(90, 56, 220)),
+    ],
+    @g2d.TileMode::Clamp,
+  )
+  c.draw_circle(@g2d.Point::new((500.0 : Float), (232.0 : Float)), (60.0 : Float), @g2d.Paint::new(shader=Some(rad_grad)))
+
+  // save_layer group alpha + ColorMatrix tint + ImagePattern + ClipOp::Difference
+  let _ = c.save_layer(paint=@g2d.Paint::fill(@g2d.Color::rgba((1.0 : Float), (1.0 : Float), (1.0 : Float), (0.55 : Float))))
+  c.draw_rrect(
+    @g2d.RRect::uniform(@g2d.Rect::new((590.0 : Float), (168.0 : Float), (76.0 : Float), (76.0 : Float)), (12.0 : Float)),
+    @g2d.Paint::fill(@g2d.Color::from_rgba8(64, 184, 255)),
+  )
+  c.draw_rrect(
+    @g2d.RRect::uniform(@g2d.Rect::new((626.0 : Float), (200.0 : Float), (76.0 : Float), (76.0 : Float)), (12.0 : Float)),
+    @g2d.Paint::fill(@g2d.Color::from_rgba8(255, 148, 64)),
+  )
+  c.restore()
+
+  // ImagePattern + ClipOp::Difference mini tile swatch at (688, 168)
+  let pat_shader = @g2d.Shader2D::ImagePattern(
+    badge,
+    @g2d.Matrix3::scale((0.6 : Float), (0.6 : Float)),
+    @tycho.Filter::Linear,
+    @g2d.TileMode::Repeat,
+    @g2d.TileMode::Repeat,
+  )
+  let _ = c.save()
+  c.clip_rect(@g2d.Rect::new((712.0 : Float), (190.0 : Float), (20.0 : Float), (20.0 : Float)), op=@g2d.ClipOp::Difference)
+  c.draw_rrect(
+    @g2d.RRect::uniform(@g2d.Rect::new((696.0 : Float), (170.0 : Float), (54.0 : Float), (54.0 : Float)), (8.0 : Float)),
+    @g2d.Paint::new(shader=Some(pat_shader)),
+  )
+  c.restore()
+
+  // ColorMatrix save_layer badge at (702, 242) — standard 4x5 row-major matrix
+  let cmat : FixedArray[Float] = FixedArray::make(20, (0.0 : Float))
+  cmat[0] = (0.35 : Float); cmat[1] = (0.55 : Float); cmat[2] = (0.10 : Float)
+  cmat[5] = (0.35 : Float); cmat[6] = (0.55 : Float); cmat[7] = (0.10 : Float)
+  cmat[10] = (0.35 : Float); cmat[11] = (0.55 : Float); cmat[12] = (0.10 : Float)
+  cmat[18] = (1.0 : Float)
+  let _ = c.save_layer(paint=@g2d.Paint::new(image_filter=Some(@g2d.ImageFilter::ColorMatrix(cmat))))
+  c.draw_rrect(
+    @g2d.RRect::uniform(@g2d.Rect::new((702.0 : Float), (242.0 : Float), (48.0 : Float), (48.0 : Float)), (10.0 : Float)),
+    @g2d.Paint::fill(@g2d.Color::from_rgba8(240, 80, 120)),
+  )
+  c.restore()
+
+  // 4. Bottom banner + Frosted Glass BackdropFilter panel
+  let bot_rect = @g2d.Rect::new((28.0 : Float), (352.0 : Float), (744.0 : Float), (222.0 : Float))
+  c.draw_rrect(@g2d.RRect::uniform(bot_rect, (16.0 : Float)), @g2d.Paint::fill(@g2d.Color::from_rgba8(20, 26, 42)))
+  let stripe_colors : Array[@g2d.Color] = [
+    @g2d.Color::from_rgba8(245, 75, 110),
+    @g2d.Color::from_rgba8(250, 185, 55),
+    @g2d.Color::from_rgba8(55, 215, 155),
+    @g2d.Color::from_rgba8(65, 155, 255),
+    @g2d.Color::from_rgba8(175, 95, 250),
+  ]
+  for i = 0; i < stripe_colors.length(); i = i + 1 {
+    let sx = Float::from_int(52 + i * 144)
+    c.draw_rrect(
+      @g2d.RRect::uniform(@g2d.Rect::new(sx, (372.0 : Float), (120.0 : Float), (182.0 : Float)), (14.0 : Float)),
+      @g2d.Paint::fill(stripe_colors[i]),
+    )
+  }
+
+  let glass_rect = @g2d.Rect::new((160.0 : Float), (392.0 : Float), (480.0 : Float), (142.0 : Float))
+  let glass_rr = @g2d.RRect::uniform(glass_rect, (20.0 : Float))
+  let _ = c.save()
+  c.clip_rrect(glass_rr)
+  let _ = c.save_backdrop_layer(
+    glass_rect,
+    @g2d.ImageFilter::Blur((16.0 : Float), (16.0 : Float), @g2d.TileMode::Clamp),
+  )
+  c.draw_rrect(glass_rr, @g2d.Paint::fill(@g2d.Color::rgba((0.08 : Float), (0.11 : Float), (0.20 : Float), (0.48 : Float))))
+  c.draw_rrect(glass_rr, @g2d.Paint::stroke(@g2d.Color::rgba((1.0 : Float), (1.0 : Float), (1.0 : Float), (0.55 : Float)), (2.0 : Float)))
+  let glass_lbl = @g2d.ParagraphBuilder::new(
+    style=@g2d.ParagraphStyle::new(align=@g2d.TextAlign::Center),
+  )
+    .add_text(
+      "BackdropFilter Frosted Glass (ClipRRect + Blur)",
+      style=@g2d.TextStyle::new(font~, font_size=(16.0 : Float), color=@g2d.Color::white()),
+    )
+    .build()
+  glass_lbl.layout((440.0 : Float))
+  c.draw_paragraph(glass_lbl, @g2d.Point::new((180.0 : Float), (452.0 : Float)))
+  c.restore()
+  c.restore()
+
+  // Direct per-primitive blend mode (no save_layer): Plus adds red + blue.
+  c.draw_rect(
+    @g2d.Rect::new((36.0 : Float), (30.0 : Float), (24.0 : Float), (24.0 : Float)),
+    @g2d.Paint::fill(@g2d.Color::from_rgba8(255, 0, 0)),
+  )
+  c.draw_rect(
+    @g2d.Rect::new((52.0 : Float), (30.0 : Float), (24.0 : Float), (24.0 : Float)),
+    @g2d.Paint::new(
+      color=@g2d.Color::from_rgba8(0, 0, 255),
+      blend_mode=@g2d.BlendMode2D::Plus,
+    ),
+  )
+
+  // Large image promoted to a dedicated mipmapped texture, drawn 4x minified.
+  c.draw_image_rect(
+    checker,
+    @g2d.Rect::new((0.0 : Float), (0.0 : Float), (128.0 : Float), (128.0 : Float)),
+    @g2d.Rect::new((700.0 : Float), (90.0 : Float), (32.0 : Float), (32.0 : Float)),
+  )
+
+  c.finish()
+}
+
+///|
+fn px_at(px : FixedArray[Byte], w : Int, x : Int, y : Int) -> (Int, Int, Int, Int) {
+  let i = (y * w + x) * 4
+  (px[i].to_int(), px[i + 1].to_int(), px[i + 2].to_int(), px[i + 3].to_int())
+}
+
+///|
+fn main {
+  try {
+    let show_win = @tycho.want_window()
+    let shot = @tycho.screenshot_path()
+    let dev = @tycho.Device::new_desc(
+      @tycho.DeviceDesc::new("Tycho 2D Showcase", validation=true, headless=!show_win),
+    )
+
+    // Use system DejaVuSans.ttf if available, gracefully falling back to built-in crisp font on CI.
+    let font_bytes = @tycho.read_file_bytes("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+    let font = if font_bytes.length() > 0 {
+      match @g2d.FontFace::from_ttf_bytes(font_bytes) {
+        Some(f) => f
+        None => @g2d.FontFace::builtin()
+      }
+    } else {
+      @g2d.FontFace::builtin()
+    }
+    let badge = make_badge_image()
+    let checker = make_checker_image()
+    let dl = build_scene(font, badge, checker)
+
+    let w = 800
+    let h = 600
+    let renderer = @g2d.Renderer2D::new(dev)
+    let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
+    renderer.render_offscreen(dl, rt, clear_color=@g2d.Color::from_rgba8(14, 18, 30))
+    let path_batches = renderer.path_batch_count()
+    let st = renderer.stats()
+    let stats_ok = st.draw_calls > 0 &&
+      st.upload_bytes > 0 &&
+      st.glyph_entries > 0 &&
+      st.coverage_draws > 0
+
+    let px = rt.readback()
+    if shot != "" {
+      let _ = @tycho.save_png(shot, w, h, px)
+    }
+
+    // Assertions:
+    // 1. EvenOdd star top tip around (126, 178) is bright gold (R>220, G>160, B<90)
+    let (sr, sg, sb, _) = px_at(px, w, 126, 178)
+    let star_tip_ok = sr > 210 && sg > 150 && sb < 100
+    // 2. EvenOdd star hollow center at (126, 235) is dark slate card background (NOT gold!)
+    let (hr, hg, hb, _) = px_at(px, w, 126, 235)
+    let star_hole_ok = hr < 55 && hg < 65 && hb > hr
+    // 3. Header gradient left (120, 26) bluer vs right (720, 76) magenta/redder
+    let (gl_r, _, gl_b, _) = px_at(px, w, 120, 26)
+    let (gr_r, _, _, _) = px_at(px, w, 720, 76)
+    let grad_ok = gl_b > gl_r && gr_r > gl_r + 25
+    // 4. Radial gradient circle center (500, 232) is warm pink-white
+    let (cr, _cg, cb, _) = px_at(px, w, 500, 232)
+    let radial_ok = cr > 200 && cb > 140
+    // 5. Frosted glass boundary at (300, 405) shows tinted blurred backdrop (not pure black)
+    let (fr, fg, fb, fa) = px_at(px, w, 300, 405)
+    let frost_ok = fa > 200 && (fr + fg + fb) > 100
+    // 6. ClipOp::Difference cutout at (722, 200) stays dark card background
+    let (dr, dg, db, _) = px_at(px, w, 722, 200)
+    let diff_ok = dr < 55 && dg < 65 && db < 85
+    // 7. ColorMatrix grayscale layer at (726, 266) makes R == G == B
+    let (mr, mg, mb, _) = px_at(px, w, 726, 266)
+    let cmat_ok = mr > 100 && (mr - mg).abs() <= 4 && (mg - mb).abs() <= 4
+    // 8. Elliptical pill (rx=24, ry=14): center and the wide-x interior point
+    //    are filled; the sharp top-left corner stays transparent/background.
+    let (pcr, pcg, pcb, _) = px_at(px, w, 700, 48)
+    let pill_center_ok = pcr > 230 && pcg > 200 && pcb < 170
+    let (per_, peg, peb, _) = px_at(px, w, 692, 54)
+    let pill_ellipse_ok = per_ > 230 && peg > 200 && peb < 170
+    let (pxr, pxg, pxb, _) = px_at(px, w, 650, 36)
+    let pill_corner_ok = !(pxr > 230 && pxg > 200 && pxb < 170)
+    // 9. Title text still rasterizes after switching glyph quads to padded,
+    //    subpixel-position-sampleable atlas regions: look for a near-white pixel.
+    let mut text_ok = false
+    for ty = 44; ty < 68; ty = ty + 1 {
+      for tx = 100; tx < 640; tx = tx + 1 {
+        let (tr_, tg_, tb_, _) = px_at(px, w, tx, ty)
+        if tr_ > 200 && tg_ > 200 && tb_ > 200 {
+          text_ok = true
+        }
+      }
+    }
+    // 10. Direct Plus blend (no save_layer): red + blue overlap is magenta;
+    //     blue over the header gradient stays blue-dominant.
+    let (ovr, ovg, ovb, _) = px_at(px, w, 56, 42)
+    let blend_overlap_ok = ovr > 200 && ovb > 200 && ovg < 80
+    let (blr, blg, blb, _) = px_at(px, w, 70, 32)
+    let blend_blue_ok = blb > 200 && blr < 80
+    // 11. Large image -> dedicated mipmapped texture. A 1px checker drawn 4x
+    //     minified resolves to mid-gray only when the mip chain is sampled.
+    let bindless_ok = dev.capabilities().supports_bindless
+    let dedicated_count = renderer.dedicated_image_count()
+    let (ckr, ckg, ckb, _) = px_at(px, w, 716, 106)
+    let mip_ok = if bindless_ok {
+      ckr > 70 && ckr < 190 && ckg > 70 && ckg < 190 && ckb > 70 && ckb < 190
+    } else {
+      true
+    }
+    let dedicated_ok = !bindless_ok || dedicated_count >= 1
+
+    rt.destroy()
+
+    // Format-specific prim pipelines: render a prim-only scene into a BGRA8
+    // target (the typical swapchain format) and verify the channel order. This
+    // exercises the same per-format pipeline cache used by direct swapchain
+    // presentation.
+    let w2 = 32
+    let h2 = 32
+    let rt_bgra = dev.create_render_target(w2, h2, @tycho.TextureFormat::BGRA8)
+    let cb = @g2d.Canvas::new()
+    cb.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cb.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::from_rgba8(0, 0, 255)),
+    )
+    renderer.render_offscreen(cb.finish(), rt_bgra)
+    let bgra_px = rt_bgra.readback()
+    let bi = (16 * w2 + 16) * 4
+    let bgra_ok = bgra_px[bi].to_int() > 200 &&
+      bgra_px[bi + 1].to_int() < 50 &&
+      bgra_px[bi + 2].to_int() < 50
+    rt_bgra.destroy()
+
+    // S3: rect-clip changes plus save/restore must not split the prim batch,
+    // and the per-instance clip must still cut geometry at the clip edge.
+    let w3 = 64
+    let h3 = 64
+    let rt_clip = dev.create_render_target(w3, h3, @tycho.TextureFormat::RGBA8)
+    let cc = @g2d.Canvas::new()
+    cc.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    for i = 0; i < 8; i = i + 1 {
+      let _ = cc.save()
+      cc.clip_rect(
+        @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      )
+      cc.draw_rect(
+        @g2d.Rect::new((0.0 : Float), (0.0 : Float), (64.0 : Float), (64.0 : Float)),
+        @g2d.Paint::fill(@g2d.Color::from_rgba8(255, 255, 255)),
+      )
+      cc.restore()
+    }
+    renderer.render_offscreen(cc.finish(), rt_clip)
+    let clip_batches = renderer.prim_draw_count()
+    let cpx = rt_clip.readback()
+    let ci = (32 * w3 + 16) * 4
+    let co = (32 * w3 + 48) * 4
+    let s3_clip_ok = cpx[ci].to_int() > 200 && cpx[co].to_int() < 50
+    let s3_ok = clip_batches <= 2 && s3_clip_ok
+    rt_clip.destroy()
+
+    // S9: partial repaint only touches the damage region; the untouched half
+    // must still hold the previous frame's pixels.
+    let w4 = 64
+    let h4 = 64
+    let rt_dmg = dev.create_render_target(w4, h4, @tycho.TextureFormat::RGBA8)
+    let d1 = @g2d.Canvas::new()
+    d1.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    d1.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::from_rgba8(255, 0, 0)),
+    )
+    d1.draw_rect(
+      @g2d.Rect::new((32.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::from_rgba8(0, 0, 255)),
+    )
+    renderer.render_offscreen(d1.finish(), rt_dmg)
+    let d2 = @g2d.Canvas::new()
+    d2.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    d2.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::from_rgba8(0, 255, 0)),
+    )
+    renderer.render_offscreen(
+      d2.finish(),
+      rt_dmg,
+      damage=Some(
+        @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      ),
+    )
+    let dpx = rt_dmg.readback()
+    let dl_i = (32 * w4 + 16) * 4
+    let dr_i = (32 * w4 + 48) * 4
+    let s9_ok = dpx[dl_i + 1].to_int() > 150 &&
+      dpx[dl_i].to_int() < 100 &&
+      dpx[dr_i + 2].to_int() > 150 &&
+      dpx[dr_i].to_int() < 100
+    rt_dmg.destroy()
+
+    // A2: custom blend equations. Base (0.4, 0.6, 0.8); left half applies
+    // Darken with (0.8, 0.3, 0.5) -> (0.4, 0.3, 0.5); right half Lighten ->
+    // (0.8, 0.6, 0.8).
+    let rt_b2 = dev.create_render_target(64, 64, @tycho.TextureFormat::RGBA8)
+    let cb2 = @g2d.Canvas::new()
+    cb2.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cb2.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (64.0 : Float), (64.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::rgba((0.4 : Float), (0.6 : Float), (0.8 : Float), (1.0 : Float))),
+    )
+    cb2.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      @g2d.Paint::new(
+        color=@g2d.Color::rgba((0.8 : Float), (0.3 : Float), (0.5 : Float), (1.0 : Float)),
+        blend_mode=@g2d.BlendMode2D::Darken,
+      ),
+    )
+    cb2.draw_rect(
+      @g2d.Rect::new((32.0 : Float), (0.0 : Float), (32.0 : Float), (64.0 : Float)),
+      @g2d.Paint::new(
+        color=@g2d.Color::rgba((0.8 : Float), (0.3 : Float), (0.5 : Float), (1.0 : Float)),
+        blend_mode=@g2d.BlendMode2D::Lighten,
+      ),
+    )
+    renderer.render_offscreen(cb2.finish(), rt_b2)
+    let b2px = rt_b2.readback()
+    let bl_i = (32 * 64 + 16) * 4
+    let br_i = (32 * 64 + 48) * 4
+    let near = fn(a : Int, b : Int) -> Bool {
+      let d = if a > b { a - b } else { b - a }
+      d <= 14
+    }
+    let blend2d_ok = near(b2px[bl_i].to_int(), 102) &&
+      near(b2px[bl_i + 1].to_int(), 76) &&
+      near(b2px[bl_i + 2].to_int(), 128) &&
+      near(b2px[br_i].to_int(), 204) &&
+      near(b2px[br_i + 1].to_int(), 153) &&
+      near(b2px[br_i + 2].to_int(), 204)
+    rt_b2.destroy()
+
+    // A3: straight-alpha image data is premultiplied on upload. White with
+    // alpha 128 over black must read back as ~128, not 255.
+    let rt_a = dev.create_render_target(32, 32, @tycho.TextureFormat::RGBA8)
+    let ca = @g2d.Canvas::new()
+    ca.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    let alpha_px : Array[Byte] = [
+      255, 255, 255, 128, 255, 255, 255, 128, 255, 255, 255, 128, 255, 255, 255, 128,
+    ]
+    let img_a = @g2d.Image2D::from_bytes(3, 2, 2, Bytes::from_array(alpha_px))
+    ca.draw_image_rect(
+      img_a,
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (2.0 : Float), (2.0 : Float)),
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+    )
+    renderer.render_offscreen(ca.finish(), rt_a)
+    let apx = rt_a.readback()
+    let ai = (16 * 32 + 16) * 4
+    let alpha_ok = near(apx[ai].to_int(), 128)
+    rt_a.destroy()
+
+    // B5: Paint.color_filter is independent of ImageFilter; an inversion
+    // matrix turns a white layer black.
+    let rt_cf = dev.create_render_target(32, 32, @tycho.TextureFormat::RGBA8)
+    let ccf = @g2d.Canvas::new()
+    ccf.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    let inv : FixedArray[Float] = FixedArray::make(20, (0.0 : Float))
+    inv[0] = (-1.0 : Float)
+    inv[6] = (-1.0 : Float)
+    inv[12] = (-1.0 : Float)
+    inv[4] = (1.0 : Float)
+    inv[9] = (1.0 : Float)
+    inv[14] = (1.0 : Float)
+    inv[18] = (1.0 : Float)
+    let _ = ccf.save_layer(
+      bounds=Some(
+        @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+      ),
+      paint=@g2d.Paint::new(
+        color_filter=Some(@g2d.ColorFilter::Matrix(inv)),
+      ),
+    )
+    ccf.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+      @g2d.Paint::fill(@g2d.Color::white()),
+    )
+    ccf.restore()
+    renderer.render_offscreen(ccf.finish(), rt_cf)
+    let cfpx = rt_cf.readback()
+    let cfi = (16 * 32 + 16) * 4
+    let cf_ok = cfpx[cfi].to_int() < 30 &&
+      cfpx[cfi + 1].to_int() < 30 &&
+      cfpx[cfi + 2].to_int() < 30
+    rt_cf.destroy()
+
+    // Direct-draw color filter (auto layer) and Blend Multiply.
+    let rt_df = dev.create_render_target(32, 32, @tycho.TextureFormat::RGBA8)
+    let dfi = (16 * 32 + 16) * 4
+    let cdf = @g2d.Canvas::new()
+    cdf.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cdf.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+      @g2d.Paint::new(
+        color=@g2d.Color::white(),
+        color_filter=Some(@g2d.ColorFilter::Matrix(inv)),
+      ),
+    )
+    renderer.render_offscreen(cdf.finish(), rt_df)
+    let dfpx = rt_df.readback()
+    let df_ok = dfpx[dfi].to_int() < 30 &&
+      dfpx[dfi + 1].to_int() < 30 &&
+      dfpx[dfi + 2].to_int() < 30
+    let cbm = @g2d.Canvas::new()
+    cbm.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cbm.draw_rect(
+      @g2d.Rect::new((0.0 : Float), (0.0 : Float), (32.0 : Float), (32.0 : Float)),
+      @g2d.Paint::new(
+        color=@g2d.Color::white(),
+        color_filter=Some(
+          @g2d.ColorFilter::Blend(
+            @g2d.Color::rgba((0.5 : Float), (0.5 : Float), (0.5 : Float), (1.0 : Float)),
+            @g2d.BlendMode2D::Multiply,
+          ),
+        ),
+      ),
+    )
+    renderer.render_offscreen(cbm.finish(), rt_df)
+    let bmpx = rt_df.readback()
+    let bm_ok = near(bmpx[dfi].to_int(), 128) &&
+      near(bmpx[dfi + 1].to_int(), 128) &&
+      near(bmpx[dfi + 2].to_int(), 128)
+    rt_df.destroy()
+
+    // B6: custom indexed vertex mesh (solid + textured).
+    let rt_v = dev.create_render_target(64, 64, @tycho.TextureFormat::RGBA8)
+    let vc = @g2d.Color::rgba((0.2 : Float), (0.4 : Float), (0.6 : Float), (1.0 : Float))
+    let vs : Array[@g2d.Vertex2D] = [
+      @g2d.Vertex2D::new((0.0 : Float), (0.0 : Float), u=(0.0 : Float), v=(0.0 : Float), color=vc),
+      @g2d.Vertex2D::new((64.0 : Float), (0.0 : Float), u=(1.0 : Float), v=(0.0 : Float), color=vc),
+      @g2d.Vertex2D::new((64.0 : Float), (64.0 : Float), u=(1.0 : Float), v=(1.0 : Float), color=vc),
+      @g2d.Vertex2D::new((0.0 : Float), (64.0 : Float), u=(0.0 : Float), v=(1.0 : Float), color=vc),
+    ]
+    let cv = @g2d.Canvas::new()
+    cv.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cv.draw_vertices(vs, [0, 1, 2, 0, 2, 3])
+    renderer.render_offscreen(cv.finish(), rt_v)
+    let vpx = rt_v.readback()
+    let vi = (32 * 64 + 32) * 4
+    let verts_ok = near(vpx[vi].to_int(), 51) &&
+      near(vpx[vi + 1].to_int(), 102) &&
+      near(vpx[vi + 2].to_int(), 153)
+    // Textured: a solid magenta 2x2 image with white vertex colors.
+    let mag : Array[Byte] = [
+      255, 0, 255, 255, 255, 0, 255, 255, 255, 0, 255, 255, 255, 0, 255, 255,
+    ]
+    let img_v = @g2d.Image2D::from_bytes(5, 2, 2, Bytes::from_array(mag))
+    let vs2 : Array[@g2d.Vertex2D] = [
+      @g2d.Vertex2D::new((0.0 : Float), (0.0 : Float), u=(0.0 : Float), v=(0.0 : Float)),
+      @g2d.Vertex2D::new((64.0 : Float), (0.0 : Float), u=(1.0 : Float), v=(0.0 : Float)),
+      @g2d.Vertex2D::new((64.0 : Float), (64.0 : Float), u=(1.0 : Float), v=(1.0 : Float)),
+      @g2d.Vertex2D::new((0.0 : Float), (64.0 : Float), u=(0.0 : Float), v=(1.0 : Float)),
+    ]
+    let cv2 = @g2d.Canvas::new()
+    cv2.clear(@g2d.Color::from_rgba8(0, 0, 0))
+    cv2.draw_vertices(vs2, [0, 1, 2, 0, 2, 3], image=Some(img_v))
+    renderer.render_offscreen(cv2.finish(), rt_v)
+    let vpx2 = rt_v.readback()
+    let verts_tex_ok = near(vpx2[vi].to_int(), 255) &&
+      near(vpx2[vi + 1].to_int(), 0) &&
+      near(vpx2[vi + 2].to_int(), 255)
+    rt_v.destroy()
+
+    if show_win {
+      let cc = @g2d.Color::from_rgba8(14, 18, 30)
+      let sc = dev.create_swapchain_desc(
+        @tycho.SwapchainDesc::new(
+          "2d/showcase",
+          w,
+          h,
+          depth=true,
+          depth_format=@tycho.TextureFormat::Depth24Stencil8,
+          clear_color=cc.to_clear_color(),
+        ),
+      )
+      while !sc.should_close() {
+        let mut quit = false
+        for ev in sc.poll_events() {
+          match ev {
+            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
+            _ => ()
+          }
+        }
+        if quit { break }
+        sc.sync_size()
+        renderer.render_swapchain(sc, dl, clear_color=@g2d.Color::from_rgba8(14, 18, 30))
+      }
+      sc.destroy()
+    }
+
+    renderer.destroy()
+    dev.wait_idle()
+    let errs = dev.validation_errors()
+    let used = dev.allocator_used_bytes()
+    dev.destroy()
+
+    if star_tip_ok && star_hole_ok && grad_ok && radial_ok && frost_ok && diff_ok && cmat_ok && pill_center_ok && pill_ellipse_ok && pill_corner_ok && text_ok && blend_overlap_ok && blend_blue_ok && mip_ok && dedicated_ok && bgra_ok && path_batches <= 1 && s3_ok && s9_ok && blend2d_ok && alpha_ok && cf_ok && df_ok && bm_ok && verts_ok && verts_tex_ok && stats_ok && errs == 0 && used == (0 : UInt64) {
+      println("[2d/showcase] OK — SDF + elliptical pill + subpixel text + Plus/Darken/Lighten blend + premultiplied images + Paint.color_filter + custom vertices + mipmapped image + BGRA8 prim pipeline + batched AA paths + per-instance clip batching + damage repaint + EvenOdd stencil star + Bezier stroke + ImagePattern + ClipDifference + ColorMatrix + frosted blur verified (draws=\{st.draw_calls} passes=\{st.path_passes} uploads=\{st.upload_bytes} glyphs=\{st.glyph_entries} coverage=\{st.coverage_draws}), 0 validation errors")
+    } else {
+      println(
+        "[2d/showcase] FAIL — tip=\{star_tip_ok}(\{sr},\{sg},\{sb}) hole=\{star_hole_ok}(\{hr},\{hg},\{hb}) grad=\{grad_ok} rad=\{radial_ok} frost=\{frost_ok} diff=\{diff_ok}(\{dr},\{dg},\{db}) cmat=\{cmat_ok}(\{mr},\{mg},\{mb}) pill_center=\{pill_center_ok}(\{pcr},\{pcg},\{pcb}) pill_ellipse=\{pill_ellipse_ok}(\{per_},\{peg},\{peb}) pill_corner=\{pill_corner_ok}(\{pxr},\{pxg},\{pxb}) text=\{text_ok} blend_overlap=\{blend_overlap_ok}(\{ovr},\{ovg},\{ovb}) blend_blue=\{blend_blue_ok}(\{blr},\{blg},\{blb}) blend2d=\{blend2d_ok} alpha=\{alpha_ok}(\{apx[ai]},\{apx[ai + 3]}) cf=\{cf_ok}(\{cfpx[cfi]}) df=\{df_ok}(\{dfpx[dfi]}) bm=\{bm_ok}(\{bmpx[dfi]}) verts=\{verts_ok}(\{vpx[vi]},\{vpx[vi + 1]},\{vpx[vi + 2]}) vtex=\{verts_tex_ok}(\{vpx2[vi]},\{vpx2[vi + 1]},\{vpx2[vi + 2]}) mip=\{mip_ok}(\{ckr},\{ckg},\{ckb}) dedicated=\{dedicated_ok}(\{dedicated_count}) bindless=\{bindless_ok} bgra=\{bgra_ok} path_batches=\{path_batches} clip_batches=\{clip_batches} s9=\{s9_ok} stats=\{stats_ok} draws=\{st.draw_calls} uploads=\{st.upload_bytes} errs=\{errs} used=\{used}",
+      )
+    }
+  } catch {
+    err => println("[2d/showcase] FAIL — \{err}")
+  }
+}

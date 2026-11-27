@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Run any Tycho example under Wayland with one command.
-# Usage: ./tools/run-wayland.sh [--nvidia|--lavapipe] <example-name> [args...]
-# Example: ./tools/run-wayland.sh 49-rhi-pbr-showcase --window
-#          ./tools/run-wayland.sh 51-wayland-window
+# Usage: ./tools/run-wayland.sh [--nvidia|--lavapipe] <module/name> [args...]
+# Example: ./tools/run-wayland.sh rhi/pbr-showcase --window
+#          ./tools/run-wayland.sh window/wayland
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -28,7 +28,7 @@ NAME="$1"
 shift
 
 BUILD_DIR="${TYCHO_EXAMPLES_DIR:-_build/native/debug/build/laplaceliu/tycho_vulkan_examples}"
-EXE="$BUILD_DIR/$NAME/$NAME.exe"
+EXE="$BUILD_DIR/$NAME/${NAME##*/}.exe"
 if [ ! -x "$EXE" ]; then
   echo "ERROR: $EXE not found — run ./build.sh first." >&2
   exit 1

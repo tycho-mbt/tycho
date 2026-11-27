@@ -15,29 +15,29 @@ import subprocess
 import sys
 
 RHI_EXAMPLES = [
-    "08-rhi-triangle",
-    "09-rhi-uniform",
-    "10-rhi-vertex",
-    "11-rhi-texture",
-    "12-rhi-compute",
-    "13-rhi-sampler",
-    "38-rhi-3d-cube",
-    "39-rhi-msaa-offscreen",
-    "40-rhi-reflection-mipmaps",
-    "41-rhi-compute-storage-image",
-    "42-rhi-mrt-postprocess",
-    "43-rhi-hardening",
-    "44-rhi-pipeline-instancing",
-    "45-rhi-textures-samplers",
-    "46-rhi-indirect-bindless",
-    "47-rhi-mesh",
-    "48-rhi-shadow-hdr",
-    "49-rhi-pbr-showcase",
-    "50-rhi-bench",
-    "52-rhi-rayquery-stencil",
-    "53-rhi-2d-sdf-batch",
-    "54-tycho-2d-showcase",
-    "55-tycho-ui-gallery",
+    "rhi/triangle",
+    "rhi/uniform",
+    "rhi/vertex",
+    "rhi/texture",
+    "rhi/compute",
+    "rhi/sampler",
+    "rhi/3d-cube",
+    "rhi/msaa-offscreen",
+    "rhi/reflection-mipmaps",
+    "rhi/compute-storage-image",
+    "rhi/mrt-postprocess",
+    "rhi/hardening",
+    "rhi/pipeline-instancing",
+    "rhi/textures-samplers",
+    "rhi/indirect-bindless",
+    "rhi/mesh",
+    "rhi/shadow-hdr",
+    "rhi/pbr-showcase",
+    "rhi/bench",
+    "rhi/rayquery-stencil",
+    "rhi/2d-sdf-batch",
+    "2d/showcase",
+    "ui/gallery",
 ]
 
 WORD_FAIL = re.compile(r"\bFAIL\b")
@@ -53,8 +53,9 @@ def discover_examples(root: pathlib.Path, mode: str) -> list[str]:
             if (root / "examples" / name / "moon.pkg").is_file()
         ]
     names = []
-    for pkg in sorted((root / "examples").glob("*/moon.pkg")):
-        names.append(pkg.parent.name)
+    for pkg in sorted((root / "examples").glob("*/*/moon.pkg")):
+        # Examples live at examples/<module>/<name>; report the module-relative path.
+        names.append(pkg.parent.relative_to(root / "examples").as_posix())
     return names
 
 
@@ -86,11 +87,11 @@ def main() -> int:
     skipped = 0
 
     for name in examples:
-        if name in skip_set:
+        if name in skip_set or name.rsplit("/", 1)[-1] in skip_set:
             print(f"  SKIP     {name} (--skip)")
             skipped += 1
             continue
-        exe = build_dir / name / f"{name}.exe"
+        exe = build_dir / name / f"{name.rsplit('/', 1)[-1]}.exe"
         if not exe.is_file():
             print(f"  MISSING  {name} ({exe})")
             failed += 1

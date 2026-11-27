@@ -11,7 +11,7 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
 - `AnimationClip` / `AnimationPlayer`: translation / rotation / scale keyframe
   tracks with linear (Vec3) or slerp (Quat) interpolation, per-channel node
   binding, looping or clamped playback, and `update(scene, dt)` that writes
-  local transforms (example 76).
+  local transforms (`3d/animation`).
 - `Camera`: perspective (infinite reversed-Z by default) / orthographic
   reversed-Z projections, view/view-projection matrices, screen rays, and an
   analytic sky ray matrix.
@@ -24,7 +24,7 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   light SSBO, and PCF clamps to the tile so taps never bleed across lights.
 - Non-bindless fallback: `RendererDesc::with_bindless(false)` (or a device
   without descriptor indexing) switches to a PBR shader variant that binds
-  albedo/normal per batch; identical output, exercised by example 74.
+  albedo/normal per batch; identical output, exercised by `3d/brdf-fallback`.
 - `Renderer3D`: forward PBR metallic-roughness with linear-space materials,
   directional/point/spot/ambient/hemisphere lights, one directional PCF shadow
   map (two cascades: an inner half-radius fit at twice the density plus the
@@ -34,7 +34,7 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   embedded images through the RHI (base colour as sRGB, normal maps linear);
   `load_gltf_with_nodes` returns a glTF-node → `NodeId` map and
   `load_gltf_animations` converts TRS channels into `AnimationClip`s
-  (examples 77/78).
+  (`3d/gltf-viewer` / `3d/gltf-animation`).
 - HDR environments: `decode_hdr` parses Radiance RGBE (RLE and flat
   scanlines, -Y/+Y and +X/-X), `encode_hdr` writes it, and
   `equirect_environment_cubemap` projects a linear equirect image into the
@@ -51,24 +51,24 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   instance counts); the non-bindless fallback keeps per-batch draws because it
   rebinds material textures.
 - Physical clearcoat: `MaterialDesc::with_clearcoat(1.0, roughness=0.2)`
-  adds a second GGX lobe in the direct and environment terms (example 87).
+  adds a second GGX lobe in the direct and environment terms (`3d/clearcoat`).
 - Morph targets: `MeshData::add_morph_target` stores up to two position-delta
   sets, `create_morph_node`/`set_morph_weights` animate them through a 72-byte
-  stream with per-draw push-constant weights (example 88).
+  stream with per-draw push-constant weights (`3d/morph`).
 - Point cube shadows: point lights with a `ShadowDesc` render six faces into a
   4x2 atlas; the fragment shader selects the face from the dominant axis and
-  reads the shared tile table (example 89).
+  reads the shared tile table (`3d/point-shadow`).
 - Ray-traced sun shadows: `set_ray_shadows(true)` swaps in a VK_KHR_ray_query
   fragment variant that traces one shadow ray per pixel against a per-mesh
-  BLAS/TLAS (example 90; opt-in, no-op without ray query support).
+  BLAS/TLAS (`3d/ray-shadow`; opt-in, no-op without ray query support).
 - Distance LOD: `create_lod_node(scene, levels, switch_distances, material)`
   swaps meshes per camera distance, shares one material for instancing, and
-  reports `stats.lod_switches` (example 86 selects 48x32 / 20x12 / 8x5 spheres).
+  reports `stats.lod_switches` (`3d/lod` selects 48x32 / 20x12 / 8x5 spheres).
 - GPU skinning: `MeshData::set_skin` attaches four joint indices/weights per
   vertex (80-byte stream), `Renderer3D::create_skinned_node` binds a joint list
   plus inverse bind matrices, and the vertex shader applies the palette from a
   bone SSBO indexed through the object record; skinned nodes also cast into
-  the shadow atlas through a depth-only skinned pipeline (example 79).
+  the shadow atlas through a depth-only skinned pipeline (`3d/skinning`).
 - Automatic instancing: visible mesh nodes are grouped by `(mesh, material)`
   and each run is drawn with `draw_indexed(..., instances=n)`. Shaders index
   the object SSBO as `firstObject + gl_InstanceIndex`, so 10k nodes collapse
@@ -90,7 +90,7 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   `RendererDesc.msaa=false` selects the single-sampled path.
 - HUD composition: `Renderer3D::render_swapchain_into(cmd, sc, ...)` renders
   and blits without ending the frame, so `tycho_2d` can draw a HUD on top with
-  `load_op = Load` before the app presents (example 72).
+  `load_op = Load` before the app presents (`general/3d-hud`).
 - Transparent pass: `AlphaMode::Blend` nodes are sorted back-to-front by
   camera distance and drawn with a depth-tested, depth-write-disabled pipeline.
 - Debug lines: `add_debug_line` / `add_debug_aabb` queue world-space segments
@@ -131,7 +131,7 @@ scene.set_local_bounds(node, renderer.mesh_bounds(mesh))
 renderer.render_swapchain(sc, scene, camera_node)
 ```
 
-See [`examples/62-tycho-3d-showcase`](../examples/62-tycho-3d-showcase).
+See [`examples/3d/showcase`](../examples/3d/showcase).
 
 ## Conventions
 
@@ -144,5 +144,5 @@ See [`examples/62-tycho-3d-showcase`](../examples/62-tycho-3d-showcase).
 
 ```bash
 moon test --target native
-../tools/run-3d-gates.sh   # unit tests + examples 61/62 on every ICD
+../tools/run-3d-gates.sh   # unit tests + the 3D examples on every ICD
 ```

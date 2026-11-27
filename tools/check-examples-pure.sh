@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# The typed 3D examples (61+) must go through @t3d/@tgeo and must not drop to
-# raw RHI drawing commands; every example must stay free of 2d/ui siblings.
+# The typed 3D examples (examples/3d/* plus the cross-module general/3d-hud)
+# must go through @t3d/@tgeo and must not drop to raw RHI drawing commands;
+# every example must stay free of 2d/ui siblings.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fail=0
 
-for dir in "$ROOT"/examples/[0-9]*; do
-  [ -d "$dir" ] || continue
-  name="$(basename "$dir")"
-  pkg="$dir/moon.pkg"
+for pkg in "$ROOT"/examples/*/*/moon.pkg; do
   [ -f "$pkg" ] || continue
+  dir="$(dirname "$pkg")"
+  name="${dir#"$ROOT"/examples/}"
   # Only the typed 3D examples are covered by this check.
   case "$name" in
-    *tycho-3d*|*tycho-geometry*) ;;
+    3d/* | general/3d-hud) ;;
     *) continue ;;
   esac
 
-  # Example 72 is the 3D + 2D HUD composition demo (R-2D1): importing tycho_2d
-  # is its entire point. The tycho_3d library itself never depends on 2d/ui,
-  # and the raw-RHI ban below still applies to it.
-  if [ "$name" = "72-tycho-3d-hud" ]; then
+  # The 3D + 2D HUD composition demo (R-2D1) lives in general/ because importing
+  # tycho_2d is its entire point. The tycho_3d library itself never depends on
+  # 2d/ui, and the raw-RHI ban below still applies to it.
+  if [ "$name" = "general/3d-hud" ]; then
     :
   elif grep -qE 'tycho_2d|tycho_ui' "$pkg"; then
     echo "PURITY: $name imports a 2d/ui sibling" >&2

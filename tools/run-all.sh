@@ -52,17 +52,18 @@ run_suite() {
     echo "ERROR: lavapipe ICD not found (install mesa-vulkan-drivers or set TYCHO_LAVAPIPE_ICD)." >&2
     return 1
   fi
-  for d in examples/*/; do
-    [ -f "${d}moon.pkg" ] || continue
-    name=$(basename "$d")
+  while IFS= read -r pkg; do
+    d=$(dirname "$pkg")
+    # Examples live at examples/<module>/<name>; strip the leading "examples/".
+    name="${d#examples/}"
     case "$SKIP_LIST" in
-      *" $name "*)
+      *" $name "* | *" ${name##*/} "*)
         echo "  SKIP     $name (TYCHO_SKIP)"
         skip=$((skip + 1))
         continue
         ;;
     esac
-    exe="$BUILD_DIR/$name/$name.exe"
+    exe="$BUILD_DIR/$name/${name##*/}.exe"
     if [ ! -x "$exe" ]; then
       echo "  MISSING  $name ($exe)"
       fail=$((fail + 1))
@@ -96,7 +97,7 @@ run_suite() {
       echo "  OK       $name  |  $summary"
       pass=$((pass + 1))
     fi
-  done
+  done < <(find examples -name moon.pkg | sort)
   echo "[$drv] passed=$pass failed=$fail skipped=$skip"
   return $fail
 }

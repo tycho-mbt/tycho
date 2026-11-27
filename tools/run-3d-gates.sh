@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Golden gate for tycho_3d: unit tests plus headless examples 61/62 on every
+# Golden gate for tycho_3d: unit tests plus headless 3D examples on every
 # available ICD (lavapipe and NVIDIA here). Each example asserts its own pixels,
 # stats and picking, and must report validation=0.
 set -euo pipefail
@@ -10,29 +10,29 @@ if [ -d "$ROOT/.toolchain" ]; then
 fi
 
 EXAMPLES=(
-  62-tycho-3d-showcase
-  63-tycho-geometry-primitives
-  64-tycho-3d-instances
-  65-tycho-3d-textures
-  66-tycho-3d-transparency
-  67-tycho-3d-debug-lines
-  68-tycho-3d-env-quality
-  69-tycho-3d-msaa
-  70-tycho-3d-gltf
-  71-tycho-3d-gpu-driven
-  72-tycho-3d-hud
-  73-tycho-3d-hdr-ibl
-  74-tycho-3d-brdf-fallback
-  75-tycho-3d-shadow-atlas
-  76-tycho-3d-animation
-  77-tycho-3d-gltf-viewer
-  78-tycho-3d-gltf-animation
-  79-tycho-3d-skinning
-  86-tycho-3d-lod
-  87-tycho-3d-clearcoat
-  88-tycho-3d-morph
-  89-tycho-3d-point-shadow
-  90-tycho-3d-ray-shadow
+  3d/showcase
+  3d/geometry-primitives
+  3d/instances
+  3d/textures
+  3d/transparency
+  3d/debug-lines
+  3d/env-quality
+  3d/msaa
+  3d/gltf
+  3d/gpu-driven
+  general/3d-hud
+  3d/hdr-ibl
+  3d/brdf-fallback
+  3d/shadow-atlas
+  3d/animation
+  3d/gltf-viewer
+  3d/gltf-animation
+  3d/skinning
+  3d/lod
+  3d/clearcoat
+  3d/morph
+  3d/point-shadow
+  3d/ray-shadow
 )
 
 echo "== unit tests =="
@@ -48,7 +48,7 @@ echo "== examples purity =="
 "$ROOT/tools/check-examples-pure.sh"
 
 echo "== build examples =="
-(cd "$ROOT/examples" && moon build --target native "${EXAMPLES[@]}" 49-rhi-pbr-showcase)
+(cd "$ROOT/examples" && moon build --target native "${EXAMPLES[@]}" rhi/pbr-showcase)
 BIN_DIR="$ROOT/_build/native/debug/build/laplaceliu/tycho_vulkan_examples"
 
 drivers=()
@@ -71,7 +71,7 @@ for entry in "${drivers[@]}"; do
   icd="${entry#*:}"
   echo "== driver: $name =="
   for exe in "${EXAMPLES[@]}"; do
-    out="$(VK_ICD_FILENAMES="$icd" timeout 300 "$BIN_DIR/$exe/$exe.exe" 2>&1)"
+    out="$(VK_ICD_FILENAMES="$icd" timeout 300 "$BIN_DIR/$exe/${exe##*/}.exe" 2>&1)"
     echo "$out" | tail -2
     if ! grep -q "validation=0" <<<"$out"; then
       echo "3D GATE FAILED: $exe on $name reported validation errors" >&2
@@ -87,7 +87,7 @@ for entry in "${drivers[@]}"; do
     fi
   done
   echo "== driver: $name raw RHI regression (49) =="
-  reg_out="$(VK_ICD_FILENAMES="$icd" timeout 300 "$BIN_DIR/49-rhi-pbr-showcase/49-rhi-pbr-showcase.exe" 2>&1)"
+  reg_out="$(VK_ICD_FILENAMES="$icd" timeout 300 "$BIN_DIR/rhi/pbr-showcase/pbr-showcase.exe" 2>&1)"
   echo "$reg_out" | tail -1
   if ! grep -q "\] OK" <<<"$reg_out" || ! grep -q "0 validation errors" <<<"$reg_out"; then
     echo "3D GATE FAILED: 49 regression on $name" >&2

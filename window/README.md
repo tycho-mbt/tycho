@@ -24,4 +24,4 @@ None required! Downstream `moon.pkg` files only need to import `laplaceliu/tycho
 
 ## Previewing Wayland on X11
 
-From the repository root, `./tools/run-wayland.sh <example> --window` automatically launches a nested `weston --backend=x11-backend.so` window (if no Wayland compositor is running) and sets `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`, `TYCHO_WINDOW_BACKEND=wayland`, and `VK_DRIVER_FILES` (defaulting to `lavapipe` inside nested Weston). See [51-wayland-window](../examples/51-wayland-window/README.md) for manual `weston` steps.
+From the repository root, `./tools/run-wayland.sh <example> --window` automatically launches a nested `weston --backend=x11-backend.so` window (if no Wayland compositor is running) and sets `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`, `TYCHO_WINDOW_BACKEND=wayland`, and `VK_DRIVER_FILES` (defaulting to `lavapipe` inside nested Weston). See [window/wayland](../examples/window/wayland/README.md) for manual `weston` steps.

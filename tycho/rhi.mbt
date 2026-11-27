@@ -966,7 +966,7 @@ pub fn Buffer::upload_floats(
 /// Upload a column-major `Mat4` (16 floats) at `offset` bytes.
 ///
 /// Provisional (ADR-002 §3.2): a completeness twin of `upload_floats`, covered by
-/// the equivalence test in `examples/43-rhi-hardening`; the shape may still change
+/// the equivalence test in `examples/rhi/hardening`; the shape may still change
 /// in a 0.x minor until it sees external use.
 pub fn Buffer::upload_mat4(
   self : Buffer,

@@ -2,21 +2,21 @@
 
 > Write Vulkan & RHI graphics code directly in MoonBit with **zero user C**, packaged cleanly for [mooncakes.io](https://mooncakes.io) under the `laplaceliu/*` namespace.
 
-![Tycho 3D PBR Showcase — Cook-Torrance GGX, Cubemap IBL, PCF Shadows, HDR Bloom & ACES](examples/49-rhi-pbr-showcase/screenshot.png)
+![Tycho 3D PBR Showcase — Cook-Torrance GGX, Cubemap IBL, PCF Shadows, HDR Bloom & ACES](examples/rhi/pbr-showcase/screenshot.png)
 
-*Rendered in pure MoonBit via `examples/49-rhi-pbr-showcase`.*
+*Rendered in pure MoonBit via `examples/rhi/pbr-showcase`.*
 
-![Tycho 2D SDF UI Batcher — Per-Corner Rounded Rects, Analytical Shadows, Texture Atlas & Hardware Scissor](examples/53-rhi-2d-sdf-batch/screenshot.png)
+![Tycho 2D SDF UI Batcher — Per-Corner Rounded Rects, Analytical Shadows, Texture Atlas & Hardware Scissor](examples/rhi/2d-sdf-batch/screenshot.png)
 
-*2D SDF UI batching & high-frequency `CpuToGpu` ring-SSBO benchmark via `examples/53-rhi-2d-sdf-batch`.*
+*2D SDF UI batching & high-frequency `CpuToGpu` ring-SSBO benchmark via `examples/rhi/2d-sdf-batch`.*
 
-![Tycho 2D Engine Showcase — Stencil-then-Cover Paths, Gradients, TrueType Text & Frosted Backdrop Blur](examples/54-tycho-2d-showcase/screenshot.png)
+![Tycho 2D Engine Showcase — Stencil-then-Cover Paths, Gradients, TrueType Text & Frosted Backdrop Blur](examples/2d/showcase/screenshot.png)
 
-*`laplaceliu/tycho_2d` showcase via `examples/54-tycho-2d-showcase`.*
+*`laplaceliu/tycho_2d` showcase via `examples/2d/showcase`.*
 
-![Tycho UI Declarative Gallery — Three-Tree Widgets, Signals, Controls & 100K Virtual ListView](examples/55-tycho-ui-gallery/screenshot.png)
+![Tycho UI Declarative Gallery — Three-Tree Widgets, Signals, Controls & 100K Virtual ListView](examples/ui/gallery/screenshot.png)
 
-*`laplaceliu/tycho_ui` declarative gallery via `examples/55-tycho-ui-gallery`.*
+*`laplaceliu/tycho_ui` declarative gallery via `examples/ui/gallery`.*
 
 ## Architecture (Multi-Module Workspace)
 
@@ -31,7 +31,7 @@
 | `laplaceliu/tycho_2d` | `2d/` | Skia/Impeller-inspired pure-MoonBit 2D engine: `Canvas`/`DisplayList`, AOT embedded SPIR-V pipelines, Tier-1 SDF/gradient/atlas batcher, pure-MoonBit TrueType + built-in font & `Paragraph` layout, Tier-2 Stencil-then-Cover paths & strokes, `save_layer`, and Gaussian `BackdropFilter` blur | *(none)* |
 | `laplaceliu/tycho_ui` | `ui/` | Flutter-inspired declarative UI framework: Widget/Element/RenderObject/Layer trees, fine-grained `Signal[T]`, single-pass `BoxConstraints` (`Row`/`Column`/`Stack`/`Wrap`), `GestureArena`, `TextField`, `ThemeData`, virtualized `ListView`, `AppRunner` & headless `WidgetTester` | *(none)* |
 | `laplaceliu/tycho_codegen` *(private)* | `codegen/` | Khronos `vk.xml` → MoonBit + C shim generator | *(none)* |
-| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | Pure-MoonBit examples & suites (low-level Vulkan API suites + unified `@tycho` / `@tycho_math` / `@tycho_2d` / `@tycho_ui` demos, Wayland check & benchmarks) | *(none)* |
+| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | Pure-MoonBit examples grouped by the module they teach: `examples/vulkan/` (low-level `tycho_vulkan` API suites), `examples/rhi/` (unified `@tycho` RHI, including the DX12 backend family `rhi/dx12-*`), `examples/dx12/` (raw `tycho_dx12`), `examples/window/`, `examples/2d/`, `examples/3d/`, `examples/ui/`, and `examples/general/` for cross-module compositions | *(none)* |
 
 Documentation:
 - [Architecture Overview](docs/architecture.md)
@@ -91,9 +91,8 @@ Still manual:
 
 ## Linux Vulkan API Coverage
 
-`./build.sh && ./tools/run-all.sh both` is the release gate: it exercises all 55 example
-packages (`examples/01` … `examples/55`) on both `lavapipe` and `nvidia` and fails on any
-validation error.
+`./build.sh && ./tools/run-all.sh both` is the release gate: it walks every package under
+`examples/<module>/<name>` on both `lavapipe` and `nvidia` and fails on any validation error.
 `OK` always implies at least one executed command: an example whose extension batch a driver
 cannot provide reports `SKIP` (exit 0, tallied separately by `tools/run-all.sh`), and an example
 that advertises a group but executes none of it reports `FAIL`:
@@ -112,7 +111,7 @@ that advertises a group but executes none of it reports `FAIL`:
 # 3. Run unit tests
 moon test --target native
 
-# 4. Run all 55 pure-MoonBit verification examples on lavapipe + NVIDIA
+# 4. Run every pure-MoonBit verification example on lavapipe + NVIDIA
 ./tools/run-all.sh both
 
 # 5. Measure reproducible Linux Vulkan API coverage
@@ -138,7 +137,7 @@ moon build --target native
 moon test --target native
 
 # 4. Run the pure-MoonBit verification examples (GPU-less runners use Mesa lavapipe)
-python tools\run-ci-suite.py --mode all --skip 07-slang,51-wayland-window --require-pass 35
+python tools\run-ci-suite.py --mode all --skip vulkan/slang,window/wayland --require-pass 35
 ```
 
 `setup-windows.ps1` verifies the MSVC x64 compiler and Windows SDK that `moon` drives

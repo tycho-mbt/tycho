@@ -30,19 +30,21 @@ def lavapipe_icd():
     return hits[0]
 
 
-def example_exe(name):
-    """Locate a built example without assuming build profile or target dir."""
+def example_exe(rel):
+    """Locate a built example (`<module>/<name>`) without assuming profile or target dir."""
+    leaf = rel.rsplit("/", 1)[-1]
+    parts = rel.split("/")
     override = os.environ.get("TYCHO_EXAMPLES_DIR")
     if override:
-        cand = os.path.join(override, name, name + ".exe")
+        cand = os.path.join(override, *parts, leaf + ".exe")
         if os.path.exists(cand):
             return cand
     hits = glob.glob(
-        os.path.join(ROOT, "_build", "*", "*", "build", EXAMPLES_PKG, name, name + ".exe")
+        os.path.join(ROOT, "_build", "*", "*", "build", EXAMPLES_PKG, *parts, leaf + ".exe")
     )
     if not hits:
         hits = glob.glob(
-            os.path.join(ROOT, "_build", "**", "build", EXAMPLES_PKG, name, name + ".exe"),
+            os.path.join(ROOT, "_build", "**", "build", EXAMPLES_PKG, *parts, leaf + ".exe"),
             recursive=True,
         )
     if not hits:
@@ -52,12 +54,12 @@ def example_exe(name):
 
 def driver_extensions(drv):
     global _warned_missing_exe
-    exe = example_exe("15-capabilities")
+    exe = example_exe("vulkan/capabilities")
     if not exe:
         if not _warned_missing_exe:
             _warned_missing_exe = True
             print(
-                "WARNING: 15-capabilities example not built — run ./build.sh first "
+                "WARNING: vulkan/capabilities example not built — run ./build.sh first "
                 "(or set TYCHO_EXAMPLES_DIR). Driver extensions are treated as unknown.",
                 file=sys.stderr,
             )
@@ -120,7 +122,7 @@ def command_table():
 def executed_commands():
     done = set()
     patterns = [
-        "examples/*/main.mbt",
+        "examples/*/*/main.mbt",
         "window/**/*.mbt",
         "vulkan/structs.mbt",
     ]

@@ -132,7 +132,7 @@ pub fn Camera::screen_ray(
 /// an NDC direction (skybox). Built analytically from the FOV instead of
 /// inverting `mat3(proj)`, because the infinite reversed-Z projection has a
 /// zero `m22` and is therefore singular in 3x3. Equivalent to the hand-derived
-/// `invRotProj` in `examples/49-rhi-pbr-showcase`; scaled camera nodes are
+/// `invRotProj` in `examples/rhi/pbr-showcase`; scaled camera nodes are
 /// normalized first.
 pub fn Camera::sky_ray_matrix(self : Camera, world : @tmath.Affine3) -> @tmath.Mat3? {
   match self.projection {

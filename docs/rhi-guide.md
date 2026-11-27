@@ -153,35 +153,35 @@ if dev.capabilities().supports_ray_query {
 
 | Example | Demonstrates |
 |---|---|
-| `08-rhi-triangle` – `13-rhi-sampler` | Core RHI triangle, UBO, vertex buffer, texture, compute, sampler |
-| `38-rhi-3d-cube` | Perspective 3D cube + depth testing |
-| `39-rhi-msaa-offscreen` | `SampleCount::X4` MSAA offscreen resolve + blit |
-| `40-rhi-reflection-mipmaps` | SPIR-V auto-reflection, mipmaps, anisotropic filtering, `Depth24Stencil8` |
-| `41-rhi-compute-storage-image` | Compute storage image + `TimestampPool` |
-| `42-rhi-mrt-postprocess` | MRT G-buffer (`RGBA8` + normals + `Depth32F`) + post-process |
-| `43-rhi-hardening` | `GpuOnly` buffers, deferred deletion, dynamic descriptor pool expansion |
-| `44-rhi-pipeline-instancing` | Vertex/instance step modes, alpha blending, `Depth24Stencil8` |
-| `45-rhi-textures-samplers` | Cubemaps, 2D texture arrays, mip readbacks, border samplers |
-| `46-rhi-indirect-bindless` | Indirect draw/dispatch + `BindlessHeap` |
-| `47-rhi-mesh` | `VK_EXT_mesh_shader` task + mesh pipeline (`SKIP` if unsupported) |
-| `48-rhi-shadow-hdr` | Shadow mapping (`CompareOp::LessEqual`) + `RGBA16F` HDR + bloom |
-| `49-rhi-pbr-showcase` | Flagship Cook-Torrance GGX PBR + Cubemap IBL + 3×3 PCF shadow + Bloom + ACES |
-| `50-rhi-bench` | 500 allocs, 500 push-constant draws, 20-frame deferred deletion leak gate |
-| `51-wayland-window` | Linux Wayland WSI (`xdg-shell` + `VK_KHR_wayland_surface`) |
-| `52-rhi-rayquery-stencil` | `StencilState` + `set_stencil_reference`, `draw_indirect_count`, Inline Ray Query (`create_blas`/`create_tlas`) |
-| `53-rhi-2d-sdf-batch` | 2D per-corner SDF rounded rects, procedural icon atlas, hardware `set_scissor` clipping, and 30f × 2,000-quad ring-SSBO benchmark |
-| `54-tycho-2d-showcase` | `laplaceliu/tycho_2d` showcase: gradients, TrueType/built-in paragraphs, Stencil-then-Cover paths, `save_layer`, and `BackdropFilter` blur |
-| `55-tycho-ui-gallery` | `laplaceliu/tycho_ui` declarative UI showcase: three trees, `Signal[T]`, Dark/Light theme, `TextField`, `frosted_dialog`, and 100K virtual `ListView` |
-| `73-win32-window` | Windows Win32 WSI (`user32.dll` + `VK_KHR_win32_surface`), fullscreen-resize swapchain recreation, clipboard, DPI `content_scale` |
-| `74-dx12-triangle` | Direct3D 12 raw binding: device + command list + DXIL PSO + offscreen RTV + readback, on hardware or WARP |
-| `75-dx12-present` | Direct3D 12 DXGI flip-model swapchain on a Win32 window: back-buffer rendering, `Present`, `ResizeBuffers`, resource-state tracking |
-| `76-rhi-dx12-triangle` | The unified RHI on the DX12 backend (`BackendKind::Dx12`): same façade as `08-rhi-triangle`, DXIL pipeline, windowed present + readback |
-| `77-dx12-uniform` | Uniform slot on DX12 via a root CBV, from one Slang source compiled to both SPIR-V and DXIL; negative-viewport clip-space convention |
-| `78-dx12-depth` | Headless DX12: offscreen RGBA8 target + `Depth32F` depth test, readback, depth-order independence asserted |
-| `79-dx12-texture` | Headless DX12 sampling: RGBA8 upload → shader-visible SRV heap + sampler heap → SRV/sampler descriptor tables; `SamplerDesc` (filter/address) honoured, descriptor slots recycled |
-| `80-dx12-compute` | Headless DX12 compute: storage texture (UAV table) + compute PSO + `Dispatch`, gradient written by the shader and read back |
-| `81-dx12-geometry` | Headless DX12 vertex/index buffers: D3D12 input layout from `vertex_formats`, `IASetVertexBuffers`/`IASetIndexBuffer`, indexed draw |
-| `82-dx12-indirect` | Headless DX12 indirect draws (`ExecuteIndirect` + command signatures) and timestamp queries; unsupported calls fail `end_commands` instead of no-oping |
-| `83-dx12-advanced` | Headless DX12 push constants (root constants at `b15`), storage buffers (raw UAV + staging readback) and GPU-side draw counts |
-| `84-dx12-mrt` | DX12 multi-texture slots (one root table per slot), multi-render-target output and sRGB render targets |
-| `85-dx12-mesh` | DX12 mesh shader pipeline: stream-descriptor PSO via `ID3D12Device2::CreatePipelineState` + `DispatchMesh`, no input layout at all |
+| `rhi/triangle` – `rhi/sampler` | Core RHI triangle, UBO, vertex buffer, texture, compute, sampler |
+| `rhi/3d-cube` | Perspective 3D cube + depth testing |
+| `rhi/msaa-offscreen` | `SampleCount::X4` MSAA offscreen resolve + blit |
+| `rhi/reflection-mipmaps` | SPIR-V auto-reflection, mipmaps, anisotropic filtering, `Depth24Stencil8` |
+| `rhi/compute-storage-image` | Compute storage image + `TimestampPool` |
+| `rhi/mrt-postprocess` | MRT G-buffer (`RGBA8` + normals + `Depth32F`) + post-process |
+| `rhi/hardening` | `GpuOnly` buffers, deferred deletion, dynamic descriptor pool expansion |
+| `rhi/pipeline-instancing` | Vertex/instance step modes, alpha blending, `Depth24Stencil8` |
+| `rhi/textures-samplers` | Cubemaps, 2D texture arrays, mip readbacks, border samplers |
+| `rhi/indirect-bindless` | Indirect draw/dispatch + `BindlessHeap` |
+| `rhi/mesh` | `VK_EXT_mesh_shader` task + mesh pipeline (`SKIP` if unsupported) |
+| `rhi/shadow-hdr` | Shadow mapping (`CompareOp::LessEqual`) + `RGBA16F` HDR + bloom |
+| `rhi/pbr-showcase` | Flagship Cook-Torrance GGX PBR + Cubemap IBL + 3×3 PCF shadow + Bloom + ACES |
+| `rhi/bench` | 500 allocs, 500 push-constant draws, 20-frame deferred deletion leak gate |
+| `window/wayland` | Linux Wayland WSI (`xdg-shell` + `VK_KHR_wayland_surface`) |
+| `rhi/rayquery-stencil` | `StencilState` + `set_stencil_reference`, `draw_indirect_count`, Inline Ray Query (`create_blas`/`create_tlas`) |
+| `rhi/2d-sdf-batch` | 2D per-corner SDF rounded rects, procedural icon atlas, hardware `set_scissor` clipping, and 30f × 2,000-quad ring-SSBO benchmark |
+| `2d/showcase` | `laplaceliu/tycho_2d` showcase: gradients, TrueType/built-in paragraphs, Stencil-then-Cover paths, `save_layer`, and `BackdropFilter` blur |
+| `ui/gallery` | `laplaceliu/tycho_ui` declarative UI showcase: three trees, `Signal[T]`, Dark/Light theme, `TextField`, `frosted_dialog`, and 100K virtual `ListView` |
+| `window/win32` | Windows Win32 WSI (`user32.dll` + `VK_KHR_win32_surface`), fullscreen-resize swapchain recreation, clipboard, DPI `content_scale` |
+| `dx12/triangle` | Direct3D 12 raw binding: device + command list + DXIL PSO + offscreen RTV + readback, on hardware or WARP |
+| `dx12/present` | Direct3D 12 DXGI flip-model swapchain on a Win32 window: back-buffer rendering, `Present`, `ResizeBuffers`, resource-state tracking |
+| `rhi/dx12-triangle` | The unified RHI on the DX12 backend (`BackendKind::Dx12`): same façade as `rhi/triangle`, DXIL pipeline, windowed present + readback |
+| `rhi/dx12-uniform` | Uniform slot on DX12 via a root CBV, from one Slang source compiled to both SPIR-V and DXIL; negative-viewport clip-space convention |
+| `rhi/dx12-depth` | Headless DX12: offscreen RGBA8 target + `Depth32F` depth test, readback, depth-order independence asserted |
+| `rhi/dx12-texture` | Headless DX12 sampling: RGBA8 upload → shader-visible SRV heap + sampler heap → SRV/sampler descriptor tables; `SamplerDesc` (filter/address) honoured, descriptor slots recycled |
+| `rhi/dx12-compute` | Headless DX12 compute: storage texture (UAV table) + compute PSO + `Dispatch`, gradient written by the shader and read back |
+| `rhi/dx12-geometry` | Headless DX12 vertex/index buffers: D3D12 input layout from `vertex_formats`, `IASetVertexBuffers`/`IASetIndexBuffer`, indexed draw |
+| `rhi/dx12-indirect` | Headless DX12 indirect draws (`ExecuteIndirect` + command signatures) and timestamp queries; unsupported calls fail `end_commands` instead of no-oping |
+| `rhi/dx12-advanced` | Headless DX12 push constants (root constants at `b15`), storage buffers (raw UAV + staging readback) and GPU-side draw counts |
+| `rhi/dx12-mrt` | DX12 multi-texture slots (one root table per slot), multi-render-target output and sRGB render targets |
+| `rhi/dx12-mesh` | DX12 mesh shader pipeline: stream-descriptor PSO via `ID3D12Device2::CreatePipelineState` + `DispatchMesh`, no input layout at all |

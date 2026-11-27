@@ -1,0 +1,13 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_vulkan_examples/3d/gltf"
+
+// Values
+pub let box_scene_json : String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

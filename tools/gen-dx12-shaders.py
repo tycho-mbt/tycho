@@ -22,7 +22,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # (package dir, HLSL source, generated file, [(identifier, entry, profile)])
 TARGETS = [
     (
-        "examples/74-dx12-triangle",
+        "examples/dx12/triangle",
         "shaders.hlsl",
         "shaders_dxil.mbt",
         [
@@ -31,7 +31,7 @@ TARGETS = [
         ],
     ),
     (
-        "examples/76-rhi-dx12-triangle",
+        "examples/rhi/dx12-triangle",
         "shaders.hlsl",
         "shaders_dxil.mbt",
         [
@@ -40,7 +40,7 @@ TARGETS = [
         ],
     ),
     (
-        "examples/75-dx12-present",
+        "examples/dx12/present",
         "shaders.hlsl",
         "shaders_dxil.mbt",
         [

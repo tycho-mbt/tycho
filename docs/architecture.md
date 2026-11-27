@@ -17,7 +17,8 @@ tycho/   (laplaceliu/tycho)            ── imports vulkan, window, shader, ma
 2d/      (laplaceliu/tycho_2d)         ── imports tycho, math
 ui/      (laplaceliu/tycho_ui)         ── imports tycho, 2d, math
 
-examples/(laplaceliu/tycho_vulkan_examples) ── 55 pure-MoonBit examples & suites
+examples/(laplaceliu/tycho_vulkan_examples) ── pure-MoonBit examples grouped by module
+                                          (vulkan/ rhi/ dx12/ window/ 2d/ 3d/ ui/ general/)
 ```
 
 ### Design Invariants

@@ -34,7 +34,7 @@ jobs:
       - name: Examples stay pure MoonBit
         run: ./check-examples-pure.sh
       - name: Run examples on lavapipe
-        run: TYCHO_SKIP="07-slang" xvfb-run -a ./tools/run-all.sh lavapipe
+        run: TYCHO_SKIP="vulkan/slang" xvfb-run -a ./tools/run-all.sh lavapipe
       - name: Report Vulkan API coverage
         run: python3 ./tools/coverage.py
 
@@ -143,7 +143,7 @@ jobs:
           # A hosted runner has no GPU: pin the DX12 examples to WARP instead of
           # letting their hardware-first adapter choice depend on the image.
           TYCHO_DX12_WARP: "1"
-        run: python tools/run-ci-suite.py --mode all --skip 07-slang,51-wayland-window --require-pass 35
+        run: python tools/run-ci-suite.py --mode all --skip vulkan/slang,window/wayland --require-pass 35
 
   macos:
     runs-on: macos-15
@@ -189,4 +189,4 @@ jobs:
       - name: Unit tests
         run: moon test --target native
       - name: Run RHI examples on MoltenVK
-        run: python3 tools/run-ci-suite.py --mode rhi --skip 51-wayland-window --require-pass 15
+        run: python3 tools/run-ci-suite.py --mode rhi --skip window/wayland --require-pass 15
