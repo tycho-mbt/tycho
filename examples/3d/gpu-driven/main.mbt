@@ -101,8 +101,8 @@ fn diff_pixels(a : FixedArray[Byte], b : FixedArray[Byte]) -> Int {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/gpu-driven")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "3d/gpu-driven",
@@ -145,9 +145,7 @@ fn main {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
       r_gpu.render_offscreen(scene_gpu, cam_gpu, rt)
       let px_gpu = rt.readback()
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, px_gpu)
-      }
+      opts.capture(800, 600, px_gpu)
       r_cpu.render_offscreen(scene_cpu, cam_cpu, rt)
       let px_cpu = rt.readback()
       let diff = diff_pixels(px_gpu, px_cpu)
@@ -177,18 +175,8 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/gpu-driven", 800, 600)
-      let mut quit = false
-      while !sc.should_close() && !quit {
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::CloseRequested => quit = true
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE {
-              quit = true
-            }
-            _ => ()
-          }
-        }
+      let sc = @exwin_rhi.open(dev, opts)
+      while @exwin_rhi.next_frame(sc) {
         r_gpu.render_swapchain(sc, scene_gpu, cam_gpu)
       }
       sc.destroy()

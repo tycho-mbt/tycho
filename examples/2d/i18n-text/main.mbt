@@ -17,8 +17,8 @@ fn load_font(path : String) -> @g2d.FontFace? {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("2d/i18n-text")
+    let show_win = opts.window
     @g2d.FontFace::set_png_decoder(fn(png) {
       match @tycho_shader.decode_image(png) {
         Some((rgba, w, h)) => Some(@g2d.DecodedImage::new(w, h, rgba))
@@ -224,9 +224,7 @@ fn main {
         let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
         renderer.render_offscreen(dl, rt, clear_color=bg)
         let px = rt.readback()
-        if shot != "" {
-          let _ = @tycho.save_png(shot, w, h, px)
-        }
+        opts.capture(w, h, px)
 
         let lig_ok = {
           let mut found = false
@@ -300,27 +298,15 @@ fn main {
         }
 
         if show_win {
-          let sc = dev.create_swapchain_desc(
-            @tycho.SwapchainDesc::new(
-              "2d/i18n-text",
-              w,
-              h,
-              depth=true,
-              depth_format=@tycho.TextureFormat::Depth24Stencil8,
-              clear_color=bg.to_clear_color(),
-            ),
+          let sc = @exwin_rhi.open(
+            dev,
+            opts,
+            depth=true,
+            depth_format=@tycho.TextureFormat::Depth24Stencil8,
+            clear_color=bg.to_clear_color(),
           )
-          while !sc.should_close() {
-            let mut quit = false
-            for ev in sc.poll_events() {
-              match ev {
-                @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
-                _ => ()
-              }
-            }
-            if quit { break }
-            sc.sync_size()
-            renderer.render_swapchain(sc, dl, clear_color=bg)
+          while @exwin_rhi.next_frame(sc) {
+            renderer.render_swapchain(sc, @exwin_2d.fit(dl, w, h, sc), clear_color=bg)
           }
           sc.destroy()
         }

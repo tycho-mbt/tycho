@@ -1,8 +1,0 @@
-pkgtype(kind: "executable")
-
-import {
-  "laplaceliu/tycho" @tycho,
-  "laplaceliu/tycho_3d" @t3d,
-  "laplaceliu/tycho_math" @tmath,
-  "laplaceliu/tycho_geometry" @tgeo,
-}

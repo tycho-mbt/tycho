@@ -136,8 +136,8 @@ fn diff75(a : FixedArray[Byte], b : FixedArray[Byte]) -> Int {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/shadow-atlas")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("3d/shadow-atlas", validation=true, headless=!show_win),
     )
@@ -166,9 +166,7 @@ fn main {
         }
         i = i + 4
       }
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, px_on)
-      }
+      opts.capture(800, 600, px_on)
       let errs = dev.validation_errors()
       println(
         "[3d/shadow-atlas] \{r_on.stats().summary()} shadow_diff=\{shadow_diff} lit=\{lit} validation=\{errs}",
@@ -182,18 +180,8 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/shadow-atlas", 800, 600)
-      let mut quit = false
-      while !sc.should_close() && !quit {
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::CloseRequested => quit = true
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE {
-              quit = true
-            }
-            _ => ()
-          }
-        }
+      let sc = @exwin_rhi.open(dev, opts)
+      while @exwin_rhi.next_frame(sc) {
         r_on.render_swapchain(sc, scene_on, cam_on)
       }
       sc.destroy()

@@ -117,8 +117,8 @@ fn windowed_ssim(
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("2d/svg-icons")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "2d/svg-icons",
@@ -150,9 +150,7 @@ fn main {
     renderer.render_offscreen(dl, rt, clear_color=bg)
     let cov_stats = renderer.stats()
     let cov_px = rt.readback()
-    if shot != "" {
-      let _ = @tycho.save_png(shot, w, h, cov_px)
-    }
+    opts.capture(w, h, cov_px)
 
     renderer.set_coverage_enabled(false)
     renderer.render_offscreen(dl, rt, clear_color=bg)
@@ -200,27 +198,15 @@ fn main {
     }
     if show_win {
       renderer.set_coverage_enabled(true)
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new(
-          "2d/svg-icons",
-          w,
-          h,
-          depth=true,
-          depth_format=@tycho.TextureFormat::Depth24Stencil8,
-          clear_color=bg.to_clear_color(),
-        ),
+      let sc = @exwin_rhi.open(
+        dev,
+        opts,
+        depth=true,
+        depth_format=@tycho.TextureFormat::Depth24Stencil8,
+        clear_color=bg.to_clear_color(),
       )
-      while !sc.should_close() {
-        let mut quit = false
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
-            _ => ()
-          }
-        }
-        if quit { break }
-        sc.sync_size()
-        renderer.render_swapchain(sc, dl, clear_color=bg)
+      while @exwin_rhi.next_frame(sc) {
+        renderer.render_swapchain(sc, @exwin_2d.fit(dl, w, h, sc), clear_color=bg)
       }
       sc.destroy()
     }

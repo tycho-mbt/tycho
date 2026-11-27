@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_vulkan_examples/exwin_rhi"
+
+import {
+  "laplaceliu/tycho",
+  "laplaceliu/tycho_vulkan_examples/exwin",
+  "laplaceliu/tycho_window",
+}
+
+// Values
+pub fn capture(@exwin.Options, @tycho.Swapchain, FixedArray[Byte]) -> Unit
+
+pub fn next_frame(@tycho.Swapchain) -> Bool
+
+pub fn open(@tycho.Device, @exwin.Options, depth? : Bool, depth_format? : @tycho.TextureFormat, clear_color? : @tycho.ClearColor, present_mode? : @tycho.PresentMode) -> @tycho.Swapchain raise @tycho.RhiError
+
+pub fn poll(@tycho.Swapchain) -> (Array[@tycho_window.Event], Bool)
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

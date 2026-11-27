@@ -295,8 +295,8 @@ fn px_at(px : FixedArray[Byte], w : Int, x : Int, y : Int) -> (Int, Int, Int, In
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("2d/showcase")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("Tycho 2D Showcase", validation=true, headless=!show_win),
     )
@@ -328,9 +328,7 @@ fn main {
       st.coverage_draws > 0
 
     let px = rt.readback()
-    if shot != "" {
-      let _ = @tycho.save_png(shot, w, h, px)
-    }
+    opts.capture(w, h, px)
 
     // Assertions:
     // 1. EvenOdd star top tip around (126, 178) is bright gold (R>220, G>160, B<90)
@@ -653,27 +651,19 @@ fn main {
 
     if show_win {
       let cc = @g2d.Color::from_rgba8(14, 18, 30)
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new(
-          "2d/showcase",
-          w,
-          h,
-          depth=true,
-          depth_format=@tycho.TextureFormat::Depth24Stencil8,
-          clear_color=cc.to_clear_color(),
-        ),
+      let sc = @exwin_rhi.open(
+        dev,
+        opts,
+        depth=true,
+        depth_format=@tycho.TextureFormat::Depth24Stencil8,
+        clear_color=cc.to_clear_color(),
       )
-      while !sc.should_close() {
-        let mut quit = false
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
-            _ => ()
-          }
-        }
-        if quit { break }
-        sc.sync_size()
-        renderer.render_swapchain(sc, dl, clear_color=@g2d.Color::from_rgba8(14, 18, 30))
+      while @exwin_rhi.next_frame(sc) {
+        renderer.render_swapchain(
+          sc,
+          @exwin_2d.fit(dl, w, h, sc),
+          clear_color=@g2d.Color::from_rgba8(14, 18, 30),
+        )
       }
       sc.destroy()
     }

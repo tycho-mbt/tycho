@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_vulkan_examples/exwin"
+
+// Values
+pub const DEFAULT_HEIGHT : Int32 = 600
+
+pub const DEFAULT_WIDTH : Int32 = 800
+
+pub fn fit_size(Int32, Int32) -> (Int32, Int32)
+
+pub fn fit_size_into(Int32, Int32, Int32, Int32) -> (Int32, Int32)
+
+pub fn usage(String) -> String
+
+// Errors
+
+// Types and methods
+pub(all) struct Options {
+  name : String
+  width : Int32
+  height : Int32
+  window : Bool
+  screenshot : String
+}
+pub fn Options::capture(Self, Int32, Int32, FixedArray[Byte], bgra? : Bool) -> Unit
+pub fn Options::parse(String) -> Self
+
+// Type aliases
+
+// Traits

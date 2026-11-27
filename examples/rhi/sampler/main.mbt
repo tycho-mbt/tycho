@@ -7,24 +7,10 @@ fn centre_green(pixels : FixedArray[Byte]) -> Int {
 }
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/sampler")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("Tycho RHI Sampler", validation=true, headless=!show_win),
     )
@@ -58,9 +44,7 @@ fn main {
     let mut g_nearest = 0
     let mut g_linear = 0
     if show_win {
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new("rhi/sampler", 800, 600, enable_readback=true),
-      )
+      let sc = @exwin_rhi.open(dev, opts)
       let pipe = sc.create_pipeline_desc(
         @tycho.PipelineDesc::new(vert, frag, texture_slots=1),
       )
@@ -77,18 +61,10 @@ fn main {
           g_nearest = g
         } else {
           g_linear = g
-          if shot != "" {
-            let _ = @tycho.save_png(
-              shot,
-              800,
-              600,
-              px,
-              bgra=sc.color_format() == @tycho.TextureFormat::BGRA8,
-            )
-          }
+          @exwin_rhi.capture(opts, sc, px)
         }
       }
-      while !should_quit(sc) {
+      while @exwin_rhi.next_frame(sc) {
         let cmd = sc.begin_frame()
         cmd.bind_pipeline(pipe)
         cmd.bind_texture(pipe, 0, tex, linear)
@@ -122,9 +98,7 @@ fn main {
           g_nearest = g
         } else {
           g_linear = g
-          if shot != "" {
-            let _ = @tycho.save_png(shot, 800, 600, px)
-          }
+          opts.capture(800, 600, px)
         }
       }
       pipe.destroy()

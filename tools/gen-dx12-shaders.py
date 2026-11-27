@@ -31,7 +31,7 @@ TARGETS = [
         ],
     ),
     (
-        "examples/rhi/dx12-triangle",
+        "examples/dx12/rhi-triangle",
         "shaders.hlsl",
         "shaders_dxil.mbt",
         [

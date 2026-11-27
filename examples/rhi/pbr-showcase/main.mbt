@@ -128,8 +128,8 @@ fn make_env_cubemap(sun_dir : @dmath.DVec3) -> Array[Bytes] {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/pbr-showcase")
+    let show_win = opts.window
     let (hdr_test, hw, hh) = @tycho.load_hdr_image("shader/testdata/test_2x2.hdr")
     let hdr_ok = hw == 2 && hh == 2 && hdr_test.length() == 16 && hdr_test[0] > (3.5 : Float)
 
@@ -471,9 +471,7 @@ fn main {
 
     let gpu_ms = ts.elapsed_ms(0, 1)
     let px = srgb_rt.readback()
-    if shot != "" {
-      let _ = @tycho.save_png(shot, 800, 600, px)
-    }
+    opts.capture(800, 600, px)
 
     // Verify scene has sky, bright specular/emissive highlights, and rich RGB diversity
     let mut warm_sky = 0
@@ -499,21 +497,21 @@ fn main {
     }
 
     if show_win {
-      let sc = dev.create_swapchain("rhi/pbr-showcase", 800, 600)
+      let sc = @exwin_rhi.open(dev, opts)
       let mut dragging = false
       let mut last_mx = 0
       let mut last_my = 0
-      let mut quit = false
-      while !sc.should_close() && !quit {
-        for ev in sc.poll_events() {
+      while true {
+        let (events, stop) = @exwin_rhi.poll(sc)
+        if stop {
+          break
+        }
+        for ev in events {
           match ev {
-            @tycho.Event::CloseRequested => quit = true
             @tycho.Event::KeyDown(k, _) => {
               let (sy, cy) = (@math.sin(yaw), @math.cos(yaw))
               let step = 0.18
-              if k == @tycho.KEY_ESCAPE {
-                quit = true
-              } else if k == @tycho.KEY_W {
+              if k == @tycho.KEY_W {
                 cam_pos = @dmath.DVec3::new(cam_pos.x + cy * step, cam_pos.y, cam_pos.z + sy * step)
               } else if k == @tycho.KEY_S {
                 cam_pos = @dmath.DVec3::new(cam_pos.x - cy * step, cam_pos.y, cam_pos.z - sy * step)

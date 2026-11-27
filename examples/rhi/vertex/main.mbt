@@ -17,24 +17,10 @@ fn rgb_at(
 }
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/vertex")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "Tycho RHI Vertex",
@@ -71,14 +57,7 @@ fn main {
     let mut pixels : FixedArray[Byte] = []
     let mut is_bgra = false
     if show_win {
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new(
-          "rhi/vertex",
-          800,
-          600,
-          enable_readback=true,
-        ),
-      )
+      let sc = @exwin_rhi.open(dev, opts)
       is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
       let pipe = sc.create_pipeline_desc(
         @tycho.PipelineDesc::new(vert, frag, vertex_formats=[
@@ -87,7 +66,7 @@ fn main {
         ]),
       )
       let mut frames = 0
-      while !should_quit(sc) {
+      while @exwin_rhi.next_frame(sc) {
         let cmd = sc.begin_frame()
         cmd.bind_pipeline(pipe)
         cmd.bind_vertex(0, vbuf)
@@ -95,9 +74,7 @@ fn main {
         sc.end_frame(cmd)
         if frames == 0 {
           pixels = sc.readback()
-          if shot != "" {
-            let _ = @tycho.save_png(shot, 800, 600, pixels, bgra=is_bgra)
-          }
+          @exwin_rhi.capture(opts, sc, pixels)
         }
         frames = frames + 1
       }
@@ -124,9 +101,7 @@ fn main {
       cmd.end_render_pass()
       dev.end_commands(cmd)
       pixels = rt.readback()
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, pixels)
-      }
+      opts.capture(800, 600, pixels)
       pipe.destroy()
       rt.destroy()
     }

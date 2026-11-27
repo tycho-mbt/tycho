@@ -102,8 +102,8 @@ fn diff_pixels(a : FixedArray[Byte], b : FixedArray[Byte]) -> Int {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/msaa")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "3d/msaa",
@@ -146,9 +146,7 @@ fn main {
       let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
       r_msaa.render_offscreen(scene, cam_node, rt)
       let aa = rt.readback()
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, aa)
-      }
+      opts.capture(800, 600, aa)
       r_plain.render_offscreen(scene2, cam_node2, rt)
       let plain = rt.readback()
       let diff = diff_pixels(aa, plain)
@@ -166,18 +164,8 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/msaa", 800, 600)
-      let mut quit = false
-      while !sc.should_close() && !quit {
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::CloseRequested => quit = true
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE {
-              quit = true
-            }
-            _ => ()
-          }
-        }
+      let sc = @exwin_rhi.open(dev, opts)
+      while @exwin_rhi.next_frame(sc) {
         r_msaa.render_swapchain(sc, scene, cam_node)
       }
       sc.destroy()

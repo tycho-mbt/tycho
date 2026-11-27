@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_vulkan_examples/exwin_native"
+
+import {
+  "laplaceliu/tycho_vulkan_examples/exwin",
+  "laplaceliu/tycho_window",
+}
+
+// Values
+pub fn destroy(UInt64) -> Unit
+
+pub fn native_handle(UInt64) -> UInt64
+
+pub fn next_frame(UInt64) -> Bool
+
+pub fn open(@exwin.Options) -> UInt64
+
+pub fn poll(UInt64) -> (Array[@tycho_window.Event], Bool)
+
+pub fn set_title(UInt64, String) -> Unit
+
+pub fn size(UInt64) -> (Int32, Int32)
+
+pub fn wait_events(UInt64, timeout_ms? : Int32) -> Unit
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

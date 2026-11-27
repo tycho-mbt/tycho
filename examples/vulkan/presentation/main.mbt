@@ -9,6 +9,9 @@
 
 ///|
 fn main {
+  let opts = @exwin.Options::parse("vulkan/presentation")
+  let w32 = opts.width.reinterpret_as_uint()
+  let h32 = opts.height.reinterpret_as_uint()
   // --- Instance with surface extensions ---
   let app = @vk.VkApplicationInfo::new()
   app.set_pApplicationName(@vk.cstr("Hello Triangle"))
@@ -45,8 +48,11 @@ fn main {
   println("[02-present] instance=\{ir} device=\{dr}")
 
   // --- X11 window + Vulkan surface ---
-  let _ = @win.initialize()
-  let win = @win.create((800 : Int32), (600 : Int32), "vulkan/presentation")
+  let win = @exwin_native.open(opts)
+  if win == (0 : UInt64) {
+    println("[vulkan/presentation] SKIP — no window backend (Wayland/X11/Win32 unavailable)")
+    return
+  }
   let surface = @win.create_surface(inst, win)
 
   // --- Surface capabilities + formats ---
@@ -62,8 +68,8 @@ fn main {
 
   // --- Swap chain ---
   let extent = @vk.VkExtent2D::new()
-  extent.set_width((800 : UInt32))
-  extent.set_height((600 : UInt32))
+  extent.set_width(w32)
+  extent.set_height(h32)
   let swci = @vk.VkSwapchainCreateInfoKHR::new()
   swci.set_surface(surface)
   swci.set_minImageCount(caps.get_minImageCount())
@@ -85,8 +91,7 @@ fn main {
     (ifn.vkDestroySurfaceKHR)(inst, surface, @vk.VkAllocationCallbacks::null())
     (dfn.vkDestroyDevice)(dev, @vk.VkAllocationCallbacks::null())
     (ifn.vkDestroyInstance)(inst, @vk.VkAllocationCallbacks::null())
-    @win.destroy(win)
-    @win.terminate()
+    @exwin_native.destroy(win)
     swci.free()
     extent.free()
     formats.free()
@@ -130,8 +135,7 @@ fn main {
   (ifn.vkDestroySurfaceKHR)(inst, surface, @vk.VkAllocationCallbacks::null())
   (dfn.vkDestroyDevice)(dev, @vk.VkAllocationCallbacks::null())
   (ifn.vkDestroyInstance)(inst, @vk.VkAllocationCallbacks::null())
-  @win.destroy(win)
-  @win.terminate()
+  @exwin_native.destroy(win)
   swci.free()
   extent.free()
   formats.free()

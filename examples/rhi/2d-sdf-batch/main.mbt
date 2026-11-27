@@ -571,24 +571,10 @@ fn px_at(px : FixedArray[Byte], w : Int, x : Int, y : Int) -> (Int, Int, Int) {
 }
 
 ///|
-fn poll_ui_events(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/2d-sdf-batch")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "Tycho 2D SDF Atlas Batcher",
@@ -651,9 +637,7 @@ fn main {
     dev.end_commands(cmd)
 
     let px = dash_rt.readback()
-    if shot != "" {
-      let _ = @tycho.save_png(shot, dash_w, dash_h, px)
-    }
+    opts.capture(dash_w, dash_h, px)
 
     // Pixel assertions:
     let (bg_r, bg_g, bg_b) = px_at(px, dash_w, 10, 10)
@@ -795,13 +779,7 @@ fn main {
 
     // --- Phase 3: Optional Interactive Window Mode ---
     if show_win {
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new(
-          "rhi/2d-sdf-batch — Skia/Flutter UI Batching",
-          dash_w,
-          dash_h,
-        ),
-      )
+      let sc = @exwin_rhi.open(dev, opts)
       let win_pipe = dev.create_graphics_pipeline(
         @tycho.PipelineDesc::from_spirv(
           vert_spv,
@@ -819,7 +797,7 @@ fn main {
         location=@tycho.MemoryLocation::CpuToGpu,
       )
       let mut tick = 0
-      while !poll_ui_events(sc) {
+      while @exwin_rhi.next_frame(sc) {
         let slot = tick % 2
         let slot_off = slot * win_frame_bytes
         let vw = sc.width().to_int()

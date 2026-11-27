@@ -2,24 +2,10 @@
 // Default headless offscreen verification; pass `--window` (or TYCHO_WINDOW=1) for screen rendering.
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/texture")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("Tycho RHI Texture", validation=true, headless=!show_win),
     )
@@ -41,14 +27,12 @@ fn main {
     let mut frames = 0
     let mut is_bgra = false
     if show_win {
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new("rhi/texture", 800, 600, enable_readback=true),
-      )
+      let sc = @exwin_rhi.open(dev, opts)
       is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
       let pipe = sc.create_pipeline_desc(
         @tycho.PipelineDesc::new(vert, frag, texture_slots=1),
       )
-      while !should_quit(sc) {
+      while @exwin_rhi.next_frame(sc) {
         let cmd = sc.begin_frame()
         cmd.bind_pipeline(pipe)
         cmd.bind_texture(pipe, 0, tex, samp)
@@ -56,9 +40,7 @@ fn main {
         sc.end_frame(cmd)
         if frames == 0 {
           pixels = sc.readback()
-          if shot != "" {
-            let _ = @tycho.save_png(shot, 800, 600, pixels, bgra=is_bgra)
-          }
+          @exwin_rhi.capture(opts, sc, pixels)
         }
         frames = frames + 1
       }
@@ -83,9 +65,7 @@ fn main {
       dev.end_commands(cmd)
       pixels = rt.readback()
       frames = 1
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, pixels)
-      }
+      opts.capture(800, 600, pixels)
       pipe.destroy()
       rt.destroy()
     }

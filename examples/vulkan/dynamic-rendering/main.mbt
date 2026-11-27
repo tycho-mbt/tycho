@@ -186,8 +186,12 @@ fn count_rgb_pixels(px : FixedArray[Byte]) -> UInt32 {
 
 ///|
 fn main {
-  let show_win = @shader.want_window()
-  let shot = @shader.screenshot_path()
+  let opts = @exwin.Options::parse("vulkan/dynamic-rendering")
+  let show_win = opts.window
+  let w32 = opts.width.reinterpret_as_uint()
+  let h32 = opts.height.reinterpret_as_uint()
+  let wf = Float::from_int(opts.width)
+  let hf = Float::from_int(opts.height)
   let na = @vk.VkAllocationCallbacks::null()
   let app = @vk.VkApplicationInfo::new()
   app.set_pApplicationName(@vk.cstr("Tycho Dynamic Rendering"))
@@ -290,8 +294,8 @@ fn main {
   }
 
   let extent = @vk.VkExtent2D::new()
-  extent.set_width((800 : UInt32))
-  extent.set_height((600 : UInt32))
+  extent.set_width(w32)
+  extent.set_height(h32)
   let mut win : UInt64 = (0 : UInt64)
   let mut surface = @vk.VkSurfaceKHR::null()
   let mut swapchain = @vk.VkSwapchainKHR::null()
@@ -305,8 +309,11 @@ fn main {
   range.set_levelCount((1 : UInt32))
   range.set_layerCount((1 : UInt32))
   if show_win {
-    let _ = @win.initialize()
-    win = @win.create((800 : Int32), (600 : Int32), "vulkan/dynamic-rendering")
+    win = @exwin_native.open(opts)
+    if win == (0 : UInt64) {
+      println("[vulkan/dynamic-rendering] SKIP — no window backend (Wayland/X11/Win32 unavailable)")
+      return
+    }
     surface = @win.create_surface(inst, win)
     let caps = @vk.VkSurfaceCapabilitiesKHR::new()
     let _ = (ifn.vkGetPhysicalDeviceSurfaceCapabilitiesKHR)(phys, surface, caps)
@@ -353,7 +360,7 @@ fn main {
       ivci.free()
     }
   } else {
-    let (oi, om, ov) = create_offscreen(dev, dfn, phys, ifn, format, (800 : UInt32), (600 : UInt32))
+    let (oi, om, ov) = create_offscreen(dev, dfn, phys, ifn, format, w32, h32)
     images[0] = oi
     off_mem = om
     views[0] = ov
@@ -389,8 +396,8 @@ fn main {
   let input_assembly = @vk.VkPipelineInputAssemblyStateCreateInfo::new()
   input_assembly.set_topology(@vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
   let viewport = @vk.VkViewport::new()
-  viewport.set_width((800.0 : Float))
-  viewport.set_height((600.0 : Float))
+  viewport.set_width(wf)
+  viewport.set_height(hf)
   viewport.set_maxDepth((1.0 : Float))
   let scissor = @vk.VkRect2D::new()
   scissor.set_extent(extent)
@@ -566,8 +573,7 @@ fn main {
   let mut sr = 0
   let mut pr = 0
   if show_win {
-    while @win.should_close(win) == 0 {
-      @win.poll()
+    while @exwin_native.next_frame(win) {
       let _ = (dfn.vkWaitForFences)(
         dev,
         (1 : UInt32),
@@ -595,23 +601,27 @@ fn main {
           queue,
           pool_out[0],
           images[idx],
-          (800 : UInt32),
-          (600 : UInt32),
+          w32,
+          h32,
         )
-        if shot != "" {
-          let px = @vk.readback_image(
-            dev,
-            phys,
-            queue,
-            pool_out[0],
-            images[idx],
-            (800 : UInt32),
-            (600 : UInt32),
-          )
-          let _ = @shader.save_png(shot, 800, 600, px, bgra=format == @vk.VK_FORMAT_B8G8R8A8_UNORM)
-        }
+        let px = @vk.readback_image(
+          dev,
+          phys,
+          queue,
+          pool_out[0],
+          images[idx],
+          w32,
+          h32,
+        )
+        opts.capture(
+          opts.width,
+          opts.height,
+          px,
+          bgra=format == @vk.VK_FORMAT_B8G8R8A8_UNORM,
+        )
+      
         verified = true
-        println("[14-dyn] submit2=\{sr} rendered pixels=\{rendered}/480000")
+        println("[14-dyn] submit2=\{sr} rendered pixels=\{rendered}/\{opts.width * opts.height}")
       }
       pr = (dfn.vkQueuePresentKHR)(queue, present)
       let _ = (dfn.vkQueueWaitIdle)(queue)
@@ -626,13 +636,12 @@ fn main {
     sr = (dfn.vkQueueSubmit2)(queue, (1 : UInt32), h_si2, fence[0])
     let _ = (dfn.vkQueueWaitIdle)(queue)
     h_si2.free()
-    let px = readback_offscreen(dev, dfn, phys, ifn, queue, pool_out[0], images[0], 800, 600)
+    let px = readback_offscreen(dev, dfn, phys, ifn, queue, pool_out[0], images[0], opts.width, opts.height)
     rendered = count_rgb_pixels(px)
-    if shot != "" {
-      let _ = @shader.save_png(shot, 800, 600, px)
-    }
+    opts.capture(opts.width, opts.height, px)
+  
     frames = 1
-    println("[14-dyn] headless submit2=\{sr} rendered pixels=\{rendered}/480000")
+    println("[14-dyn] headless submit2=\{sr} rendered pixels=\{rendered}/\{opts.width * opts.height}")
   }
   let _ = (dfn.vkDeviceWaitIdle)(dev)
   let render_errors = g_errors.val
@@ -676,8 +685,7 @@ fn main {
   @vk.destroy_debug_messenger(inst, ifn, messenger)
   (ifn.vkDestroyInstance)(inst, na)
   if show_win {
-    @win.destroy(win)
-    @win.terminate()
+    @exwin_native.destroy(win)
   }
   si2.free()
   wait_si.free()

@@ -23,24 +23,10 @@ fn near_byte(v : Int32, expected : Int32, tol : Int32) -> Bool {
 }
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/pipeline-instancing")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "Tycho RHI Instancing",
@@ -399,12 +385,10 @@ fn main {
     dev.end_commands(cmd)
 
     let px = rt.readback()
-    if shot != "" {
-      let _ = @tycho.save_png(shot, 200, 200, px)
-    }
+    opts.capture(200, 200, px)
     if show_win {
-      let sc = dev.create_swapchain("rhi/pipeline-instancing", 600, 600)
-      while !should_quit(sc) {
+      let sc = @exwin_rhi.open(dev, opts)
+      while @exwin_rhi.next_frame(sc) {
         sc.present_texture(rt)
       }
       sc.destroy()

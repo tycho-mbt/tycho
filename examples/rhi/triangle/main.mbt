@@ -17,24 +17,10 @@ fn count_rgb(pixels : FixedArray[Byte]) -> Int {
 }
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/triangle")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("Tycho RHI Triangle", validation=true, headless=!show_win),
     )
@@ -49,11 +35,9 @@ fn main {
     let mut pixels = 0
     let mut frames = 0
     if show_win {
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new("rhi/triangle", 800, 600, enable_readback=true),
-      )
+      let sc = @exwin_rhi.open(dev, opts)
       let pipe = sc.create_pipeline(vert, frag, 0)
-      while !should_quit(sc) {
+      while @exwin_rhi.next_frame(sc) {
         let cmd = sc.begin_frame()
         cmd.bind_pipeline(pipe)
         cmd.draw(3, 1)
@@ -61,15 +45,7 @@ fn main {
         if frames == 0 {
           let px = sc.readback()
           pixels = count_rgb(px)
-          if shot != "" {
-            let _ = @tycho.save_png(
-              shot,
-              800,
-              600,
-              px,
-              bgra=sc.color_format() == @tycho.TextureFormat::BGRA8,
-            )
-          }
+          @exwin_rhi.capture(opts, sc, px)
         }
         frames = frames + 1
       }
@@ -93,9 +69,7 @@ fn main {
       let px = rt.readback()
       pixels = count_rgb(px)
       frames = 1
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, px)
-      }
+      opts.capture(800, 600, px)
       pipe.destroy()
       rt.destroy()
     }

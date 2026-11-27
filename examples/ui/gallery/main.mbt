@@ -186,8 +186,8 @@ fn px_at(px : FixedArray[Byte], w : Int, x : Int, y : Int) -> (Int, Int, Int, In
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("ui/gallery")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("Tycho UI Gallery", validation=true, headless=!show_win),
     )
@@ -259,9 +259,7 @@ fn main {
     )
 
     let px = rt.readback()
-    if shot != "" {
-      let _ = @tycho.save_png(shot, w, h, px)
-    }
+    opts.capture(w, h, px)
 
     // Visual pixel checks on 800x600 rendered UI:
     // Header card background at (40, 40) is surface ~(24, 30, 48), distinct from pure black
@@ -282,7 +280,7 @@ fn main {
         root,
         theme=@ui.ThemeData::dark(font~),
       )
-      runner.run_window("ui/gallery — Flutter-Style Declarative UI", w, h)
+      runner.run_window(opts.name, w, h)
       runner.destroy()
     }
 

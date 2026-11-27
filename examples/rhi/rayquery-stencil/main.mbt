@@ -4,24 +4,10 @@
 // 3. Inline Ray Query (capability-gated): BLAS + TLAS + auto-reflected compute shader tracing rays
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/rayquery-stencil")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "rhi/rayquery-stencil",
@@ -241,9 +227,7 @@ fn main {
       rq_ok = rpx[rq_mid].to_int() + rpx[rq_mid + 1].to_int() + rpx[rq_mid + 2].to_int() > 200 &&
         rpx[rq_cor].to_int() < 35 &&
         rpx[rq_cor + 2].to_int() > rpx[rq_cor].to_int()
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 128, 128, rpx)
-      }
+      opts.capture(128, 128, rpx)
       tlas.destroy()
       blas.destroy()
       rq_ibuf.destroy()
@@ -251,19 +235,17 @@ fn main {
       rq_pipe.destroy()
       Some(rq_img)
     } else {
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 256, 256, st_px)
-      }
+      opts.capture(256, 256, st_px)
       None
     }
 
     if show_win {
-      let sc = dev.create_swapchain("rhi/rayquery-stencil", 512, 512)
+      let sc = @exwin_rhi.open(dev, opts)
       let disp_tex = match present_tex {
         Some(t) => t
         None => rt
       }
-      while !should_quit(sc) {
+      while @exwin_rhi.next_frame(sc) {
         sc.present_texture(disp_tex)
       }
       sc.destroy()

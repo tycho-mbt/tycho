@@ -92,8 +92,8 @@ fn pose79(scene : @t3d.Scene, bones : Array[@t3d.NodeId], t : Float) -> Unit {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/skinning")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("3d/skinning", validation=true, headless=!show_win),
     )
@@ -201,9 +201,7 @@ fn main {
         }
         i = i + 4
       }
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, px1)
-      }
+      opts.capture(800, 600, px1)
       let errs = dev.validation_errors()
       let stats = renderer.stats()
       println(
@@ -218,7 +216,7 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/skinning", 800, 600)
+      let sc = @exwin_rhi.open(dev, opts)
       let mut quit = false
       let mut t : Float = 0.0
       while !sc.should_close() && !quit {

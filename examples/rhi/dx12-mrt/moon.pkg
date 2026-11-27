@@ -1,5 +1,0 @@
-import {
-  "laplaceliu/tycho" @tycho,
-}
-
-pkgtype(kind: "executable")

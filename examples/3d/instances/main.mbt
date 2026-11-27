@@ -10,8 +10,8 @@ fn to_f(i : Int) -> Float {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/instances")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "3d/instances",
@@ -124,9 +124,7 @@ fn main {
       let batch_ok = st.instance_batches >= 1
       let visible_ok = st.visible_nodes > 8000 && st.visible_nodes <= count + 1
       let tris_ok = st.triangles == expected_tris
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, px)
-      }
+      opts.capture(800, 600, px)
       let errs = dev.validation_errors()
       println(
         "[3d/instances] \{st.summary()} lit=\{lit} nodes=\{count} validation=\{errs}",
@@ -140,17 +138,13 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/instances", 800, 600)
-      let mut quit = false
-      while !sc.should_close() && !quit {
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::CloseRequested => quit = true
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE {
-              quit = true
-            }
-            _ => ()
-          }
+      let sc = @exwin_rhi.open(dev, opts)
+      while true {
+        let (events, stop) = @exwin_rhi.poll(sc)
+        if stop {
+          break
+        }
+        for ev in events {
           if orbit.apply(ev) {
             scene.set_transform(cam_node, orbit.transform())
           }

@@ -37,8 +37,8 @@ fn peak87(px : FixedArray[Byte]) -> Int {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/clearcoat")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("3d/clearcoat", validation=true, headless=!show_win),
     )
@@ -111,9 +111,7 @@ fn main {
       let diff = diff87(px_off, px_on)
       let peak_off = peak87(px_off)
       let peak_on = peak87(px_on)
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, px_on)
-      }
+      opts.capture(800, 600, px_on)
       let errs = dev.validation_errors()
       println(
         "[3d/clearcoat] \{renderer.stats().summary()} coat_diff=\{diff} peak_off=\{peak_off} peak_on=\{peak_on} validation=\{errs}",
@@ -127,7 +125,7 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/clearcoat", 800, 600)
+      let sc = @exwin_rhi.open(dev, opts)
       let mut quit = false
       let mut coated_on = true
       while !sc.should_close() && !quit {

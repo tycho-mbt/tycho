@@ -1,0 +1,6 @@
+import {
+  "laplaceliu/tycho" @tycho,
+  "laplaceliu/tycho_vulkan_examples/exwin" @exwin,
+}
+
+pkgtype(kind: "executable")

@@ -151,6 +151,10 @@ if dev.capabilities().supports_ray_query {
 
 ## 5. Key RHI Examples
 
+The `dx12/*` rows run the same façade on `BackendKind::Dx12` (the raw
+`@tycho_dx12` binding has its own `dx12/triangle` and `dx12/present` entries);
+everything else lives under `rhi/`.
+
 | Example | Demonstrates |
 |---|---|
 | `rhi/triangle` – `rhi/sampler` | Core RHI triangle, UBO, vertex buffer, texture, compute, sampler |
@@ -175,13 +179,13 @@ if dev.capabilities().supports_ray_query {
 | `window/win32` | Windows Win32 WSI (`user32.dll` + `VK_KHR_win32_surface`), fullscreen-resize swapchain recreation, clipboard, DPI `content_scale` |
 | `dx12/triangle` | Direct3D 12 raw binding: device + command list + DXIL PSO + offscreen RTV + readback, on hardware or WARP |
 | `dx12/present` | Direct3D 12 DXGI flip-model swapchain on a Win32 window: back-buffer rendering, `Present`, `ResizeBuffers`, resource-state tracking |
-| `rhi/dx12-triangle` | The unified RHI on the DX12 backend (`BackendKind::Dx12`): same façade as `rhi/triangle`, DXIL pipeline, windowed present + readback |
-| `rhi/dx12-uniform` | Uniform slot on DX12 via a root CBV, from one Slang source compiled to both SPIR-V and DXIL; negative-viewport clip-space convention |
-| `rhi/dx12-depth` | Headless DX12: offscreen RGBA8 target + `Depth32F` depth test, readback, depth-order independence asserted |
-| `rhi/dx12-texture` | Headless DX12 sampling: RGBA8 upload → shader-visible SRV heap + sampler heap → SRV/sampler descriptor tables; `SamplerDesc` (filter/address) honoured, descriptor slots recycled |
-| `rhi/dx12-compute` | Headless DX12 compute: storage texture (UAV table) + compute PSO + `Dispatch`, gradient written by the shader and read back |
-| `rhi/dx12-geometry` | Headless DX12 vertex/index buffers: D3D12 input layout from `vertex_formats`, `IASetVertexBuffers`/`IASetIndexBuffer`, indexed draw |
-| `rhi/dx12-indirect` | Headless DX12 indirect draws (`ExecuteIndirect` + command signatures) and timestamp queries; unsupported calls fail `end_commands` instead of no-oping |
-| `rhi/dx12-advanced` | Headless DX12 push constants (root constants at `b15`), storage buffers (raw UAV + staging readback) and GPU-side draw counts |
-| `rhi/dx12-mrt` | DX12 multi-texture slots (one root table per slot), multi-render-target output and sRGB render targets |
-| `rhi/dx12-mesh` | DX12 mesh shader pipeline: stream-descriptor PSO via `ID3D12Device2::CreatePipelineState` + `DispatchMesh`, no input layout at all |
+| `dx12/rhi-triangle` | The unified RHI on the DX12 backend (`BackendKind::Dx12`): same façade as `rhi/triangle`, DXIL pipeline, windowed present + readback |
+| `dx12/uniform` | Uniform slot on DX12 via a root CBV, from one Slang source compiled to both SPIR-V and DXIL; negative-viewport clip-space convention |
+| `dx12/depth` | Headless DX12: offscreen RGBA8 target + `Depth32F` depth test, readback, depth-order independence asserted |
+| `dx12/texture` | Headless DX12 sampling: RGBA8 upload → shader-visible SRV heap + sampler heap → SRV/sampler descriptor tables; `SamplerDesc` (filter/address) honoured, descriptor slots recycled |
+| `dx12/compute` | Headless DX12 compute: storage texture (UAV table) + compute PSO + `Dispatch`, gradient written by the shader and read back |
+| `dx12/geometry` | Headless DX12 vertex/index buffers: D3D12 input layout from `vertex_formats`, `IASetVertexBuffers`/`IASetIndexBuffer`, indexed draw |
+| `dx12/indirect` | Headless DX12 indirect draws (`ExecuteIndirect` + command signatures) and timestamp queries; unsupported calls fail `end_commands` instead of no-oping |
+| `dx12/advanced` | Headless DX12 push constants (root constants at `b15`), storage buffers (raw UAV + staging readback) and GPU-side draw counts |
+| `dx12/mrt` | DX12 multi-texture slots (one root table per slot), multi-render-target output and sRGB render targets |
+| `dx12/mesh` | DX12 mesh shader pipeline: stream-descriptor PSO via `ID3D12Device2::CreatePipelineState` + `DispatchMesh`, no input layout at all |

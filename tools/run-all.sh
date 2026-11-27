@@ -53,6 +53,8 @@ run_suite() {
     return 1
   fi
   while IFS= read -r pkg; do
+    # Helper packages under examples/ (exwin*, shape-dump) are libraries, not demos.
+    grep -q 'pkgtype(kind: "executable")' "$pkg" || continue
     d=$(dirname "$pkg")
     # Examples live at examples/<module>/<name>; strip the leading "examples/".
     name="${d#examples/}"

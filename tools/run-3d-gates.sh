@@ -11,7 +11,7 @@ fi
 
 EXAMPLES=(
   3d/showcase
-  3d/geometry-primitives
+  geometry/primitives
   3d/instances
   3d/textures
   3d/transparency

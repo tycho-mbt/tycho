@@ -155,8 +155,8 @@ fn lut_at(px : FixedArray[Byte], x : Int, y : Int) -> (Float, Float) {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/brdf-fallback")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("3d/brdf-fallback", validation=true, headless=!show_win),
     )
@@ -205,9 +205,7 @@ fn main {
         a_mid >= 0.0 &&
         a_mid + b_mid <= 1.02
 
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, px_a)
-      }
+      opts.capture(800, 600, px_a)
       let errs = dev.validation_errors()
       println(
         "[3d/brdf-fallback] \{r_bindless.stats().summary()} fallback_diff=\{diff} lut=\{smooth_end.0}/\{rough_end.0} lit=\{lit} warm=\{warm} validation=\{errs}",
@@ -221,18 +219,8 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/brdf-fallback", 800, 600)
-      let mut quit = false
-      while !sc.should_close() && !quit {
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::CloseRequested => quit = true
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE {
-              quit = true
-            }
-            _ => ()
-          }
-        }
+      let sc = @exwin_rhi.open(dev, opts)
+      while @exwin_rhi.next_frame(sc) {
         r_bindless.render_swapchain(sc, scene_a, cam_a)
       }
       sc.destroy()

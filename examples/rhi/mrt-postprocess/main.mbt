@@ -21,24 +21,10 @@ fn make_mvp(angle : Float, aspect : Float) -> @tmath.Mat4 {
 }
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/mrt-postprocess")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "Tycho RHI MRT Deferred",
@@ -141,17 +127,10 @@ fn main {
     let mut frames = 0
     let mut is_bgra = false
     if show_win {
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new(
-          "rhi/mrt-postprocess",
-          800,
-          600,
-          enable_readback=true,
-        ),
-      )
+      let sc = @exwin_rhi.open(dev, opts)
       is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
       let comp_pipe = sc.create_pipeline_desc(comp_desc)
-      while !should_quit(sc) {
+      while @exwin_rhi.next_frame(sc) {
         let angle : Float = if frames == 0 {
           (0.0 : Float)
         } else {
@@ -195,9 +174,7 @@ fn main {
         if frames == 0 {
           pixels = sc.readback()
           gbuf_ms = ts.elapsed_ms(0, 1)
-          if shot != "" {
-            let _ = @tycho.save_png(shot, 800, 600, pixels, bgra=is_bgra)
-          }
+          opts.capture(800, 600, pixels, bgra=is_bgra)
         }
         frames = frames + 1
       }
@@ -249,7 +226,7 @@ fn main {
       pixels = final_rt.readback()
       gbuf_ms = ts.elapsed_ms(0, 1)
       frames = 1
-      if shot != "" {
+      if opts.screenshot != "" {
         let mvp_s = make_mvp((0.55 : Float), (1.0 : Float))
         let cmd_s = dev.begin_commands()
         cmd_s.begin_render_pass(
@@ -278,7 +255,7 @@ fn main {
         cmd_s.draw(6, 1)
         cmd_s.end_render_pass()
         dev.end_commands(cmd_s)
-        let _ = @tycho.save_png(shot, 800, 600, final_rt.readback())
+        opts.capture(800, 600, final_rt.readback())
         // Restore frame 0 G-buffer state so albedo_rt/normal_rt checks match
         let cmd_r = dev.begin_commands()
         cmd_r.begin_render_pass(

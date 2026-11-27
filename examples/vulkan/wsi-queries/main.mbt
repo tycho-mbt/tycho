@@ -7,6 +7,8 @@ let g_errors : Ref[Int] = Ref(0)
 
 ///|
 fn main {
+  let opts = @exwin.Options::parse("vulkan/wsi-queries")
+  let w32 = opts.width.reinterpret_as_uint()
   let na = @vk.VkAllocationCallbacks::null()
   let app = @vk.VkApplicationInfo::new()
   app.set_pApplicationName(@vk.cstr("Tycho30WSI"))
@@ -130,8 +132,11 @@ fn main {
   }
 
   let mut n = 0
-  let _ = @win.initialize()
-  let win = @win.create((256 : Int32), (256 : Int32), "vulkan/wsi-queries")
+  let win = @exwin_native.open(opts)
+  if win == (0 : UInt64) {
+    println("[vulkan/wsi-queries] SKIP — no window backend (Wayland/X11/Win32 unavailable)")
+    return
+  }
   let surface = @win.create_surface(inst, win)
 
   // 1. Surface support
@@ -209,8 +214,8 @@ fn main {
   let ext = @vk.VkExtent2D::new()
   let cur_w = caps.get_currentExtent().get_width()
   let cur_h = caps.get_currentExtent().get_height()
-  ext.set_width(if cur_w == (0xFFFFFFFF : UInt32) { (256 : UInt32) } else { cur_w })
-  ext.set_height(if cur_h == (0xFFFFFFFF : UInt32) { (256 : UInt32) } else { cur_h })
+  ext.set_width(if cur_w == (0xFFFFFFFF : UInt32) { w32 } else { cur_w })
+  ext.set_height(if cur_h == (0xFFFFFFFF : UInt32) { w32 } else { cur_h })
 
   let swci = @vk.VkSwapchainCreateInfoKHR::new()
   swci.set_surface(surface)
@@ -272,8 +277,7 @@ fn main {
   }
 
   (ifn.vkDestroySurfaceKHR)(inst, surface, na)
-  @win.destroy(win)
-  @win.terminate()
+  @exwin_native.destroy(win)
   (dfn.vkDestroyDevice)(dev, na)
   @vk.destroy_debug_messenger(inst, ifn, messenger)
   (ifn.vkDestroyInstance)(inst, na)

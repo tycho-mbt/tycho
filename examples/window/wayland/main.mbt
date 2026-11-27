@@ -4,22 +4,9 @@
 // Reports SKIP if no Wayland compositor is running in the current session.
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
+    let opts = @exwin.Options::parse("window/wayland")
     if @win.initialize() == 0 || !@win.is_wayland() {
       println("[window/wayland] SKIP — no Wayland compositor active (check WAYLAND_DISPLAY / XDG_RUNTIME_DIR)")
       return
@@ -28,14 +15,10 @@ fn main {
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("window/wayland", validation=true, headless=false),
     )
-    let sc = dev.create_swapchain_desc(
-      @tycho.SwapchainDesc::new(
-        "window/wayland",
-        320,
-        240,
-        enable_readback=true,
-        clear_color=@tycho.ClearColor::rgba(0.15, 0.55, 0.85, 1.0),
-      ),
+    let sc = @exwin_rhi.open(
+      dev,
+      opts,
+      clear_color=@tycho.ClearColor::rgba(0.15, 0.55, 0.85, 1.0),
     ) catch {
       @tycho.RhiError::SwapchainFailed(msg) => {
         dev.destroy()
@@ -76,8 +59,8 @@ fn main {
     let b = if is_bgra { px[mid].to_int() } else { px[mid + 2].to_int() }
     let pixel_ok = px.length() == w * h * 4 && r < 80 && g > 100 && b > 180
 
-    if @tycho.want_window() {
-      while !should_quit(sc) {
+    if opts.window {
+      while @exwin_rhi.next_frame(sc) {
         let cmd = sc.begin_frame_commands()
         cmd.begin_swapchain_pass(sc)
         cmd.end_swapchain_pass()

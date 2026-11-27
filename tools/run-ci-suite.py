@@ -55,6 +55,9 @@ def discover_examples(root: pathlib.Path, mode: str) -> list[str]:
     names = []
     for pkg in sorted((root / "examples").glob("*/*/moon.pkg")):
         # Examples live at examples/<module>/<name>; report the module-relative path.
+        # Shared helpers (examples/exwin*) are libraries and have no binary to run.
+        if 'pkgtype(kind: "executable")' not in pkg.read_text(encoding="utf-8"):
+            continue
         names.append(pkg.parent.relative_to(root / "examples").as_posix())
     return names
 

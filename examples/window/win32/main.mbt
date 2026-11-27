@@ -6,20 +6,6 @@
 // stays green.
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn present_n(sc : @tycho.Swapchain, n : Int) -> FixedArray[Byte] raise @tycho.RhiError {
   let mut px : FixedArray[Byte] = []
   for i = 0; i < n; i = i + 1 {
@@ -48,7 +34,7 @@ fn center_rgb(px : FixedArray[Byte], w : Int, h : Int, bgra : Bool) -> (Int, Int
 
 ///|
 fn main {
-  let shot = @tycho.screenshot_path()
+  let opts = @exwin.Options::parse("window/win32")
   try {
     match @win.platform() {
       @win.Platform::Windows => ()
@@ -65,15 +51,11 @@ fn main {
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("window/win32", validation=true, headless=false),
     )
-    let sc = dev.create_swapchain_desc(
-      @tycho.SwapchainDesc::new(
-        "window/win32",
-        480,
-        320,
-        enable_readback=true,
-        clear_color=@tycho.ClearColor::rgba(0.15, 0.55, 0.85, 1.0),
-        present_mode=@tycho.PresentMode::Mailbox,
-      ),
+    let sc = @exwin_rhi.open(
+      dev,
+      opts,
+      clear_color=@tycho.ClearColor::rgba(0.15, 0.55, 0.85, 1.0),
+      present_mode=@tycho.PresentMode::Mailbox,
     ) catch {
       @tycho.RhiError::SwapchainFailed(msg) => {
         dev.destroy()
@@ -135,17 +117,16 @@ fn main {
     let resized = w1 > 0 && h1 > 0 && w2 > 0 && h2 > 0 && (w1 != w0 || h1 != h0)
     let synced = w2 == fw && h2 == fh
 
-    if @tycho.want_window() {
-      while !should_quit(sc) {
+    if opts.window {
+      while @exwin_rhi.next_frame(sc) {
         let _ = present_n(sc, 1)
         frames = frames + 1
       }
     }
 
-    if shot != "" && px.length() == w2 * h2 * 4 {
+    if px.length() == w2 * h2 * 4 {
       // Vulkan presents BGRA8 on most Windows drivers; the RHI reports which.
-      let _ = @tycho.save_png(
-        shot,
+      opts.capture(
         w2,
         h2,
         px,

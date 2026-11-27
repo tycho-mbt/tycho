@@ -187,24 +187,10 @@ fn sample_rgba(
 }
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/shadow-hdr")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "Tycho RHI Shadow HDR",
@@ -457,12 +443,10 @@ fn main {
     dev.end_commands(cmd)
 
     let px = srgb_rt.readback()
-    if shot != "" {
-      let _ = @tycho.save_png(shot, 256, 256, px)
-    }
+    opts.capture(256, 256, px)
     if show_win {
-      let sc = dev.create_swapchain("rhi/shadow-hdr", 768, 768)
-      while !should_quit(sc) {
+      let sc = @exwin_rhi.open(dev, opts)
+      while @exwin_rhi.next_frame(sc) {
         sc.present_texture(srgb_rt)
       }
       sc.destroy()

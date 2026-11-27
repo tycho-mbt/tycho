@@ -25,7 +25,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # (package dir, slang source, generated file, [(identifier, entry, stage)])
 TARGETS = [
     (
-        "examples/rhi/dx12-mesh",
+        "examples/dx12/mesh",
         "shader.slang",
         "shader_artifacts.mbt",
         [
@@ -34,7 +34,7 @@ TARGETS = [
         ],
     ),
     (
-        "examples/rhi/dx12-mrt",
+        "examples/dx12/mrt",
         "shader.slang",
         "shader_artifacts.mbt",
         [
@@ -43,7 +43,7 @@ TARGETS = [
         ],
     ),
     (
-        "examples/rhi/dx12-advanced",
+        "examples/dx12/advanced",
         "shader.slang",
         "shader_artifacts.mbt",
         [
@@ -53,7 +53,7 @@ TARGETS = [
         ],
     ),
     (
-        "examples/rhi/dx12-indirect",
+        "examples/dx12/indirect",
         "shader.slang",
         "shader_artifacts.mbt",
         [
@@ -62,7 +62,7 @@ TARGETS = [
         ],
     ),
     (
-        "examples/rhi/dx12-geometry",
+        "examples/dx12/geometry",
         "shader.slang",
         "shader_artifacts.mbt",
         [
@@ -71,13 +71,13 @@ TARGETS = [
         ],
     ),
     (
-        "examples/rhi/dx12-compute",
+        "examples/dx12/compute",
         "shader.slang",
         "shader_artifacts.mbt",
         [("shader_cs", "computeMain", "compute")],
     ),
     (
-        "examples/rhi/dx12-texture",
+        "examples/dx12/texture",
         "shader.slang",
         "shader_artifacts.mbt",
         [
@@ -86,7 +86,7 @@ TARGETS = [
         ],
     ),
     (
-        "examples/rhi/dx12-depth",
+        "examples/dx12/depth",
         "shader.slang",
         "shader_artifacts.mbt",
         [
@@ -95,7 +95,7 @@ TARGETS = [
         ],
     ),
     (
-        "examples/rhi/dx12-uniform",
+        "examples/dx12/uniform",
         "shader.slang",
         "shader_artifacts.mbt",
         [

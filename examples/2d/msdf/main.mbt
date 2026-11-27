@@ -94,8 +94,8 @@ fn render_at(
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("2d/msdf")
+    let show_win = opts.window
     let bytes = @tycho.read_file_bytes(
       "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     )
@@ -140,8 +140,8 @@ fn main {
       if score < worst {
         worst = score
       }
-      if i == 1 && shot != "" {
-        let _ = @tycho.save_png(shot, w, h, msdf_px)
+      if i == 1 {
+        opts.capture(w, h, msdf_px)
       }
     }
     let errs = dev.validation_errors()
@@ -164,28 +164,16 @@ fn main {
       )
     }
     if show_win {
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new(
-          "2d/msdf",
-          w,
-          h,
-          depth=true,
-          depth_format=@tycho.TextureFormat::Depth24Stencil8,
-          clear_color=bg.to_clear_color(),
-        ),
+      let sc = @exwin_rhi.open(
+        dev,
+        opts,
+        depth=true,
+        depth_format=@tycho.TextureFormat::Depth24Stencil8,
+        clear_color=bg.to_clear_color(),
       )
-      while !sc.should_close() {
-        let mut quit = false
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
-            _ => ()
-          }
-        }
-        if quit { break }
-        sc.sync_size()
+      while @exwin_rhi.next_frame(sc) {
         renderer.set_msdf_enabled(true)
-        renderer.render_swapchain(sc, last_dl, clear_color=bg)
+        renderer.render_swapchain(sc, @exwin_2d.fit(last_dl, w, h, sc), clear_color=bg)
       }
       sc.destroy()
     }

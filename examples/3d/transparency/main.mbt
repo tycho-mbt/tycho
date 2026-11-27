@@ -6,8 +6,8 @@
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/transparency")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "3d/transparency",
@@ -64,9 +64,7 @@ fn main {
       let fr = front[centre].to_int()
       let fg = front[centre + 1].to_int()
       let fb = front[centre + 2].to_int()
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, front)
-      }
+      opts.capture(800, 600, front)
       // Push the red quad behind the blue one; sorting must reverse the blend.
       scene.set_transform(red, @tmath.Transform::from_translation(@tmath.Vec3::new(0.0, 0.0, -3.0)))
       renderer.render_offscreen(scene, cam_node, rt)
@@ -91,18 +89,8 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/transparency", 800, 600)
-      let mut quit = false
-      while !sc.should_close() && !quit {
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::CloseRequested => quit = true
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE {
-              quit = true
-            }
-            _ => ()
-          }
-        }
+      let sc = @exwin_rhi.open(dev, opts)
+      while @exwin_rhi.next_frame(sc) {
         renderer.render_swapchain(sc, scene, cam_node)
       }
       sc.destroy()

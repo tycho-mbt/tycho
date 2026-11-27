@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# The typed 3D examples (examples/3d/* plus the cross-module general/3d-hud)
-# must go through @t3d/@tgeo and must not drop to raw RHI drawing commands;
+# The typed 3D/geometry examples (examples/3d/*, examples/geometry/* plus the
+# cross-module general/3d-hud) must go through @t3d/@tgeo and must not drop to
+# raw RHI drawing commands;
 # every example must stay free of 2d/ui siblings.
 set -euo pipefail
 
@@ -13,7 +14,7 @@ for pkg in "$ROOT"/examples/*/*/moon.pkg; do
   name="${dir#"$ROOT"/examples/}"
   # Only the typed 3D examples are covered by this check.
   case "$name" in
-    3d/* | general/3d-hud) ;;
+    3d/* | geometry/* | general/3d-hud) ;;
     *) continue ;;
   esac
 

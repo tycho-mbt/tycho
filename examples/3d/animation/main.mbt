@@ -34,8 +34,8 @@ fn diff76(a : FixedArray[Byte], b : FixedArray[Byte]) -> Int {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/animation")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("3d/animation", validation=true, headless=!show_win),
     )
@@ -219,9 +219,7 @@ fn main {
         }
         i = i + 4
       }
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, px1)
-      }
+      opts.capture(800, 600, px1)
       let errs = dev.validation_errors()
       println(
         "[3d/animation] \{renderer.stats().summary()} anim=\{anim_ok} frame_diff=\{frame_diff} lit=\{lit} t=\{player.time()} validation=\{errs}",
@@ -235,17 +233,13 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/animation", 800, 600)
-      let mut quit = false
-      while !sc.should_close() && !quit {
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::CloseRequested => quit = true
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE {
-              quit = true
-            }
-            _ => ()
-          }
+      let sc = @exwin_rhi.open(dev, opts)
+      while true {
+        let (events, stop) = @exwin_rhi.poll(sc)
+        if stop {
+          break
+        }
+        for ev in events {
           if orbit.apply(ev) {
             scene.set_transform(cam_node, orbit.transform())
           }

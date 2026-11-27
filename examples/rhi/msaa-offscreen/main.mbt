@@ -2,24 +2,10 @@
 // Default headless verification; pass `--window` (or TYCHO_WINDOW=1) to present in a window.
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/msaa-offscreen")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new(
         "Tycho RHI MSAA Offscreen",
@@ -74,9 +60,7 @@ fn main {
     dev.end_commands(off_cmd)
 
     let resolved = resolve_tex.readback()
-    if shot != "" {
-      let _ = @tycho.save_png(shot, 256, 256, resolved)
-    }
+    opts.capture(256, 256, resolved)
     let mut white = 0
     let mut black = 0
     let mut partial = 0
@@ -94,8 +78,8 @@ fn main {
 
     let mut frames = 0
     if show_win {
-      let sc = dev.create_swapchain("rhi/msaa-offscreen", 800, 600)
-      while !should_quit(sc) {
+      let sc = @exwin_rhi.open(dev, opts)
+      while @exwin_rhi.next_frame(sc) {
         sc.present_texture(resolve_tex)
         frames = frames + 1
       }

@@ -1,0 +1,4 @@
+import {
+  "laplaceliu/tycho_window" @win,
+  "laplaceliu/tycho_vulkan_examples/exwin" @exwin,
+}

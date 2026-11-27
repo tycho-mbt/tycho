@@ -1,7 +1,9 @@
 import {
-  "laplaceliu/tycho_vulkan" @vk,
-  "laplaceliu/tycho_window" @win,
   "laplaceliu/tycho_shader" @shader,
+  "laplaceliu/tycho_vulkan" @vk,
+  "laplaceliu/tycho_vulkan_examples/exwin" @exwin,
+  "laplaceliu/tycho_vulkan_examples/exwin_native" @exwin_native,
+  "laplaceliu/tycho_window" @win,
 }
 
 pkgtype(kind: "executable")

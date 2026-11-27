@@ -40,8 +40,8 @@ fn make_morph_sphere() -> @tgeo.MeshData raise {
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/morph")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("3d/morph", validation=true, headless=!show_win),
     )
@@ -114,9 +114,7 @@ fn main {
       let d_inflate = diff88(rest, inflated)
       let d_ripple = diff88(rest, rippled)
       let d_both = diff88(inflated, rippled)
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, rippled)
-      }
+      opts.capture(800, 600, rippled)
       let errs = dev.validation_errors()
       let stats = renderer.stats()
       println(
@@ -135,7 +133,7 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/morph", 800, 600)
+      let sc = @exwin_rhi.open(dev, opts)
       let mut quit = false
       let mut t : Float = 0.0
       while !sc.should_close() && !quit {

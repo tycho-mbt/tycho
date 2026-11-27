@@ -5,10 +5,6 @@
 // Reports SKIP on non-Windows hosts and when the desktop refuses a swapchain
 // (a session-0 CI runner), so the gate stays honest everywhere.
 
-const WIDTH : Int = 480
-
-const HEIGHT : Int = 320
-
 const CLEAR_R : Float = 0.05
 
 const CLEAR_G : Float = 0.05
@@ -26,8 +22,8 @@ fn unsupported(what : String) -> Unit {
 }
 
 ///|
-fn pixel(px : Bytes, x : Int, y : Int) -> (Int, Int, Int) {
-  let i = (y * WIDTH + x) * 4
+fn pixel(px : Bytes, w : Int, x : Int, y : Int) -> (Int, Int, Int) {
+  let i = (y * w + x) * 4
   if i + 3 >= px.length() {
     return (-1, -1, -1)
   }
@@ -67,8 +63,10 @@ fn render_frame(
 
 ///|
 fn main {
-  let show_win = @shader.want_window()
-  let shot = @shader.screenshot_path()
+  let opts = @exwin.Options::parse("dx12/present")
+  let show_win = opts.window
+  let w = opts.width
+  let h = opts.height
   if !@dx12.available() {
     println("[dx12/present] SKIP — d3d12.dll / dxgi.dll not loadable on this host")
     return
@@ -80,17 +78,12 @@ fn main {
       return
     }
   }
-  if @win.initialize() == 0 {
-    println("[dx12/present] SKIP — user32.dll unavailable")
-    return
-  }
-
-  let win = @win.create(480, 320, "dx12/present")
+  let win = @exwin_native.open(opts)
   if win == (0 : UInt64) {
     println("[dx12/present] SKIP — no window from the Win32 backend")
     return
   }
-  let hwnd = @win.native_handle(win)
+  let hwnd = @exwin_native.native_handle(win)
 
   let want_warp = @dx12.env_requests_warp()
   let device = match @dx12.Device::create(warp=want_warp, debug=true) {
@@ -100,7 +93,7 @@ fn main {
         Some(d) => d
         None => {
           fail("no D3D12 device (hardware and WARP both refused)")
-          @win.destroy(win)
+          @exwin_native.destroy(win)
           return
         }
       }
@@ -116,28 +109,28 @@ fn main {
     None => {
       fail("CreateGraphicsPipelineState")
       device.destroy()
-      @win.destroy(win)
+      @exwin_native.destroy(win)
       return
     }
   }
-  let swapchain = match @dx12.Swapchain::create(device, hwnd, WIDTH, HEIGHT) {
+  let swapchain = match @dx12.Swapchain::create(device, hwnd, w, h) {
     Some(s) => s
     None => {
       unsupported("no DXGI swapchain for this window")
       pipeline.destroy()
       device.destroy()
-      @win.destroy(win)
+      @exwin_native.destroy(win)
       return
     }
   }
-  let readback = match @dx12.Readback::create(device, WIDTH, HEIGHT) {
+  let readback = match @dx12.Readback::create(device, w, h) {
     Some(r) => r
     None => {
       fail("readback buffer")
       swapchain.destroy()
       pipeline.destroy()
       device.destroy()
-      @win.destroy(win)
+      @exwin_native.destroy(win)
       return
     }
   }
@@ -149,7 +142,7 @@ fn main {
       swapchain.destroy()
       pipeline.destroy()
       device.destroy()
-      @win.destroy(win)
+      @exwin_native.destroy(win)
       return
     }
   }
@@ -180,7 +173,7 @@ fn main {
 
   // ResizeBuffers cycle at the same extent: this is the code path a WM_SIZE
   // triggers, and it must recreate the descriptor heap and the RTVs.
-  let resized = swapchain.resize(device, WIDTH, HEIGHT)
+  let resized = swapchain.resize(device, w, h)
   let (resize_frame_ok, _) = render_frame(device, swapchain, cmd, pipeline, readback, false)
   if resize_frame_ok {
     frames = frames + 1
@@ -195,8 +188,7 @@ fn main {
   // presenting until the user closes it (same convention as the other examples).
   let verified_frames = frames
   if show_win {
-    while @win.should_close(win) == 0 {
-      @win.poll()
+    while @exwin_native.next_frame(win) {
       let (interactive_ok, _) = render_frame(
         device,
         swapchain,
@@ -223,32 +215,32 @@ fn main {
   match captured {
     Some(px) => {
       let samples = [
-        pixel(px, WIDTH / 2, HEIGHT / 2),
-        pixel(px, 2, 2),
-        pixel(px, WIDTH - 3, 2),
-        pixel(px, WIDTH - 3, HEIGHT - 3),
+        pixel(px, w, w / 2, h / 2),
+        pixel(px, w, 2, 2),
+        pixel(px, w, w - 3, 2),
+        pixel(px, w, w - 3, h - 3),
       ]
       let orange = fn(rgb : (Int, Int, Int)) -> Bool {
         let (r, g, b) = rgb
         r > 230 && g > 110 && g < 145 && b < 25
       }
-      pixel_ok = px.length() == WIDTH * HEIGHT * 4 && orange(samples[0]) &&
+      pixel_ok = px.length() == w * h * 4 && orange(samples[0]) &&
         orange(samples[1]) && orange(samples[2]) && orange(samples[3])
     }
     None => ()
   }
 
   match captured {
-    Some(bytes) => if shot != "" && bytes.length() == WIDTH * HEIGHT * 4 {
-      let px = FixedArray::makei(bytes.length(), fn(i) { bytes[i] })
-      let _ = @shader.save_png(shot, WIDTH, HEIGHT, px)
-    }
+    Some(bytes) =>
+      if bytes.length() == w * h * 4 {
+        opts.capture(w, h, FixedArray::makei(bytes.length(), fn(i) { bytes[i] }))
+      }
     None => ()
   }
 
   let errs = device.validation_errors()
   let adapter = if device.is_warp() { "warp" } else { "hardware" }
-  @win.poll()
+  let _ = @exwin_native.poll(win)
   // The swapchain cannot be released while the GPU still reads its back buffers.
   let _ = device.wait_idle()
   readback.destroy()
@@ -256,7 +248,7 @@ fn main {
   cmd.destroy()
   pipeline.destroy()
   device.destroy()
-  @win.destroy(win)
+  @exwin_native.destroy(win)
 
   if present_failed {
     unsupported("Present failed for this window")
@@ -265,7 +257,7 @@ fn main {
   if all_ok && resize_frame_ok && resized && pixel_ok && errs == 0 &&
     verified_frames == 4 {
     println(
-      "[dx12/present] OK — DXGI flip-model presented \{presented} frames (\{WIDTH}x\{HEIGHT}, occluded=\{occluded}, adapter=\{adapter}, resize ok, back-buffer readback verified, 0 validation errors)",
+      "[dx12/present] OK — DXGI flip-model presented \{presented} frames (\{w}x\{h}, occluded=\{occluded}, adapter=\{adapter}, resize ok, back-buffer readback verified, 0 validation errors)",
     )
   } else {
     println(

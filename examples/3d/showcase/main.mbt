@@ -6,8 +6,8 @@
 ///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("3d/showcase")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("3d/showcase", validation=true, headless=!show_win),
     )
@@ -99,9 +99,7 @@ fn main {
           lit = lit + 1
         }
       }
-      if shot != "" {
-        let _ = @tycho.save_png(shot, 800, 600, px)
-      }
+      opts.capture(800, 600, px)
       let errs = dev.validation_errors()
       println("[3d/showcase] \{renderer.stats().summary()} lit=\{lit} validation=\{errs}")
       if errs == 0 && lit > 10000 {
@@ -111,17 +109,13 @@ fn main {
       }
       rt.destroy()
     } else {
-      let sc = dev.create_swapchain("3d/showcase", 800, 600)
-      let mut quit = false
-      while !sc.should_close() && !quit {
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::CloseRequested => quit = true
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE {
-              quit = true
-            }
-            _ => ()
-          }
+      let sc = @exwin_rhi.open(dev, opts)
+      while true {
+        let (events, stop) = @exwin_rhi.poll(sc)
+        if stop {
+          break
+        }
+        for ev in events {
           let _ = fly.apply(ev)
         }
         scene.set_transform(cam_node, fly.transform())

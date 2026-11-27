@@ -15,10 +15,6 @@ const CANVAS_W : Int = 128
 
 const CANVAS_H : Int = 128
 
-const WINDOW_W : Int = 480
-
-const WINDOW_H : Int = 320
-
 const CLEAR_R : Float = 0.1
 
 const CLEAR_G : Float = 0.2
@@ -100,8 +96,8 @@ fn draw_frame(
 
 ///|
 fn main {
-  let show_win = @shader.want_window()
-  let shot = @shader.screenshot_path()
+  let opts = @exwin.Options::parse("dx12/triangle")
+  let show_win = opts.window
   if !@dx12.available() {
     println("[dx12/triangle] SKIP — d3d12.dll / dxgi.dll not loadable on this host")
     return
@@ -151,14 +147,7 @@ fn main {
   let mut px : FixedArray[Byte] = []
 
   if show_win {
-    if @win.initialize() == 0 {
-      println("[dx12/triangle] SKIP — user32.dll unavailable")
-      cmd.destroy()
-      pipeline.destroy()
-      device.destroy()
-      return
-    }
-    let win = @win.create(WINDOW_W, WINDOW_H, "dx12/triangle")
+    let win = @exwin_native.open(opts)
     if win == (0 : UInt64) {
       println("[dx12/triangle] SKIP — no Win32 window")
       cmd.destroy()
@@ -166,38 +155,38 @@ fn main {
       device.destroy()
       return
     }
+    let (win_w, win_h) = @exwin_native.size(win)
     let swapchain = match @dx12.Swapchain::create(
       device,
-      @win.native_handle(win),
-      WINDOW_W,
-      WINDOW_H,
+      @exwin_native.native_handle(win),
+      win_w,
+      win_h,
     ) {
       Some(s) => s
       None => {
         println("[dx12/triangle] SKIP — no DXGI swapchain for this window")
-        @win.destroy(win)
+        @exwin_native.destroy(win)
         cmd.destroy()
         pipeline.destroy()
         device.destroy()
         return
       }
     }
-    let rb = match @dx12.Readback::create(device, WINDOW_W, WINDOW_H) {
+    let rb = match @dx12.Readback::create(device, win_w, win_h) {
       Some(r) => r
       None => {
         fail("readback buffer")
         swapchain.destroy()
-        @win.destroy(win)
+        @exwin_native.destroy(win)
         cmd.destroy()
         pipeline.destroy()
         device.destroy()
         return
       }
     }
-    size = (WINDOW_W, WINDOW_H)
+    size = (win_w, win_h)
     let mut present_failed = false
-    while @win.should_close(win) == 0 && !present_failed {
-      @win.poll()
+    while @exwin_native.next_frame(win) && !present_failed {
       let target = match swapchain.target(swapchain.current_index()) {
         Some(t) => t
         None => {
@@ -220,11 +209,11 @@ fn main {
       }
       frames = frames + 1
     }
-    pixels_ok = frame_ok(px, WINDOW_W, WINDOW_H)
+    pixels_ok = frame_ok(px, win_w, win_h)
     let _ = device.wait_idle()
     rb.destroy()
     swapchain.destroy()
-    @win.destroy(win)
+    @exwin_native.destroy(win)
   } else {
     let target = match @dx12.Texture::create(device, CANVAS_W, CANVAS_H) {
       Some(t) => t
@@ -261,9 +250,9 @@ fn main {
     target.destroy()
   }
 
-  if shot != "" && px.length() > 0 {
+  if px.length() > 0 {
     let (w, h) = size
-    let _ = @shader.save_png(shot, w, h, px)
+    opts.capture(w, h, px)
   }
 
   let errs = device.validation_errors()

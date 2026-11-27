@@ -3,16 +3,14 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 fail=0
-for f in examples/*/*/*.c; do
-  [ -e "$f" ] || continue
+while IFS= read -r f; do
   echo "ERROR: C stub in examples: $f" >&2
   fail=1
-done
-if grep -rl "native-stub" examples/*/*/moon.pkg >/dev/null 2>&1; then
-  echo "ERROR: native-stub declared in an example moon.pkg" >&2
-  grep -rl "native-stub" examples/*/*/moon.pkg >&2
+done < <(find examples -name '*.c' -o -name '*.cc' -o -name '*.cpp')
+while IFS= read -r pkg; do
+  echo "ERROR: native-stub declared in an example moon.pkg: $pkg" >&2
   fail=1
-fi
+done < <(grep -rl "native-stub" examples --include='moon.pkg')
 if [ "$fail" -ne 0 ]; then
   exit 1
 fi

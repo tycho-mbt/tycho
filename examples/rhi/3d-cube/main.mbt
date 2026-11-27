@@ -19,24 +19,10 @@ fn make_mvp(angle : Float, aspect : Float) -> @tmath.Mat4 {
 }
 
 ///|
-fn should_quit(sc : @tycho.Swapchain) -> Bool {
-  if sc.should_close() {
-    return true
-  }
-  for ev in sc.poll_events() {
-    match ev {
-      @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { return true }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn main {
   try {
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/3d-cube")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("Tycho RHI 3D Cube", validation=true, headless=!show_win),
     )
@@ -101,15 +87,7 @@ fn main {
     let mut frames = 0
     let mut is_bgra = false
     if show_win {
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new(
-          "rhi/3d-cube",
-          800,
-          600,
-          depth=true,
-          enable_readback=true,
-        ),
-      )
+      let sc = @exwin_rhi.open(dev, opts, depth=true)
       is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
       let pipe = sc.create_pipeline_desc(
         @tycho.PipelineDesc::new(
@@ -123,7 +101,7 @@ fn main {
           front_face=@tycho.FrontFace::CounterClockwise,
         ),
       )
-      while !should_quit(sc) {
+      while @exwin_rhi.next_frame(sc) {
         let angle : Float = if frames == 0 {
           (0.0 : Float)
         } else {
@@ -140,9 +118,7 @@ fn main {
         sc.end_frame(cmd)
         if frames == 0 {
           pixels = sc.readback()
-          if shot != "" {
-            let _ = @tycho.save_png(shot, 800, 600, pixels, bgra=is_bgra)
-          }
+          opts.capture(800, 600, pixels, bgra=is_bgra)
         }
         frames = frames + 1
       }
@@ -183,7 +159,7 @@ fn main {
       dev.end_commands(cmd)
       pixels = rt.readback()
       frames = 1
-      if shot != "" {
+      if opts.screenshot != "" {
         let mvp_s = make_mvp((0.55 : Float), (800.0 : Float) / (600.0 : Float))
         let cmd_s = dev.begin_commands()
         cmd_s.begin_render_pass(
@@ -197,7 +173,7 @@ fn main {
         cmd_s.draw_indexed(36)
         cmd_s.end_render_pass()
         dev.end_commands(cmd_s)
-        let _ = @tycho.save_png(shot, 800, 600, rt.readback())
+        opts.capture(800, 600, rt.readback())
       }
       let (hb, ha) = dev.allocator_stats()
       blocks = hb

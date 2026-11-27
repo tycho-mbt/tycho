@@ -91,8 +91,8 @@ fn main {
     dev_h.destroy()
 
     // 2. Dynamic descriptor pool expansion (40+ draws in 1 frame): headless by default, `--window` for screen
-    let show_win = @tycho.want_window()
-    let shot = @tycho.screenshot_path()
+    let opts = @exwin.Options::parse("rhi/hardening")
+    let show_win = opts.window
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("Tycho RHI Hardening", validation=true, headless=!show_win),
     )
@@ -119,18 +119,10 @@ fn main {
     let mut pixels : FixedArray[Byte] = []
     let mut scale = 1.0
     let mut is_fs = false
-    let mut is_bgra = false
     let keys_ok = @tycho.KEY_W != 0 && @tycho.KEY_F1 != 0 && @tycho.KEY_LSHIFT != 0
+    let mut is_bgra = false
     if show_win {
-      let sc = dev.create_swapchain_desc(
-        @tycho.SwapchainDesc::new(
-          "rhi/hardening",
-          400,
-          300,
-          enable_readback=true,
-          present_mode=@tycho.PresentMode::Mailbox,
-        ),
-      )
+      let sc = @exwin_rhi.open(dev, opts, present_mode=@tycho.PresentMode::Mailbox)
       is_bgra = sc.color_format() == @tycho.TextureFormat::BGRA8
       let pipe = sc.create_pipeline(vert, frag, 1)
       scale = sc.content_scale()
@@ -138,19 +130,11 @@ fn main {
       sc.set_cursor_mode(@tycho.CursorMode::Hidden)
       sc.set_cursor_mode(@tycho.CursorMode::Normal)
       let mut f = 0
-      let mut quit = false
-      while !sc.should_close() && !quit {
-        for ev in sc.poll_events() {
-          match ev {
-            @tycho.Event::KeyDown(k, _) => if k == @tycho.KEY_ESCAPE { quit = true }
-            _ => ()
-          }
-        }
+      while @exwin_rhi.next_frame(sc) {
         let transient = dev.create_buffer(128, @tycho.BufferKind::Uniform)
         transient.destroy()
         let inflight_ubo = dev.create_buffer(64, @tycho.BufferKind::Uniform)
         inflight_ubo.upload_floats([(0.0 : Float), (0.9 : Float), (0.1 : Float), (1.0 : Float)])
-
         let cmd = sc.begin_frame_commands()
         cmd.begin_swapchain_pass(sc)
         cmd.bind_pipeline(pipe)
@@ -165,9 +149,7 @@ fn main {
         inflight_ubo.destroy()
         if f == 0 {
           pixels = sc.readback()
-          if shot != "" {
-            let _ = @tycho.save_png(shot, 400, 300, pixels, bgra=is_bgra)
-          }
+          @exwin_rhi.capture(opts, sc, pixels)
         }
         f = f + 1
       }
@@ -205,9 +187,7 @@ fn main {
         fence.destroy()
         if f == 0 {
           pixels = rt.readback()
-          if shot != "" {
-            let _ = @tycho.save_png(shot, 400, 300, pixels)
-          }
+          opts.capture(400, 300, pixels)
         }
       }
       pipe.destroy()

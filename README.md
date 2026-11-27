@@ -31,7 +31,7 @@
 | `laplaceliu/tycho_2d` | `2d/` | Skia/Impeller-inspired pure-MoonBit 2D engine: `Canvas`/`DisplayList`, AOT embedded SPIR-V pipelines, Tier-1 SDF/gradient/atlas batcher, pure-MoonBit TrueType + built-in font & `Paragraph` layout, Tier-2 Stencil-then-Cover paths & strokes, `save_layer`, and Gaussian `BackdropFilter` blur | *(none)* |
 | `laplaceliu/tycho_ui` | `ui/` | Flutter-inspired declarative UI framework: Widget/Element/RenderObject/Layer trees, fine-grained `Signal[T]`, single-pass `BoxConstraints` (`Row`/`Column`/`Stack`/`Wrap`), `GestureArena`, `TextField`, `ThemeData`, virtualized `ListView`, `AppRunner` & headless `WidgetTester` | *(none)* |
 | `laplaceliu/tycho_codegen` *(private)* | `codegen/` | Khronos `vk.xml` → MoonBit + C shim generator | *(none)* |
-| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | Pure-MoonBit examples grouped by the module they teach: `examples/vulkan/` (low-level `tycho_vulkan` API suites), `examples/rhi/` (unified `@tycho` RHI, including the DX12 backend family `rhi/dx12-*`), `examples/dx12/` (raw `tycho_dx12`), `examples/window/`, `examples/2d/`, `examples/3d/`, `examples/ui/`, and `examples/general/` for cross-module compositions | *(none)* |
+| `laplaceliu/tycho_vulkan_examples` *(private)* | `examples/` | Pure-MoonBit examples grouped by the module they teach: `examples/vulkan/` (low-level `tycho_vulkan` API suites), `examples/rhi/` (unified `@tycho` RHI over Vulkan), `examples/dx12/` (the DX12 family: the raw `tycho_dx12` binding plus the `@tycho` examples running on `BackendKind::Dx12`), `examples/window/`, `examples/2d/`, `examples/3d/`, `examples/geometry/`, `examples/ui/`, and `examples/general/` for cross-module compositions; the shared window/CLI policy lives in `examples/exwin`, `examples/exwin_rhi`, `examples/exwin_native` and `examples/exwin_2d` | *(none)* |
 
 Documentation:
 - [Architecture Overview](docs/architecture.md)
@@ -145,6 +145,35 @@ python tools\run-ci-suite.py --mode all --skip vulkan/slang,window/wayland --req
 `glslangValidator`, and the vendored headers/`vk.xml`. With `-SlangPath` it links a Slang
 release into `third_party\slang` as a junction. If PowerShell blocks the script, run
 `powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1`.
+
+## Example Window & CLI Policy
+
+Every example takes the same flags **and the same frame size**, because the
+policy is written once: `examples/exwin` parses the command line and owns the
+size/capture policy, `examples/exwin_rhi` owns the `@tycho` swapchain and event
+loop, `examples/exwin_native` wraps the platform window of the examples that
+own their swapchain (raw `tycho_vulkan` / `tycho_dx12`), and `examples/exwin_2d`
+letterboxes a fixed-size 2D canvas into the shared window.
+
+| Flag | Meaning |
+|---|---|
+| `--window`, `-w`, `--show`, `--screen` | open an interactive window (same as `TYCHO_WINDOW=1`) |
+| `--screenshot <path>` | write the verified frame as an **800x600** PNG (also `--screenshot=<path>` / `TYCHO_SCREENSHOT=<path>`) |
+| `--size <W>x<H>` | window size in pixels, default **800x600** (also `--size=WxH`) |
+| `--help`, `-h` | print the contract above and exit |
+
+Headless is the default: the example renders offscreen, asserts its pixels and
+prints a single `OK — …` / `FAIL — …` line, so a GPU-less CI runner can verify
+it. Interactive runs close on Esc or the window button, adopt a resize
+(`sync_size`) instead of rendering into a stale swapchain, and report a capture
+as `[<module>/<name>] screenshot=<path> ok`.
+
+Every window is 800x600 and every `--screenshot` is 800x600, so the committed
+`screenshot.png` files all share one size. Examples whose verification canvas has
+another size (the 2D scenes are 1920x1080, 960x320, …, the raw DX12 tests render
+64x64 … 480x320 tiles) keep that canvas — it is what they assert on — and both
+the window preview and the PNG are letterboxed into 800x600 with the aspect
+preserved (centred on black, never cropped or stretched).
 
 ## Publishing to `mooncakes.io`
 
