@@ -561,7 +561,7 @@ pub fn Path::contains(
   self : Path,
   x : Float,
   y : Float,
-  fill_rule? : FillRule? = None,
+  fill_rule? : FillRule,
 ) -> Bool {
   let rule = match fill_rule {
     Some(r) => r

@@ -253,23 +253,23 @@ fn make_rhi_stencil_pipeline(
   color_write : Bool,
   blend_mode : @tycho.BlendMode,
   samples? : @tycho.SampleCount = @tycho.SampleCount::X1,
-  bindless_heap? : @tycho.BindlessHeap? = None,
+  bindless_heap? : @tycho.BindlessHeap,
   color_format? : @tycho.TextureFormat = @tycho.TextureFormat::RGBA8,
-  blend_state? : @tycho.BlendState? = None,
+  blend_state? : @tycho.BlendState,
 ) -> @tycho.Pipeline raise @tycho.RhiError {
   dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       vert,
       frag,
-      blend_mode=Some(blend_mode),
-      blend_state~,
+      blend_mode=blend_mode,
+      blend_state?=blend_state,
       color_write~,
       cull_mode=@tycho.CullMode::None,
       samples~,
-      color_format=Some(color_format),
-      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
-      stencil=Some(stencil),
-      bindless_heap~,
+      color_format=color_format,
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
+      stencil=stencil,
+      bindless_heap?=bindless_heap,
     ),
   )
 }
@@ -318,10 +318,10 @@ pub fn Renderer2D::new(
     @tycho.PipelineDesc::from_spirv(
       spv_prim2d_vert,
       spv_prim2d_frag,
-      blend_mode=Some(@tycho.BlendMode::Premultiplied),
+      blend_mode=@tycho.BlendMode::Premultiplied,
       cull_mode=@tycho.CullMode::None,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
-      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      color_format=@tycho.TextureFormat::RGBA8,
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
     ),
   )
   let st_test_clip = @tycho.StencilState::new(
@@ -485,10 +485,10 @@ pub fn Renderer2D::new(
     @tycho.PipelineDesc::from_spirv(
       spv_path_cover_vert,
       spv_path_cover_frag,
-      blend_mode=Some(@tycho.BlendMode::Premultiplied),
+      blend_mode=@tycho.BlendMode::Premultiplied,
       cull_mode=@tycho.CullMode::None,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
-      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      color_format=@tycho.TextureFormat::RGBA8,
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
     ),
   )
   let stroke_clip_pipe = make_rhi_stencil_pipeline(
@@ -504,49 +504,49 @@ pub fn Renderer2D::new(
     @tycho.PipelineDesc::from_spirv(
       spv_blur_vert,
       spv_blur_frag,
-      blend_mode=Some(@tycho.BlendMode::Premultiplied),
+      blend_mode=@tycho.BlendMode::Premultiplied,
       cull_mode=@tycho.CullMode::None,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
-      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      color_format=@tycho.TextureFormat::RGBA8,
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
     ),
   )
   let composite_ds_dstin_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_blur_vert,
       spv_blur_frag,
-      blend_mode=Some(@tycho.BlendMode::DstIn),
+      blend_mode=@tycho.BlendMode::DstIn,
       cull_mode=@tycho.CullMode::None,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
-      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      color_format=@tycho.TextureFormat::RGBA8,
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
     ),
   )
   let composite_ds_srcin_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_blur_vert,
       spv_blur_frag,
-      blend_mode=Some(@tycho.BlendMode::SrcIn),
+      blend_mode=@tycho.BlendMode::SrcIn,
       cull_mode=@tycho.CullMode::None,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
-      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      color_format=@tycho.TextureFormat::RGBA8,
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
     ),
   )
   let composite_ds_mul_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_blur_vert,
       spv_blur_frag,
-      blend_mode=Some(@tycho.BlendMode::Multiply),
+      blend_mode=@tycho.BlendMode::Multiply,
       cull_mode=@tycho.CullMode::None,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
-      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      color_format=@tycho.TextureFormat::RGBA8,
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
     ),
   )
   let blur_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_blur_vert,
       spv_blur_frag,
-      blend_mode=Some(@tycho.BlendMode::Opaque),
+      blend_mode=@tycho.BlendMode::Opaque,
       cull_mode=@tycho.CullMode::None,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
+      color_format=@tycho.TextureFormat::RGBA8,
     ),
   )
   let msaa_supported = dev.capabilities().max_framebuffer_samples >= 4
@@ -590,11 +590,11 @@ pub fn Renderer2D::new(
           @tycho.PipelineDesc::from_spirv(
             spv_path_cover_vert,
             spv_path_cover_frag,
-            blend_mode=Some(@tycho.BlendMode::Premultiplied),
+            blend_mode=@tycho.BlendMode::Premultiplied,
             cull_mode=@tycho.CullMode::None,
             samples=@tycho.SampleCount::X4,
-            color_format=Some(@tycho.TextureFormat::RGBA8),
-            depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+            color_format=@tycho.TextureFormat::RGBA8,
+            depth_format=@tycho.TextureFormat::Depth24Stencil8,
           ),
         ),
       ),
@@ -613,11 +613,11 @@ pub fn Renderer2D::new(
       @tycho.PipelineDesc::from_spirv(
         spv_prim2d_vert,
         spv_prim2d_bindless_frag,
-        blend_mode=Some(@tycho.BlendMode::Premultiplied),
+        blend_mode=@tycho.BlendMode::Premultiplied,
         cull_mode=@tycho.CullMode::None,
-        color_format=Some(@tycho.TextureFormat::RGBA8),
-        depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
-        bindless_heap=Some(heap),
+        color_format=@tycho.TextureFormat::RGBA8,
+        depth_format=@tycho.TextureFormat::Depth24Stencil8,
+        bindless_heap=heap,
       ),
     )
     let bcp = make_rhi_stencil_pipeline(
@@ -627,7 +627,7 @@ pub fn Renderer2D::new(
       st_test_clip,
       true,
       @tycho.BlendMode::Premultiplied,
-      bindless_heap=Some(heap),
+      bindless_heap=heap,
     )
     (Some(heap), Some(bp), Some(bcp), cid)
   } else {
@@ -1143,7 +1143,7 @@ fn Renderer2D::emit_prim(
   stop_cnt : Float,
   extra0? : Float = (-1.0 : Float),
   extra1? : Float = (0.0 : Float),
-  radii_y? : (Float, Float, Float, Float)? = None,
+  radii_y? : (Float, Float, Float, Float),
 ) -> Unit raise @tycho.RhiError {
   if self.prim_cursor >= self.max_prims {
     self.flush_prims(cmd)
@@ -1306,21 +1306,21 @@ fn Renderer2D::prim_pipe_for(
           self.st_test_clip,
           true,
           blend.to_rhi(),
-          bindless_heap=heap,
+          bindless_heap?=heap,
           color_format=self.cur_color_format,
-          blend_state=blend.to_blend_state(),
+          blend_state?=blend.to_blend_state(),
         )
       } else {
         self.dev.create_graphics_pipeline(
           @tycho.PipelineDesc::from_spirv(
             spv_prim2d_vert,
             frag,
-            blend_mode=Some(blend.to_rhi()),
-            blend_state=blend.to_blend_state(),
+            blend_mode=blend.to_rhi(),
+            blend_state?=blend.to_blend_state(),
             cull_mode=@tycho.CullMode::None,
-            color_format=Some(self.cur_color_format),
-            depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
-            bindless_heap=heap,
+            color_format=self.cur_color_format,
+            depth_format=@tycho.TextureFormat::Depth24Stencil8,
+            bindless_heap?=heap,
           ),
         )
       }
@@ -2429,11 +2429,11 @@ fn Renderer2D::vert_pipe_for(
         @tycho.PipelineDesc::from_spirv(
           spv_vertices_vert,
           spv_vertices_frag,
-          blend_mode=Some(@tycho.BlendMode::Premultiplied),
+          blend_mode=@tycho.BlendMode::Premultiplied,
           cull_mode=@tycho.CullMode::None,
-          color_format=Some(fmt),
-          depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
-          stencil=if has_clip { Some(self.st_test_clip) } else { None },
+          color_format=fmt,
+          depth_format=@tycho.TextureFormat::Depth24Stencil8,
+          stencil?=if has_clip { Some(self.st_test_clip) } else { None },
           vertex_layouts=[layout],
         ),
       )
@@ -2606,10 +2606,10 @@ fn Renderer2D::draw_path_gpu(
             load_op=@tycho.LoadOp::Clear,
             store_op=@tycho.StoreOp::DontCare,
             clear_color=@tycho.ClearColor::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float)),
-            resolve_texture=Some(res_col),
+            resolve_texture=res_col,
           ),
         ],
-        depth=Some(
+        depth=
           @tycho.DepthTargetDesc::new(
             msaa_ds,
             load_op=@tycho.LoadOp::Clear,
@@ -2617,8 +2617,8 @@ fn Renderer2D::draw_path_gpu(
             stencil_load_op=@tycho.LoadOp::Clear,
             stencil_store_op=@tycho.StoreOp::DontCare,
             clear_stencil=0,
-          ),
-        ),
+          )
+        ,
       )
       cmd.set_viewport((0.0 : Float), (0.0 : Float), Float::from_int(msaa_col.width()), Float::from_int(msaa_col.height()))
       cmd.set_scissor(0, 0, bw, bh)
@@ -2686,7 +2686,7 @@ fn Renderer2D::draw_path_gpu(
       }
       Some(ImageFilter::ColorMatrix(mat)) => {
         self.begin_target_pass(cmd, otex, ods, ow, oh, @tycho.LoadOp::Load, Color::transparent(), @tycho.LoadOp::Load)
-        self.composite_texture(cmd, res_col, (0.0 : Float), (0.0 : Float), su1, sv1, dst_r, Color::white(), paint.blend_mode, self.cur_clip_rrect, mode=(2.0 : Float), color_matrix=Some(mat))
+        self.composite_texture(cmd, res_col, (0.0 : Float), (0.0 : Float), su1, sv1, dst_r, Color::white(), paint.blend_mode, self.cur_clip_rrect, mode=(2.0 : Float), color_matrix=mat)
       }
       None => {
         self.begin_target_pass(cmd, otex, ods, ow, oh, @tycho.LoadOp::Load, Color::transparent(), @tycho.LoadOp::Load)
@@ -2951,7 +2951,7 @@ fn Renderer2D::begin_target_pass(
         clear_color=clear_color.to_clear_color(),
       ),
     ],
-    depth=Some(
+    depth=
       @tycho.DepthTargetDesc::new(
         ds,
         load_op=@tycho.LoadOp::DontCare,
@@ -2959,8 +2959,8 @@ fn Renderer2D::begin_target_pass(
         stencil_load_op~,
         stencil_store_op=@tycho.StoreOp::Store,
         clear_stencil=0,
-      ),
-    ),
+      )
+    ,
   )
   cmd.set_viewport(
     (0.0 : Float),
@@ -2989,7 +2989,7 @@ fn Renderer2D::composite_texture(
   blend_mode : BlendMode2D,
   clip_rrect : RRect?,
   mode? : Float = (1.0 : Float),
-  color_matrix? : FixedArray[Float]? = None,
+  color_matrix? : FixedArray[Float],
 ) -> Unit raise @tycho.RhiError {
   match color_matrix {
     Some(mat) =>
@@ -3183,10 +3183,10 @@ fn Renderer2D::flush_path_batch(
         load_op=@tycho.LoadOp::Clear,
         store_op=@tycho.StoreOp::DontCare,
         clear_color=@tycho.ClearColor::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.0 : Float)),
-        resolve_texture=Some(res_col),
+        resolve_texture=res_col,
       ),
     ],
-    depth=Some(
+    depth=
       @tycho.DepthTargetDesc::new(
         msaa_ds,
         load_op=@tycho.LoadOp::Clear,
@@ -3194,8 +3194,8 @@ fn Renderer2D::flush_path_batch(
         stencil_load_op=@tycho.LoadOp::Clear,
         stencil_store_op=@tycho.StoreOp::DontCare,
         clear_stencil=0,
-      ),
-    ),
+      )
+    ,
   )
   cmd.set_viewport(
     (0.0 : Float),
@@ -3632,7 +3632,7 @@ fn Renderer2D::replay_ops(
                       st.layer_paint.blend_mode,
                       None,
                       mode=(2.0 : Float),
-                      color_matrix=Some(mat),
+                      color_matrix=mat,
                     )
                   _ =>
                     self.composite_texture(
@@ -3866,7 +3866,7 @@ fn Renderer2D::replay_ops(
           sh.stop_cnt,
           extra0=sh.extra0,
           extra1=sh.extra1,
-          radii_y=Some((rr.tl_y, rr.tr_y, rr.br_y, rr.bl_y)),
+          radii_y=(rr.tl_y, rr.tr_y, rr.br_y, rr.bl_y),
         )
       }
       DrawOp::DrawCircle(center, radius, paint) => {
@@ -3987,7 +3987,7 @@ fn Renderer2D::replay_ops(
           (0.0 : Float),
           (0.0 : Float),
           (0.0 : Float),
-          radii_y=Some((tly, tr_y, bry, bly)),
+          radii_y=(tly, tr_y, bry, bly),
         )
       }
       DrawOp::DrawPath(_, _) => ()
@@ -4426,10 +4426,10 @@ fn Renderer2D::present_pipeline(
       @tycho.PipelineDesc::from_spirv(
         spv_blur_vert,
         spv_blur_frag,
-        blend_mode=Some(@tycho.BlendMode::Premultiplied),
+        blend_mode=@tycho.BlendMode::Premultiplied,
         cull_mode=@tycho.CullMode::None,
-        color_format=Some(fmt),
-        depth_format=ds_opt,
+        color_format=fmt,
+        depth_format?=ds_opt,
       ),
     )
     self.present_sc_blend_pipe = Some(np)
@@ -4450,10 +4450,10 @@ fn Renderer2D::present_pipeline(
       @tycho.PipelineDesc::from_spirv(
         spv_blur_vert,
         spv_blur_frag,
-        blend_mode=Some(@tycho.BlendMode::Opaque),
+        blend_mode=@tycho.BlendMode::Opaque,
         cull_mode=@tycho.CullMode::None,
-        color_format=Some(fmt),
-        depth_format=ds_opt,
+        color_format=fmt,
+        depth_format?=ds_opt,
       ),
     )
     self.present_sc_pipe = Some(np)
@@ -4492,7 +4492,7 @@ fn Renderer2D::present_scene(
   cmd.begin_swapchain_pass(
     sc,
     load_op~,
-    clear_color=Some(clear_color.to_clear_color()),
+    clear_color=clear_color.to_clear_color(),
   )
   cmd.set_viewport((0.0 : Float), (0.0 : Float), Float::from_int(w), Float::from_int(h))
   cmd.set_scissor(0, 0, w, h)
@@ -4533,10 +4533,10 @@ fn Renderer2D::present_scene(
 ///|
 pub fn Renderer2D::render_offscreen(
   self : Renderer2D,
-  dl : DisplayList,
   target : @tycho.Texture,
+  dl : DisplayList,
   clear_color? : Color = Color::transparent(),
-  damage? : Rect? = None,
+  damage? : Rect,
   load_op? : @tycho.LoadOp = @tycho.LoadOp::Clear,
 ) -> Unit raise @tycho.RhiError {
   self.frame_idx = self.frame_idx + 1
@@ -4639,7 +4639,7 @@ pub fn Renderer2D::render_swapchain(
   sc : @tycho.Swapchain,
   dl : DisplayList,
   clear_color? : Color = Color::black(),
-  dl_size? : (Int, Int)? = None,
+  dl_size? : (Int, Int),
   load_op? : @tycho.LoadOp = @tycho.LoadOp::Clear,
 ) -> Unit raise @tycho.RhiError {
   self.frame_idx = self.frame_idx + 1
@@ -4668,7 +4668,7 @@ pub fn Renderer2D::render_swapchain(
     cmd.begin_swapchain_pass(
       sc,
       load_op~,
-      clear_color=Some(clear_color.to_clear_color()),
+      clear_color=clear_color.to_clear_color(),
     )
     self.replay_ops(cmd, dl.ops)
     self.flush_path_batch(cmd)
@@ -4705,7 +4705,7 @@ pub fn Renderer2D::render_swapchain_pass(
   dl : DisplayList,
   clear_color? : Color = Color::transparent(),
   load_op? : @tycho.LoadOp = @tycho.LoadOp::Load,
-  dl_size? : (Int, Int)? = None,
+  dl_size? : (Int, Int),
 ) -> Unit raise @tycho.RhiError {
   self.frame_idx = self.frame_idx + 1
   let w = sc.width()

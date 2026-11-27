@@ -48,7 +48,7 @@ pub fn Canvas::save(self : Canvas) -> Int {
 ///|
 pub fn Canvas::save_layer(
   self : Canvas,
-  bounds? : Rect? = None,
+  bounds? : Rect,
   paint? : Paint = Paint::new(),
 ) -> Int {
   let prev = self.save_count()
@@ -79,6 +79,27 @@ pub fn Canvas::restore(self : Canvas) -> Unit {
     }
     None => ()
   }
+}
+
+///|
+/// Runs `f` inside an automatically paired `save()` / `restore()`.
+pub fn Canvas::with_save(self : Canvas, f : (Canvas) -> Unit) -> Unit {
+  let _ = self.save()
+  f(self)
+  self.restore()
+}
+
+///|
+/// Runs `f` inside an automatically paired `save_layer()` / `restore()`.
+pub fn Canvas::with_layer(
+  self : Canvas,
+  bounds? : Rect,
+  paint? : Paint = Paint::new(),
+  f : (Canvas) -> Unit,
+) -> Unit {
+  let _ = self.save_layer(bounds?=bounds, paint=paint)
+  f(self)
+  self.restore()
 }
 
 ///|
@@ -159,7 +180,7 @@ fn Canvas::begin_filtered(
     return (paint, false)
   }
   self.expand_bounds(bounds)
-  let _ = self.save_layer(bounds=Some(bounds), paint=paint)
+  let _ = self.save_layer(bounds=bounds, paint=paint)
   ({ ..paint, color_filter: None, mask_filter: None }, true)
 }
 
@@ -231,15 +252,13 @@ pub fn Canvas::draw_line(
 pub fn Canvas::draw_rrect_shadow(
   self : Canvas,
   rrect : RRect,
-  dx : Float,
-  dy : Float,
-  blur : Float,
-  spread : Float,
-  color : Color,
+  shadow : BoxShadow,
 ) -> Unit {
-  let pad = blur + spread
-  self.expand_bounds(rrect.rect.offset(dx, dy).inflate(pad))
-  self.ops.push(DrawOp::DrawRRectShadow(rrect, dx, dy, blur, spread, color))
+  let pad = shadow.blur + shadow.spread
+  self.expand_bounds(rrect.rect.offset(shadow.dx, shadow.dy).inflate(pad))
+  self.ops.push(
+    DrawOp::DrawRRectShadow(rrect, shadow.dx, shadow.dy, shadow.blur, shadow.spread, shadow.color),
+  )
 }
 
 ///|
@@ -275,8 +294,8 @@ pub fn Canvas::draw_path_shadow(
   let b = shadow_path.bounds().inflate(blur + (2.0 : Float))
   self.expand_bounds(b)
   let _ = self.save_layer(
-    bounds=Some(b),
-    paint=Paint::new(mask_filter=Some(MaskFilter::Blur(blur, blur))),
+    bounds=b,
+    paint=Paint::new(mask_filter=MaskFilter::Blur(blur, blur)),
   )
   self.draw_path(shadow_path, Paint::fill(color))
   self.restore()
@@ -431,7 +450,7 @@ fn Canvas::draw_image_quads(
   if verts.length() == 0 {
     return
   }
-  self.draw_vertices(verts, idx, paint~, image=Some(image))
+  self.draw_vertices(verts, idx, paint~, image=image)
 }
 
 ///|
@@ -494,7 +513,7 @@ pub fn Canvas::draw_vertices(
   vertices : Array[Vertex2D],
   indices : Array[Int],
   paint? : Paint = Paint::new(),
-  image? : Image2D? = None,
+  image? : Image2D,
 ) -> Unit {
   if vertices.length() == 0 {
     return

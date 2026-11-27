@@ -48,7 +48,7 @@ fn coverage_edges(
 pub fn rasterize_coverage(
   path : Path,
   xform : Matrix3,
-  fill_rule? : FillRule? = None,
+  fill_rule? : FillRule,
   tolerance? : Float = (0.25 : Float),
   max_area? : Int = 262144,
 ) -> CoverageBitmap? {

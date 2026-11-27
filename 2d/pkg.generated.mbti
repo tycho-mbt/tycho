@@ -11,7 +11,7 @@ import {
 // Values
 pub fn flatten_path_contours(Path, Matrix3, tolerance? : Float) -> Array[(Array[Point], Bool)]
 
-pub fn rasterize_coverage(Path, Matrix3, fill_rule? : FillRule?, tolerance? : Float, max_area? : Int32) -> CoverageBitmap?
+pub fn rasterize_coverage(Path, Matrix3, fill_rule? : FillRule, tolerance? : Float, max_area? : Int32) -> CoverageBitmap?
 
 pub fn tessellate_fill_fan(Path, Matrix3, tolerance? : Float) -> (Array[Float], Rect)
 
@@ -43,6 +43,15 @@ pub(all) enum BlendMode2D {
 pub fn BlendMode2D::to_blend_state(Self) -> @tycho.BlendState?
 pub fn BlendMode2D::to_rhi(Self) -> @tycho.BlendMode
 
+pub(all) struct BoxShadow {
+  dx : Float
+  dy : Float
+  blur : Float
+  spread : Float
+  color : Color
+}
+pub fn BoxShadow::new(Color, dx? : Float, dy? : Float, blur? : Float, spread? : Float) -> Self
+
 pub struct Canvas {
   // private fields
 }
@@ -68,9 +77,9 @@ pub fn Canvas::draw_path_shadow(Self, Path, Float, Float, Float, Color) -> Unit
 pub fn Canvas::draw_points(Self, Array[Point], Paint) -> Unit
 pub fn Canvas::draw_rect(Self, Rect, Paint) -> Unit
 pub fn Canvas::draw_rrect(Self, RRect, Paint) -> Unit
-pub fn Canvas::draw_rrect_shadow(Self, RRect, Float, Float, Float, Float, Color) -> Unit
+pub fn Canvas::draw_rrect_shadow(Self, RRect, BoxShadow) -> Unit
 pub fn Canvas::draw_text_on_path(Self, Paragraph, Path, Paint, offset? : Float) -> Unit
-pub fn Canvas::draw_vertices(Self, Array[Vertex2D], Array[Int32], paint? : Paint, image? : Image2D?) -> Unit
+pub fn Canvas::draw_vertices(Self, Array[Vertex2D], Array[Int32], paint? : Paint, image? : Image2D) -> Unit
 pub fn Canvas::finish(Self) -> DisplayList
 pub fn Canvas::new() -> Self
 pub fn Canvas::restore(Self) -> Unit
@@ -79,9 +88,11 @@ pub fn Canvas::rotate(Self, Float) -> Unit
 pub fn Canvas::save(Self) -> Int32
 pub fn Canvas::save_backdrop_layer(Self, Rect, ImageFilter) -> Int32
 pub fn Canvas::save_count(Self) -> Int32
-pub fn Canvas::save_layer(Self, bounds? : Rect?, paint? : Paint) -> Int32
+pub fn Canvas::save_layer(Self, bounds? : Rect, paint? : Paint) -> Int32
 pub fn Canvas::scale(Self, Float, Float) -> Unit
 pub fn Canvas::translate(Self, Float, Float) -> Unit
+pub fn Canvas::with_layer(Self, bounds? : Rect, paint? : Paint, (Self) -> Unit) -> Unit
+pub fn Canvas::with_save(Self, (Self) -> Unit) -> Unit
 
 #derive(Eq, @debug.Debug)
 pub(all) enum ClipOp {
@@ -283,16 +294,17 @@ pub(all) struct GradientStop {
 pub fn GradientStop::new(Float, Color) -> Self
 
 pub(all) struct Image2D {
-  id : Int32
   width : Int32
   height : Int32
   pixels : Bytes
   texture : @tycho.Texture?
   srgb : Bool
   premultiplied : Bool
+  // private fields
 }
-pub fn Image2D::from_bytes(Int32, Int32, Int32, Bytes, srgb? : Bool, premultiplied? : Bool) -> Self
-pub fn Image2D::from_texture(Int32, @tycho.Texture) -> Self
+pub fn Image2D::from_bytes(Int32, Int32, Bytes, srgb? : Bool, premultiplied? : Bool) -> Self
+pub fn Image2D::from_texture(@tycho.Texture) -> Self
+pub fn Image2D::id(Self) -> Int32
 
 pub(all) enum ImageFilter {
   Blur(Float, Float, TileMode)
@@ -350,7 +362,7 @@ pub(all) struct Paint {
   anti_alias : Bool
 }
 pub fn Paint::fill(Color) -> Self
-pub fn Paint::new(color? : Color, style? : PaintStyle, stroke_width? : Float, stroke_cap? : StrokeCap, stroke_join? : StrokeJoin, stroke_miter? : Float, blend_mode? : BlendMode2D, shader? : Shader2D?, image_filter? : ImageFilter?, color_filter? : ColorFilter?, mask_filter? : MaskFilter?, anti_alias? : Bool) -> Self
+pub fn Paint::new(color? : Color, style? : PaintStyle, stroke_width? : Float, stroke_cap? : StrokeCap, stroke_join? : StrokeJoin, stroke_miter? : Float, blend_mode? : BlendMode2D, shader? : Shader2D, image_filter? : ImageFilter, color_filter? : ColorFilter, mask_filter? : MaskFilter, anti_alias? : Bool) -> Self
 pub fn Paint::stroke(Color, Float, cap? : StrokeCap, join? : StrokeJoin) -> Self
 
 #derive(Eq, @debug.Debug)
@@ -396,7 +408,7 @@ pub struct Path {
 }
 pub fn Path::bounds(Self) -> Rect
 pub fn Path::compute_tight_bounds(Self, tolerance? : Float) -> Rect
-pub fn Path::contains(Self, Float, Float, fill_rule? : FillRule?) -> Bool
+pub fn Path::contains(Self, Float, Float, fill_rule? : FillRule) -> Bool
 pub fn Path::dashed(Self, Array[Float], phase? : Float) -> Self
 pub fn Path::fill_rule(Self) -> FillRule
 pub fn Path::id(Self) -> UInt64
@@ -550,9 +562,9 @@ pub fn Renderer2D::destroy(Self) -> Unit
 pub fn Renderer2D::new(@tycho.Device, max_prims_per_frame? : Int32, max_stops_per_frame? : Int32, max_path_verts_per_frame? : Int32) -> Self raise @tycho.RhiError
 pub fn Renderer2D::path_batch_count(Self) -> Int32
 pub fn Renderer2D::prim_draw_count(Self) -> Int32
-pub fn Renderer2D::render_offscreen(Self, DisplayList, @tycho.Texture, clear_color? : Color, damage? : Rect?, load_op? : @tycho.LoadOp) -> Unit raise @tycho.RhiError
-pub fn Renderer2D::render_swapchain(Self, @tycho.Swapchain, DisplayList, clear_color? : Color, dl_size? : (Int32, Int32)?, load_op? : @tycho.LoadOp) -> Unit raise @tycho.RhiError
-pub fn Renderer2D::render_swapchain_pass(Self, @tycho.CommandBuffer, @tycho.Swapchain, DisplayList, clear_color? : Color, load_op? : @tycho.LoadOp, dl_size? : (Int32, Int32)?) -> Unit raise @tycho.RhiError
+pub fn Renderer2D::render_offscreen(Self, @tycho.Texture, DisplayList, clear_color? : Color, damage? : Rect, load_op? : @tycho.LoadOp) -> Unit raise @tycho.RhiError
+pub fn Renderer2D::render_swapchain(Self, @tycho.Swapchain, DisplayList, clear_color? : Color, dl_size? : (Int32, Int32), load_op? : @tycho.LoadOp) -> Unit raise @tycho.RhiError
+pub fn Renderer2D::render_swapchain_pass(Self, @tycho.CommandBuffer, @tycho.Swapchain, DisplayList, clear_color? : Color, load_op? : @tycho.LoadOp, dl_size? : (Int32, Int32)) -> Unit raise @tycho.RhiError
 pub fn Renderer2D::set_coverage_enabled(Self, Bool) -> Unit
 pub fn Renderer2D::set_msdf_enabled(Self, Bool) -> Unit
 pub fn Renderer2D::set_msdf_min_size(Self, Float) -> Unit
@@ -641,7 +653,7 @@ pub(all) struct TextStyle {
   fallback : FontFallbackChain?
   variations : Array[(String, Float)]
 }
-pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool, bold? : Bool, italic? : Bool, fallback? : FontFallbackChain?, variations? : Array[(String, Float)]) -> Self
+pub fn TextStyle::new(font? : FontFace, font_size? : Float, color? : Color, letter_spacing? : Float, underline? : Bool, bold? : Bool, italic? : Bool, fallback? : FontFallbackChain, variations? : Array[(String, Float)]) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum TileMode {

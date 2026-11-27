@@ -133,9 +133,21 @@ pub fn GradientStop::new(offset : Float, color : Color) -> GradientStop {
 }
 
 ///|
+// Monotonic id source for Image2D handles. Ids are only used as renderer cache
+// keys, so allocating them internally removes a whole class of user-side
+// collisions (two components both picking `id = 1`).
+let g_next_image_id : Ref[Int] = Ref(1)
+
+///|
+fn alloc_image_id() -> Int {
+  let id = g_next_image_id.val
+  g_next_image_id.val = id + 1
+  id
+}
+
 // Image2D handle wraps a GPU texture (or queued pixels uploaded via Renderer2D).
 pub(all) struct Image2D {
-  id : Int
+  priv id : Int
   width : Int
   height : Int
   pixels : Bytes
@@ -145,6 +157,12 @@ pub(all) struct Image2D {
   // an sRGB texture format when the image is promoted out of the atlas.
   srgb : Bool
   premultiplied : Bool
+}
+
+///|
+/// Renderer-side cache key. Unique per handle, allocated on construction.
+pub fn Image2D::id(self : Image2D) -> Int {
+  self.id
 }
 
 ///|
@@ -158,20 +176,27 @@ fn is_srgb_texture_format(f : @tycho.TextureFormat) -> Bool {
 
 ///|
 pub fn Image2D::from_bytes(
-  id : Int,
   width : Int,
   height : Int,
   pixels : Bytes,
   srgb? : Bool = false,
   premultiplied? : Bool = false,
 ) -> Image2D {
-  { id, width, height, pixels, texture: None, srgb, premultiplied }
+  {
+    id: alloc_image_id(),
+    width,
+    height,
+    pixels,
+    texture: None,
+    srgb,
+    premultiplied,
+  }
 }
 
 ///|
-pub fn Image2D::from_texture(id : Int, texture : @tycho.Texture) -> Image2D {
+pub fn Image2D::from_texture(texture : @tycho.Texture) -> Image2D {
   {
-    id,
+    id: alloc_image_id(),
     width: texture.width(),
     height: texture.height(),
     pixels: b"",
@@ -235,10 +260,10 @@ pub fn Paint::new(
   stroke_join? : StrokeJoin = StrokeJoin::Miter,
   stroke_miter? : Float = (4.0 : Float),
   blend_mode? : BlendMode2D = BlendMode2D::SrcOver,
-  shader? : Shader2D? = None,
-  image_filter? : ImageFilter? = None,
-  color_filter? : ColorFilter? = None,
-  mask_filter? : MaskFilter? = None,
+  shader? : Shader2D,
+  image_filter? : ImageFilter,
+  color_filter? : ColorFilter,
+  mask_filter? : MaskFilter,
   anti_alias? : Bool = true,
 ) -> Paint {
   {
@@ -255,6 +280,29 @@ pub fn Paint::new(
     mask_filter,
     anti_alias,
   }
+}
+
+///|
+// A drop shadow described by named fields instead of four anonymous floats.
+// `blur` is the gaussian sigma, `spread` grows (or shrinks, when negative) the
+// shadow shape before blurring.
+pub(all) struct BoxShadow {
+  dx : Float
+  dy : Float
+  blur : Float
+  spread : Float
+  color : Color
+}
+
+///|
+pub fn BoxShadow::new(
+  color : Color,
+  dx? : Float = (0.0 : Float),
+  dy? : Float = (4.0 : Float),
+  blur? : Float = (8.0 : Float),
+  spread? : Float = (0.0 : Float),
+) -> BoxShadow {
+  { dx, dy, blur, spread, color }
 }
 
 ///|

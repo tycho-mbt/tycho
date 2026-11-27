@@ -31,7 +31,7 @@ pub fn TextStyle::new(
   underline? : Bool = false,
   bold? : Bool = false,
   italic? : Bool = false,
-  fallback? : FontFallbackChain? = None,
+  fallback? : FontFallbackChain,
   variations? : Array[(String, Float)] = [],
 ) -> TextStyle {
   {

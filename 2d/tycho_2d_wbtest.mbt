@@ -74,9 +74,9 @@ test "builtin font metrics and paragraph wrapping plus caret selection" {
 ///|
 test "canvas records ImagePattern, ColorMatrix, DropShadow, and ClipOp::Difference" {
   let c = Canvas::new()
-  let img = Image2D::from_bytes(1, 2, 2, Bytes::make(16, (255 : Byte)))
+  let img = Image2D::from_bytes(2, 2, Bytes::make(16, (255 : Byte)))
   let pat_paint = Paint::new(
-    shader=Some(
+    shader=
       Shader2D::ImagePattern(
         img,
         Matrix3::identity(),
@@ -84,7 +84,6 @@ test "canvas records ImagePattern, ColorMatrix, DropShadow, and ClipOp::Differen
         TileMode::Repeat,
         TileMode::Mirror,
       ),
-    ),
   )
   c.draw_rect(Rect::new((0.0 : Float), (0.0 : Float), (40.0 : Float), (40.0 : Float)), pat_paint)
   let _ = c.save()
@@ -94,13 +93,13 @@ test "canvas records ImagePattern, ColorMatrix, DropShadow, and ClipOp::Differen
   mat[6] = (1.0 : Float)
   mat[12] = (1.0 : Float)
   mat[18] = (1.0 : Float)
-  let _ = c.save_layer(paint=Paint::new(image_filter=Some(ImageFilter::ColorMatrix(mat))))
+  let _ = c.save_layer(paint=Paint::new(image_filter=ImageFilter::ColorMatrix(mat)))
   let p = PathBuilder::new().add_circle((20.0 : Float), (20.0 : Float), (12.0 : Float)).build()
   c.draw_path(
     p,
     Paint::new(
       color=Color::white(),
-      image_filter=Some(ImageFilter::DropShadow((2.0 : Float), (2.0 : Float), (4.0 : Float), (4.0 : Float), Color::black())),
+      image_filter=ImageFilter::DropShadow((2.0 : Float), (2.0 : Float), (4.0 : Float), (4.0 : Float), Color::black()),
     ),
   )
   c.restore()
@@ -275,7 +274,7 @@ test "canvas shape helpers: oval, arc, drrect, points, nine-patch, atlas, dash" 
     [Point::new((1.0 : Float), (1.0 : Float)), Point::new((2.0 : Float), (2.0 : Float))],
     Paint::stroke(Color::white(), (4.0 : Float)),
   )
-  let img = Image2D::from_bytes(9, 4, 4, Bytes::make(64, (255 : Byte)))
+  let img = Image2D::from_bytes(4, 4, Bytes::make(64, (255 : Byte)))
   let ci = Canvas::new()
   ci.draw_nine_patch(
     img,
@@ -367,8 +366,8 @@ test "path ops: union, intersect, difference, xor with a convex clip" {
 test "paint color/mask filters are independent of image_filter" {
   let m : FixedArray[Float] = FixedArray::make(20, (0.0 : Float))
   let p = Paint::new(
-    color_filter=Some(ColorFilter::Matrix(m)),
-    mask_filter=Some(MaskFilter::Blur((2.0 : Float), (3.0 : Float))),
+    color_filter=ColorFilter::Matrix(m),
+    mask_filter=MaskFilter::Blur((2.0 : Float), (3.0 : Float)),
   )
   match p.image_filter {
     None => assert_true(true)
@@ -435,7 +434,7 @@ test "font fallback chain picks per-codepoint faces" {
       let p = ParagraphBuilder::new()
         .add_text(
           "A中B",
-          style=TextStyle::new(font=latin, fallback=Some(chain)),
+          style=TextStyle::new(font=latin, fallback=chain),
         )
         .build()
       p.layout((1000.0 : Float))
@@ -782,7 +781,7 @@ test "inline image participates in paragraph layout" {
   let px : Array[Byte] = [
     255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
   ]
-  let img = Image2D::from_bytes(7, 2, 2, Bytes::from_array(px))
+  let img = Image2D::from_bytes(2, 2, Bytes::from_array(px))
   let p = ParagraphBuilder::new()
     .add_text("A", style=TextStyle::new(font_size=(16.0 : Float)))
     .add_inline_image(img, (20.0 : Float), (10.0 : Float))
@@ -1005,4 +1004,47 @@ test "gvar changes glyph outline" {
       None => ()
     }
   }
+}
+///|
+test "image handles allocate unique cache ids" {
+  let a = Image2D::from_bytes(1, 1, Bytes::make(4, (255 : Byte)))
+  let b = Image2D::from_bytes(1, 1, Bytes::make(4, (255 : Byte)))
+  assert_true(a.id() > 0)
+  assert_true(a.id() != b.id())
+}
+
+///|
+test "draw_rrect_shadow takes a structured BoxShadow" {
+  let c = Canvas::new()
+  let rrect = RRect::per_corner(
+    Rect::new((0.0 : Float), (0.0 : Float), (40.0 : Float), (20.0 : Float)),
+    (4.0 : Float), (4.0 : Float), (4.0 : Float), (4.0 : Float),
+  )
+  c.draw_rrect_shadow(
+    rrect,
+    BoxShadow::new(Color::from_rgba8(0, 0, 0), dy=(6.0 : Float), blur=(8.0 : Float)),
+  )
+  let dl = c.finish()
+  assert_eq(dl.op_count(), 1)
+  // Shadow bounds must include the offset plus the blur growth.
+  assert_true(dl.bounds().height >= (20.0 : Float))
+  // dy = 6 with blur = 8 pushes the shadow top edge above the shape origin.
+  assert_true(dl.bounds().y <= (0.0 : Float))
+}
+
+///|
+test "with_save and with_layer pair save/restore automatically" {
+  let c = Canvas::new()
+  let before = c.save_count()
+  c.with_save(fn(cc) {
+    cc.translate((10.0 : Float), (0.0 : Float))
+  })
+  assert_eq(c.save_count(), before)
+  c.with_layer(fn(cc) {
+    cc.draw_rect(
+      Rect::new((0.0 : Float), (0.0 : Float), (4.0 : Float), (4.0 : Float)),
+      Paint::fill(Color::white()),
+    )
+  })
+  assert_eq(c.save_count(), before)
 }
