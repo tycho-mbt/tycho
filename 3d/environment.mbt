@@ -228,7 +228,7 @@ fn prefilter_cubemap(
     @tycho.PipelineDesc::from_spirv(
       spv_prefilter_vert,
       spv_prefilter_frag,
-      color_format=Some(fmt),
+      color_format=fmt,
     ),
   )
   let mips = env_mip_count(s)

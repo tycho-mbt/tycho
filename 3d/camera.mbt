@@ -40,7 +40,7 @@ pub fn Camera::perspective(
   fov_y_rad : Float,
   aspect : Float,
   near? : Float = 0.1,
-  far? : Float? = None,
+  far? : Float,
   clip? : @tmath.ClipSpace = @tmath.ClipSpace::Vulkan,
 ) -> Camera {
   {

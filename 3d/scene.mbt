@@ -15,7 +15,9 @@ pub(all) struct MeshHandle {
 }
 
 ///|
-pub fn MeshHandle::from_id(id : Int) -> MeshHandle {
+/// Crate-internal: mesh handles are only produced by `Renderer3D::upload_mesh`
+/// so a scene cannot reference a slot the renderer never created.
+fn MeshHandle::from_id(id : Int) -> MeshHandle {
   { id, }
 }
 
@@ -129,7 +131,7 @@ fn Scene::node(self : Scene, id : NodeId) -> SceneNode? {
 /// Create a node (optionally parented) and return its handle.
 pub fn Scene::create_node(
   self : Scene,
-  parent? : NodeId? = None,
+  parent? : NodeId,
   transform? : @tmath.Transform = @tmath.Transform::identity(),
   payload? : NodePayload = NodePayload::Empty,
   name? : String = "",
@@ -452,7 +454,7 @@ pub fn Scene::world_bounds(self : Scene, id : NodeId) -> @tmath.Aabb3? {
 pub fn Scene::traverse(
   self : Scene,
   f : (NodeId) -> Unit,
-  root? : NodeId? = None,
+  root? : NodeId,
 ) -> Unit {
   let stack : Array[NodeId] = []
   match root {

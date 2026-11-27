@@ -77,7 +77,7 @@ pub(all) enum Light {
 pub fn Light::directional(
   color : @tmath.Vec3,
   intensity : Float,
-  shadow? : ShadowDesc? = None,
+  shadow? : ShadowDesc,
 ) -> Light {
   Light::Directional({ color, intensity, shadow })
 }
@@ -88,7 +88,7 @@ pub fn Light::point(
   intensity : Float,
   range? : Float = 10.0,
   decay? : Float = 2.0,
-  shadow? : ShadowDesc? = None,
+  shadow? : ShadowDesc,
 ) -> Light {
   Light::Point({ color, intensity, range, decay, shadow })
 }
@@ -100,7 +100,7 @@ pub fn Light::spot(
   range? : Float = 10.0,
   inner_angle? : Float = 0.35,
   outer_angle? : Float = 0.55,
-  shadow? : ShadowDesc? = None,
+  shadow? : ShadowDesc,
 ) -> Light {
   Light::Spot({ color, intensity, range, inner_angle, outer_angle, shadow })
 }
@@ -156,7 +156,7 @@ pub fn add_sun(
       Light::directional(
         color,
         intensity,
-        shadow=if shadow { Some(ShadowDesc::default()) } else { None },
+        shadow?=if shadow { Some(ShadowDesc::default()) } else { None },
       ),
     ),
   )

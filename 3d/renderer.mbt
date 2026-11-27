@@ -448,7 +448,7 @@ fn create_brdf_lut(dev : @tycho.Device) -> @tycho.Texture raise {
     @tycho.PipelineDesc::from_spirv(
       spv_fullscreen_vert,
       spv_brdf_lut_frag,
-      color_format=Some(@tycho.TextureFormat::RG16F),
+      color_format=@tycho.TextureFormat::RG16F,
     ),
   )
   let rt = dev.create_render_target(size, size, @tycho.TextureFormat::RG16F)
@@ -535,7 +535,7 @@ pub fn Renderer3D::new(
       depth_test=true,
       depth_write=true,
       depth_compare=@tycho.CompareOp::LessEqual,
-      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
       depth_only=true,
       depth_bias=true,
       depth_bias_constant=(1.5 : Float),
@@ -556,12 +556,12 @@ pub fn Renderer3D::new(
       depth_test=true,
       depth_write=true,
       depth_compare=@tycho.CompareOp::GreaterEqual,
-      depth_format=Some(@tycho.TextureFormat::Depth32F),
+      depth_format=@tycho.TextureFormat::Depth32F,
       cull_mode=@tycho.CullMode::Back,
       front_face=@tycho.FrontFace::CounterClockwise,
-      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      color_format=@tycho.TextureFormat::RGBA16F,
       vertex_layouts=mesh_layouts,
-      bindless_heap=bindless,
+      bindless_heap?=bindless,
       samples=samples,
     ),
   )
@@ -572,14 +572,14 @@ pub fn Renderer3D::new(
       depth_test=true,
       depth_write=false,
       depth_compare=@tycho.CompareOp::GreaterEqual,
-      depth_format=Some(@tycho.TextureFormat::Depth32F),
+      depth_format=@tycho.TextureFormat::Depth32F,
       cull_mode=@tycho.CullMode::Back,
       front_face=@tycho.FrontFace::CounterClockwise,
       blend=true,
-      blend_mode=Some(@tycho.BlendMode::Alpha),
-      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      blend_mode=@tycho.BlendMode::Alpha,
+      color_format=@tycho.TextureFormat::RGBA16F,
       vertex_layouts=mesh_layouts,
-      bindless_heap=bindless,
+      bindless_heap?=bindless,
       samples=samples,
     ),
   )
@@ -603,12 +603,12 @@ pub fn Renderer3D::new(
       depth_test=true,
       depth_write=true,
       depth_compare=@tycho.CompareOp::GreaterEqual,
-      depth_format=Some(@tycho.TextureFormat::Depth32F),
+      depth_format=@tycho.TextureFormat::Depth32F,
       cull_mode=@tycho.CullMode::Back,
       front_face=@tycho.FrontFace::CounterClockwise,
-      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      color_format=@tycho.TextureFormat::RGBA16F,
       vertex_layouts=skin_layouts,
-      bindless_heap=bindless,
+      bindless_heap?=bindless,
       samples=samples,
     ),
   )
@@ -619,14 +619,14 @@ pub fn Renderer3D::new(
       depth_test=true,
       depth_write=false,
       depth_compare=@tycho.CompareOp::GreaterEqual,
-      depth_format=Some(@tycho.TextureFormat::Depth32F),
+      depth_format=@tycho.TextureFormat::Depth32F,
       cull_mode=@tycho.CullMode::Back,
       front_face=@tycho.FrontFace::CounterClockwise,
       blend=true,
-      blend_mode=Some(@tycho.BlendMode::Alpha),
-      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      blend_mode=@tycho.BlendMode::Alpha,
+      color_format=@tycho.TextureFormat::RGBA16F,
       vertex_layouts=skin_layouts,
-      bindless_heap=bindless,
+      bindless_heap?=bindless,
       samples=samples,
     ),
   )
@@ -650,12 +650,12 @@ pub fn Renderer3D::new(
       depth_test=true,
       depth_write=true,
       depth_compare=@tycho.CompareOp::GreaterEqual,
-      depth_format=Some(@tycho.TextureFormat::Depth32F),
+      depth_format=@tycho.TextureFormat::Depth32F,
       cull_mode=@tycho.CullMode::Back,
       front_face=@tycho.FrontFace::CounterClockwise,
-      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      color_format=@tycho.TextureFormat::RGBA16F,
       vertex_layouts=morph_layouts,
-      bindless_heap=bindless,
+      bindless_heap?=bindless,
       samples=samples,
     ),
   )
@@ -666,7 +666,7 @@ pub fn Renderer3D::new(
       depth_test=true,
       depth_write=true,
       depth_compare=@tycho.CompareOp::LessEqual,
-      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
       depth_only=true,
       depth_bias=true,
       depth_bias_constant=(1.5 : Float),
@@ -681,7 +681,7 @@ pub fn Renderer3D::new(
       depth_test=true,
       depth_write=true,
       depth_compare=@tycho.CompareOp::LessEqual,
-      depth_format=Some(@tycho.TextureFormat::Depth24Stencil8),
+      depth_format=@tycho.TextureFormat::Depth24Stencil8,
       depth_only=true,
       depth_bias=true,
       depth_bias_constant=(1.5 : Float),
@@ -698,12 +698,12 @@ pub fn Renderer3D::new(
           depth_test=true,
           depth_write=true,
           depth_compare=@tycho.CompareOp::GreaterEqual,
-          depth_format=Some(@tycho.TextureFormat::Depth32F),
+          depth_format=@tycho.TextureFormat::Depth32F,
           cull_mode=@tycho.CullMode::Back,
           front_face=@tycho.FrontFace::CounterClockwise,
-          color_format=Some(@tycho.TextureFormat::RGBA16F),
+          color_format=@tycho.TextureFormat::RGBA16F,
           vertex_layouts=mesh_layouts,
-          bindless_heap=bindless,
+          bindless_heap?=bindless,
           samples=samples,
         ),
       ),
@@ -720,12 +720,12 @@ pub fn Renderer3D::new(
           depth_test=true,
           depth_write=true,
           depth_compare=@tycho.CompareOp::GreaterEqual,
-          depth_format=Some(@tycho.TextureFormat::Depth32F),
+          depth_format=@tycho.TextureFormat::Depth32F,
           cull_mode=@tycho.CullMode::Back,
           front_face=@tycho.FrontFace::CounterClockwise,
-          color_format=Some(@tycho.TextureFormat::RGBA16F),
+          color_format=@tycho.TextureFormat::RGBA16F,
           vertex_layouts=mesh_layouts,
-          bindless_heap=bindless,
+          bindless_heap?=bindless,
           samples=samples,
         ),
       ),
@@ -737,8 +737,8 @@ pub fn Renderer3D::new(
     @tycho.PipelineDesc::from_spirv(
       spv_skybox_vert,
       spv_skybox_frag,
-      depth_format=Some(@tycho.TextureFormat::Depth32F),
-      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      depth_format=@tycho.TextureFormat::Depth32F,
+      color_format=@tycho.TextureFormat::RGBA16F,
       samples=samples,
     ),
   )
@@ -746,28 +746,28 @@ pub fn Renderer3D::new(
     @tycho.PipelineDesc::from_spirv(
       spv_fullscreen_vert,
       spv_bloom_extract_frag,
-      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      color_format=@tycho.TextureFormat::RGBA16F,
     ),
   )
   let bloom_blur_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_fullscreen_vert,
       spv_bloom_blur_frag,
-      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      color_format=@tycho.TextureFormat::RGBA16F,
     ),
   )
   let tonemap_srgb_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_fullscreen_vert,
       spv_tonemap_frag,
-      color_format=Some(@tycho.TextureFormat::RGBA8Srgb),
+      color_format=@tycho.TextureFormat::RGBA8Srgb,
     ),
   )
   let tonemap_linear_pipe = dev.create_graphics_pipeline(
     @tycho.PipelineDesc::from_spirv(
       spv_fullscreen_vert,
       spv_tonemap_frag,
-      color_format=Some(@tycho.TextureFormat::RGBA8),
+      color_format=@tycho.TextureFormat::RGBA8,
     ),
   )
   let mut cull_pipe : @tycho.Pipeline? = None
@@ -795,12 +795,12 @@ pub fn Renderer3D::new(
           depth_test=true,
           depth_write=true,
           depth_compare=@tycho.CompareOp::GreaterEqual,
-          depth_format=Some(@tycho.TextureFormat::Depth32F),
+          depth_format=@tycho.TextureFormat::Depth32F,
           cull_mode=@tycho.CullMode::Back,
           front_face=@tycho.FrontFace::CounterClockwise,
-          color_format=Some(@tycho.TextureFormat::RGBA16F),
+          color_format=@tycho.TextureFormat::RGBA16F,
           vertex_layouts=mesh_layouts,
-          bindless_heap=bindless,
+          bindless_heap?=bindless,
           samples=samples,
         ),
       ),
@@ -832,8 +832,8 @@ pub fn Renderer3D::new(
       depth_test=true,
       depth_write=false,
       depth_compare=@tycho.CompareOp::GreaterEqual,
-      depth_format=Some(@tycho.TextureFormat::Depth32F),
-      color_format=Some(@tycho.TextureFormat::RGBA16F),
+      depth_format=@tycho.TextureFormat::Depth32F,
+      color_format=@tycho.TextureFormat::RGBA16F,
       vertex_layouts=line_layouts,
       samples=samples,
     ),
@@ -845,7 +845,7 @@ pub fn Renderer3D::new(
       mipmap=@tycho.Filter::Nearest,
       address=@tycho.AddressMode::ClampToBorder,
       border_color=@tycho.BorderColor::OpaqueWhite,
-      compare_op=Some(@tycho.CompareOp::LessEqual),
+      compare_op=@tycho.CompareOp::LessEqual,
     ),
   )
   let env_sampler = dev.create_sampler_desc(
@@ -1066,7 +1066,7 @@ fn Renderer3D::build_mesh_blas(self : Renderer3D, mesh : @tgeo.MeshData) -> RtMe
     @tycho.RayGeometryDesc::new(
       vbuf,
       mesh.vertex_count(),
-      index_buffer=Some(ibuf),
+      index_buffer=ibuf,
       index_count=mesh.index_count(),
     ),
   ])
@@ -2336,14 +2336,14 @@ fn Renderer3D::render_frame(
   // into its own tile through viewport/scissor.
   cmd.begin_render_pass(
     [],
-    depth=Some(
+    depth=
       @tycho.DepthTargetDesc::new(
         self.shadow_atlas,
         load_op=@tycho.LoadOp::Clear,
         store_op=@tycho.StoreOp::Store,
         clear_depth=1.0,
-      ),
-    ),
+      )
+    ,
   )
   let tile_size = self.desc.shadow_map_size
   for st in shadow_tiles {
@@ -2472,17 +2472,17 @@ fn Renderer3D::render_frame(
           @tycho.StoreOp::Store
         },
         clear_color=@tycho.ClearColor::black(),
-        resolve_texture=targets.hdr_resolve,
+        resolve_texture?=targets.hdr_resolve,
       ),
     ],
-    depth=Some(
+    depth=
       @tycho.DepthTargetDesc::new(
         targets.depth,
         load_op=@tycho.LoadOp::Clear,
         store_op=@tycho.StoreOp::DontCare,
         clear_depth=0.0,
-      ),
-    ),
+      )
+    ,
   )
   cmd.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
   cmd.set_scissor(0, 0, w, h)
@@ -2939,9 +2939,9 @@ pub fn Renderer3D::render_swapchain_into(
 ///|
 pub fn Renderer3D::render_offscreen(
   self : Renderer3D,
+  target : @tycho.Texture,
   scene : Scene,
   camera : NodeId,
-  target : @tycho.Texture,
 ) -> Unit raise {
   let cmd = self.dev.begin_commands()
   let slot = cmd.frame_slot()
@@ -3136,7 +3136,42 @@ pub fn Renderer3D::set_morph_weights(
 }
 
 ///|
-/// Create a morph-animated mesh node (opaque materials only).
+/// Create a morph-animated mesh node from an existing material handle.
+pub fn Renderer3D::create_morph_mesh_node(
+  self : Renderer3D,
+  scene : Scene,
+  mesh : MeshHandle,
+  material : MaterialHandle,
+  weights : Array[Float],
+  transform? : @tmath.Transform = @tmath.Transform::identity(),
+  name? : String = "",
+) -> NodeId raise {
+  let mi = mesh.id()
+  if mi < 0 || mi >= self.meshes.length() || self.meshes[mi].morph() == 0 {
+    fail("Renderer3D::create_morph_mesh_node: mesh has no morph targets")
+  }
+  if self.meshes[mi].skinned() {
+    fail("Renderer3D::create_morph_mesh_node: morph and skin cannot be combined yet")
+  }
+  let mati = material.id()
+  if mati < 0 || mati >= self.materials.length() {
+    fail("Renderer3D::create_morph_mesh_node: invalid material handle")
+  }
+  match self.materials[mati].alpha_mode {
+    Blend(_) => fail("Renderer3D::create_morph_mesh_node: opaque materials only")
+    _ => ()
+  }
+  if weights.length() > self.meshes[mi].morph() {
+    fail("Renderer3D::create_morph_mesh_node: more weights than morph targets")
+  }
+  let node = self.create_mesh_node(scene, mesh, material, transform~, name~)
+  self.set_morph_weights(node, weights)
+  node
+}
+
+///|
+/// Create a morph-animated mesh node (opaque materials only). The material is
+/// allocated from `desc`; use `create_morph_mesh_node` to reuse one.
 pub fn Renderer3D::create_morph_node(
   self : Renderer3D,
   scene : Scene,
@@ -3160,9 +3195,8 @@ pub fn Renderer3D::create_morph_node(
   if weights.length() > self.meshes[mi].morph() {
     fail("Renderer3D::create_morph_node: more weights than morph targets")
   }
-  let node = self.create_pbr_node(scene, mesh, desc, transform~, name~)
-  self.set_morph_weights(node, weights)
-  node
+  let material = self.create_material(desc)
+  self.create_morph_mesh_node(scene, mesh, material, weights, transform~, name~)
 }
 
 ///|
@@ -3218,8 +3252,53 @@ pub fn Renderer3D::create_lod_node(
 }
 
 ///|
-/// Create a mesh node driven by a skeleton. `joints` are scene nodes and
-/// `inverse_bind` their rest-pose inverse world matrices (mesh-local space).
+/// Create a mesh node driven by a skeleton, reusing an existing material
+/// handle. `joints` are scene nodes and `inverse_bind` their rest-pose inverse
+/// world matrices (mesh-local space).
+pub fn Renderer3D::create_skinned_mesh_node(
+  self : Renderer3D,
+  scene : Scene,
+  mesh : MeshHandle,
+  material : MaterialHandle,
+  joints : Array[NodeId],
+  inverse_bind : Array[@tmath.Mat4],
+  transform? : @tmath.Transform = @tmath.Transform::identity(),
+  name? : String = "",
+) -> NodeId raise {
+  if joints.length() == 0 || joints.length() != inverse_bind.length() {
+    fail("Renderer3D::create_skinned_mesh_node: joints and inverse_bind must match")
+  }
+  let mi = mesh.id()
+  if mi < 0 || mi >= self.meshes.length() || !self.meshes[mi].skinned() {
+    fail("Renderer3D::create_skinned_mesh_node: mesh has no skin data")
+  }
+  let mati = material.id()
+  if mati < 0 || mati >= self.materials.length() {
+    fail("Renderer3D::create_skinned_mesh_node: invalid material handle")
+  }
+  if self.bone_cursor + joints.length() > MAX_BONES {
+    fail("Renderer3D::create_skinned_mesh_node: bone palette exhausted")
+  }
+  let node = scene.create_node(
+    transform=transform,
+    payload=NodePayload::Mesh(MeshInstance::new(mesh, material)),
+    name=name,
+  )
+  scene.set_local_bounds(node, self.mesh_bounds(mesh))
+  self.skins.push({
+    node,
+    joints,
+    inverse_bind,
+    offset: self.bone_cursor,
+    count: joints.length(),
+  })
+  self.bone_cursor = self.bone_cursor + joints.length()
+  node
+}
+
+///|
+/// Create a mesh node driven by a skeleton. The material is allocated from
+/// `desc`; use `create_skinned_mesh_node` to reuse one.
 pub fn Renderer3D::create_skinned_node(
   self : Renderer3D,
   scene : Scene,
@@ -3241,27 +3320,7 @@ pub fn Renderer3D::create_skinned_node(
     fail("Renderer3D::create_skinned_node: bone palette exhausted")
   }
   let mat = self.create_material(desc)
-  let node = scene.create_node(
-    transform=transform,
-    payload=NodePayload::Mesh(MeshInstance::new(mesh, mat)),
-    name=name,
-  )
-  scene.set_local_bounds(node, self.mesh_bounds(mesh))
-  scene.set_payload(node, NodePayload::Mesh({
-    mesh,
-    material: mat,
-    cast_shadow: true,
-    receive_shadow: true,
-  }))
-  self.skins.push({
-    node,
-    joints,
-    inverse_bind,
-    offset: self.bone_cursor,
-    count: joints.length(),
-  })
-  self.bone_cursor = self.bone_cursor + joints.length()
-  node
+  self.create_skinned_mesh_node(scene, mesh, mat, joints, inverse_bind, transform~, name~)
 }
 
 ///|

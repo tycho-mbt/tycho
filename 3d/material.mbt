@@ -10,7 +10,9 @@ pub(all) struct TextureHandle {
 }
 
 ///|
-pub fn TextureHandle::from_id(id : Int) -> TextureHandle {
+/// Crate-internal: handles are only produced by `Renderer3D` so callers cannot
+/// fabricate an id that aliases another resource.
+fn TextureHandle::from_id(id : Int) -> TextureHandle {
   { id, }
 }
 
@@ -27,7 +29,8 @@ pub(all) struct MaterialHandle {
 }
 
 ///|
-pub fn MaterialHandle::from_id(id : Int) -> MaterialHandle {
+/// Crate-internal: see `TextureHandle::from_id`.
+fn MaterialHandle::from_id(id : Int) -> MaterialHandle {
   { id, }
 }
 

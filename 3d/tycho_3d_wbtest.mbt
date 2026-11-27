@@ -39,7 +39,7 @@ test "scene hierarchy propagation" {
     transform=@tmath.Transform::from_translation(@tmath.Vec3::new(1.0, 0.0, 0.0)),
   )
   let child = s.create_node(
-    parent=Some(root),
+    parent=root,
     transform=@tmath.Transform::from_translation(@tmath.Vec3::new(0.0, 2.0, 0.0)),
   )
   s.update()
@@ -67,7 +67,7 @@ test "scene rotation propagation" {
     ),
   )
   let child = s.create_node(
-    parent=Some(parent),
+    parent=parent,
     transform=@tmath.Transform::from_translation(@tmath.Vec3::new(1.0, 0.0, 0.0)),
   )
   s.update()
@@ -89,7 +89,7 @@ test "reparent keeps world transform" {
     transform=@tmath.Transform::from_translation(@tmath.Vec3::new(-2.0, 0.0, 0.0)),
   )
   let child = s.create_node(
-    parent=Some(a),
+    parent=a,
     transform=@tmath.Transform::from_translation(@tmath.Vec3::new(1.0, 0.0, 0.0)),
   )
   s.update()
@@ -105,7 +105,7 @@ test "reparent keeps world transform" {
 test "destroy subtree invalidates handles" {
   let s = Scene::new()
   let a = s.create_node()
-  let b = s.create_node(parent=Some(a))
+  let b = s.create_node(parent=a)
   s.destroy_node(a)
   need(!s.is_alive(a), "a dead")
   need(!s.is_alive(b), "b dead")
@@ -138,7 +138,7 @@ test "frustum culling and layer masks" {
     @tmath.deg_to_rad(60.0),
     1.0,
     near=0.1,
-    far=Some(50.0),
+    far=50.0,
   )
   let vp = need_some_mat4(cam.view_proj(@tmath.Affine3::identity()), "view-proj")
   let frustum = @tmath.Frustum::from_view_proj(vp)
@@ -151,7 +151,7 @@ test "frustum culling and layer masks" {
 
 ///|
 test "camera rays" {
-  let cam = Camera::perspective(@tmath.FRAC_PI_2, 1.0, near=0.1, far=Some(100.0))
+  let cam = Camera::perspective(@tmath.FRAC_PI_2, 1.0, near=0.1, far=100.0)
   match cam.screen_ray(@tmath.Affine3::identity(), 0.0, 0.0) {
     Some(r) => {
       need_vec3(r.origin, @tmath.Vec3::zero())
@@ -217,7 +217,7 @@ test "light descriptors" {
   let sun = Light::directional(
     @tmath.Vec3::one(),
     3.0,
-    shadow=Some(ShadowDesc::default()),
+    shadow=ShadowDesc::default(),
   )
   need(sun.cast_shadow(), "directional shadow")
   let amb = Light::ambient(@tmath.Vec3::one(), 0.2)
@@ -371,12 +371,12 @@ test "animation player" {
       AnimationChannel::new(
         node,
         TransformTrack::new(
-          translation=Some(
+          translation=
             Vec3Track::new(
               [0.0, 2.0],
               [@tmath.Vec3::zero(), @tmath.Vec3::new(4.0, 0.0, 0.0)],
-            ),
-          ),
+            )
+          ,
         ),
       ),
     ],
@@ -394,4 +394,43 @@ test "animation player" {
   p.pause()
   p.update(scene, 1.0)
   need_vec3(scene.transform(node).translation, @tmath.Vec3::new(4.0, 0.0, 0.0))
+}
+///|
+test "transform track animates only the channels it carries" {
+  let track = TransformTrack::new(
+    translation=Vec3Track::new(
+      [0.0, 1.0],
+      [@tmath.Vec3::zero(), @tmath.Vec3::new(2.0, 0.0, 0.0)],
+    ),
+  )
+  match track.translation {
+    Some(_) => ()
+    None => fail("translation channel missing")
+  }
+  match track.rotation {
+    None => ()
+    Some(_) => fail("rotation channel must stay unset")
+  }
+  let base = @tmath.Transform::new(
+    @tmath.Vec3::zero(),
+    @tmath.Quat::identity(),
+    @tmath.Vec3::new(3.0, 3.0, 3.0),
+  )
+  let out = track.sample_with(base, 0.5)
+  need(close(out.translation.x, 1.0), "translation sampled")
+  // Unanimated channels keep the base value.
+  need(close(out.scale.x, 3.0), "scale preserved")
+}
+
+///|
+test "gltf instance aggregates nodes and animations" {
+  let instance : GltfInstance = {
+    roots: [],
+    nodes: [],
+    meshes: [],
+    materials: [],
+    animations: [],
+  }
+  assert_eq(instance.roots.length(), 0)
+  assert_eq(instance.animations.length(), 0)
 }

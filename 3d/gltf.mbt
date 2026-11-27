@@ -33,7 +33,7 @@ fn add_gltf_node(
     bounds = renderer.mesh_bounds(meshes[n.mesh])
   }
   let node = scene.create_node(
-    parent=parent,
+    parent?=parent,
     transform=@tmath.Transform::new(n.translation, n.rotation, n.scale),
     payload=payload,
     name=n.name,
@@ -72,15 +72,32 @@ fn upload_gltf_texture(
 }
 
 ///|
-/// Upload every glTF mesh/material and instantiate its node hierarchy under
-/// `parent`. The result is indexed by glTF node index (None for nodes that are
-/// not instantiated), which `load_gltf_animations` uses to bind channels.
-pub fn load_gltf_with_nodes(
+/// Everything a glTF import produced: instantiated nodes (indexed by glTF node
+/// index), the uploaded meshes/materials, the scene roots, and the animation
+/// clips already bound to the instantiated nodes.
+pub(all) struct GltfInstance {
+  roots : Array[NodeId]
+  nodes : Array[NodeId?]
+  meshes : Array[MeshHandle]
+  materials : Array[MaterialHandle]
+  animations : Array[AnimationClip]
+}
+
+///|
+/// GPU resources shared by every instantiated node of one import.
+priv struct GltfAssets {
+  meshes : Array[MeshHandle]
+  materials : Array[MaterialHandle]
+  nodes : Array[NodeId?]
+}
+
+///|
+fn load_gltf_assets(
   renderer : Renderer3D,
   scene : Scene,
   gltf : @tgeo.GltfScene,
-  parent? : NodeId? = None,
-) -> Array[NodeId?] raise {
+  parent : NodeId?,
+) -> GltfAssets raise {
   let materials : Array[MaterialHandle] = []
   for m in gltf.materials {
     let mut desc = MaterialDesc::pbr(
@@ -119,7 +136,47 @@ pub fn load_gltf_with_nodes(
   for r in gltf.roots {
     add_gltf_node(renderer, scene, gltf, materials, meshes, r, parent, out)
   }
-  out
+  { meshes, materials, nodes: out }
+}
+
+///|
+/// Upload every glTF mesh/material, instantiate its node hierarchy under
+/// `parent`, and return a single `GltfInstance` that ties the nodes, GPU
+/// resources, and animation clips together. This is the entry point most
+/// callers want; `load_gltf` / `load_gltf_with_nodes` remain thin wrappers.
+pub fn load_gltf_instance(
+  renderer : Renderer3D,
+  scene : Scene,
+  gltf : @tgeo.GltfScene,
+  parent? : NodeId,
+) -> GltfInstance raise {
+  let assets = load_gltf_assets(renderer, scene, gltf, parent)
+  let roots : Array[NodeId] = []
+  for entry in assets.nodes {
+    match entry {
+      Some(id) => roots.push(id)
+      None => ()
+    }
+  }
+  {
+    roots,
+    nodes: assets.nodes,
+    meshes: assets.meshes,
+    materials: assets.materials,
+    animations: load_gltf_animations(gltf, assets.nodes),
+  }
+}
+
+///|
+/// Node map indexed by glTF node index (None for nodes that are not
+/// instantiated), which `load_gltf_animations` uses to bind channels.
+pub fn load_gltf_with_nodes(
+  renderer : Renderer3D,
+  scene : Scene,
+  gltf : @tgeo.GltfScene,
+  parent? : NodeId,
+) -> Array[NodeId?] raise {
+  (load_gltf_instance(renderer, scene, gltf, parent?=parent)).nodes
 }
 
 ///|
@@ -129,17 +186,9 @@ pub fn load_gltf(
   renderer : Renderer3D,
   scene : Scene,
   gltf : @tgeo.GltfScene,
-  parent? : NodeId? = None,
+  parent? : NodeId,
 ) -> Array[NodeId] raise {
-  let map = load_gltf_with_nodes(renderer, scene, gltf, parent~)
-  let out : Array[NodeId] = []
-  for entry in map {
-    match entry {
-      Some(id) => out.push(id)
-      None => ()
-    }
-  }
-  out
+  (load_gltf_instance(renderer, scene, gltf, parent?=parent)).roots
 }
 
 ///|
@@ -183,9 +232,9 @@ pub fn load_gltf_animations(
             values.push(@tmath.Vec3::new(v.x, v.y, v.z))
           }
           TransformTrack::new(
-            translation=Some(Vec3Track::new(ch.times, values, interpolation=interp)),
-            rotation=base.rotation,
-            scale=base.scale,
+            translation=Vec3Track::new(ch.times, values, interpolation=interp),
+            rotation?=base.rotation,
+            scale?=base.scale,
           )
         }
         @tgeo.GltfAnimationPath::Rotation => {
@@ -194,9 +243,9 @@ pub fn load_gltf_animations(
             values.push(@tmath.Quat::from_xyzw(v.x, v.y, v.z, v.w))
           }
           TransformTrack::new(
-            translation=base.translation,
-            rotation=Some(QuatTrack::new(ch.times, values, interpolation=interp)),
-            scale=base.scale,
+            translation?=base.translation,
+            rotation=QuatTrack::new(ch.times, values, interpolation=interp),
+            scale?=base.scale,
           )
         }
         @tgeo.GltfAnimationPath::Scale => {
@@ -205,9 +254,9 @@ pub fn load_gltf_animations(
             values.push(@tmath.Vec3::new(v.x, v.y, v.z))
           }
           TransformTrack::new(
-            translation=base.translation,
-            rotation=base.rotation,
-            scale=Some(Vec3Track::new(ch.times, values, interpolation=interp)),
+            translation?=base.translation,
+            rotation?=base.rotation,
+            scale=Vec3Track::new(ch.times, values, interpolation=interp),
           )
         }
       }

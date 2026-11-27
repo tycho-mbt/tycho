@@ -120,7 +120,7 @@ pub fn OrbitCamera::transform(self : OrbitCamera) -> @tmath.Transform {
 pub fn OrbitCamera::apply(self : OrbitCamera, ev : @tycho.Event) -> Bool {
   match ev {
     @tycho.Event::MouseDown(btn, mx, my) =>
-      if btn == 0 || btn == 1 {
+      if btn == @tycho.MouseButton::Left || btn == @tycho.MouseButton::Right {
         self.dragging = true
         self.last_x = mx
         self.last_y = my
@@ -129,7 +129,7 @@ pub fn OrbitCamera::apply(self : OrbitCamera, ev : @tycho.Event) -> Bool {
         false
       }
     @tycho.Event::MouseUp(btn, _, _) =>
-      if btn == 0 || btn == 1 {
+      if btn == @tycho.MouseButton::Left || btn == @tycho.MouseButton::Right {
         self.dragging = false
         true
       } else {
@@ -218,34 +218,34 @@ pub fn FlyCamera::apply(self : FlyCamera, ev : @tycho.Event) -> Bool {
     @tycho.Event::KeyDown(k, _) => {
       let rot = self.rotation()
       let step = self.speed
-      if k == @tycho.KEY_W {
+      if k == @tycho.KeyCode::W {
         self.position = self.position + rot.mul_vec3(@tmath.Vec3::neg_z()).scale(step)
         true
-      } else if k == @tycho.KEY_S {
+      } else if k == @tycho.KeyCode::S {
         self.position = self.position - rot.mul_vec3(@tmath.Vec3::neg_z()).scale(step)
         true
-      } else if k == @tycho.KEY_A {
+      } else if k == @tycho.KeyCode::A {
         self.position = self.position - rot.mul_vec3(@tmath.Vec3::unit_x()).scale(step)
         true
-      } else if k == @tycho.KEY_D {
+      } else if k == @tycho.KeyCode::D {
         self.position = self.position + rot.mul_vec3(@tmath.Vec3::unit_x()).scale(step)
         true
-      } else if k == @tycho.KEY_E {
+      } else if k == @tycho.KeyCode::E {
         self.position = self.position + @tmath.Vec3::unit_y().scale(step)
         true
-      } else if k == @tycho.KEY_Q {
+      } else if k == @tycho.KeyCode::Q {
         self.position = self.position - @tmath.Vec3::unit_y().scale(step)
         true
-      } else if k == @tycho.KEY_LEFT {
+      } else if k == @tycho.KeyCode::Left {
         self.yaw = self.yaw - 0.06
         true
-      } else if k == @tycho.KEY_RIGHT {
+      } else if k == @tycho.KeyCode::Right {
         self.yaw = self.yaw + 0.06
         true
-      } else if k == @tycho.KEY_UP {
+      } else if k == @tycho.KeyCode::Up {
         self.pitch = clamp_pitch(self.pitch + 0.05)
         true
-      } else if k == @tycho.KEY_DOWN {
+      } else if k == @tycho.KeyCode::Down {
         self.pitch = clamp_pitch(self.pitch - 0.05)
         true
       } else {
@@ -253,7 +253,7 @@ pub fn FlyCamera::apply(self : FlyCamera, ev : @tycho.Event) -> Bool {
       }
     }
     @tycho.Event::MouseDown(btn, mx, my) =>
-      if btn == 0 || btn == 1 {
+      if btn == @tycho.MouseButton::Left || btn == @tycho.MouseButton::Right {
         self.dragging = true
         self.last_x = mx
         self.last_y = my
@@ -262,7 +262,7 @@ pub fn FlyCamera::apply(self : FlyCamera, ev : @tycho.Event) -> Bool {
         false
       }
     @tycho.Event::MouseUp(btn, _, _) =>
-      if btn == 0 || btn == 1 {
+      if btn == @tycho.MouseButton::Left || btn == @tycho.MouseButton::Right {
         self.dragging = false
         true
       } else {

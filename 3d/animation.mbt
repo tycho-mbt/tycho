@@ -133,9 +133,9 @@ pub(all) struct TransformTrack {
 
 ///|
 pub fn TransformTrack::new(
-  translation? : Vec3Track? = None,
-  rotation? : QuatTrack? = None,
-  scale? : Vec3Track? = None,
+  translation? : Vec3Track,
+  rotation? : QuatTrack,
+  scale? : Vec3Track,
 ) -> TransformTrack {
   { translation, rotation, scale }
 }
