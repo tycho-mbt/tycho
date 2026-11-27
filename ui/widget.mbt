@@ -16,6 +16,9 @@ pub(all) struct ElementId {
 pub struct BuildContext {
   priv elem_id : Int
   priv theme_ref : ThemeData
+  // Owning tree, used to register signal dependencies against `elem_id`.
+  // `None` for detached/spy contexts (e.g. building outside a mounted tree).
+  priv tree : UiTree?
 }
 
 ///|
@@ -380,9 +383,9 @@ pub(all) struct DecoratedProps {
 
 ///|
 pub fn DecoratedProps::new(
-  fill? : @g2d.Color? = None,
-  shader? : @g2d.Shader2D? = None,
-  border_color? : @g2d.Color? = None,
+  fill? : @g2d.Color,
+  shader? : @g2d.Shader2D,
+  border_color? : @g2d.Color,
   border_width? : Float = (0.0 : Float),
   radius? : Float = (0.0 : Float),
   tl? : Float = (-1.0 : Float),
@@ -392,7 +395,7 @@ pub fn DecoratedProps::new(
   shadow_blur? : Float = (0.0 : Float),
   shadow_dx? : Float = (0.0 : Float),
   shadow_dy? : Float = (4.0 : Float),
-  shadow_color? : @g2d.Color? = None,
+  shadow_color? : @g2d.Color,
 ) -> DecoratedProps {
   {
     fill,
@@ -421,7 +424,7 @@ pub(all) struct FrameStats {
 }
 
 ///|
-pub(all) enum WidgetKind {
+priv enum WidgetKind {
   Builder(Int, (BuildContext) -> Widget) // type_tag, build_fn
   ThemeProvider(ThemeData, Widget)
   SizedBox(Float?, Float?, Widget?)
@@ -451,8 +454,8 @@ pub(all) enum WidgetKind {
 
 ///|
 pub struct Widget {
-  key : Key?
-  kind : WidgetKind
+  priv key : Key?
+  priv kind : WidgetKind
 }
 
 ///|
@@ -488,7 +491,7 @@ fn WidgetKind::tag(self : WidgetKind) -> Int {
 
 ///|
 pub fn builder(
-  key? : Key? = None,
+  key? : Key,
   tag? : Int = 0,
   build : (BuildContext) -> Widget,
 ) -> Widget {
@@ -497,7 +500,7 @@ pub fn builder(
 
 ///|
 pub fn theme_provider(
-  key? : Key? = None,
+  key? : Key,
   theme : ThemeData,
   child : Widget,
 ) -> Widget {
@@ -506,17 +509,17 @@ pub fn theme_provider(
 
 ///|
 pub fn sized_box(
-  key? : Key? = None,
-  width? : Float? = None,
-  height? : Float? = None,
-  child? : Widget? = None,
+  key? : Key,
+  width? : Float,
+  height? : Float,
+  child? : Widget,
 ) -> Widget {
   { key, kind: WidgetKind::SizedBox(width, height, child) }
 }
 
 ///|
 pub fn padding(
-  key? : Key? = None,
+  key? : Key,
   insets : EdgeInsets,
   child : Widget,
 ) -> Widget {
@@ -525,7 +528,7 @@ pub fn padding(
 
 ///|
 pub fn align(
-  key? : Key? = None,
+  key? : Key,
   alignment : Alignment,
   child : Widget,
 ) -> Widget {
@@ -533,13 +536,13 @@ pub fn align(
 }
 
 ///|
-pub fn center(key? : Key? = None, child : Widget) -> Widget {
-  align(key~, Alignment::center(), child)
+pub fn center(key? : Key, child : Widget) -> Widget {
+  align(key?=key, Alignment::center(), child)
 }
 
 ///|
 pub fn constrained_box(
-  key? : Key? = None,
+  key? : Key,
   constraints : BoxConstraints,
   child : Widget,
 ) -> Widget {
@@ -548,22 +551,22 @@ pub fn constrained_box(
 
 ///|
 pub fn decorated_box(
-  key? : Key? = None,
+  key? : Key,
   decoration : DecoratedProps,
-  child? : Widget? = None,
+  child? : Widget,
 ) -> Widget {
   { key, kind: WidgetKind::DecoratedBox(decoration, child) }
 }
 
 ///|
 pub fn container(
-  key? : Key? = None,
-  width? : Float? = None,
-  height? : Float? = None,
-  pad? : EdgeInsets? = None,
-  color? : @g2d.Color? = None,
-  shader? : @g2d.Shader2D? = None,
-  border_color? : @g2d.Color? = None,
+  key? : Key,
+  width? : Float,
+  height? : Float,
+  pad? : EdgeInsets,
+  color? : @g2d.Color,
+  shader? : @g2d.Shader2D,
+  border_color? : @g2d.Color,
   border_width? : Float = (0.0 : Float),
   radius? : Float = (0.0 : Float),
   tl? : Float = (-1.0 : Float),
@@ -573,9 +576,9 @@ pub fn container(
   shadow_blur? : Float = (0.0 : Float),
   shadow_dx? : Float = (0.0 : Float),
   shadow_dy? : Float = (4.0 : Float),
-  shadow_color? : @g2d.Color? = None,
-  alignment? : Alignment? = None,
-  child? : Widget? = None,
+  shadow_color? : @g2d.Color,
+  alignment? : Alignment,
+  child? : Widget,
 ) -> Widget {
   let mut w = child
   match alignment {
@@ -590,7 +593,7 @@ pub fn container(
     Some(p) =>
       match w {
         Some(c) => w = Some(padding(p, c))
-        None => w = Some(sized_box(width=Some(p.horizontal()), height=Some(p.vertical())))
+        None => w = Some(sized_box(width=p.horizontal(), height=p.vertical()))
       }
     None => ()
   }
@@ -600,11 +603,11 @@ pub fn container(
     shadow_color is Some(_)
   if has_deco {
     let deco = DecoratedProps::new(
-      fill=color,
-      shader~,
-      border_color~,
+      fill?=color,
+      shader?=shader,
+      border_color?=border_color,
       border_width~,
-      radius~,
+      radius=radius,
       tl~,
       tr~,
       br~,
@@ -612,23 +615,23 @@ pub fn container(
       shadow_blur~,
       shadow_dx~,
       shadow_dy~,
-      shadow_color~,
+      shadow_color?=shadow_color,
     )
-    w = Some(decorated_box(deco, child=w))
+    w = Some(decorated_box(deco, child?=w))
   }
   if width is Some(_) || height is Some(_) {
-    sized_box(key~, width~, height~, child=w)
+    sized_box(key?=key, width?=width, height?=height, child?=w)
   } else {
     match w {
       Some(inner) => { key, kind: inner.kind }
-      None => sized_box(key~)
+      None => sized_box(key?=key)
     }
   }
 }
 
 ///|
 pub fn row(
-  key? : Key? = None,
+  key? : Key,
   main_axis? : MainAxisAlignment = MainAxisAlignment::Start,
   cross_axis? : CrossAxisAlignment = CrossAxisAlignment::Center,
   main_size? : MainAxisSize = MainAxisSize::Max,
@@ -650,7 +653,7 @@ pub fn row(
 
 ///|
 pub fn column(
-  key? : Key? = None,
+  key? : Key,
   main_axis? : MainAxisAlignment = MainAxisAlignment::Start,
   cross_axis? : CrossAxisAlignment = CrossAxisAlignment::Start,
   main_size? : MainAxisSize = MainAxisSize::Max,
@@ -672,7 +675,7 @@ pub fn column(
 
 ///|
 pub fn expanded(
-  key? : Key? = None,
+  key? : Key,
   flex? : Int = 1,
   child : Widget,
 ) -> Widget {
@@ -681,7 +684,7 @@ pub fn expanded(
 
 ///|
 pub fn flexible(
-  key? : Key? = None,
+  key? : Key,
   flex? : Int = 1,
   fit? : FlexFit = FlexFit::Loose,
   child : Widget,
@@ -691,7 +694,7 @@ pub fn flexible(
 
 ///|
 pub fn stack(
-  key? : Key? = None,
+  key? : Key,
   alignment? : Alignment = Alignment::top_left(),
   children : Array[Widget],
 ) -> Widget {
@@ -700,13 +703,13 @@ pub fn stack(
 
 ///|
 pub fn positioned(
-  key? : Key? = None,
-  left? : Float? = None,
-  top? : Float? = None,
-  right? : Float? = None,
-  bottom? : Float? = None,
-  width? : Float? = None,
-  height? : Float? = None,
+  key? : Key,
+  left? : Float,
+  top? : Float,
+  right? : Float,
+  bottom? : Float,
+  width? : Float,
+  height? : Float,
   child : Widget,
 ) -> Widget {
   { key, kind: WidgetKind::Positioned(left, top, right, bottom, width, height, child) }
@@ -714,7 +717,7 @@ pub fn positioned(
 
 ///|
 pub fn wrap(
-  key? : Key? = None,
+  key? : Key,
   spacing? : Float = (8.0 : Float),
   run_spacing? : Float = (8.0 : Float),
   children : Array[Widget],
@@ -723,13 +726,13 @@ pub fn wrap(
 }
 
 ///|
-pub fn clip_rect(key? : Key? = None, child : Widget) -> Widget {
+pub fn clip_rect(key? : Key, child : Widget) -> Widget {
   { key, kind: WidgetKind::ClipRect(child) }
 }
 
 ///|
 pub fn clip_rrect(
-  key? : Key? = None,
+  key? : Key,
   radius : Float,
   child : Widget,
 ) -> Widget {
@@ -737,13 +740,13 @@ pub fn clip_rrect(
 }
 
 ///|
-pub fn opacity(key? : Key? = None, value : Float, child : Widget) -> Widget {
+pub fn opacity(key? : Key, value : Float, child : Widget) -> Widget {
   { key, kind: WidgetKind::Opacity(value, child) }
 }
 
 ///|
 pub fn transform(
-  key? : Key? = None,
+  key? : Key,
   matrix : @g2d.Matrix3,
   child : Widget,
 ) -> Widget {
@@ -752,7 +755,7 @@ pub fn transform(
 
 ///|
 pub fn backdrop_filter(
-  key? : Key? = None,
+  key? : Key,
   blur_sigma? : Float = (12.0 : Float),
   radius? : Float = (14.0 : Float),
   tint? : @g2d.Color = @g2d.Color::rgba((0.12 : Float), (0.15 : Float), (0.24 : Float), (0.72 : Float)),
@@ -762,22 +765,22 @@ pub fn backdrop_filter(
 }
 
 ///|
-pub fn repaint_boundary(key? : Key? = None, child : Widget) -> Widget {
+pub fn repaint_boundary(key? : Key, child : Widget) -> Widget {
   { key, kind: WidgetKind::RepaintBoundary(child) }
 }
 
 ///|
 pub fn text(
-  key? : Key? = None,
+  key? : Key,
   content : String,
   size? : Float = (15.0 : Float),
-  color? : @g2d.Color? = None,
-  font? : @g2d.FontFace? = None,
+  color? : @g2d.Color,
+  font? : @g2d.FontFace,
   align? : @g2d.TextAlign = @g2d.TextAlign::Left,
   max_lines? : Int = 0,
   ellipsis? : String = "",
 ) -> Widget {
-  builder(key~, tag=190, fn(ctx) {
+  builder(key?=key, tag=190, fn(ctx) {
     let th = ctx.theme()
     let col = match color {
       Some(c) => c
@@ -794,7 +797,7 @@ pub fn text(
 
 ///|
 pub fn image_widget(
-  key? : Key? = None,
+  key? : Key,
   img : @g2d.Image2D,
   width : Float,
   height : Float,
@@ -804,7 +807,7 @@ pub fn image_widget(
 
 ///|
 pub fn custom_paint(
-  key? : Key? = None,
+  key? : Key,
   size : @g2d.Size,
   painter : (@g2d.Canvas, @g2d.Size) -> Unit,
 ) -> Widget {
@@ -813,12 +816,12 @@ pub fn custom_paint(
 
 ///|
 pub fn gesture_detector(
-  key? : Key? = None,
-  on_tap? : (() -> Unit)? = None,
-  on_drag_start? : ((@g2d.Point) -> Unit)? = None,
-  on_drag_update? : ((@g2d.Point, @g2d.Point) -> Unit)? = None,
-  on_drag_end? : (() -> Unit)? = None,
-  on_scroll? : ((Float, Float) -> Unit)? = None,
+  key? : Key,
+  on_tap? : (() -> Unit),
+  on_drag_start? : ((@g2d.Point) -> Unit),
+  on_drag_update? : ((@g2d.Point, @g2d.Point) -> Unit),
+  on_drag_end? : (() -> Unit),
+  on_scroll? : ((Float, Float) -> Unit),
   child : Widget,
 ) -> Widget {
   let cbs : GestureCallbacks = {
@@ -837,11 +840,11 @@ pub fn gesture_detector(
 
 ///|
 pub fn mouse_region(
-  key? : Key? = None,
-  on_enter? : (() -> Unit)? = None,
-  on_exit? : (() -> Unit)? = None,
-  on_hover? : ((@g2d.Point) -> Unit)? = None,
-  cursor? : @tycho.CursorShape? = None,
+  key? : Key,
+  on_enter? : (() -> Unit),
+  on_exit? : (() -> Unit),
+  on_hover? : ((@g2d.Point) -> Unit),
+  cursor? : @tycho.CursorShape,
   child : Widget,
 ) -> Widget {
   let cbs : GestureCallbacks = {
@@ -860,7 +863,7 @@ pub fn mouse_region(
 
 ///|
 pub fn list_view_builder(
-  key? : Key? = None,
+  key? : Key,
   item_count : Int,
   item_extent : Float,
   controller : ScrollController,
@@ -871,8 +874,8 @@ pub fn list_view_builder(
 
 ///|
 pub fn single_child_scroll_view(
-  key? : Key? = None,
-  controller? : ScrollController? = None,
+  key? : Key,
+  controller? : ScrollController,
   direction? : Axis = Axis::Vertical,
   child : Widget,
 ) -> Widget {
@@ -885,7 +888,7 @@ pub fn single_child_scroll_view(
 
 ///|
 pub fn text_field(
-  key? : Key? = None,
+  key? : Key,
   controller : TextController,
   placeholder? : String = "Type here...",
   width? : Float = (260.0 : Float),

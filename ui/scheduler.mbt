@@ -1,32 +1,25 @@
 // AppRunner (live interactive window loop) and WidgetTester (headless automated testing).
 
-///|
-const K_MOD_SHIFT : Int = 1
-
-///|
-const K_MOD_CTRL : Int = 4
-
-///|
 fn route_key_to_text_ctrl(
   tree : UiTree,
-  key : Int,
-  mods : Int,
+  key : @tycho.KeyCode,
+  mods : @tycho.Modifiers,
   sc : @tycho.Swapchain?,
 ) -> Bool {
-  let shift = (mods & K_MOD_SHIFT) != 0
-  let ctrl = (mods & K_MOD_CTRL) != 0
-  if key == @tycho.KEY_TAB {
+  let shift = mods.shift
+  let ctrl = mods.ctrl
+  if key == @tycho.KeyCode::Tab {
     tree.cycle_text_focus(shift)
     return true
   }
   match tree.focused_text_controller() {
     Some(tc) => {
       if ctrl {
-        if key == @tycho.KEY_A {
+        if key == @tycho.KeyCode::A {
           tc.select_all()
           return true
         }
-        if key == @tycho.KEY_C {
+        if key == @tycho.KeyCode::C {
           let sel = tc.selected_text()
           if sel != "" {
             match sc {
@@ -36,7 +29,7 @@ fn route_key_to_text_ctrl(
           }
           return true
         }
-        if key == @tycho.KEY_X {
+        if key == @tycho.KeyCode::X {
           let sel = tc.selected_text()
           if sel != "" {
             match sc {
@@ -47,53 +40,53 @@ fn route_key_to_text_ctrl(
           }
           return true
         }
-        if key == @tycho.KEY_V {
+        if key == @tycho.KeyCode::V {
           match sc {
             Some(s) => tc.insert_text(s.clipboard_text())
             None => ()
           }
           return true
         }
-        if key == @tycho.KEY_Z {
+        if key == @tycho.KeyCode::Z {
           if shift { tc.redo() } else { tc.undo() }
           return true
         }
-        if key == @tycho.KEY_Y {
+        if key == @tycho.KeyCode::Y {
           tc.redo()
           return true
         }
       }
-      if key == @tycho.KEY_BACKSPACE {
+      if key == @tycho.KeyCode::Backspace {
         tc.backspace()
         return true
       }
-      if key == 0xffff {
+      if key == @tycho.KeyCode::Delete {
         tc.delete_forward()
         return true
       }
-      if key == @tycho.KEY_LEFT {
+      if key == @tycho.KeyCode::Left {
         tc.move_left(select=shift)
         return true
       }
-      if key == @tycho.KEY_RIGHT {
+      if key == @tycho.KeyCode::Right {
         tc.move_right(select=shift)
         return true
       }
-      if key == 0xff50 {
+      if key == @tycho.KeyCode::Home {
         tc.move_home(select=shift)
         return true
       }
-      if key == 0xff57 {
+      if key == @tycho.KeyCode::End {
         tc.move_end(select=shift)
         return true
       }
-      if key == @tycho.KEY_RETURN && tc.multiline {
+      if key == @tycho.KeyCode::Return && tc.multiline {
         tc.insert_char('\n')
         return true
       }
       false
     }
-    None => tree.focus.dispatch_key(key, mods)
+    None => tree.focus.dispatch_key(key.to_keysym(), mods.bits())
   }
 }
 
@@ -264,8 +257,8 @@ pub fn AppRunner::run_window(
       match ev {
         @tycho.Event::CloseRequested => quit = true
         @tycho.Event::KeyDown(k, mods) => {
-          if k == @tycho.KEY_ESCAPE {
-            if !self.tree.focus.dispatch_key(k, mods) {
+          if k == @tycho.KeyCode::Escape {
+            if !self.tree.focus.dispatch_key(k.to_keysym(), mods.bits()) {
               quit = true
             }
           } else {
@@ -334,7 +327,7 @@ pub fn AppRunner::run_window(
         sc,
         scaled_canvas.finish(),
         clear_color=self.clear_color,
-        dl_size=Some((cur_w, cur_h)),
+        dl_size=(cur_w, cur_h),
       )
       let g1 = @tycho.Swapchain::time()
       self.last_gpu_ms = (g1 - g0) * 1000.0
@@ -421,11 +414,11 @@ pub fn WidgetTester::scroll(
 ///|
 pub fn WidgetTester::send_key(
   self : WidgetTester,
-  key : Int,
+  key : @tycho.KeyCode,
   shift? : Bool = false,
   ctrl? : Bool = false,
 ) -> Unit {
-  let mods = (if shift { K_MOD_SHIFT } else { 0 }) | (if ctrl { K_MOD_CTRL } else { 0 })
+  let mods = @tycho.Modifiers::new(shift=shift, ctrl=ctrl)
   let _ = route_key_to_text_ctrl(self.tree, key, mods, None)
   let _ = self.pump_frame()
 }
@@ -452,5 +445,5 @@ pub fn WidgetTester::render_to_texture(
   clear_color? : @g2d.Color = ColorScheme::dark().background,
 ) -> Unit raise @tycho.RhiError {
   let dl = self.pump_frame()
-  renderer.render_offscreen(dl, target, clear_color~)
+  renderer.render_offscreen( target,dl, clear_color~)
 }

@@ -3,19 +3,22 @@
 
 ///|
 pub struct ElementNode {
-  id : Int
-  key : Key?
-  mut depth : Int
-  mut parent : ElementNode?
-  mut widget : Widget
-  mut dirty : Bool
-  mut theme : ThemeData
-  children : Array[ElementNode]
-  render : RenderNode?
+  priv id : Int
+  priv mut depth : Int
+  priv mut parent : ElementNode?
+  priv mut widget : Widget
+  priv mut dirty : Bool
+  priv mut theme : ThemeData
+  priv children : Array[ElementNode]
+  priv render : RenderNode?
+  // Live signal subscriptions owned by this element; dropped on unmount and on
+  // rebuild when the element no longer reads the signal.
+  priv subs : Array[SignalAttachment]
+  // Signal ids read during the current build pass (used to prune stale subs).
+  priv build_marks : Array[Int]
   // ListView virtualization window cache
-  mut list_first : Int
-  mut list_last : Int
-  mut list_last_scroll : Float
+  priv mut list_first : Int
+  priv mut list_last : Int
 }
 
 ///|
@@ -169,12 +172,123 @@ fn widget_static_children(kind : WidgetKind) -> Array[Widget] {
 }
 
 ///|
+fn contains_int(arr : Array[Int], v : Int) -> Bool {
+  for x in arr {
+    if x == v {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn find_attachment(subs : Array[SignalAttachment], signal_id : Int) -> Bool {
+  for s in subs {
+    if s.signal_id() == signal_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Registers `sig` as a dependency of `elem_id`, storing a drop handle on the
+/// element so the subscription is released deterministically.
+fn[T] UiTree::attach_signal(
+  self : UiTree,
+  e : ElementNode,
+  sig : Signal[T],
+) -> Unit {
+  let sid = sig.id()
+  if find_attachment(e.subs, sid) {
+    return
+  }
+  let elem_id = e.id
+  sig.subscribe_element(elem_id, fn(dirty_id) { self.mark_dirty(dirty_id) })
+  e.subs.push({
+    signal_id: sid,
+    drop: fn() { sig.unsubscribe_element(elem_id) },
+  })
+}
+
+///|
+pub fn[T] BuildContext::track(self : BuildContext, sig : Signal[T]) -> Unit {
+  match self.tree {
+    Some(tree) => tree.track_signal(self.elem_id, sig)
+    None => ()
+  }
+}
+
+///|
+/// Records a `Signal::get` read during the build of `elem_id`. The read is
+/// remembered in `build_marks` so stale dependencies can be pruned once the
+/// build finishes.
+fn[T] UiTree::track_signal(
+  self : UiTree,
+  elem_id : Int,
+  sig : Signal[T],
+) -> Unit {
+  match self.by_id.get(elem_id) {
+    Some(e) => {
+      let sid = sig.id()
+      if !contains_int(e.build_marks, sid) {
+        e.build_marks.push(sid)
+      }
+      self.attach_signal(e, sig)
+    }
+    None => ()
+  }
+}
+
+///|
+/// Drops subscriptions that were not read during the last build of `e`.
+fn prune_signals(e : ElementNode) -> Unit {
+  let kept : Array[SignalAttachment] = []
+  for sub in e.subs {
+    if contains_int(e.build_marks, sub.signal_id()) {
+      kept.push(sub)
+    } else {
+      (sub.drop)()
+    }
+  }
+  e.subs.clear()
+  for sub in kept {
+    e.subs.push(sub)
+  }
+  e.build_marks.clear()
+}
+
+///|
 fn UiTree::unmount_node(self : UiTree, e : ElementNode) -> Unit {
   let _ = self.by_id.remove(e.id)
+  for sub in e.subs {
+    (sub.drop)()
+  }
+  e.subs.clear()
+  e.build_marks.clear()
+  match e.widget.kind {
+    TextFieldNode(ctrl, _, _, _) => self.remove_text_controller(ctrl)
+    _ => ()
+  }
   for ch in e.children {
     self.unmount_node(ch)
   }
   e.children.clear()
+}
+
+///|
+fn UiTree::remove_text_controller(self : UiTree, ctrl : TextController) -> Unit {
+  let kept : Array[TextController] = []
+  let key = ctrl.text.id()
+  for tc in self.active_text_controllers {
+    if tc.text.id() != key {
+      kept.push(tc)
+    }
+  }
+  self.active_text_controllers.clear()
+  for tc in kept {
+    self.active_text_controllers.push(tc)
+  }
 }
 
 ///|
@@ -307,22 +421,21 @@ fn UiTree::rebuild_element(self : UiTree, e : ElementNode) -> Unit {
   e.dirty = false
   match e.widget.kind {
     Builder(_, build_fn) => {
-      let prev_elem = g_current_build_elem.val
-      g_current_build_elem.val = e.id
-      let built = build_fn({ elem_id: e.id, theme_ref: e.theme })
-      g_current_build_elem.val = prev_elem
+      e.build_marks.clear()
+      let ctx : BuildContext = { elem_id: e.id, theme_ref: e.theme, tree: Some(self) }
+      let built = build_fn(ctx)
+      prune_signals(e)
       self.reconcile_children(e, [built], e.theme)
     }
     ThemeProvider(new_theme, child) => self.reconcile_children(e, [child], new_theme)
     ListViewBuilder(count, extent, ctrl, item_builder) => {
-      ctrl.offset.subscribe_element(e.id)
+      self.attach_signal(e, ctrl.offset)
       let (first, last) = compute_list_window(count, extent, ctrl)
       e.list_first = first
       e.list_last = last
-      e.list_last_scroll = ctrl.offset.peek()
       let item_widgets : Array[Widget] = []
       let indices : Array[Int] = []
-      let ctx : BuildContext = { elem_id: e.id, theme_ref: e.theme }
+      let ctx : BuildContext = { elem_id: e.id, theme_ref: e.theme, tree: Some(self) }
       for idx = first; idx < last; idx = idx + 1 {
         let iw = item_builder(ctx, idx)
         item_widgets.push({ key: Some(Key::IntKey(idx)), kind: iw.kind })
@@ -363,22 +476,11 @@ fn UiTree::mount_element(
 ) -> ElementNode {
   let id = self.alloc_elem_id()
   let rn = match widget_to_render_kind(w.kind, theme) {
-    Some(rk) => Some(RenderNode::new(id, rk, theme))
+    Some(rk) => Some(RenderNode::new(id, rk))
     None => None
-  }
-  match w.kind {
-    TextFieldNode(ctrl, _, _, _) => {
-      ctrl.text.subscribe_element(id)
-      ctrl.cursor.subscribe_element(id)
-      ctrl.focused.subscribe_element(id)
-      self.active_text_controllers.push(ctrl)
-    }
-    ScrollViewportNode(ctrl, _, _) => ctrl.offset.subscribe_element(id)
-    _ => ()
   }
   let node : ElementNode = {
     id,
-    key: w.key,
     depth,
     parent,
     widget: w,
@@ -386,11 +488,22 @@ fn UiTree::mount_element(
     theme,
     children: [],
     render: rn,
+    subs: [],
+    build_marks: [],
     list_first: 0,
     list_last: 0,
-    list_last_scroll: (-1.0 : Float),
   }
   self.by_id[id] = node
+  match w.kind {
+    TextFieldNode(ctrl, _, _, _) => {
+      self.attach_signal(node, ctrl.text)
+      self.attach_signal(node, ctrl.cursor)
+      self.attach_signal(node, ctrl.focused)
+      self.active_text_controllers.push(ctrl)
+    }
+    ScrollViewportNode(ctrl, _, _) => self.attach_signal(node, ctrl.offset)
+    _ => ()
+  }
   self.rebuild_element(node)
   node
 }
@@ -409,7 +522,6 @@ fn UiTree::update_element(
   match (e.render, widget_to_render_kind(new_w.kind, theme)) {
     (Some(rn), Some(rk)) => {
       rn.kind = rk
-      rn.active_theme = theme
       rn.needs_layout = true
       rn.needs_paint = true
       rn.cached_dl = None
@@ -421,7 +533,11 @@ fn UiTree::update_element(
 
 ///|
 pub fn UiTree::mount_root(self : UiTree, w : Widget) -> Unit {
-  set_signal_dirty_hook(fn(eid) { self.mark_dirty(eid) })
+  match self.root {
+    Some(old) => self.unmount_node(old)
+    None => ()
+  }
+  self.root = None
   self.by_id.clear()
   self.dirty_ids.clear()
   self.active_text_controllers.clear()

@@ -2,75 +2,75 @@
 
 ///|
 pub fn divider(
-  key? : Key? = None,
+  key? : Key,
   height? : Float = (1.0 : Float),
-  color? : @g2d.Color? = None,
+  color? : @g2d.Color,
 ) -> Widget {
-  builder(key~, tag=301, fn(ctx) {
+  builder(key?=key, tag=301, fn(ctx) {
     let col = match color {
       Some(c) => c
       None => ctx.colors().border
     }
     constrained_box(
       BoxConstraints::new(min_width=INF, max_width=INF, min_height=height, max_height=height),
-      container(color=Some(col)),
+      container(color=col),
     )
   })
 }
 
 ///|
 pub fn card(
-  key? : Key? = None,
+  key? : Key,
   pad? : EdgeInsets = EdgeInsets::all((16.0 : Float)),
-  radius? : Float? = None,
-  color? : @g2d.Color? = None,
-  border_color? : @g2d.Color? = None,
+  radius? : Float,
+  color? : @g2d.Color,
+  border_color? : @g2d.Color,
   shadow_blur? : Float = (12.0 : Float),
   child : Widget,
 ) -> Widget {
-  builder(key~, tag=302, fn(ctx) {
+  builder(key?=key, tag=302, fn(ctx) {
     let th = ctx.theme()
     let bg = match color { Some(c) => c; None => th.colors.surface }
     let bc = match border_color { Some(c) => c; None => th.colors.border }
     let rad = match radius { Some(r) => r; None => th.radius_md }
     container(
-      pad=Some(pad),
-      color=Some(bg),
-      border_color=Some(bc),
+      pad=pad,
+      color=bg,
+      border_color=bc,
       border_width=(1.5 : Float),
       radius=rad,
       shadow_blur~,
       shadow_dy=(6.0 : Float),
-      shadow_color=Some(@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.02 : Float), (0.45 : Float))),
-      child=Some(child),
+      shadow_color=@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.02 : Float), (0.45 : Float)),
+      child=child,
     )
   })
 }
 
 ///|
 pub fn filled_button(
-  key? : Key? = None,
+  key? : Key,
   label : String,
   on_pressed : () -> Unit,
-  color? : @g2d.Color? = None,
+  color? : @g2d.Color,
   pad? : EdgeInsets = EdgeInsets::symmetric(horizontal=(16.0 : Float), vertical=(10.0 : Float)),
 ) -> Widget {
   let hovered = Signal::new(false)
-  builder(key~, tag=303, fn(ctx) {
+  builder(key?=key, tag=303, fn(ctx) {
     let th = ctx.theme()
     let is_h = hovered.get(ctx)
     let base = match color { Some(c) => c; None => th.colors.primary }
     let bg = if is_h { base.lerp(@g2d.Color::white(), (0.16 : Float)) } else { base }
     mouse_region(
-      on_enter=Some(fn() { hovered.set(true) }),
-      on_exit=Some(fn() { hovered.set(false) }),
+      on_enter=fn() { hovered.set(true) },
+      on_exit=fn() { hovered.set(false) },
       gesture_detector(
-        on_tap=Some(on_pressed),
+        on_tap=on_pressed,
         container(
-          pad=Some(pad),
-          color=Some(bg),
+          pad=pad,
+          color=bg,
           radius=th.radius_sm,
-          child=Some(text(label, size=(14.0 : Float), color=Some(th.colors.on_primary))),
+          child=text(label, size=(14.0 : Float), color=th.colors.on_primary),
         ),
       ),
     )
@@ -79,28 +79,28 @@ pub fn filled_button(
 
 ///|
 pub fn outlined_button(
-  key? : Key? = None,
+  key? : Key,
   label : String,
   on_pressed : () -> Unit,
   pad? : EdgeInsets = EdgeInsets::symmetric(horizontal=(16.0 : Float), vertical=(10.0 : Float)),
 ) -> Widget {
   let hovered = Signal::new(false)
-  builder(key~, tag=304, fn(ctx) {
+  builder(key?=key, tag=304, fn(ctx) {
     let th = ctx.theme()
     let is_h = hovered.get(ctx)
     let bg = if is_h { th.colors.surface_variant } else { th.colors.surface }
     mouse_region(
-      on_enter=Some(fn() { hovered.set(true) }),
-      on_exit=Some(fn() { hovered.set(false) }),
+      on_enter=fn() { hovered.set(true) },
+      on_exit=fn() { hovered.set(false) },
       gesture_detector(
-        on_tap=Some(on_pressed),
+        on_tap=on_pressed,
         container(
-          pad=Some(pad),
-          color=Some(bg),
-          border_color=Some(th.colors.primary),
+          pad=pad,
+          color=bg,
+          border_color=th.colors.primary,
           border_width=(1.5 : Float),
           radius=th.radius_sm,
-          child=Some(text(label, size=(14.0 : Float), color=Some(th.colors.primary))),
+          child=text(label, size=(14.0 : Float), color=th.colors.primary),
         ),
       ),
     )
@@ -109,12 +109,12 @@ pub fn outlined_button(
 
 ///|
 pub fn checkbox(
-  key? : Key? = None,
+  key? : Key,
   checked : Signal[Bool],
   label? : String = "",
-  on_changed? : ((Bool) -> Unit)? = None,
+  on_changed? : ((Bool) -> Unit),
 ) -> Widget {
-  builder(key~, tag=305, fn(ctx) {
+  builder(key?=key, tag=305, fn(ctx) {
     let th = ctx.theme()
     let val = checked.get(ctx)
     let box_bg = if val { th.colors.primary } else { th.colors.surface_variant }
@@ -122,9 +122,9 @@ pub fn checkbox(
     let check_mark = if val {
       Some(
         container(
-          width=Some((10.0 : Float)),
-          height=Some((10.0 : Float)),
-          color=Some(th.colors.on_primary),
+          width=(10.0 : Float),
+          height=(10.0 : Float),
+          color=th.colors.on_primary,
           radius=(2.0 : Float),
         ),
       )
@@ -132,28 +132,28 @@ pub fn checkbox(
       None
     }
     let box_w = container(
-      width=Some((20.0 : Float)),
-      height=Some((20.0 : Float)),
-      color=Some(box_bg),
-      border_color=Some(box_border),
+      width=(20.0 : Float),
+      height=(20.0 : Float),
+      color=box_bg,
+      border_color=box_border,
       border_width=(1.5 : Float),
       radius=(5.0 : Float),
-      alignment=Some(Alignment::center()),
-      child=check_mark,
+      alignment=Alignment::center(),
+      child?=check_mark,
     )
     let kids : Array[Widget] = [box_w]
     if label != "" {
-      kids.push(text(label, size=(14.0 : Float), color=Some(th.colors.text_primary)))
+      kids.push(text(label, size=(14.0 : Float), color=th.colors.text_primary))
     }
     gesture_detector(
-      on_tap=Some(fn() {
+      on_tap=fn() {
         let nv = !checked.peek()
         checked.set(nv)
         match on_changed {
           Some(f) => f(nv)
           None => ()
         }
-      }),
+      },
       row(gap=(10.0 : Float), main_size=MainAxisSize::Min, kids),
     )
   })
@@ -161,12 +161,12 @@ pub fn checkbox(
 
 ///|
 pub fn switch_toggle(
-  key? : Key? = None,
+  key? : Key,
   value : Signal[Bool],
   label? : String = "",
-  on_changed? : ((Bool) -> Unit)? = None,
+  on_changed? : ((Bool) -> Unit),
 ) -> Widget {
-  builder(key~, tag=306, fn(ctx) {
+  builder(key?=key, tag=306, fn(ctx) {
     let th = ctx.theme()
     let on = value.get(ctx)
     let track_bg = if on { th.colors.secondary } else { th.colors.surface_variant }
@@ -174,37 +174,36 @@ pub fn switch_toggle(
     let track_h = (24.0 : Float)
     let knob_x = if on { (22.0 : Float) } else { (3.0 : Float) }
     let track = container(
-      width=Some(track_w),
-      height=Some(track_h),
-      color=Some(track_bg),
-      border_color=Some(if on { th.colors.secondary } else { th.colors.border }),
+      width=track_w,
+      height=track_h,
+      color=track_bg,
+      border_color=if on { th.colors.secondary } else { th.colors.border },
       border_width=(1.0 : Float),
       radius=(12.0 : Float),
-      child=Some(
+      child=
         stack([
           positioned(
-            left=Some(knob_x),
-            top=Some((3.0 : Float)),
-            width=Some((18.0 : Float)),
-            height=Some((18.0 : Float)),
-            container(color=Some(@g2d.Color::white()), radius=(9.0 : Float)),
+            left=knob_x,
+            top=(3.0 : Float),
+            width=(18.0 : Float),
+            height=(18.0 : Float),
+            container(color=@g2d.Color::white(), radius=(9.0 : Float)),
           ),
         ]),
-      ),
     )
     let kids : Array[Widget] = [track]
     if label != "" {
-      kids.push(text(label, size=(14.0 : Float), color=Some(th.colors.text_primary)))
+      kids.push(text(label, size=(14.0 : Float), color=th.colors.text_primary))
     }
     gesture_detector(
-      on_tap=Some(fn() {
+      on_tap=fn() {
         let nv = !value.peek()
         value.set(nv)
         match on_changed {
           Some(f) => f(nv)
           None => ()
         }
-      }),
+      },
       row(gap=(10.0 : Float), main_size=MainAxisSize::Min, kids),
     )
   })
@@ -212,44 +211,43 @@ pub fn switch_toggle(
 
 ///|
 pub fn progress_bar(
-  key? : Key? = None,
+  key? : Key,
   value : Float,
   width? : Float = (200.0 : Float),
   height? : Float = (10.0 : Float),
-  color? : @g2d.Color? = None,
+  color? : @g2d.Color,
 ) -> Widget {
-  builder(key~, tag=307, fn(ctx) {
+  builder(key?=key, tag=307, fn(ctx) {
     let th = ctx.theme()
     let t = @tmath.clamp_f(value, (0.0 : Float), (1.0 : Float))
     let fill = match color { Some(c) => c; None => th.colors.primary }
     let rad = height * (0.5 : Float)
     container(
-      width=Some(width),
-      height=Some(height),
-      color=Some(th.colors.surface_variant),
+      width=width,
+      height=height,
+      color=th.colors.surface_variant,
       radius=rad,
-      child=Some(
+      child=
         stack([
           positioned(
-            left=Some((0.0 : Float)),
-            top=Some((0.0 : Float)),
-            width=Some(@tmath.max_f(height, width * t)),
-            height=Some(height),
-            container(color=Some(fill), radius=rad),
+            left=(0.0 : Float),
+            top=(0.0 : Float),
+            width=@tmath.max_f(height, width * t),
+            height=height,
+            container(color=fill, radius=rad),
           ),
         ]),
-      ),
     )
   })
 }
 
 ///|
 pub fn slider(
-  key? : Key? = None,
+  key? : Key,
   value : Signal[Float],
   width? : Float = (220.0 : Float),
 ) -> Widget {
-  builder(key~, tag=308, fn(ctx) {
+  builder(key?=key, tag=308, fn(ctx) {
     let th = ctx.theme()
     let v = @tmath.clamp_f(value.get(ctx), (0.0 : Float), (1.0 : Float))
     let h = (24.0 : Float)
@@ -257,49 +255,48 @@ pub fn slider(
     let usable = @tmath.max_f((1.0 : Float), width - knob_r * (2.0 : Float))
     let kx = v * usable
     mouse_region(
-      cursor=Some(@tycho.CursorShape::Pointer),
+      cursor=@tycho.CursorShape::Pointer,
       gesture_detector(
-        on_drag_start=Some(fn(pos) {
+        on_drag_start=fn(pos) {
           let nv = @tmath.clamp_f((pos.x - knob_r) / usable, (0.0 : Float), (1.0 : Float))
           value.set(nv)
-        }),
-        on_drag_update=Some(fn(pos, _d) {
+        },
+        on_drag_update=fn(pos, _d) {
           let nv = @tmath.clamp_f((pos.x - knob_r) / usable, (0.0 : Float), (1.0 : Float))
           value.set(nv)
-        }),
+        },
         container(
-        width=Some(width),
-        height=Some(h),
-        child=Some(
+        width=width,
+        height=h,
+        child=
           stack([
             positioned(
-              left=Some((0.0 : Float)),
-              top=Some((8.0 : Float)),
-              width=Some(width),
-              height=Some((8.0 : Float)),
-              container(color=Some(th.colors.surface_variant), radius=(4.0 : Float)),
+              left=(0.0 : Float),
+              top=(8.0 : Float),
+              width=width,
+              height=(8.0 : Float),
+              container(color=th.colors.surface_variant, radius=(4.0 : Float)),
             ),
             positioned(
-              left=Some((0.0 : Float)),
-              top=Some((8.0 : Float)),
-              width=Some(@tmath.max_f((8.0 : Float), kx + knob_r)),
-              height=Some((8.0 : Float)),
-              container(color=Some(th.colors.primary), radius=(4.0 : Float)),
+              left=(0.0 : Float),
+              top=(8.0 : Float),
+              width=@tmath.max_f((8.0 : Float), kx + knob_r),
+              height=(8.0 : Float),
+              container(color=th.colors.primary, radius=(4.0 : Float)),
             ),
             positioned(
-              left=Some(kx),
-              top=Some((3.0 : Float)),
-              width=Some(knob_r * (2.0 : Float)),
-              height=Some(knob_r * (2.0 : Float)),
+              left=kx,
+              top=(3.0 : Float),
+              width=knob_r * (2.0 : Float),
+              height=knob_r * (2.0 : Float),
               container(
-                color=Some(@g2d.Color::white()),
-                border_color=Some(th.colors.primary),
+                color=@g2d.Color::white(),
+                border_color=th.colors.primary,
                 border_width=(2.0 : Float),
                 radius=knob_r,
               ),
             ),
           ]),
-        ),
       ),
       ),
     )
@@ -308,23 +305,23 @@ pub fn slider(
 
 ///|
 pub fn frosted_dialog(
-  key? : Key? = None,
+  key? : Key,
   title : String,
   body : Widget,
   on_close : () -> Unit,
   width? : Float = (360.0 : Float),
 ) -> Widget {
-  builder(key~, tag=309, fn(ctx) {
+  builder(key?=key, tag=309, fn(ctx) {
     let th = ctx.theme()
     stack([
       gesture_detector(
-        on_tap=Some(on_close),
-        container(color=Some(@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.45 : Float)))),
+        on_tap=on_close,
+        container(color=@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.45 : Float))),
       ),
       center(
         container(
-          width=Some(width),
-          child=Some(
+          width=width,
+          child=
             backdrop_filter(
               blur_sigma=(16.0 : Float),
               radius=th.radius_lg,
@@ -334,23 +331,20 @@ pub fn frosted_dialog(
                 @g2d.Color::rgba((0.96 : Float), (0.97 : Float), (1.0 : Float), (0.82 : Float))
               },
               container(
-                pad=Some(EdgeInsets::all((20.0 : Float))),
-                border_color=Some(th.colors.border),
+                pad=EdgeInsets::all((20.0 : Float)),
+                border_color=th.colors.border,
                 border_width=(1.5 : Float),
                 radius=th.radius_lg,
-                child=Some(
-                  column(gap=(12.0 : Float), [
-                    text(title, size=(18.0 : Float), color=Some(th.colors.text_primary)),
-                    divider(),
-                    body,
-                    row(main_axis=MainAxisAlignment::End, [
-                      filled_button("Close", on_close),
-                    ]),
+                child=column(gap=(12.0 : Float), [
+                  text(title, size=(18.0 : Float), color=th.colors.text_primary),
+                  divider(),
+                  body,
+                  row(main_axis=MainAxisAlignment::End, [
+                    filled_button("Close", on_close),
                   ]),
-                ),
+                ]),
               ),
             ),
-          ),
         ),
       ),
     ])
@@ -372,17 +366,17 @@ pub fn performance_overlay(stats : FrameStats) -> Widget {
     let info_str = "B:\{format_ms(stats.build_ms)}ms L:\{format_ms(stats.layout_ms)}ms P:\{format_ms(stats.paint_ms)}ms GPU:\{format_ms(stats.gpu_ms)}ms | E:\{stats.element_count} R:\{stats.render_count}"
     let bar = fn(ms : Double, col : @g2d.Color) -> Widget {
       let w = @tmath.clamp_f(Float::from_double(ms) * (6.0 : Float), (2.0 : Float), (120.0 : Float))
-      container(width=Some(w), height=Some((4.0 : Float)), color=Some(col), radius=(2.0 : Float))
+      container(width=w, height=(4.0 : Float), color=col, radius=(2.0 : Float))
     }
     container(
-      pad=Some(EdgeInsets::symmetric(horizontal=(10.0 : Float), vertical=(6.0 : Float))),
-      color=Some(@g2d.Color::rgba((0.05 : Float), (0.07 : Float), (0.12 : Float), (0.85 : Float))),
-      border_color=Some(th.colors.border),
+      pad=EdgeInsets::symmetric(horizontal=(10.0 : Float), vertical=(6.0 : Float)),
+      color=@g2d.Color::rgba((0.05 : Float), (0.07 : Float), (0.12 : Float), (0.85 : Float)),
+      border_color=th.colors.border,
       border_width=(1.0 : Float),
       radius=(6.0 : Float),
-      child=Some(
+      child=
         column(gap=(3.0 : Float), [
-          text(info_str, size=(11.0 : Float), color=Some(@g2d.Color::from_rgba8(120, 236, 175))),
+          text(info_str, size=(11.0 : Float), color=@g2d.Color::from_rgba8(120, 236, 175)),
           row(gap=(4.0 : Float), [
             bar(stats.build_ms, @g2d.Color::from_rgba8(96, 165, 250)),
             bar(stats.layout_ms, @g2d.Color::from_rgba8(250, 204, 21)),
@@ -390,18 +384,17 @@ pub fn performance_overlay(stats : FrameStats) -> Widget {
             bar(stats.gpu_ms, @g2d.Color::from_rgba8(74, 222, 128)),
           ]),
         ]),
-      ),
     )
   })
 }
 
 ///|
 pub fn layout_inspector(
-  key? : Key? = None,
+  key? : Key,
   enabled : Signal[Bool],
   child : Widget,
 ) -> Widget {
-  builder(key~, tag=326, fn(ctx) {
+  builder(key?=key, tag=326, fn(ctx) {
     let on = enabled.get(ctx)
     if !on {
       return child
@@ -409,7 +402,7 @@ pub fn layout_inspector(
     stack([
       child,
       container(
-        border_color=Some(@g2d.Color::from_rgba8(80, 220, 255, a=180)),
+        border_color=@g2d.Color::from_rgba8(80, 220, 255, a=180),
         border_width=(1.0 : Float),
       ),
     ])
@@ -429,8 +422,8 @@ pub(all) struct RichSpan {
 ///|
 pub fn RichSpan::new(
   text : String,
-  size? : Float? = None,
-  color? : @g2d.Color? = None,
+  size? : Float,
+  color? : @g2d.Color,
   bold? : Bool = false,
   italic? : Bool = false,
   underline? : Bool = false,
@@ -440,14 +433,14 @@ pub fn RichSpan::new(
 
 ///|
 pub fn rich_text(
-  key? : Key? = None,
+  key? : Key,
   spans : Array[RichSpan],
   align? : @g2d.TextAlign = @g2d.TextAlign::Left,
   max_lines? : Int = 0,
   ellipsis? : String = "...",
   max_width? : Float = (600.0 : Float),
 ) -> Widget {
-  builder(key~, tag=311, fn(ctx) {
+  builder(key?=key, tag=311, fn(ctx) {
     let th = ctx.theme()
     let pb = @g2d.ParagraphBuilder::new(
       style=@g2d.ParagraphStyle::new(align~, max_lines~, ellipsis~),
@@ -493,12 +486,12 @@ pub(all) enum IconKind {
 
 ///|
 pub fn icon(
-  key? : Key? = None,
+  key? : Key,
   kind : IconKind,
   size? : Float = (20.0 : Float),
-  color? : @g2d.Color? = None,
+  color? : @g2d.Color,
 ) -> Widget {
-  builder(key~, tag=312, fn(ctx) {
+  builder(key?=key, tag=312, fn(ctx) {
     let th = ctx.theme()
     let col = match color { Some(c) => c; None => th.colors.text_primary }
     let sw = @tmath.max_f((1.5 : Float), size * (0.1 : Float))
@@ -610,41 +603,41 @@ pub fn icon(
 
 ///|
 pub fn badge(
-  key? : Key? = None,
+  key? : Key,
   label? : String = "",
-  color? : @g2d.Color? = None,
+  color? : @g2d.Color,
   child : Widget,
 ) -> Widget {
-  builder(key~, tag=313, fn(ctx) {
+  builder(key?=key, tag=313, fn(ctx) {
     let th = ctx.theme()
     let bg = match color { Some(c) => c; None => th.colors.danger }
     let pill = if label == "" {
-      container(width=Some((10.0 : Float)), height=Some((10.0 : Float)), color=Some(bg), radius=(5.0 : Float))
+      container(width=(10.0 : Float), height=(10.0 : Float), color=bg, radius=(5.0 : Float))
     } else {
       container(
-        pad=Some(EdgeInsets::symmetric(horizontal=(6.0 : Float), vertical=(2.0 : Float))),
-        color=Some(bg),
+        pad=EdgeInsets::symmetric(horizontal=(6.0 : Float), vertical=(2.0 : Float)),
+        color=bg,
         radius=(9.0 : Float),
-        child=Some(text(label, size=(10.0 : Float), color=Some(@g2d.Color::white()))),
+        child=text(label, size=(10.0 : Float), color=@g2d.Color::white()),
       )
     }
     stack([
       child,
-      positioned(right=Some((-4.0 : Float)), top=Some((-4.0 : Float)), pill),
+      positioned(right=(-4.0 : Float), top=(-4.0 : Float), pill),
     ])
   })
 }
 
 ///|
 pub fn text_button(
-  key? : Key? = None,
+  key? : Key,
   label : String,
   on_pressed : () -> Unit,
-  color? : @g2d.Color? = None,
+  color? : @g2d.Color,
   pad? : EdgeInsets = EdgeInsets::symmetric(horizontal=(12.0 : Float), vertical=(8.0 : Float)),
 ) -> Widget {
   let hovered = Signal::new(false)
-  builder(key~, tag=314, fn(ctx) {
+  builder(key?=key, tag=314, fn(ctx) {
     let th = ctx.theme()
     let is_h = hovered.get(ctx)
     let fg = match color { Some(c) => c; None => th.colors.primary }
@@ -654,16 +647,16 @@ pub fn text_button(
       @g2d.Color::transparent()
     }
     mouse_region(
-      on_enter=Some(fn() { hovered.set(true) }),
-      on_exit=Some(fn() { hovered.set(false) }),
-      cursor=Some(@tycho.CursorShape::Pointer),
+      on_enter=fn() { hovered.set(true) },
+      on_exit=fn() { hovered.set(false) },
+      cursor=@tycho.CursorShape::Pointer,
       gesture_detector(
-        on_tap=Some(on_pressed),
+        on_tap=on_pressed,
         container(
-          pad=Some(pad),
-          color=Some(bg),
+          pad=pad,
+          color=bg,
           radius=th.radius_sm,
-          child=Some(text(label, size=(14.0 : Float), color=Some(fg))),
+          child=text(label, size=(14.0 : Float), color=fg),
         ),
       ),
     )
@@ -672,28 +665,28 @@ pub fn text_button(
 
 ///|
 pub fn icon_button(
-  key? : Key? = None,
+  key? : Key,
   kind : IconKind,
   on_pressed : () -> Unit,
   size? : Float = (20.0 : Float),
-  color? : @g2d.Color? = None,
+  color? : @g2d.Color,
 ) -> Widget {
   let hovered = Signal::new(false)
-  builder(key~, tag=315, fn(ctx) {
+  builder(key?=key, tag=315, fn(ctx) {
     let th = ctx.theme()
     let is_h = hovered.get(ctx)
     let bg = if is_h { th.colors.surface_variant } else { @g2d.Color::transparent() }
     mouse_region(
-      on_enter=Some(fn() { hovered.set(true) }),
-      on_exit=Some(fn() { hovered.set(false) }),
-      cursor=Some(@tycho.CursorShape::Pointer),
+      on_enter=fn() { hovered.set(true) },
+      on_exit=fn() { hovered.set(false) },
+      cursor=@tycho.CursorShape::Pointer,
       gesture_detector(
-        on_tap=Some(on_pressed),
+        on_tap=on_pressed,
         container(
-          pad=Some(EdgeInsets::all((6.0 : Float))),
-          color=Some(bg),
+          pad=EdgeInsets::all((6.0 : Float)),
+          color=bg,
           radius=th.radius_sm,
-          child=Some(icon(kind, size~, color~)),
+          child=icon(kind, size=size, color?=color),
         ),
       ),
     )
@@ -702,30 +695,30 @@ pub fn icon_button(
 
 ///|
 pub fn[T : Eq] radio(
-  key? : Key? = None,
+  key? : Key,
   value : T,
   group_value : Signal[T],
   label? : String = "",
-  on_changed? : ((T) -> Unit)? = None,
+  on_changed? : ((T) -> Unit),
 ) -> Widget {
-  builder(key~, tag=316, fn(ctx) {
+  builder(key?=key, tag=316, fn(ctx) {
     let th = ctx.theme()
     let selected = group_value.get(ctx) == value
     let outer_col = if selected { th.colors.primary } else { th.colors.border }
     let ring = container(
-      width=Some((20.0 : Float)),
-      height=Some((20.0 : Float)),
-      color=Some(th.colors.surface),
-      border_color=Some(outer_col),
+      width=(20.0 : Float),
+      height=(20.0 : Float),
+      color=th.colors.surface,
+      border_color=outer_col,
       border_width=(2.0 : Float),
       radius=(10.0 : Float),
-      child=if selected {
+      child?=if selected {
         Some(
           center(
             container(
-              width=Some((10.0 : Float)),
-              height=Some((10.0 : Float)),
-              color=Some(th.colors.primary),
+              width=(10.0 : Float),
+              height=(10.0 : Float),
+              color=th.colors.primary,
               radius=(5.0 : Float),
             ),
           ),
@@ -739,17 +732,17 @@ pub fn[T : Eq] radio(
     } else {
       row(gap=(8.0 : Float), cross_axis=CrossAxisAlignment::Center, [
         ring,
-        text(label, size=(14.0 : Float), color=Some(th.colors.text_primary)),
+        text(label, size=(14.0 : Float), color=th.colors.text_primary),
       ])
     }
     gesture_detector(
-      on_tap=Some(fn() {
+      on_tap=fn() {
         group_value.set(value)
         match on_changed {
           Some(f) => f(value)
           None => ()
         }
-      }),
+      },
       content,
     )
   })
@@ -757,7 +750,7 @@ pub fn[T : Eq] radio(
 
 ///|
 pub fn animated_opacity(
-  key? : Key? = None,
+  key? : Key,
   target : Float,
   duration_sec? : Double = 0.25,
   curve? : Curve = Curve::EaseInOut,
@@ -766,7 +759,7 @@ pub fn animated_opacity(
   let ctrl = AnimationController::new(initial=target, duration_sec~, curve~)
   register_implicit_controller(ctrl)
   let prev = Ref(target)
-  builder(key~, tag=317, fn(ctx) {
+  builder(key?=key, tag=317, fn(ctx) {
     if prev.val != target {
       prev.val = target
       ctrl.animate_to(target)
@@ -778,7 +771,7 @@ pub fn animated_opacity(
 
 ///|
 pub fn animated_padding(
-  key? : Key? = None,
+  key? : Key,
   pad : EdgeInsets,
   duration_sec? : Double = 0.25,
   curve? : Curve = Curve::EaseInOut,
@@ -788,7 +781,7 @@ pub fn animated_padding(
   register_implicit_controller(ctrl)
   let from_p = Ref(pad)
   let to_p = Ref(pad)
-  builder(key~, tag=318, fn(ctx) {
+  builder(key?=key, tag=318, fn(ctx) {
     if to_p.val.left != pad.left ||
       to_p.val.top != pad.top ||
       to_p.val.right != pad.right ||
@@ -806,15 +799,15 @@ pub fn animated_padding(
 
 ///|
 pub fn animated_container(
-  key? : Key? = None,
-  width? : Float? = None,
-  height? : Float? = None,
-  color? : @g2d.Color? = None,
+  key? : Key,
+  width? : Float,
+  height? : Float,
+  color? : @g2d.Color,
   radius? : Float = (0.0 : Float),
-  pad? : EdgeInsets? = None,
+  pad? : EdgeInsets,
   duration_sec? : Double = 0.25,
   curve? : Curve = Curve::EaseInOut,
-  child? : Widget? = None,
+  child? : Widget,
 ) -> Widget {
   let ctrl = AnimationController::new(initial=(1.0 : Float), duration_sec~, curve~)
   register_implicit_controller(ctrl)
@@ -826,7 +819,7 @@ pub fn animated_container(
   let to_c = Ref(color)
   let from_r = Ref(radius)
   let to_r = Ref(radius)
-  builder(key~, tag=319, fn(ctx) {
+  builder(key?=key, tag=319, fn(ctx) {
     let changed = to_w.val != width ||
       to_h.val != height ||
       to_c.val != color ||
@@ -867,19 +860,19 @@ pub fn animated_container(
       _ => to_c.val
     }
     let r_now = lerp_float(from_r.val, to_r.val, t)
-    container(width=w_now, height=h_now, color=c_now, radius=r_now, pad~, child~)
+    container(width?=w_now, height?=h_now, color?=c_now, radius=r_now, pad?=pad, child?=child)
   })
 }
 
 ///|
 pub fn scrollbar(
-  key? : Key? = None,
+  key? : Key,
   controller : ScrollController,
   thickness? : Float = (8.0 : Float),
   child : Widget,
 ) -> Widget {
   let hovered = Signal::new(false)
-  builder(key~, tag=320, fn(ctx) {
+  builder(key?=key, tag=320, fn(ctx) {
     let th = ctx.theme()
     let off = controller.offset.get(ctx)
     let vp = @tmath.max_f((1.0 : Float), controller.viewport_extent)
@@ -899,18 +892,18 @@ pub fn scrollbar(
       @g2d.Color::rgba(th.colors.text_secondary.r, th.colors.text_secondary.g, th.colors.text_secondary.b, (0.55 : Float))
     }
     let thumb = mouse_region(
-      on_enter=Some(fn() { hovered.set(true) }),
-      on_exit=Some(fn() { hovered.set(false) }),
-      cursor=Some(@tycho.CursorShape::Pointer),
+      on_enter=fn() { hovered.set(true) },
+      on_exit=fn() { hovered.set(false) },
+      cursor=@tycho.CursorShape::Pointer,
       gesture_detector(
-        on_drag_update=Some(fn(_p, delta) {
+        on_drag_update=fn(_p, delta) {
           let scale = max_e / track_avail
           controller.scroll_by(delta.y * scale)
-        }),
+        },
         container(
-          width=Some(thickness),
-          height=Some(thumb_h),
-          color=Some(thumb_col),
+          width=thickness,
+          height=thumb_h,
+          color=thumb_col,
           radius=thickness * (0.5 : Float),
         ),
       ),
@@ -918,8 +911,8 @@ pub fn scrollbar(
     stack([
       child,
       positioned(
-        right=Some((2.0 : Float)),
-        top=Some(thumb_y),
+        right=(2.0 : Float),
+        top=thumb_y,
         thumb,
       ),
     ])
@@ -978,11 +971,11 @@ pub fn OverlayController::clear(self : OverlayController) -> Unit {
 
 ///|
 pub fn overlay(
-  key? : Key? = None,
+  key? : Key,
   controller : OverlayController,
   child : Widget,
 ) -> Widget {
-  builder(key~, tag=321, fn(ctx) {
+  builder(key?=key, tag=321, fn(ctx) {
     let entries = controller.entries.get(ctx)
     let layers : Array[Widget] = [child]
     for e in entries {
@@ -994,17 +987,17 @@ pub fn overlay(
 
 ///|
 pub fn tooltip(
-  key? : Key? = None,
+  key? : Key,
   message : String,
   child : Widget,
 ) -> Widget {
   let hovered = Signal::new(false)
-  builder(key~, tag=322, fn(ctx) {
+  builder(key?=key, tag=322, fn(ctx) {
     let th = ctx.theme()
     let show = hovered.get(ctx)
     let base = mouse_region(
-      on_enter=Some(fn() { hovered.set(true) }),
-      on_exit=Some(fn() { hovered.set(false) }),
+      on_enter=fn() { hovered.set(true) },
+      on_exit=fn() { hovered.set(false) },
       child,
     )
     if !show {
@@ -1013,15 +1006,15 @@ pub fn tooltip(
     stack([
       base,
       positioned(
-        left=Some((0.0 : Float)),
-        bottom=Some((-28.0 : Float)),
+        left=(0.0 : Float),
+        bottom=(-28.0 : Float),
         container(
-          pad=Some(EdgeInsets::symmetric(horizontal=(8.0 : Float), vertical=(4.0 : Float))),
-          color=Some(@g2d.Color::rgba((0.08 : Float), (0.1 : Float), (0.14 : Float), (0.94 : Float))),
-          border_color=Some(th.colors.border),
+          pad=EdgeInsets::symmetric(horizontal=(8.0 : Float), vertical=(4.0 : Float)),
+          color=@g2d.Color::rgba((0.08 : Float), (0.1 : Float), (0.14 : Float), (0.94 : Float)),
+          border_color=th.colors.border,
           border_width=(1.0 : Float),
           radius=(4.0 : Float),
-          child=Some(text(message, size=(11.0 : Float), color=Some(@g2d.Color::white()))),
+          child=text(message, size=(11.0 : Float), color=@g2d.Color::white()),
         ),
       ),
     ])
@@ -1039,7 +1032,7 @@ pub(all) struct MenuItem {
 pub fn MenuItem::new(
   label : String,
   on_selected : () -> Unit,
-  icon? : IconKind? = None,
+  icon? : IconKind,
 ) -> MenuItem {
   { label, icon, on_selected }
 }
@@ -1056,48 +1049,48 @@ fn build_menu_card(
     let row_child = match item.icon {
       Some(ic) =>
         row(gap=(8.0 : Float), cross_axis=CrossAxisAlignment::Center, [
-          icon(ic, size=(15.0 : Float), color=Some(th.colors.text_secondary)),
-          text(item.label, size=(13.0 : Float), color=Some(th.colors.text_primary)),
+          icon(ic, size=(15.0 : Float), color=th.colors.text_secondary),
+          text(item.label, size=(13.0 : Float), color=th.colors.text_primary),
         ])
-      None => text(item.label, size=(13.0 : Float), color=Some(th.colors.text_primary))
+      None => text(item.label, size=(13.0 : Float), color=th.colors.text_primary)
     }
     rows.push(
       mouse_region(
-        cursor=Some(@tycho.CursorShape::Pointer),
+        cursor=@tycho.CursorShape::Pointer,
         gesture_detector(
-          on_tap=Some(fn() {
+          on_tap=fn() {
             on_dismiss()
             item_cb()
-          }),
+          },
           container(
-            pad=Some(EdgeInsets::symmetric(horizontal=(12.0 : Float), vertical=(7.0 : Float))),
-            child=Some(row_child),
+            pad=EdgeInsets::symmetric(horizontal=(12.0 : Float), vertical=(7.0 : Float)),
+            child=row_child,
           ),
         ),
       ),
     )
   }
   container(
-    pad=Some(EdgeInsets::symmetric(vertical=(4.0 : Float))),
-    color=Some(th.colors.surface),
-    border_color=Some(th.colors.border),
+    pad=EdgeInsets::symmetric(vertical=(4.0 : Float)),
+    color=th.colors.surface,
+    border_color=th.colors.border,
     border_width=(1.0 : Float),
     radius=th.radius_sm,
     shadow_blur=(12.0 : Float),
     shadow_dy=(4.0 : Float),
-    shadow_color=Some(@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.45 : Float))),
-    child=Some(column(gap=(2.0 : Float), rows)),
+    shadow_color=@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.45 : Float)),
+    child=column(gap=(2.0 : Float), rows),
   )
 }
 
 ///|
 pub fn popup_menu(
-  key? : Key? = None,
+  key? : Key,
   is_open : Signal[Bool],
   items : Array[MenuItem],
   anchor : Widget,
 ) -> Widget {
-  builder(key~, tag=323, fn(ctx) {
+  builder(key?=key, tag=323, fn(ctx) {
     let th = ctx.theme()
     if !is_open.get(ctx) {
       return anchor
@@ -1105,8 +1098,8 @@ pub fn popup_menu(
     stack([
       anchor,
       positioned(
-        left=Some((0.0 : Float)),
-        top=Some((38.0 : Float)),
+        left=(0.0 : Float),
+        top=(38.0 : Float),
         build_menu_card(th, items, fn() { is_open.set(false) }),
       ),
     ])
@@ -1115,13 +1108,13 @@ pub fn popup_menu(
 
 ///|
 pub fn context_menu(
-  key? : Key? = None,
+  key? : Key,
   is_open : Signal[Bool],
   pos : Signal[@g2d.Point],
   items : Array[MenuItem],
   child : Widget,
 ) -> Widget {
-  builder(key~, tag=324, fn(ctx) {
+  builder(key?=key, tag=324, fn(ctx) {
     let th = ctx.theme()
     if !is_open.get(ctx) {
       return child
@@ -1130,8 +1123,8 @@ pub fn context_menu(
     stack([
       child,
       positioned(
-        left=Some(pt.x),
-        top=Some(pt.y),
+        left=pt.x,
+        top=pt.y,
         build_menu_card(th, items, fn() { is_open.set(false) }),
       ),
     ])
@@ -1221,10 +1214,10 @@ pub fn NavigatorController::current_name(self : NavigatorController) -> String {
 
 ///|
 pub fn navigator(
-  key? : Key? = None,
+  key? : Key,
   controller : NavigatorController,
 ) -> Widget {
-  builder(key~, tag=325, fn(ctx) {
+  builder(key?=key, tag=325, fn(ctx) {
     let s = controller.stack.get(ctx)
     if s.length() == 0 {
       return sized_box()

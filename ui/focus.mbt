@@ -14,7 +14,7 @@ pub struct FocusNode {
 ///|
 pub fn FocusNode::new(
   can_request_focus? : Bool = true,
-  on_key? : ((Int, Int) -> Bool)? = None,
+  on_key? : ((Int, Int) -> Bool),
 ) -> FocusNode {
   let id = g_next_focus_id.val
   g_next_focus_id.val = id + 1

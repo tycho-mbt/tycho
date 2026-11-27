@@ -2,7 +2,7 @@
 // Layer emission, and reverse-paint-order HitTest.
 
 ///|
-pub(all) enum RenderKind {
+priv enum RenderKind {
   Box(Float?, Float?)
   Padding(EdgeInsets)
   Align(Alignment)
@@ -30,24 +30,23 @@ pub(all) enum RenderKind {
 
 ///|
 pub struct RenderNode {
-  id : Int
-  mut kind : RenderKind
-  mut size : @g2d.Size
-  mut offset : @g2d.Point
-  mut last_constraints : BoxConstraints?
-  mut needs_layout : Bool
-  mut needs_paint : Bool
-  is_repaint_boundary : Bool
-  mut cached_dl : @g2d.DisplayList?
-  children : Array[RenderNode]
-  mut text_para : @g2d.Paragraph?
+  priv id : Int
+  priv mut kind : RenderKind
+  priv mut size : @g2d.Size
+  priv mut offset : @g2d.Point
+  priv mut last_constraints : BoxConstraints?
+  priv mut needs_layout : Bool
+  priv mut needs_paint : Bool
+  priv is_repaint_boundary : Bool
+  priv mut cached_dl : @g2d.DisplayList?
+  priv children : Array[RenderNode]
+  priv mut text_para : @g2d.Paragraph?
   // ListView active item metadata: (index -> child index in children)
-  list_indices : Array[Int]
-  mut active_theme : ThemeData
+  priv list_indices : Array[Int]
 }
 
 ///|
-pub fn RenderNode::new(id : Int, kind : RenderKind, theme : ThemeData) -> RenderNode {
+fn RenderNode::new(id : Int, kind : RenderKind) -> RenderNode {
   let is_rb = match kind {
     RenderKind::RepaintBoundary | RenderKind::ListView(_, _, _) => true
     _ => false
@@ -65,7 +64,6 @@ pub fn RenderNode::new(id : Int, kind : RenderKind, theme : ThemeData) -> Render
     children: [],
     text_para: None,
     list_indices: [],
-    active_theme: theme,
   }
 }
 
@@ -532,11 +530,7 @@ fn paint_decorated_box(
       if d.shadow_blur > (0.0 : Float) {
         canvas.draw_rrect_shadow(
           rrect,
-          d.shadow_dx,
-          d.shadow_dy,
-          d.shadow_blur,
-          (0.0 : Float),
-          sc,
+          @g2d.BoxShadow::new(sc, dx=d.shadow_dx, dy=d.shadow_dy, blur=d.shadow_blur),
         )
       }
     None => ()
@@ -560,13 +554,13 @@ fn paint_decorated_box(
       color=if style == @g2d.PaintStyle::Stroke { bcol } else { fill_col },
       style~,
       stroke_width=d.border_width,
-      shader=d.shader,
+      shader?=d.shader,
     )
     if style == @g2d.PaintStyle::StrokeAndFill {
       // Pass fill first then crisp border via StrokeAndFill color convention in prim2d
       canvas.draw_rrect(
         rrect,
-        @g2d.Paint::new(color=fill_col, style=@g2d.PaintStyle::Fill, shader=d.shader),
+        @g2d.Paint::new(color=fill_col, style=@g2d.PaintStyle::Fill, shader?=d.shader),
       )
       canvas.draw_rrect(
         rrect,

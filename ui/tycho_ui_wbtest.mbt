@@ -17,9 +17,9 @@ test "row and column flex constraints distribute expanded space" {
   let ui = row(
     gap=(10.0 : Float),
     [
-      sized_box(width=Some((80.0 : Float)), height=Some((40.0 : Float))),
-      expanded(flex=1, sized_box(height=Some((40.0 : Float)))),
-      expanded(flex=2, sized_box(height=Some((40.0 : Float)))),
+      sized_box(width=(80.0 : Float), height=(40.0 : Float)),
+      expanded(flex=1, sized_box(height=(40.0 : Float))),
+      expanded(flex=2, sized_box(height=(40.0 : Float))),
     ],
   )
   let tester = WidgetTester::new(ui, width=(400.0 : Float), height=(100.0 : Float))
@@ -38,11 +38,11 @@ test "gesture arena disambiguates tap vs drag via touch slop" {
   let tapped = Ref(0)
   let dragged = Ref(0)
   let ui = gesture_detector(
-    on_scroll=Some(fn(_dx, _dy) { () }),
-    on_drag_update=Some(fn(_p, _d) { dragged.val = dragged.val + 1 }),
+    on_scroll=fn(_dx, _dy) { () },
+    on_drag_update=fn(_p, _d) { dragged.val = dragged.val + 1 },
     gesture_detector(
-      on_tap=Some(fn() { tapped.val = tapped.val + 1 }),
-      sized_box(width=Some((200.0 : Float)), height=Some((200.0 : Float))),
+      on_tap=fn() { tapped.val = tapped.val + 1 },
+      sized_box(width=(200.0 : Float), height=(200.0 : Float)),
     ),
   )
   let tester = WidgetTester::new(ui, width=(200.0 : Float), height=(200.0 : Float))
@@ -128,8 +128,8 @@ test "focus_manager cycles nodes and dispatches shortcuts" {
   fm.prev_focus()
   assert_true(n1.focused.peek())
   let fired = Ref(false)
-  fm.bind_shortcut(@tycho.KEY_S, 4, fn() { fired.val = true })
-  assert_true(fm.dispatch_key(@tycho.KEY_S, 4))
+  fm.bind_shortcut(@tycho.KeyCode::S.to_keysym(), 4, fn() { fired.val = true })
+  assert_true(fm.dispatch_key(@tycho.KeyCode::S.to_keysym(), 4))
   assert_true(fired.val)
 }
 
@@ -138,9 +138,9 @@ test "scroll_view, navigator, overlay, spring, and semantics work end-to-end" {
   let sc = ScrollController::new()
   let nav = NavigatorController::new("home", fn(_ctx) {
     single_child_scroll_view(
-      controller=Some(sc),
+      controller=sc,
       column([
-        container(height=Some((800.0 : Float)), child=Some(text("tall"))),
+        container(height=(800.0 : Float), child=text("tall")),
         icon(IconKind::Star),
         badge(label="3", text_button("Go", fn() {  })),
       ]),
@@ -165,6 +165,56 @@ test "scroll_view, navigator, overlay, spring, and semantics work end-to-end" {
     Some(root_sem) => assert_true(root_sem.children.length() >= 1)
     None => assert_true(false)
   }
+}
+
+///|
+test "stale signal dependencies are pruned when a build stops reading them" {
+  let show = Signal::new(true)
+  let counter = Signal::new(0)
+  let root = builder(fn(ctx) {
+    if show.get(ctx) {
+      text("count=\{counter.get(ctx)}")
+    } else {
+      text("off")
+    }
+  })
+  let tester = WidgetTester::new(root, width=(200.0 : Float), height=(100.0 : Float))
+  assert_eq(counter.subscriber_count(), 1)
+  show.set(false)
+  let _ = tester.pump_frame()
+  // The rebuild no longer reads `counter`, so its subscription must be released.
+  assert_eq(counter.subscriber_count(), 0)
+  assert_eq(show.subscriber_count(), 1)
+}
+
+///|
+test "unmounting a subtree releases its signal subscriptions" {
+  let show = Signal::new(true)
+  let counter = Signal::new(0)
+  let inner = builder(fn(ctx) { text("n=\{counter.get(ctx)}") })
+  let root = builder(fn(ctx) {
+    if show.get(ctx) {
+      stack([inner])
+    } else {
+      stack([])
+    }
+  })
+  let tester = WidgetTester::new(root, width=(200.0 : Float), height=(100.0 : Float))
+  assert_eq(counter.subscriber_count(), 1)
+  show.set(false)
+  let _ = tester.pump_frame()
+  assert_eq(counter.subscriber_count(), 0)
+}
+
+///|
+test "signal dirty tracking is scoped to one UiTree" {
+  let shared = Signal::new(0)
+  let a = WidgetTester::new(builder(fn(ctx) { text("a=\{shared.get(ctx)}") }))
+  let b = WidgetTester::new(builder(fn(_ctx) { text("b") }))
+  assert_eq(shared.subscriber_count(), 1)
+  shared.set(1)
+  assert_true(a.tree.has_dirty())
+  assert_true(!b.tree.has_dirty())
 }
 
 ///|
