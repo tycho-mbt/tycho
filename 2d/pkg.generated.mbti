@@ -210,7 +210,7 @@ pub fn FontFace::arabic_form_gid(Self, Int32, Int32) -> Int32?
 pub fn FontFace::builtin() -> Self
 pub fn FontFace::clear_variations(Self) -> Unit
 pub fn FontFace::color_bitmap(Self, Int32, Float) -> ColorBitmap?
-pub fn FontFace::color_glyph(Self, Int32, Float) -> (ColorBitmap, DecodedImage)?
+pub fn FontFace::color_glyph(Self, Int32, Float, decoder? : (Bytes) -> DecodedImage?) -> (ColorBitmap, DecodedImage)?
 pub fn FontFace::from_ttf_bytes(Bytes) -> Self?
 pub fn FontFace::glyph_advance(Self, Int32, Float) -> Float
 pub fn FontFace::glyph_id(Self, Int32) -> Int32
@@ -230,7 +230,6 @@ pub fn FontFace::normalized_coord(Self, String) -> Float
 pub fn FontFace::normalized_coords(Self) -> Array[Float]
 pub fn FontFace::rasterize_bitmap(Self, Int32, Int32, Float, Bool, Bool) -> (Int32, Int32, Int32, Int32, Bytes)
 pub fn FontFace::rlig_ligate(Self, Array[Int32]) -> Array[(Int32, Int32)]
-pub fn FontFace::set_png_decoder((Bytes) -> DecodedImage?) -> Unit
 pub fn FontFace::set_variation(Self, String, Float) -> Unit
 pub fn FontFace::variation_axes(Self) -> Array[FontVariationAxis]
 pub fn FontFace::variation_value(Self, String) -> Float
@@ -568,6 +567,7 @@ pub fn Renderer2D::render_swapchain_pass(Self, @tycho.CommandBuffer, @tycho.Swap
 pub fn Renderer2D::set_coverage_enabled(Self, Bool) -> Unit
 pub fn Renderer2D::set_msdf_enabled(Self, Bool) -> Unit
 pub fn Renderer2D::set_msdf_min_size(Self, Float) -> Unit
+pub fn Renderer2D::set_png_decoder(Self, (Bytes) -> DecodedImage?) -> Unit
 pub fn Renderer2D::stats(Self) -> RenderStats
 
 pub(all) enum Shader2D {

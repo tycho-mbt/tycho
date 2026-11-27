@@ -218,6 +218,10 @@ pub struct Renderer2D {
   priv coverage_tex_id : Int
   priv mut coverage_atlas_generation : Int
   priv mut coverage_enabled : Bool
+  // Host-provided PNG decoder for CBDT colour glyphs. Configured per renderer
+  // instead of through a process-global hook, so two renderers cannot fight
+  // over the decoder and unmounting one cannot break the other.
+  priv mut png_decoder : ((Bytes) -> DecodedImage?)?
   priv path_batch : Array[PendingPath]
   priv mut path_batch_bounds : Rect?
   priv mut path_batch_count : Int
@@ -272,6 +276,18 @@ fn make_rhi_stencil_pipeline(
       bindless_heap?=bindless_heap,
     ),
   )
+}
+
+///|
+///|
+/// Install the PNG decoder used for CBDT colour glyphs (emoji fonts). The
+/// decoder lives on the renderer, so separate renderers can decode differently
+/// and disposing one cannot break another.
+pub fn Renderer2D::set_png_decoder(
+  self : Renderer2D,
+  decoder : (Bytes) -> DecodedImage?,
+) -> Unit {
+  self.png_decoder = Some(decoder)
 }
 
 ///|
@@ -743,6 +759,7 @@ pub fn Renderer2D::new(
     coverage_tex_id,
     coverage_atlas_generation: 0,
     coverage_enabled: true,
+    png_decoder: None,
     path_batch: [],
     path_batch_bounds: None,
     path_batch_count: 0,
@@ -2251,7 +2268,7 @@ fn Renderer2D::color_glyph_for(
       return Some(e)
     }
   }
-  let (cb, img) = match font.color_glyph(cp, size) {
+  let (cb, img) = match font.color_glyph(cp, size, decoder?=self.png_decoder) {
     Some(v) => v
     None => return None
   }

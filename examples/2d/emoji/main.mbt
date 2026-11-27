@@ -7,7 +7,7 @@
 
 ///|
 fn load_font(path : String) -> @g2d.FontFace? {
-  let bytes = @tycho.read_file_bytes(path)
+  let bytes = @image.read_file_bytes(path)
   if bytes.length() == 0 {
     return None
   }
@@ -19,12 +19,6 @@ fn main {
   try {
     let opts = @exwin.Options::parse("2d/emoji")
     let show_win = opts.window
-    @g2d.FontFace::set_png_decoder(fn(png) {
-      match @tycho_shader.decode_image(png) {
-        Some((rgba, w, h)) => Some(@g2d.DecodedImage::new(w, h, rgba))
-        None => None
-      }
-    })
     let latin = load_font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
     let cjk = load_font("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf")
     let emoji = load_font("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf")
@@ -59,6 +53,14 @@ fn main {
         c.draw_paragraph(para, @g2d.Point::new((24.0 : Float), (60.0 : Float)))
         let dl = c.finish()
         let renderer = @g2d.Renderer2D::new(dev)
+        renderer.set_png_decoder(fn(png) {
+          try {
+            let img = @image.decode_rgba(png)
+            Some(@g2d.DecodedImage::new(img.width, img.height, img.data))
+          } catch {
+            _ => None
+          }
+        })
         let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)
         renderer.render_offscreen( rt,dl, clear_color=bg)
         let px = rt.readback()

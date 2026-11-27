@@ -1490,16 +1490,6 @@ pub fn DecodedImage::new(width : Int, height : Int, rgba : Bytes) -> DecodedImag
 }
 
 ///|
-// Host-provided PNG decoder (CBDT glyphs store PNG). Kept as a hook so the
-// pure-MoonBit 2D package does not depend on a native image library.
-let g_png_decoder : Ref[((Bytes) -> DecodedImage?)?] = Ref(None)
-
-///|
-pub fn FontFace::set_png_decoder(decoder : (Bytes) -> DecodedImage?) -> Unit {
-  g_png_decoder.val = Some(decoder)
-}
-
-///|
 // Parse the CBDT bitmap record for `cp` at the strike closest to `size_px`.
 pub fn FontFace::color_bitmap(self : FontFace, cp : Int, size_px : Float) -> ColorBitmap? {
   let t = match self.ttf {
@@ -1625,12 +1615,16 @@ pub fn FontFace::color_glyph(
   self : FontFace,
   cp : Int,
   size_px : Float,
+  // Host-supplied PNG decoder for the CBDT record. The 2D package stays free of
+  // a native image dependency; `Renderer2D::set_png_decoder` supplies the one
+  // configured on the renderer.
+  decoder? : (Bytes) -> DecodedImage?,
 ) -> (ColorBitmap, DecodedImage)? {
   let cb = match self.color_bitmap(cp, size_px) {
     Some(v) => v
     None => return None
   }
-  let dec = match g_png_decoder.val {
+  let dec = match decoder {
     Some(f) =>
       match f(cb.png) {
         Some(v) => v
