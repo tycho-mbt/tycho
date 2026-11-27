@@ -118,10 +118,16 @@ moon test --target native
 ./tools/coverage.py
 
 # 6. CI gates
+./verify.sh                # fast gate: moon check + every package's unit tests + 10 headless examples
 ./check-generated.sh       # codegen zero-diff check
 ./check-examples-pure.sh   # assert zero .c / native-stub in examples
 ./check-math-layering.sh   # tycho_math stays a leaf; RHI uses @tmath only in its façade
 ```
+
+`./verify.sh` builds on demand and only needs *a* Vulkan driver, so it is the
+quick loop while developing (it asserts each example prints `OK`, i.e. zero
+validation errors). `./tools/run-all.sh both` is the release gate and walks
+every example on both `lavapipe` and `nvidia`.
 
 ## Quick Start (Windows)
 

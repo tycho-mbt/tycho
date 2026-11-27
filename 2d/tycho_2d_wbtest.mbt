@@ -409,10 +409,34 @@ test "draw_path_shadow wraps a blurred layer" {
   let p = PathBuilder::new()
     .add_rect(Rect::new((0.0 : Float), (0.0 : Float), (20.0 : Float), (20.0 : Float)))
     .build()
-  c.draw_path_shadow(p, (2.0 : Float), (2.0 : Float), (4.0 : Float), Color::from_rgba8(0, 0, 0))
+  c.draw_path_shadow(
+    p,
+    BoxShadow::new(Color::from_rgba8(0, 0, 0), dx=(2.0 : Float), dy=(2.0 : Float), blur=(4.0 : Float)),
+  )
   let dl = c.finish()
   // SaveLayer + DrawPath + Restore.
   assert_eq(dl.op_count(), 3)
+}
+
+///|
+test "path shadow spread adds a growing stroke" {
+  let c = Canvas::new()
+  let p = PathBuilder::new()
+    .add_rect(Rect::new((0.0 : Float), (0.0 : Float), (20.0 : Float), (20.0 : Float)))
+    .build()
+  c.draw_path_shadow(
+    p,
+    BoxShadow::new(
+      Color::from_rgba8(0, 0, 0),
+      dx=(2.0 : Float),
+      dy=(2.0 : Float),
+      blur=(4.0 : Float),
+      spread=(3.0 : Float),
+    ),
+  )
+  let dl = c.finish()
+  // SaveLayer + filled shadow + spreading stroke + Restore.
+  assert_eq(dl.op_count(), 4)
 }
 
 ///|

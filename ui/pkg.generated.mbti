@@ -39,7 +39,7 @@ pub fn column(key? : Key, main_axis? : MainAxisAlignment, cross_axis? : CrossAxi
 
 pub fn constrained_box(key? : Key, BoxConstraints, Widget) -> Widget
 
-pub fn container(key? : Key, width? : Float, height? : Float, pad? : EdgeInsets, color? : @tycho_2d.Color, shader? : @tycho_2d.Shader2D, border_color? : @tycho_2d.Color, border_width? : Float, radius? : Float, tl? : Float, tr? : Float, br? : Float, bl? : Float, shadow_blur? : Float, shadow_dx? : Float, shadow_dy? : Float, shadow_color? : @tycho_2d.Color, alignment? : Alignment, child? : Widget) -> Widget
+pub fn container(key? : Key, width? : Float, height? : Float, pad? : EdgeInsets, decoration? : DecoratedProps, alignment? : Alignment, child? : Widget) -> Widget
 
 pub fn context_menu(key? : Key, Signal[Bool], Signal[@tycho_2d.Point], Array[MenuItem], Widget) -> Widget
 

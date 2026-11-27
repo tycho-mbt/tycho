@@ -126,18 +126,22 @@ fn build_gallery_ui(
                     @ui.EdgeInsets::symmetric(vertical=(3.0 : Float)),
                     @ui.container(
                       pad=@ui.EdgeInsets::symmetric(horizontal=(12.0 : Float), vertical=(6.0 : Float)),
-                      color=bg,
-                      radius=(8.0 : Float),
                       child=
                         @ui.row(gap=(10.0 : Float), [
                           @ui.container(
                             width=(24.0 : Float),
                             height=(24.0 : Float),
-                            color=badge_col,
-                            radius=(6.0 : Float),
+                            decoration=@ui.DecoratedProps::new(
+                              fill=badge_col,
+                              radius=(6.0 : Float),
+                            )
                           ),
                           @ui.text("Virtual Item #\{idx}", size=(14.0 : Float), color=c.text_primary),
                         ]),
+                      decoration=@ui.DecoratedProps::new(
+                        fill=bg,
+                        radius=(8.0 : Float),
+                      )
                     ),
                   )
                 }),
@@ -148,13 +152,15 @@ fn build_gallery_ui(
         )
 
         let main_shell = @ui.container(
-          color=c.background,
           pad=@ui.EdgeInsets::all((18.0 : Float)),
           child=
             @ui.column(gap=(16.0 : Float), [
               header,
               @ui.expanded(@ui.row(gap=(16.0 : Float), cross_axis=@ui.CrossAxisAlignment::Stretch, [left_panel, right_panel])),
             ]),
+          decoration=@ui.DecoratedProps::new(
+            fill=c.background,
+          )
         )
 
         if modal_open {

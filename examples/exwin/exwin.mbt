@@ -17,8 +17,9 @@
 // the pixels and prints one `OK — …` / `FAIL — …` line, so a GPU-less CI runner
 // can verify it. With `--window` it opens a `DEFAULT_WIDTH`x`DEFAULT_HEIGHT`
 // window whose title is the example path, and closes on the window button or
-// Esc. The flag names and env vars match `tycho_shader`'s `want_window()` /
-// `screenshot_path()` so the library API and the examples agree.
+// Esc. The flag names and env vars match the ones the old `tycho_shader`
+// helpers accepted (`--window` / `--screenshot` / `TYCHO_WINDOW`), so existing
+// example invocations keep working now that this lives in the examples.
 //
 // Every example therefore presents and captures the *same* 800x600 frame, even
 // when its verification canvas has another size: `--screenshot` letterboxes the

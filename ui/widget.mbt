@@ -564,19 +564,9 @@ pub fn container(
   width? : Float,
   height? : Float,
   pad? : EdgeInsets,
-  color? : @g2d.Color,
-  shader? : @g2d.Shader2D,
-  border_color? : @g2d.Color,
-  border_width? : Float = (0.0 : Float),
-  radius? : Float = (0.0 : Float),
-  tl? : Float = (-1.0 : Float),
-  tr? : Float = (-1.0 : Float),
-  br? : Float = (-1.0 : Float),
-  bl? : Float = (-1.0 : Float),
-  shadow_blur? : Float = (0.0 : Float),
-  shadow_dx? : Float = (0.0 : Float),
-  shadow_dy? : Float = (4.0 : Float),
-  shadow_color? : @g2d.Color,
+  // Background / border / rounded corners / shadow live in `DecoratedProps`;
+  // see `DecoratedProps::new` for the individual knobs.
+  decoration? : DecoratedProps,
   alignment? : Alignment,
   child? : Widget,
 ) -> Widget {
@@ -597,27 +587,9 @@ pub fn container(
       }
     None => ()
   }
-  let has_deco = color is Some(_) ||
-    shader is Some(_) ||
-    border_color is Some(_) ||
-    shadow_color is Some(_)
-  if has_deco {
-    let deco = DecoratedProps::new(
-      fill?=color,
-      shader?=shader,
-      border_color?=border_color,
-      border_width~,
-      radius=radius,
-      tl~,
-      tr~,
-      br~,
-      bl~,
-      shadow_blur~,
-      shadow_dx~,
-      shadow_dy~,
-      shadow_color?=shadow_color,
-    )
-    w = Some(decorated_box(deco, child?=w))
+  match decoration {
+    Some(deco) => w = Some(decorated_box(deco, child?=w))
+    None => ()
   }
   if width is Some(_) || height is Some(_) {
     sized_box(key?=key, width?=width, height?=height, child?=w)

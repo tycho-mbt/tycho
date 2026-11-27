@@ -277,27 +277,41 @@ pub fn Canvas::draw_path(self : Canvas, path : Path, paint : Paint) -> Unit {
 
 ///|
 // Drop shadow for an arbitrary path: offset the path, draw it into a layer,
-// and blur the layer on composite.
+// and blur the layer on composite. `spread` grows the shape before blurring,
+// matching `draw_rrect_shadow`.
 pub fn Canvas::draw_path_shadow(
   self : Canvas,
   path : Path,
-  dx : Float,
-  dy : Float,
-  blur : Float,
-  color : Color,
+  shadow : BoxShadow,
 ) -> Unit {
-  let shadow_path = path.translated(dx, dy)
-  if blur <= (0.0 : Float) {
-    self.draw_path(shadow_path, Paint::fill(color))
+  let shadow_path = path.translated(shadow.dx, shadow.dy)
+  // A positive spread grows the silhouette before blurring. Paths have no
+  // shader-side growth, so the fill is paired with a stroke of twice the spread
+  // that overlaps the outline.
+  let paint = Paint::fill(shadow.color)
+  let grow = shadow.spread > (0.0 : Float)
+  let grow_paint = Paint::new(
+    color=shadow.color,
+    style=PaintStyle::Stroke,
+    stroke_width=shadow.spread * (2.0 : Float),
+  )
+  if shadow.blur <= (0.0 : Float) {
+    self.draw_path(shadow_path, paint)
+    if grow {
+      self.draw_path(shadow_path, grow_paint)
+    }
     return
   }
-  let b = shadow_path.bounds().inflate(blur + (2.0 : Float))
+  let b = shadow_path.bounds().inflate(shadow.blur + shadow.spread + (2.0 : Float))
   self.expand_bounds(b)
   let _ = self.save_layer(
     bounds=b,
-    paint=Paint::new(mask_filter=MaskFilter::Blur(blur, blur)),
+    paint=Paint::new(mask_filter=MaskFilter::Blur(shadow.blur, shadow.blur)),
   )
-  self.draw_path(shadow_path, Paint::fill(color))
+  self.draw_path(shadow_path, paint)
+  if grow {
+    self.draw_path(shadow_path, grow_paint)
+  }
   self.restore()
 }
 

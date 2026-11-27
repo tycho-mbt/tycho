@@ -13,7 +13,7 @@ pub fn divider(
     }
     constrained_box(
       BoxConstraints::new(min_width=INF, max_width=INF, min_height=height, max_height=height),
-      container(color=col),
+      container(decoration=DecoratedProps::new(fill=col)),
     )
   })
 }
@@ -35,14 +35,16 @@ pub fn card(
     let rad = match radius { Some(r) => r; None => th.radius_md }
     container(
       pad=pad,
-      color=bg,
-      border_color=bc,
-      border_width=(1.5 : Float),
-      radius=rad,
-      shadow_blur~,
-      shadow_dy=(6.0 : Float),
-      shadow_color=@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.02 : Float), (0.45 : Float)),
       child=child,
+      decoration=DecoratedProps::new(
+        fill=bg,
+        border_color=bc,
+        border_width=(1.5 : Float),
+        radius=rad,
+        shadow_blur=shadow_blur,
+        shadow_dy=(6.0 : Float),
+        shadow_color=@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.02 : Float), (0.45 : Float)),
+      )
     )
   })
 }
@@ -68,9 +70,11 @@ pub fn filled_button(
         on_tap=on_pressed,
         container(
           pad=pad,
-          color=bg,
-          radius=th.radius_sm,
           child=text(label, size=(14.0 : Float), color=th.colors.on_primary),
+          decoration=DecoratedProps::new(
+            fill=bg,
+            radius=th.radius_sm,
+          )
         ),
       ),
     )
@@ -96,11 +100,13 @@ pub fn outlined_button(
         on_tap=on_pressed,
         container(
           pad=pad,
-          color=bg,
-          border_color=th.colors.primary,
-          border_width=(1.5 : Float),
-          radius=th.radius_sm,
           child=text(label, size=(14.0 : Float), color=th.colors.primary),
+          decoration=DecoratedProps::new(
+            fill=bg,
+            border_color=th.colors.primary,
+            border_width=(1.5 : Float),
+            radius=th.radius_sm,
+          )
         ),
       ),
     )
@@ -124,8 +130,10 @@ pub fn checkbox(
         container(
           width=(10.0 : Float),
           height=(10.0 : Float),
-          color=th.colors.on_primary,
-          radius=(2.0 : Float),
+          decoration=DecoratedProps::new(
+            fill=th.colors.on_primary,
+            radius=(2.0 : Float),
+          )
         ),
       )
     } else {
@@ -134,12 +142,14 @@ pub fn checkbox(
     let box_w = container(
       width=(20.0 : Float),
       height=(20.0 : Float),
-      color=box_bg,
-      border_color=box_border,
-      border_width=(1.5 : Float),
-      radius=(5.0 : Float),
       alignment=Alignment::center(),
       child?=check_mark,
+      decoration=DecoratedProps::new(
+        fill=box_bg,
+        border_color=box_border,
+        border_width=(1.5 : Float),
+        radius=(5.0 : Float),
+      )
     )
     let kids : Array[Widget] = [box_w]
     if label != "" {
@@ -176,10 +186,6 @@ pub fn switch_toggle(
     let track = container(
       width=track_w,
       height=track_h,
-      color=track_bg,
-      border_color=if on { th.colors.secondary } else { th.colors.border },
-      border_width=(1.0 : Float),
-      radius=(12.0 : Float),
       child=
         stack([
           positioned(
@@ -187,9 +193,15 @@ pub fn switch_toggle(
             top=(3.0 : Float),
             width=(18.0 : Float),
             height=(18.0 : Float),
-            container(color=@g2d.Color::white(), radius=(9.0 : Float)),
+            container(decoration=DecoratedProps::new(fill=@g2d.Color::white(), radius=(9.0 : Float))),
           ),
         ]),
+      decoration=DecoratedProps::new(
+        fill=track_bg,
+        border_color=if on { th.colors.secondary } else { th.colors.border },
+        border_width=(1.0 : Float),
+        radius=(12.0 : Float),
+      )
     )
     let kids : Array[Widget] = [track]
     if label != "" {
@@ -225,8 +237,6 @@ pub fn progress_bar(
     container(
       width=width,
       height=height,
-      color=th.colors.surface_variant,
-      radius=rad,
       child=
         stack([
           positioned(
@@ -234,9 +244,13 @@ pub fn progress_bar(
             top=(0.0 : Float),
             width=@tmath.max_f(height, width * t),
             height=height,
-            container(color=fill, radius=rad),
+            container(decoration=DecoratedProps::new(fill=fill, radius=rad)),
           ),
         ]),
+      decoration=DecoratedProps::new(
+        fill=th.colors.surface_variant,
+        radius=rad,
+      )
     )
   })
 }
@@ -275,25 +289,26 @@ pub fn slider(
               top=(8.0 : Float),
               width=width,
               height=(8.0 : Float),
-              container(color=th.colors.surface_variant, radius=(4.0 : Float)),
+              container(decoration=DecoratedProps::new(fill=th.colors.surface_variant, radius=(4.0 : Float))),
             ),
             positioned(
               left=(0.0 : Float),
               top=(8.0 : Float),
               width=@tmath.max_f((8.0 : Float), kx + knob_r),
               height=(8.0 : Float),
-              container(color=th.colors.primary, radius=(4.0 : Float)),
+              container(decoration=DecoratedProps::new(fill=th.colors.primary, radius=(4.0 : Float))),
             ),
             positioned(
               left=kx,
               top=(3.0 : Float),
               width=knob_r * (2.0 : Float),
               height=knob_r * (2.0 : Float),
-              container(
-                color=@g2d.Color::white(),
+              container(decoration=DecoratedProps::new(
+                fill=@g2d.Color::white(),
                 border_color=th.colors.primary,
                 border_width=(2.0 : Float),
                 radius=knob_r,
+              )
               ),
             ),
           ]),
@@ -316,7 +331,7 @@ pub fn frosted_dialog(
     stack([
       gesture_detector(
         on_tap=on_close,
-        container(color=@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.45 : Float))),
+        container(decoration=DecoratedProps::new(fill=@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.45 : Float)))),
       ),
       center(
         container(
@@ -332,9 +347,6 @@ pub fn frosted_dialog(
               },
               container(
                 pad=EdgeInsets::all((20.0 : Float)),
-                border_color=th.colors.border,
-                border_width=(1.5 : Float),
-                radius=th.radius_lg,
                 child=column(gap=(12.0 : Float), [
                   text(title, size=(18.0 : Float), color=th.colors.text_primary),
                   divider(),
@@ -343,6 +355,11 @@ pub fn frosted_dialog(
                     filled_button("Close", on_close),
                   ]),
                 ]),
+                decoration=DecoratedProps::new(
+                  border_color=th.colors.border,
+                  border_width=(1.5 : Float),
+                  radius=th.radius_lg,
+                )
               ),
             ),
         ),
@@ -366,14 +383,14 @@ pub fn performance_overlay(stats : FrameStats) -> Widget {
     let info_str = "B:\{format_ms(stats.build_ms)}ms L:\{format_ms(stats.layout_ms)}ms P:\{format_ms(stats.paint_ms)}ms GPU:\{format_ms(stats.gpu_ms)}ms | E:\{stats.element_count} R:\{stats.render_count}"
     let bar = fn(ms : Double, col : @g2d.Color) -> Widget {
       let w = @tmath.clamp_f(Float::from_double(ms) * (6.0 : Float), (2.0 : Float), (120.0 : Float))
-      container(width=w, height=(4.0 : Float), color=col, radius=(2.0 : Float))
+      container(width=w, height=(4.0 : Float),
+decoration=DecoratedProps::new(
+  fill=col,
+  radius=(2.0 : Float),
+))
     }
     container(
       pad=EdgeInsets::symmetric(horizontal=(10.0 : Float), vertical=(6.0 : Float)),
-      color=@g2d.Color::rgba((0.05 : Float), (0.07 : Float), (0.12 : Float), (0.85 : Float)),
-      border_color=th.colors.border,
-      border_width=(1.0 : Float),
-      radius=(6.0 : Float),
       child=
         column(gap=(3.0 : Float), [
           text(info_str, size=(11.0 : Float), color=@g2d.Color::from_rgba8(120, 236, 175)),
@@ -384,6 +401,12 @@ pub fn performance_overlay(stats : FrameStats) -> Widget {
             bar(stats.gpu_ms, @g2d.Color::from_rgba8(74, 222, 128)),
           ]),
         ]),
+      decoration=DecoratedProps::new(
+        fill=@g2d.Color::rgba((0.05 : Float), (0.07 : Float), (0.12 : Float), (0.85 : Float)),
+        border_color=th.colors.border,
+        border_width=(1.0 : Float),
+        radius=(6.0 : Float),
+      )
     )
   })
 }
@@ -401,9 +424,10 @@ pub fn layout_inspector(
     }
     stack([
       child,
-      container(
+      container(decoration=DecoratedProps::new(
         border_color=@g2d.Color::from_rgba8(80, 220, 255, a=180),
         border_width=(1.0 : Float),
+      )
       ),
     ])
   })
@@ -612,13 +636,19 @@ pub fn badge(
     let th = ctx.theme()
     let bg = match color { Some(c) => c; None => th.colors.danger }
     let pill = if label == "" {
-      container(width=(10.0 : Float), height=(10.0 : Float), color=bg, radius=(5.0 : Float))
+      container(width=(10.0 : Float), height=(10.0 : Float),
+decoration=DecoratedProps::new(
+  fill=bg,
+  radius=(5.0 : Float),
+))
     } else {
       container(
         pad=EdgeInsets::symmetric(horizontal=(6.0 : Float), vertical=(2.0 : Float)),
-        color=bg,
-        radius=(9.0 : Float),
         child=text(label, size=(10.0 : Float), color=@g2d.Color::white()),
+        decoration=DecoratedProps::new(
+          fill=bg,
+          radius=(9.0 : Float),
+        )
       )
     }
     stack([
@@ -654,9 +684,11 @@ pub fn text_button(
         on_tap=on_pressed,
         container(
           pad=pad,
-          color=bg,
-          radius=th.radius_sm,
           child=text(label, size=(14.0 : Float), color=fg),
+          decoration=DecoratedProps::new(
+            fill=bg,
+            radius=th.radius_sm,
+          )
         ),
       ),
     )
@@ -684,9 +716,11 @@ pub fn icon_button(
         on_tap=on_pressed,
         container(
           pad=EdgeInsets::all((6.0 : Float)),
-          color=bg,
-          radius=th.radius_sm,
           child=icon(kind, size=size, color?=color),
+          decoration=DecoratedProps::new(
+            fill=bg,
+            radius=th.radius_sm,
+          )
         ),
       ),
     )
@@ -708,24 +742,28 @@ pub fn[T : Eq] radio(
     let ring = container(
       width=(20.0 : Float),
       height=(20.0 : Float),
-      color=th.colors.surface,
-      border_color=outer_col,
-      border_width=(2.0 : Float),
-      radius=(10.0 : Float),
       child?=if selected {
         Some(
           center(
             container(
               width=(10.0 : Float),
               height=(10.0 : Float),
-              color=th.colors.primary,
-              radius=(5.0 : Float),
+              decoration=DecoratedProps::new(
+                fill=th.colors.primary,
+                radius=(5.0 : Float),
+              )
             ),
           ),
         )
       } else {
         None
       },
+      decoration=DecoratedProps::new(
+        fill=th.colors.surface,
+        border_color=outer_col,
+        border_width=(2.0 : Float),
+        radius=(10.0 : Float),
+      )
     )
     let content = if label == "" {
       ring
@@ -860,7 +898,13 @@ pub fn animated_container(
       _ => to_c.val
     }
     let r_now = lerp_float(from_r.val, to_r.val, t)
-    container(width?=w_now, height?=h_now, color?=c_now, radius=r_now, pad?=pad, child?=child)
+    container(
+      width?=w_now,
+      height?=h_now,
+      pad?=pad,
+      child?=child,
+      decoration=DecoratedProps::new(fill?=c_now, radius=r_now),
+    )
   })
 }
 
@@ -903,8 +947,10 @@ pub fn scrollbar(
         container(
           width=thickness,
           height=thumb_h,
-          color=thumb_col,
-          radius=thickness * (0.5 : Float),
+          decoration=DecoratedProps::new(
+            fill=thumb_col,
+            radius=thickness * (0.5 : Float),
+          )
         ),
       ),
     )
@@ -1010,11 +1056,13 @@ pub fn tooltip(
         bottom=(-28.0 : Float),
         container(
           pad=EdgeInsets::symmetric(horizontal=(8.0 : Float), vertical=(4.0 : Float)),
-          color=@g2d.Color::rgba((0.08 : Float), (0.1 : Float), (0.14 : Float), (0.94 : Float)),
-          border_color=th.colors.border,
-          border_width=(1.0 : Float),
-          radius=(4.0 : Float),
           child=text(message, size=(11.0 : Float), color=@g2d.Color::white()),
+          decoration=DecoratedProps::new(
+            fill=@g2d.Color::rgba((0.08 : Float), (0.1 : Float), (0.14 : Float), (0.94 : Float)),
+            border_color=th.colors.border,
+            border_width=(1.0 : Float),
+            radius=(4.0 : Float),
+          )
         ),
       ),
     ])
@@ -1072,14 +1120,16 @@ fn build_menu_card(
   }
   container(
     pad=EdgeInsets::symmetric(vertical=(4.0 : Float)),
-    color=th.colors.surface,
-    border_color=th.colors.border,
-    border_width=(1.0 : Float),
-    radius=th.radius_sm,
-    shadow_blur=(12.0 : Float),
-    shadow_dy=(4.0 : Float),
-    shadow_color=@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.45 : Float)),
     child=column(gap=(2.0 : Float), rows),
+    decoration=DecoratedProps::new(
+      fill=th.colors.surface,
+      border_color=th.colors.border,
+      border_width=(1.0 : Float),
+      radius=th.radius_sm,
+      shadow_blur=(12.0 : Float),
+      shadow_dy=(4.0 : Float),
+      shadow_color=@g2d.Color::rgba((0.0 : Float), (0.0 : Float), (0.0 : Float), (0.45 : Float)),
+    )
   )
 }
 

@@ -151,6 +151,13 @@ pub fn load_spirv_checked(path : String) -> FixedArray[UInt32] raise ShaderError
   words
 }
 
+// Low-level image I/O.
+//
+// These functions return raw tuples so that `laplaceliu/tycho_image` can wrap
+// them without a dependency cycle; application code should use that package
+// (`@image.load_rgba`, `@image.save_png`, `@image.load_hdr`) instead, which
+// returns `Image` / `HdrImage` and raises `ImageError` with a reason.
+
 #borrow(path, out_w, out_h)
 extern "c" fn load_image_ffi(
   path : Bytes,
@@ -189,15 +196,6 @@ pub fn decode_image(data : Bytes) -> (Bytes, Int, Int)? {
   Some((Bytes::from_array(px[:]), w[0].to_int(), h[0].to_int()))
 }
 
-///|
-// Read and decode a PNG/JPEG file to straight-alpha RGBA8.
-pub fn load_image_rgba(path : String) -> (Bytes, Int, Int)? {
-  let bytes = read_file_bytes(path)
-  if bytes.length() == 0 {
-    return None
-  }
-  decode_image(bytes)
-}
 
 #borrow(source)
 extern "c" fn compile_shader_ffi(
@@ -349,24 +347,6 @@ extern "c" fn read_file_ffi(path : Bytes, plen : Int32) -> Bytes = "tycho_shader
 pub fn read_file_bytes(path : String) -> Bytes {
   let p = @utf8.encode(path)
   read_file_ffi(p, p.length())
-}
-
-extern "c" fn want_window_ffi() -> Int32 = "tycho_shader_want_window"
-
-///|
-pub fn want_window() -> Bool {
-  want_window_ffi() != 0
-}
-
-extern "c" fn screenshot_path_ffi() -> Bytes = "tycho_shader_screenshot_path"
-
-///|
-pub fn screenshot_path() -> String {
-  let b = screenshot_path_ffi()
-  if b.length() == 0 {
-    return ""
-  }
-  @utf8.decode_lossy(b[:])
 }
 
 #borrow(path, rgba)
