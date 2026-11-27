@@ -35,7 +35,7 @@ fn make_skinned_column() -> @tgeo.MeshData raise {
   let joints = FixedArray::make(n, @tmath.Vec4::zero())
   let weights = FixedArray::make(n, @tmath.Vec4::zero())
   for i = 0; i < n; i = i + 1 {
-    let y = mesh.positions[i].y
+    let y = mesh.positions()[i].y
     // Three 1.0-unit segments between joints at y = -2, -1, 0, 1.
     let t = clamp79((y + 2.0) / 1.0, 0.0, 3.0)
     let mut s = t.to_int()

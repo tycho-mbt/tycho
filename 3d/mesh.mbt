@@ -54,10 +54,10 @@ pub fn mesh_vertex_floats(mesh : @tgeo.MeshData) -> FixedArray[Float] {
   let n = mesh.vertex_count()
   let floats = FixedArray::make(n * MESH_VERTEX_FLOATS, (0.0 : Float))
   for i = 0; i < n; i = i + 1 {
-    let p = mesh.positions[i]
-    let nr = mesh.normals[i]
-    let uv = mesh.uvs[i]
-    let tg = match mesh.tangents {
+    let p = mesh.positions()[i]
+    let nr = mesh.normals()[i]
+    let uv = mesh.uvs()[i]
+    let tg = match mesh.tangents() {
       Some(t) => t[i]
       None => @tmath.Vec4::new(1.0, 0.0, 0.0, 1.0)
     }
@@ -89,11 +89,11 @@ pub fn mesh_skinned_vertex_floats(mesh : @tgeo.MeshData) -> FixedArray[Float] {
     for c = 0; c < MESH_VERTEX_FLOATS; c = c + 1 {
       out[i * SKIN_VERTEX_FLOATS + c] = base[i * MESH_VERTEX_FLOATS + c]
     }
-    let joints = match mesh.skin_joints {
+    let joints = match mesh.skin_joints() {
       Some(j) => j[i]
       None => @tmath.Vec4::zero()
     }
-    let weights = match mesh.skin_weights {
+    let weights = match mesh.skin_weights() {
       Some(w) => w[i]
       None => @tmath.Vec4::zero()
     }
@@ -122,8 +122,8 @@ pub fn mesh_morph_vertex_floats(mesh : @tgeo.MeshData) -> FixedArray[Float] {
       out[i * MORPH_VERTEX_FLOATS + c] = base[i * MESH_VERTEX_FLOATS + c]
     }
     for t = 0; t < MORPH_TARGETS_MAX; t = t + 1 {
-      if t < mesh.morph_targets.length() {
-        let d = mesh.morph_targets[t].positions[i]
+      if t < mesh.morph_targets().length() {
+        let d = mesh.morph_targets()[t].positions[i]
         let o = i * MORPH_VERTEX_FLOATS + MESH_VERTEX_FLOATS + t * 3
         out[o] = d.x
         out[o + 1] = d.y
@@ -146,9 +146,9 @@ pub fn GpuMesh::range(
     first_index,
     index_count: mesh.index_count(),
     skinned: mesh.has_skin(),
-    morph: mesh.morph_targets.length(),
+    morph: mesh.morph_targets().length(),
     bounds: mesh.bounds(),
-    groups: mesh.groups,
+    groups: mesh.groups(),
     cpu: mesh,
   }
 }

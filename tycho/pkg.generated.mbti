@@ -19,6 +19,8 @@ pub fn dx12_available() -> Bool
 
 pub fn load_spirv(String) -> FixedArray[UInt32]
 
+pub fn load_spirv_checked(String) -> FixedArray[UInt32] raise @tycho_shader.ShaderError
+
 pub fn reflect_spirv(FixedArray[UInt32]) -> @tycho_shader.SpirvReflection
 
 // Errors

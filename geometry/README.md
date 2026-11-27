@@ -8,10 +8,14 @@ This module is the CPU content layer of the Tycho graphics stack (see
 
 - **No GPU / RHI dependency** — compiles on `native`, `wasm`, and `js`, and all
   tests run headless.
-- **Mesh data** — `MeshData` with a fixed canonical layout:
-  `positions : FixedArray[Vec3]`, `normals : FixedArray[Vec3]`,
-  `uvs : FixedArray[Vec2]`, `indices : FixedArray[UInt]`, plus optional
-  `tangents` / vertex `colors` and multi-material `groups`.
+- **Mesh data** — `MeshData` with a fixed canonical layout: `positions`,
+  `normals`, `uvs`, `indices`, plus optional `tangents` / vertex `colors`,
+  skinning and multi-material `groups`. The fields are private; read them with
+  `positions()` / `normals()` / `uvs()` / `indices()` / `tangents()` /
+  `colors()` / `skin_joints()` / `skin_weights()` / `morph_targets()` /
+  `groups()`, and replace the length-coupled arrays through the validated
+  setters `set_normals` / `set_tangents` / `set_colors` / `add_group`, which
+  reject anything that breaks the vertex-count or index-range invariant.
 - **Line data** — `LineData` for segment lists (`positions` + paired
   `indices`), plus `edges` (boundary + crease edges by dihedral angle, like
   `EdgesGeometry`) and `wireframe` (every unique triangle edge).

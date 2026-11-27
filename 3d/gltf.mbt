@@ -19,8 +19,8 @@ fn add_gltf_node(
   let mut bounds : @tmath.Aabb3? = None
   if n.mesh >= 0 && n.mesh < meshes.length() {
     let md = gltf.meshes[n.mesh]
-    let slot = if md.groups.length() > 0 {
-      md.groups[0].material_slot
+    let slot = if md.groups().length() > 0 {
+      md.groups()[0].material_slot
     } else {
       0
     }

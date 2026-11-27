@@ -1023,7 +1023,7 @@ pub fn Renderer3D::upload_mesh(self : Renderer3D, mesh : @tgeo.MeshData) -> Mesh
     mesh.compute_tangents()
   }
   let first_index = self.arena_indices.length()
-  for ix in mesh.indices {
+  for ix in mesh.indices() {
     self.arena_indices.push(ix)
   }
   let first_vertex = if mesh.has_skin() {
@@ -1069,7 +1069,7 @@ fn Renderer3D::build_mesh_blas(self : Renderer3D, mesh : @tgeo.MeshData) -> RtMe
     location=@tycho.MemoryLocation::GpuOnly,
   )
   vbuf.upload_floats(floats)
-  let ix = FixedArray::from_array(mesh.indices)
+  let ix = FixedArray::from_array(mesh.indices())
   let ibuf = self.dev.create_buffer_with(
     if ix.length() == 0 { 4 } else { ix.length() * 4 },
     @tycho.BufferKind::Index,

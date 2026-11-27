@@ -338,3 +338,19 @@ test "compile_shader_checked raises with compiler diagnostics" {
   }
   assert_true(reported)
 }
+
+///|
+test "load_spirv_checked reports a missing file instead of empty code" {
+  let mut failed = false
+  try {
+    let _ = load_spirv_checked("shader/testdata/does-not-exist.spv")
+  } catch {
+    ShaderError::LoadFailed(path, why) => {
+      failed = true
+      assert_true(path.contains("does-not-exist"))
+      assert_true(why.length() > 0)
+    }
+    _ => ()
+  }
+  assert_true(failed)
+}

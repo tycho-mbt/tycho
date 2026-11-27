@@ -329,3 +329,56 @@ test "circle sector and ring bands" {
   need(qb.min.y > -1.0e-4, "quarter ring y")
   need(close(qb.max.x, 1.0, eps=1.0e-3), "quarter ring radius")
 }
+
+///|
+test "mesh data exposes read-only views of its arrays" {
+  let cube = box(width=2.0, height=2.0, depth=2.0)
+  need(cube.positions().length() == cube.vertex_count(), "positions view")
+  need(cube.normals().length() == cube.vertex_count(), "normals view")
+  need(cube.indices().length() == cube.index_count(), "indices view")
+  need(cube.uvs().length() == cube.vertex_count(), "uvs view")
+  need(cube.morph_targets().length() == 0, "no morph targets by default")
+  need(!cube.has_tangents(), "no tangents by default")
+}
+
+///|
+test "validated setters reject arrays that break the vertex-count invariant" {
+  let quad = plane(width=1.0, height=1.0)
+  let n = quad.vertex_count()
+  let mut bad = false
+  try {
+    quad.set_normals(FixedArray::make(n - 1, @tmath.Vec3::new(0.0, 1.0, 0.0)))
+  } catch {
+    GeometryError::InvalidMesh(_) => bad = true
+    _ => ()
+  }
+  need(bad, "set_normals must reject a short array")
+  // A correctly sized array is accepted and readable.
+  quad.set_normals(FixedArray::make(n, @tmath.Vec3::new(1.0, 0.0, 0.0)))
+  need(quad.normals()[0].x == 1.0, "set_normals stores the array")
+  let mut bad_colors = false
+  try {
+    quad.set_colors(Some(FixedArray::make(n + 1, @tmath.Vec4::new(0.0, 0.0, 0.0, 1.0))))
+  } catch {
+    GeometryError::InvalidMesh(_) => bad_colors = true
+    _ => ()
+  }
+  need(bad_colors, "set_colors must reject an oversized array")
+}
+
+///|
+test "add_group keeps material ranges inside the index buffer" {
+  let quad = plane(width=1.0, height=1.0)
+  let total = quad.index_count()
+  let mut rejected = false
+  try {
+    quad.add_group(MeshGroup::new(total - 3, 6, 0))
+  } catch {
+    GeometryError::InvalidMesh(_) => rejected = true
+    _ => ()
+  }
+  need(rejected, "add_group must reject a range past the index buffer")
+  quad.add_group(MeshGroup::new(0, total, 2))
+  need(quad.groups().length() == 1, "add_group appends")
+  need(quad.groups()[0].material_slot == 2, "add_group keeps the slot")
+}

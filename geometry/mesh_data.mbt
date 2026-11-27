@@ -28,21 +28,24 @@ pub(all) struct MorphTarget {
 
 ///|
 pub(all) struct MeshData {
-  positions : FixedArray[@tmath.Vec3]
-  mut normals : FixedArray[@tmath.Vec3]
-  uvs : FixedArray[@tmath.Vec2]
+  // Every per-vertex array except `indices` must match `vertex_count()`; the
+  // fields are private so that invariant can only be broken inside this package
+  // (or through the validated setters below).
+  priv positions : FixedArray[@tmath.Vec3]
+  priv mut normals : FixedArray[@tmath.Vec3]
+  priv uvs : FixedArray[@tmath.Vec2]
   // Always 32-bit. `tycho_3d` may narrow to 16-bit on upload when possible.
-  indices : FixedArray[UInt]
+  priv indices : FixedArray[UInt]
   // Filled by `compute_tangents`; `w` is the bitangent handedness sign.
-  mut tangents : FixedArray[@tmath.Vec4]?
+  priv mut tangents : FixedArray[@tmath.Vec4]?
   // Optional linear-space vertex colors.
-  mut colors : FixedArray[@tmath.Vec4]?
+  priv mut colors : FixedArray[@tmath.Vec4]?
   // Optional GPU skinning: four joint indices and weights per vertex.
-  mut skin_joints : FixedArray[@tmath.Vec4]?
-  mut skin_weights : FixedArray[@tmath.Vec4]?
+  priv mut skin_joints : FixedArray[@tmath.Vec4]?
+  priv mut skin_weights : FixedArray[@tmath.Vec4]?
   // Additive position deltas; `tycho_3d` supports the first two on the GPU.
-  mut morph_targets : Array[MorphTarget]
-  mut groups : Array[MeshGroup]
+  priv morph_targets : Array[MorphTarget]
+  priv mut groups : Array[MeshGroup]
 }
 
 ///|
@@ -64,6 +67,131 @@ pub fn MeshData::new(
     morph_targets: [],
     groups: [],
   }
+}
+
+///|
+/// Per-vertex positions (`vertex_count()` entries).
+pub fn MeshData::positions(self : MeshData) -> FixedArray[@tmath.Vec3] {
+  self.positions
+}
+
+///|
+/// Per-vertex normals, always the same length as `positions()`.
+pub fn MeshData::normals(self : MeshData) -> FixedArray[@tmath.Vec3] {
+  self.normals
+}
+
+///|
+/// Per-vertex texture coordinates.
+pub fn MeshData::uvs(self : MeshData) -> FixedArray[@tmath.Vec2] {
+  self.uvs
+}
+
+///|
+/// 32-bit triangle indices.
+pub fn MeshData::indices(self : MeshData) -> FixedArray[UInt] {
+  self.indices
+}
+
+///|
+/// Tangents (`w` is the bitangent handedness sign), when computed.
+pub fn MeshData::tangents(self : MeshData) -> FixedArray[@tmath.Vec4]? {
+  self.tangents
+}
+
+///|
+/// Optional linear-space vertex colours.
+pub fn MeshData::colors(self : MeshData) -> FixedArray[@tmath.Vec4]? {
+  self.colors
+}
+
+///|
+/// Four joint indices per vertex, when skinned.
+pub fn MeshData::skin_joints(self : MeshData) -> FixedArray[@tmath.Vec4]? {
+  self.skin_joints
+}
+
+///|
+/// Four joint weights per vertex, when skinned.
+pub fn MeshData::skin_weights(self : MeshData) -> FixedArray[@tmath.Vec4]? {
+  self.skin_weights
+}
+
+///|
+/// Additive per-vertex position deltas.
+pub fn MeshData::morph_targets(self : MeshData) -> Array[MorphTarget] {
+  self.morph_targets
+}
+
+///|
+/// Material ranges inside the index buffer.
+pub fn MeshData::groups(self : MeshData) -> Array[MeshGroup] {
+  self.groups
+}
+
+///|
+/// Replace the normals, rejecting an array whose length disagrees with the
+/// vertex count.
+pub fn MeshData::set_normals(
+  self : MeshData,
+  normals : FixedArray[@tmath.Vec3],
+) -> Unit raise GeometryError {
+  if normals.length() != self.vertex_count() {
+    raise GeometryError::InvalidMesh(
+      "MeshData::set_normals: normal count must match the vertex count",
+    )
+  }
+  self.normals = normals
+}
+
+///|
+/// Replace the tangents, rejecting a length mismatch.
+pub fn MeshData::set_tangents(
+  self : MeshData,
+  tangents : FixedArray[@tmath.Vec4]?,
+) -> Unit raise GeometryError {
+  match tangents {
+    Some(t) =>
+      if t.length() != self.vertex_count() {
+        raise GeometryError::InvalidMesh(
+          "MeshData::set_tangents: tangent count must match the vertex count",
+        )
+      }
+    None => ()
+  }
+  self.tangents = tangents
+}
+
+///|
+/// Replace the vertex colours, rejecting a length mismatch.
+pub fn MeshData::set_colors(
+  self : MeshData,
+  colors : FixedArray[@tmath.Vec4]?,
+) -> Unit raise GeometryError {
+  match colors {
+    Some(c) =>
+      if c.length() != self.vertex_count() {
+        raise GeometryError::InvalidMesh(
+          "MeshData::set_colors: colour count must match the vertex count",
+        )
+      }
+    None => ()
+  }
+  self.colors = colors
+}
+
+///|
+/// Append a material range, rejecting one that runs past the index buffer.
+pub fn MeshData::add_group(
+  self : MeshData,
+  group : MeshGroup,
+) -> Unit raise GeometryError {
+  if group.start < 0 || group.count < 0 || group.start + group.count > self.index_count() {
+    raise GeometryError::InvalidMesh(
+      "MeshData::add_group: group range must stay inside the index buffer",
+    )
+  }
+  self.groups.push(group)
 }
 
 ///|
@@ -126,7 +254,7 @@ pub fn MeshData::add_morph_target(
       "MeshData::add_morph_target: delta count must match the vertex count",
     )
   }
-  self.morph_targets.push({ positions })
+  self.morph_targets.push(MorphTarget::{ positions })
 }
 
 ///|

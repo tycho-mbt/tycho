@@ -38,6 +38,8 @@ pub fn load_image_rgba(String) -> (Bytes, Int32, Int32)?
 
 pub fn load_spirv(String) -> FixedArray[UInt32]
 
+pub fn load_spirv_checked(String) -> FixedArray[UInt32] raise ShaderError
+
 pub fn read_file_bytes(String) -> Bytes
 
 pub fn reflect_spirv(FixedArray[UInt32]) -> SpirvReflection
@@ -52,6 +54,7 @@ pub fn want_window() -> Bool
 pub suberror ShaderError {
   CompileFailed(ShaderStage, String)
   SlangFailed(String, String)
+  LoadFailed(String, String)
 }
 
 // Types and methods

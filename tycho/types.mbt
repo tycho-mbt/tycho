@@ -1569,3 +1569,10 @@ pub fn load_spirv(path : String) -> FixedArray[UInt32] {
   @shader.load_spirv(path)
 }
 
+///|
+/// Load a `.spv` file, raising `ShaderError::LoadFailed` when it is missing or
+/// holds no code.
+pub fn load_spirv_checked(path : String) -> FixedArray[UInt32] raise @shader.ShaderError {
+  @shader.load_spirv_checked(path)
+}
+

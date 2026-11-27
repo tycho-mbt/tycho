@@ -164,33 +164,38 @@ pub fn LineData::transformed(Self, @tycho_math.Affine3) -> Self
 pub fn LineData::vertex_count(Self) -> Int32
 
 pub(all) struct MeshData {
-  positions : FixedArray[@tycho_math.Vec3]
-  mut normals : FixedArray[@tycho_math.Vec3]
-  uvs : FixedArray[@tycho_math.Vec2]
-  indices : FixedArray[UInt32]
-  mut tangents : FixedArray[@tycho_math.Vec4]?
-  mut colors : FixedArray[@tycho_math.Vec4]?
-  mut skin_joints : FixedArray[@tycho_math.Vec4]?
-  mut skin_weights : FixedArray[@tycho_math.Vec4]?
-  mut morph_targets : Array[MorphTarget]
-  mut groups : Array[MeshGroup]
+  // private fields
 }
+pub fn MeshData::add_group(Self, MeshGroup) -> Unit raise GeometryError
 pub fn MeshData::add_morph_target(Self, FixedArray[@tycho_math.Vec3]) -> Unit raise GeometryError
 pub fn MeshData::bounds(Self) -> @tycho_math.Aabb3
+pub fn MeshData::colors(Self) -> FixedArray[@tycho_math.Vec4]?
 pub fn MeshData::compute_tangents(Self) -> Unit
 pub fn MeshData::compute_vertex_normals(Self) -> Unit
 pub fn MeshData::flipped(Self) -> Self
+pub fn MeshData::groups(Self) -> Array[MeshGroup]
 pub fn MeshData::has_colors(Self) -> Bool
 pub fn MeshData::has_morph(Self) -> Bool
 pub fn MeshData::has_skin(Self) -> Bool
 pub fn MeshData::has_tangents(Self) -> Bool
 pub fn MeshData::index_count(Self) -> Int32
+pub fn MeshData::indices(Self) -> FixedArray[UInt32]
 pub fn MeshData::merge(Array[Self]) -> Self
+pub fn MeshData::morph_targets(Self) -> Array[MorphTarget]
 pub fn MeshData::new(FixedArray[@tycho_math.Vec3], FixedArray[@tycho_math.Vec3], FixedArray[@tycho_math.Vec2], FixedArray[UInt32]) -> Self
+pub fn MeshData::normals(Self) -> FixedArray[@tycho_math.Vec3]
+pub fn MeshData::positions(Self) -> FixedArray[@tycho_math.Vec3]
+pub fn MeshData::set_colors(Self, FixedArray[@tycho_math.Vec4]?) -> Unit raise GeometryError
+pub fn MeshData::set_normals(Self, FixedArray[@tycho_math.Vec3]) -> Unit raise GeometryError
 pub fn MeshData::set_skin(Self, FixedArray[@tycho_math.Vec4], FixedArray[@tycho_math.Vec4]) -> Unit raise GeometryError
+pub fn MeshData::set_tangents(Self, FixedArray[@tycho_math.Vec4]?) -> Unit raise GeometryError
+pub fn MeshData::skin_joints(Self) -> FixedArray[@tycho_math.Vec4]?
+pub fn MeshData::skin_weights(Self) -> FixedArray[@tycho_math.Vec4]?
+pub fn MeshData::tangents(Self) -> FixedArray[@tycho_math.Vec4]?
 pub fn MeshData::to_non_indexed(Self) -> Self
 pub fn MeshData::transformed(Self, @tycho_math.Affine3) -> Self
 pub fn MeshData::triangle_count(Self) -> Int32
+pub fn MeshData::uvs(Self) -> FixedArray[@tycho_math.Vec2]
 pub fn MeshData::vertex_count(Self) -> Int32
 pub fn MeshData::with_groups(Self, Array[MeshGroup]) -> Self
 

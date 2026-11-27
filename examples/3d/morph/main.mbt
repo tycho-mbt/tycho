@@ -27,7 +27,7 @@ fn make_morph_sphere() -> @tgeo.MeshData raise {
   let inflate = FixedArray::make(n, @tmath.Vec3::zero())
   let ripple = FixedArray::make(n, @tmath.Vec3::zero())
   for i = 0; i < n; i = i + 1 {
-    let p = mesh.positions[i]
+    let p = mesh.positions()[i]
     inflate[i] = p.normalize().scale(0.35)
     let wave = @tmath.sin(p.y * 7.0)
     ripple[i] = @tmath.Vec3::new(wave * 0.22, 0.0, wave * 0.12)

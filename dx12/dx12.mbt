@@ -438,12 +438,6 @@ pub fn Texture::is_depth(self : Texture) -> Bool {
   }
 }
 
-///|
-/// A null handle, used for the MRT slots a pass does not bind.
-pub fn Texture::none() -> Texture {
-  { handle: (0 : UInt64) }
-}
-
 pub fn Texture::handle(self : Texture) -> UInt64 {
   self.handle
 }

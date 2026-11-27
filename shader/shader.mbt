@@ -109,6 +109,8 @@ pub fn ShaderTarget::from_code(code : UInt32) -> ShaderTarget {
 pub suberror ShaderError {
   CompileFailed(ShaderStage, String)
   SlangFailed(String, String)
+  /// A SPIR-V file could not be read: missing, empty, or not SPIR-V.
+  LoadFailed(String, String)
 }
 
 ///|
@@ -132,9 +134,21 @@ extern "c" fn load_spirv_ffi(
 ) -> FixedArray[UInt32] = "tycho_shader_load_spirv"
 
 ///|
+/// Load a `.spv` file. Returns an empty array on failure; use
+/// `load_spirv_checked` to get a reason instead.
 pub fn load_spirv(path : String) -> FixedArray[UInt32] {
   let b = @utf8.encode(path)
   load_spirv_ffi(b, b.length(), FixedArray::make(1, (0 : Int32)))
+}
+
+///|
+/// Load a `.spv` file, raising instead of silently returning no code.
+pub fn load_spirv_checked(path : String) -> FixedArray[UInt32] raise ShaderError {
+  let words = load_spirv(path)
+  if words.length() == 0 {
+    raise ShaderError::LoadFailed(path, "empty or unreadable SPIR-V")
+  }
+  words
 }
 
 #borrow(path, out_w, out_h)

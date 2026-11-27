@@ -50,12 +50,12 @@ pub fn ray_mesh_hit(
       let mut best_normal = @tmath.Vec3::new(0.0, 1.0, 0.0)
       let count = mesh.triangle_count()
       for t = 0; t < count; t = t + 1 {
-        let i0 = mesh.indices[t * 3].reinterpret_as_int()
-        let i1 = mesh.indices[t * 3 + 1].reinterpret_as_int()
-        let i2 = mesh.indices[t * 3 + 2].reinterpret_as_int()
-        let p0 = mesh.positions[i0]
-        let p1 = mesh.positions[i1]
-        let p2 = mesh.positions[i2]
+        let i0 = mesh.indices()[t * 3].reinterpret_as_int()
+        let i1 = mesh.indices()[t * 3 + 1].reinterpret_as_int()
+        let i2 = mesh.indices()[t * 3 + 2].reinterpret_as_int()
+        let p0 = mesh.positions()[i0]
+        let p1 = mesh.positions()[i1]
+        let p2 = mesh.positions()[i2]
         match local_ray.intersect_triangle(p0, p1, p2) {
           Some(hit_t) =>
             if hit_t > 1.0e-6 && hit_t < best {

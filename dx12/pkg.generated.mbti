@@ -5686,7 +5686,6 @@ pub fn Texture::create_uploaded(Device, Int32, Int32, Bytes, format? : Int32) ->
 pub fn Texture::destroy(Self) -> Unit
 pub fn Texture::handle(Self) -> UInt64
 pub fn Texture::is_depth(Self) -> Bool
-pub fn Texture::none() -> Self
 pub fn Texture::state(Self) -> ResourceState?
 
 pub struct TimestampPool {
