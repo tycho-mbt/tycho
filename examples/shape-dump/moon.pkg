@@ -1,5 +1,5 @@
 import {
-  "laplaceliu/tycho" @tycho,
+  "laplaceliu/tycho_image" @image,
   "laplaceliu/tycho_2d" @g2d,
   "moonbitlang/core/env" @env,
 }

@@ -3,6 +3,7 @@ members = [
   "dx12",
   "window",
   "shader",
+  "image",
   "tycho",
   "math",
   "geometry",

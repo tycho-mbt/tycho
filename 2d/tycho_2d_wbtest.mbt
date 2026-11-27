@@ -417,10 +417,10 @@ test "draw_path_shadow wraps a blurred layer" {
 
 ///|
 test "font fallback chain picks per-codepoint faces" {
-  let latin_bytes = @tycho.read_file_bytes(
+  let latin_bytes = @image.read_file_bytes(
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
   )
-  let cjk_bytes = @tycho.read_file_bytes(
+  let cjk_bytes = @image.read_file_bytes(
     "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
   )
   match (
@@ -451,10 +451,10 @@ test "font fallback chain picks per-codepoint faces" {
 
 ///|
 test "CBDT color glyph parses and emoji fallback prefers color" {
-  let latin_bytes = @tycho.read_file_bytes(
+  let latin_bytes = @image.read_file_bytes(
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
   )
-  let emoji_bytes = @tycho.read_file_bytes(
+  let emoji_bytes = @image.read_file_bytes(
     "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
   )
   match (
@@ -506,7 +506,7 @@ test "justify, tab advance and kinsoku helpers" {
 
 ///|
 test "legacy kern and RTL visual order" {
-  let bytes = @tycho.read_file_bytes(
+  let bytes = @image.read_file_bytes(
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
   )
   match FontFace::from_ttf_bytes(bytes) {
@@ -591,7 +591,7 @@ test "legacy kern and RTL visual order" {
 
 ///|
 test "synthetic bold and italic glyph bitmaps" {
-  let bytes = @tycho.read_file_bytes(
+  let bytes = @image.read_file_bytes(
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
   )
   match FontFace::from_ttf_bytes(bytes) {
@@ -659,7 +659,7 @@ test "synthetic bold and italic glyph bitmaps" {
 
 ///|
 test "SDF glyph encoding keeps inside/outside distances" {
-  let bytes = @tycho.read_file_bytes(
+  let bytes = @image.read_file_bytes(
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
   )
   match FontFace::from_ttf_bytes(bytes) {
@@ -851,7 +851,7 @@ test "fvar axes and variation-to-synthetic style" {
   assert_true(axes[0].default_value == (400.0 : Float))
   assert_true(axes[0].max_value == (900.0 : Float))
 
-  let bytes = @tycho.read_file_bytes(
+  let bytes = @image.read_file_bytes(
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
   )
   match FontFace::from_ttf_bytes(bytes) {
@@ -888,7 +888,7 @@ test "fvar axes and variation-to-synthetic style" {
 
 ///|
 test "GDEF classes drive GSUB lookup flags" {
-  let bytes = @tycho.read_file_bytes(
+  let bytes = @image.read_file_bytes(
     "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
   )
   match FontFace::from_ttf_bytes(bytes) {
@@ -910,7 +910,7 @@ test "GDEF classes drive GSUB lookup flags" {
 
 ///|
 test "devanagari pre-base matra and conjunct features" {
-  let bytes = @tycho.read_file_bytes(
+  let bytes = @image.read_file_bytes(
     "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
   )
   match FontFace::from_ttf_bytes(bytes) {
@@ -944,7 +944,7 @@ test "devanagari pre-base matra and conjunct features" {
 ///|
 test "avar normalization and HVAR advance" {
   let path = "/home/laplaceliu/Source/laplaceliu/tycho-mbt/refs/skia/modules/canvaskit/tests/assets/RobotoSlab-VariableFont_wght.ttf"
-  let bytes = @tycho.read_file_bytes(path)
+  let bytes = @image.read_file_bytes(path)
   if bytes.length() > 0 {
     match FontFace::from_ttf_bytes(bytes) {
       Some(font) => {
@@ -981,7 +981,7 @@ test "MSDF encoding is RGBA and alpha-opaque" {
 ///|
 test "gvar changes glyph outline" {
   let path = "/home/laplaceliu/Source/laplaceliu/tycho-mbt/refs/skia/modules/canvaskit/tests/assets/RobotoSlab-VariableFont_wght.ttf"
-  let bytes = @tycho.read_file_bytes(path)
+  let bytes = @image.read_file_bytes(path)
   if bytes.length() > 0 {
     match FontFace::from_ttf_bytes(bytes) {
       Some(font) => {

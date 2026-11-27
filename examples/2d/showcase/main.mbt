@@ -309,7 +309,7 @@ fn main {
     )
 
     // Use system DejaVuSans.ttf if available, gracefully falling back to built-in crisp font on CI.
-    let font_bytes = @tycho.read_file_bytes("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+    let font_bytes = @image.read_file_bytes("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
     let font = if font_bytes.length() > 0 {
       match @g2d.FontFace::from_ttf_bytes(font_bytes) {
         Some(f) => f

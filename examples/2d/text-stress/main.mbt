@@ -5,7 +5,7 @@
 
 ///|
 fn load_font(path : String) -> @g2d.FontFace {
-  let bytes = @tycho.read_file_bytes(path)
+  let bytes = @image.read_file_bytes(path)
   if bytes.length() == 0 {
     return @g2d.FontFace::builtin()
   }

@@ -59,13 +59,18 @@ fn upload_gltf_texture(
   if src < 0 || src >= gltf.images.length() {
     return None
   }
-  match @tycho.decode_image(gltf.images[src]) {
-    Some((rgba, w, h)) => {
-      let px = FixedArray::make(rgba.length(), (0 : Byte))
-      for i = 0; i < rgba.length(); i = i + 1 {
-        px[i] = rgba[i]
+  let decoded = try {
+    Some(@image.decode_rgba(gltf.images[src]))
+  } catch {
+    _ => None
+  }
+  match decoded {
+    Some(img) => {
+      let px = FixedArray::make(img.data.length(), (0 : Byte))
+      for i = 0; i < img.data.length(); i = i + 1 {
+        px[i] = img.data[i]
       }
-      Some(renderer.create_texture(w, h, px, srgb~))
+      Some(renderer.create_texture(img.width, img.height, px, srgb~))
     }
     None => None
   }

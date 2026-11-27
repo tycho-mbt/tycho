@@ -1,4 +1,5 @@
 import {
+  "laplaceliu/tycho_image" @image,
   "laplaceliu/tycho_vulkan_examples/exwin_rhi" @exwin_rhi,
   "laplaceliu/tycho_vulkan_examples/exwin" @exwin,
   "laplaceliu/tycho" @tycho,

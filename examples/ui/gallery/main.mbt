@@ -189,7 +189,7 @@ fn main {
       @tycho.DeviceDesc::new("Tycho UI Gallery", validation=true, headless=!show_win),
     )
 
-    let font_bytes = @tycho.read_file_bytes("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+    let font_bytes = @image.read_file_bytes("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
     let font = if font_bytes.length() > 0 {
       match @g2d.FontFace::from_ttf_bytes(font_bytes) {
         Some(f) => f

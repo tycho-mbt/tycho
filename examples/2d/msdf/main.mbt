@@ -96,7 +96,7 @@ fn main {
   try {
     let opts = @exwin.Options::parse("2d/msdf")
     let show_win = opts.window
-    let bytes = @tycho.read_file_bytes(
+    let bytes = @image.read_file_bytes(
       "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     )
     let font = match @g2d.FontFace::from_ttf_bytes(bytes) {

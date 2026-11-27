@@ -199,7 +199,7 @@ fn main {
       ),
     )
 
-    let obj_bytes = @tycho.read_file_bytes("examples/assets/scene.obj")
+    let obj_bytes = @image.read_file_bytes("examples/assets/scene.obj")
     let obj_floats = parse_obj(obj_bytes)
     let vertex_count = obj_floats.length() / 8
     let obj_ok = obj_bytes.length() > 0 && vertex_count == 36
@@ -213,10 +213,9 @@ fn main {
     )
     vbuf.upload_floats(vbuf_arr)
 
-    let (bmp_px, bmp_w, bmp_h) = @tycho.load_image(
-      "examples/assets/checker16.bmp",
-    )
-    let bmp_ok = bmp_w == 16 && bmp_h == 16 && bmp_px.length() == 1024
+    let bmp = @image.load_image("examples/assets/checker16.bmp")
+    let bmp_px = bmp.data
+    let bmp_ok = bmp.width == 16 && bmp.height == 16 && bmp_px.length() == 1024
     let layer_bytes = Bytes::makei(1024 * 2, fn(i) {
       if i < 1024 {
         bmp_px[i]

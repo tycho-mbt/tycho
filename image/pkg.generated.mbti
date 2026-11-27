@@ -1,0 +1,60 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_image"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn decode_rgba(Bytes) -> Image raise ImageError
+
+pub fn load_hdr(String) -> HdrImage raise ImageError
+
+pub fn load_image(String) -> Image raise ImageError
+
+pub fn load_rgba(String) -> Image raise ImageError
+
+pub fn read_file_bytes(String) -> Bytes
+
+pub fn read_file_bytes_checked(String) -> Bytes raise ImageError
+
+pub fn save_png(String, Image, bgra? : Bool) -> Unit raise ImageError
+
+pub fn save_png_rgba(String, Int32, Int32, Bytes, bgra? : Bool) -> Unit raise ImageError
+
+// Errors
+pub suberror ImageError {
+  DecodeFailed(String)
+  IoFailed(String)
+  EncodeFailed(String)
+}
+
+// Types and methods
+pub(all) struct HdrImage {
+  width : Int32
+  height : Int32
+  pixels : FixedArray[Float]
+}
+pub fn HdrImage::is_empty(Self) -> Bool
+
+pub(all) struct Image {
+  width : Int32
+  height : Int32
+  format : ImageFormat
+  data : Bytes
+}
+pub fn Image::byte_size(Self) -> Int32
+pub fn Image::is_empty(Self) -> Bool
+pub fn Image::new(Int32, Int32, ImageFormat, Bytes) -> Self
+pub fn Image::rgba8(Int32, Int32, Bytes) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ImageFormat {
+  RGBA8
+  RGBA8Srgb
+  R32Float
+}
+
+// Type aliases
+
+// Traits

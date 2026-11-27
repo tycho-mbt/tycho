@@ -130,8 +130,11 @@ fn main {
   try {
     let opts = @exwin.Options::parse("rhi/pbr-showcase")
     let show_win = opts.window
-    let (hdr_test, hw, hh) = @tycho.load_hdr_image("shader/testdata/test_2x2.hdr")
-    let hdr_ok = hw == 2 && hh == 2 && hdr_test.length() == 16 && hdr_test[0] > (3.5 : Float)
+    let hdr_test = @image.load_hdr("shader/testdata/test_2x2.hdr")
+    let hdr_ok = hdr_test.width == 2 &&
+      hdr_test.height == 2 &&
+      hdr_test.pixels.length() == 16 &&
+      hdr_test.pixels[0] > (3.5 : Float)
 
     let dev = @tycho.Device::new_desc(
       @tycho.DeviceDesc::new("rhi/pbr-showcase", validation=true, headless=!show_win),

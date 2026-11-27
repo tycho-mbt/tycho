@@ -27,7 +27,7 @@ fn main {
   } else {
     (48.0 : Float)
   }
-  let bytes = @tycho.read_file_bytes(font_path)
+  let bytes = @image.read_file_bytes(font_path)
   let font = match @g2d.FontFace::from_ttf_bytes(bytes) {
     Some(f) => f
     None => {
