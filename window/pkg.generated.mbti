@@ -155,11 +155,13 @@ pub fn initialize() -> Int32
 
 pub fn is_fullscreen(UInt64) -> Bool
 
-pub fn is_mouse_down(UInt64, Int32) -> Bool
+pub fn is_mouse_down(UInt64, MouseButton) -> Bool
 
 pub fn is_wayland() -> Bool
 
 pub fn mouse_pos(UInt64) -> (Double, Double)
+
+pub fn native_handle(UInt64) -> UInt64
 
 pub fn platform() -> Platform
 
@@ -196,6 +198,10 @@ pub fn wait_events(Int32) -> Unit
 pub fn width(UInt64) -> Int32
 
 // Errors
+pub suberror WindowError {
+  InitFailed(String)
+  CreateFailed(String)
+}
 
 // Types and methods
 #derive(Eq, @debug.Debug)
@@ -219,11 +225,11 @@ pub(all) enum CursorShape {
 pub(all) enum Event {
   CloseRequested
   Resized(Int32, Int32)
-  KeyDown(Int32, Int32)
-  KeyUp(Int32, Int32)
+  KeyDown(KeyCode, Modifiers)
+  KeyUp(KeyCode, Modifiers)
   MouseMove(Int32, Int32)
-  MouseDown(Int32, Int32, Int32)
-  MouseUp(Int32, Int32, Int32)
+  MouseDown(MouseButton, Int32, Int32)
+  MouseUp(MouseButton, Int32, Int32)
   MouseScroll(Int32, Int32)
   FocusChanged(Bool)
   TextInput(String)
@@ -233,11 +239,147 @@ pub(all) enum Event {
   ImeCancel
 }
 
+#derive(Eq, @debug.Debug)
+pub(all) enum KeyCode {
+  Escape
+  Return
+  Tab
+  Backspace
+  Space
+  Left
+  Up
+  Right
+  Down
+  Home
+  End
+  PageUp
+  PageDown
+  Insert
+  Delete
+  Num0
+  Num1
+  Num2
+  Num3
+  Num4
+  Num5
+  Num6
+  Num7
+  Num8
+  Num9
+  A
+  B
+  C
+  D
+  E
+  F
+  G
+  H
+  I
+  J
+  K
+  L
+  M
+  N
+  O
+  P
+  Q
+  R
+  S
+  T
+  U
+  V
+  W
+  X
+  Y
+  Z
+  F1
+  F2
+  F3
+  F4
+  F5
+  F6
+  F7
+  F8
+  F9
+  F10
+  F11
+  F12
+  LShift
+  RShift
+  LCtrl
+  RCtrl
+  LAlt
+  RAlt
+  Unknown(Int32)
+}
+pub fn KeyCode::from_keysym(Int32) -> Self
+pub fn KeyCode::to_keysym(Self) -> Int32
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Modifiers {
+  shift : Bool
+  ctrl : Bool
+  alt : Bool
+  super_key : Bool
+}
+pub fn Modifiers::bits(Self) -> Int32
+pub fn Modifiers::from_bits(Int32) -> Self
+pub fn Modifiers::is_empty(Self) -> Bool
+pub fn Modifiers::new(shift? : Bool, ctrl? : Bool, alt? : Bool, super_key? : Bool) -> Self
+pub fn Modifiers::none() -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum MouseButton {
+  Left
+  Right
+  Middle
+  Other(Int32)
+}
+pub fn MouseButton::from_index(Int32) -> Self
+pub fn MouseButton::index(Self) -> Int32
+
 pub(all) enum Platform {
   Linux
   Windows
   MacOS
 }
+
+pub struct Window {
+  // private fields
+}
+pub fn Window::clipboard_text(Self) -> String
+pub fn Window::content_scale(Self) -> Double
+pub fn Window::destroy(Self) -> Unit
+pub fn Window::finish_sync(Self) -> Unit
+pub fn Window::framebuffer_size(Self) -> (Int32, Int32)
+pub fn Window::from_handle(UInt64) -> Self
+pub fn Window::handle(Self) -> UInt64
+pub fn Window::has_pending_sync(Self) -> Bool
+pub fn Window::height(Self) -> Int32
+pub fn Window::init() -> Unit raise WindowError
+pub fn Window::is_fullscreen(Self) -> Bool
+pub fn Window::is_mouse_down(Self, MouseButton) -> Bool
+pub fn Window::mouse_pos(Self) -> (Double, Double)
+pub fn Window::native_handle(Self) -> UInt64
+pub fn Window::new(WindowDesc) -> Self raise WindowError
+pub fn Window::poll_events(Self) -> Array[Event]
+pub fn Window::set_bg_color(Self, Int32, Int32, Int32) -> Unit
+pub fn Window::set_clipboard_text(Self, String) -> Unit
+pub fn Window::set_cursor_mode(Self, CursorMode) -> Unit
+pub fn Window::set_cursor_shape(Self, CursorShape) -> Unit
+pub fn Window::set_fullscreen(Self, Bool) -> Unit
+pub fn Window::set_should_close(Self, Bool) -> Unit
+pub fn Window::set_title(Self, String) -> Unit
+pub fn Window::should_close(Self) -> Bool
+pub fn Window::take_resized(Self) -> Bool
+pub fn Window::width(Self) -> Int32
+
+pub(all) struct WindowDesc {
+  width : Int32
+  height : Int32
+  title : String
+}
+pub fn WindowDesc::new(Int32, Int32, String) -> Self
 
 // Type aliases
 

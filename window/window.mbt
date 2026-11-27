@@ -288,15 +288,326 @@ pub(all) enum CursorShape {
 }
 
 ///|
+/// Logical key identity. The platform layer reports X11 keysyms for historical
+/// reasons; `from_keysym` / `to_keysym` translate losslessly, and keys the enum
+/// does not name are preserved as `Unknown(keysym)`.
+#derive(Eq, Debug)
+pub(all) enum KeyCode {
+  Escape
+  Return
+  Tab
+  Backspace
+  Space
+  Left
+  Up
+  Right
+  Down
+  Home
+  End
+  PageUp
+  PageDown
+  Insert
+  Delete
+  Num0
+  Num1
+  Num2
+  Num3
+  Num4
+  Num5
+  Num6
+  Num7
+  Num8
+  Num9
+  A
+  B
+  C
+  D
+  E
+  F
+  G
+  H
+  I
+  J
+  K
+  L
+  M
+  N
+  O
+  P
+  Q
+  R
+  S
+  T
+  U
+  V
+  W
+  X
+  Y
+  Z
+  F1
+  F2
+  F3
+  F4
+  F5
+  F6
+  F7
+  F8
+  F9
+  F10
+  F11
+  F12
+  LShift
+  RShift
+  LCtrl
+  RCtrl
+  LAlt
+  RAlt
+  Unknown(Int)
+}
+
+///|
+pub fn KeyCode::from_keysym(sym : Int) -> KeyCode {
+  match sym {
+    0xff1b => Escape
+    0xff0d => Return
+    0xff09 => Tab
+    0xff08 => Backspace
+    0x0020 => Space
+    0xff51 => Left
+    0xff52 => Up
+    0xff53 => Right
+    0xff54 => Down
+    0xff50 => Home
+    0xff57 => End
+    0xff55 => PageUp
+    0xff56 => PageDown
+    0xff63 => Insert
+    0xffff => Delete
+    0x0030 => Num0
+    0x0031 => Num1
+    0x0032 => Num2
+    0x0033 => Num3
+    0x0034 => Num4
+    0x0035 => Num5
+    0x0036 => Num6
+    0x0037 => Num7
+    0x0038 => Num8
+    0x0039 => Num9
+    0x0061 => A
+    0x0062 => B
+    0x0063 => C
+    0x0064 => D
+    0x0065 => E
+    0x0066 => F
+    0x0067 => G
+    0x0068 => H
+    0x0069 => I
+    0x006a => J
+    0x006b => K
+    0x006c => L
+    0x006d => M
+    0x006e => N
+    0x006f => O
+    0x0070 => P
+    0x0071 => Q
+    0x0072 => R
+    0x0073 => S
+    0x0074 => T
+    0x0075 => U
+    0x0076 => V
+    0x0077 => W
+    0x0078 => X
+    0x0079 => Y
+    0x007a => Z
+    0xffbe => F1
+    0xffbf => F2
+    0xffc0 => F3
+    0xffc1 => F4
+    0xffc2 => F5
+    0xffc3 => F6
+    0xffc4 => F7
+    0xffc5 => F8
+    0xffc6 => F9
+    0xffc7 => F10
+    0xffc8 => F11
+    0xffc9 => F12
+    0xffe1 => LShift
+    0xffe2 => RShift
+    0xffe3 => LCtrl
+    0xffe4 => RCtrl
+    0xffe9 => LAlt
+    0xffea => RAlt
+    other => Unknown(other)
+  }
+}
+
+///|
+pub fn KeyCode::to_keysym(self : KeyCode) -> Int {
+  match self {
+    Escape => 0xff1b
+    Return => 0xff0d
+    Tab => 0xff09
+    Backspace => 0xff08
+    Space => 0x0020
+    Left => 0xff51
+    Up => 0xff52
+    Right => 0xff53
+    Down => 0xff54
+    Home => 0xff50
+    End => 0xff57
+    PageUp => 0xff55
+    PageDown => 0xff56
+    Insert => 0xff63
+    Delete => 0xffff
+    Num0 => 0x0030
+    Num1 => 0x0031
+    Num2 => 0x0032
+    Num3 => 0x0033
+    Num4 => 0x0034
+    Num5 => 0x0035
+    Num6 => 0x0036
+    Num7 => 0x0037
+    Num8 => 0x0038
+    Num9 => 0x0039
+    A => 0x0061
+    B => 0x0062
+    C => 0x0063
+    D => 0x0064
+    E => 0x0065
+    F => 0x0066
+    G => 0x0067
+    H => 0x0068
+    I => 0x0069
+    J => 0x006a
+    K => 0x006b
+    L => 0x006c
+    M => 0x006d
+    N => 0x006e
+    O => 0x006f
+    P => 0x0070
+    Q => 0x0071
+    R => 0x0072
+    S => 0x0073
+    T => 0x0074
+    U => 0x0075
+    V => 0x0076
+    W => 0x0077
+    X => 0x0078
+    Y => 0x0079
+    Z => 0x007a
+    F1 => 0xffbe
+    F2 => 0xffbf
+    F3 => 0xffc0
+    F4 => 0xffc1
+    F5 => 0xffc2
+    F6 => 0xffc3
+    F7 => 0xffc4
+    F8 => 0xffc5
+    F9 => 0xffc6
+    F10 => 0xffc7
+    F11 => 0xffc8
+    F12 => 0xffc9
+    LShift => 0xffe1
+    RShift => 0xffe2
+    LCtrl => 0xffe3
+    RCtrl => 0xffe4
+    LAlt => 0xffe9
+    RAlt => 0xffea
+    Unknown(sym) => sym
+  }
+}
+
+///|
+/// Keyboard modifiers, decoded from the X11-compatible mask the platform layer
+/// reports (Shift=1, Lock=2, Ctrl=4, Mod1/Alt=8, Mod4/Super=64).
+#derive(Eq, Debug)
+pub(all) struct Modifiers {
+  shift : Bool
+  ctrl : Bool
+  alt : Bool
+  super_key : Bool
+}
+
+///|
+pub fn Modifiers::new(
+  shift? : Bool = false,
+  ctrl? : Bool = false,
+  alt? : Bool = false,
+  super_key? : Bool = false,
+) -> Modifiers {
+  { shift, ctrl, alt, super_key }
+}
+
+///|
+pub fn Modifiers::none() -> Modifiers {
+  { shift: false, ctrl: false, alt: false, super_key: false }
+}
+
+///|
+pub fn Modifiers::from_bits(bits : Int) -> Modifiers {
+  {
+    shift: (bits & 1) != 0,
+    ctrl: (bits & 4) != 0,
+    alt: (bits & 8) != 0,
+    super_key: (bits & 64) != 0,
+  }
+}
+
+///|
+pub fn Modifiers::bits(self : Modifiers) -> Int {
+  (if self.shift { 1 } else { 0 }) |
+  (if self.ctrl { 4 } else { 0 }) |
+  (if self.alt { 8 } else { 0 }) |
+  (if self.super_key { 64 } else { 0 })
+}
+
+///|
+pub fn Modifiers::is_empty(self : Modifiers) -> Bool {
+  !self.shift && !self.ctrl && !self.alt && !self.super_key
+}
+
+///|
+#derive(Eq, Debug)
+pub(all) enum MouseButton {
+  Left
+  Right
+  Middle
+  Other(Int)
+}
+
+///|
+///|
+/// Platform button index (X11 numbering: 1 = left, 2 = middle, 3 = right,
+/// 8/9 = side buttons).
+pub fn MouseButton::from_index(index : Int) -> MouseButton {
+  match index {
+    1 => Left
+    2 => Middle
+    3 => Right
+    other => Other(other)
+  }
+}
+
+///|
+pub fn MouseButton::index(self : MouseButton) -> Int {
+  match self {
+    Left => 1
+    Middle => 2
+    Right => 3
+    Other(i) => i
+  }
+}
+
+///|
 #derive(Eq, Debug)
 pub(all) enum Event {
   CloseRequested
   Resized(Int, Int)
-  KeyDown(Int, Int)
-  KeyUp(Int, Int)
+  KeyDown(KeyCode, Modifiers)
+  KeyUp(KeyCode, Modifiers)
   MouseMove(Int, Int)
-  MouseDown(Int, Int, Int)
-  MouseUp(Int, Int, Int)
+  MouseDown(MouseButton, Int, Int)
+  MouseUp(MouseButton, Int, Int)
   MouseScroll(Int, Int)
   FocusChanged(Bool)
   TextInput(String)
@@ -327,6 +638,175 @@ pub fn create(w : Int, h : Int, title : String) -> UInt64 {
 ///|
 pub fn destroy(win : UInt64) -> Unit {
   win_destroy_ffi(win)
+}
+
+///|
+pub suberror WindowError {
+  InitFailed(String)
+  CreateFailed(String)
+}
+
+///|
+pub(all) struct WindowDesc {
+  width : Int
+  height : Int
+  title : String
+}
+
+///|
+pub fn WindowDesc::new(width : Int, height : Int, title : String) -> WindowDesc {
+  { width, height, title }
+}
+
+///|
+/// Opaque native window handle. Every window, input, and clipboard operation is
+/// a method here; the raw `UInt64` never leaves the module unless explicitly
+/// requested with `handle()`.
+pub struct Window {
+  priv handle : UInt64
+}
+
+///|
+/// Idempotent platform initialization. `Window::new` calls this for you.
+pub fn Window::init() -> Unit raise WindowError {
+  if initialize() == 0 {
+    raise WindowError::InitFailed("could not initialise the platform window layer")
+  }
+}
+
+///|
+pub fn Window::new(desc : WindowDesc) -> Window raise WindowError {
+  Window::init()
+  let title = @vk.cstr(desc.title)
+  let handle = win_create_ffi(desc.width, desc.height, title)
+  @vk.free_ptr(title)
+  if handle == 0 {
+    raise WindowError::CreateFailed(desc.title)
+  }
+  { handle, }
+}
+
+///|
+/// Wraps a handle produced elsewhere (e.g. a swapchain that already owns one).
+pub fn Window::from_handle(handle : UInt64) -> Window {
+  { handle, }
+}
+
+///|
+pub fn Window::handle(self : Window) -> UInt64 {
+  self.handle
+}
+
+///|
+pub fn Window::destroy(self : Window) -> Unit {
+  win_destroy_ffi(self.handle)
+}
+
+///|
+pub fn Window::width(self : Window) -> Int {
+  win_width_ffi(self.handle).to_int()
+}
+
+///|
+pub fn Window::height(self : Window) -> Int {
+  win_height_ffi(self.handle).to_int()
+}
+
+///|
+pub fn Window::framebuffer_size(self : Window) -> (Int, Int) {
+  (self.width(), self.height())
+}
+
+///|
+pub fn Window::should_close(self : Window) -> Bool {
+  win_should_close_ffi(self.handle) != 0
+}
+
+///|
+pub fn Window::set_should_close(self : Window, close : Bool) -> Unit {
+  win_set_should_close_ffi(self.handle, if close { (1 : Int32) } else { (0 : Int32) })
+}
+
+///|
+pub fn Window::take_resized(self : Window) -> Bool {
+  win_take_resized_ffi(self.handle) != 0
+}
+
+///|
+pub fn Window::native_handle(self : Window) -> UInt64 {
+  win_handle_ffi(self.handle)
+}
+
+///|
+pub fn Window::set_title(self : Window, title : String) -> Unit {
+  let s = @vk.cstr(title)
+  win_set_title_ffi(self.handle, s)
+  @vk.free_ptr(s)
+}
+
+///|
+pub fn Window::set_cursor_mode(self : Window, mode : CursorMode) -> Unit {
+  set_cursor_mode(self.handle, mode)
+}
+
+///|
+pub fn Window::set_cursor_shape(self : Window, shape : CursorShape) -> Unit {
+  set_cursor_shape(self.handle, shape)
+}
+
+///|
+pub fn Window::set_clipboard_text(self : Window, text : String) -> Unit {
+  set_clipboard_text(self.handle, text)
+}
+
+///|
+pub fn Window::clipboard_text(self : Window) -> String {
+  clipboard_text(self.handle)
+}
+
+///|
+pub fn Window::set_fullscreen(self : Window, fullscreen : Bool) -> Unit {
+  set_fullscreen(self.handle, fullscreen)
+}
+
+///|
+pub fn Window::is_fullscreen(self : Window) -> Bool {
+  is_fullscreen(self.handle)
+}
+
+///|
+pub fn Window::content_scale(self : Window) -> Double {
+  content_scale(self.handle)
+}
+
+///|
+pub fn Window::set_bg_color(self : Window, r : Int, g : Int, b : Int) -> Unit {
+  set_bg_color(self.handle, r, g, b)
+}
+
+///|
+pub fn Window::has_pending_sync(self : Window) -> Bool {
+  has_pending_sync(self.handle)
+}
+
+///|
+pub fn Window::finish_sync(self : Window) -> Unit {
+  finish_sync(self.handle)
+}
+
+///|
+pub fn Window::mouse_pos(self : Window) -> (Double, Double) {
+  mouse_pos(self.handle)
+}
+
+///|
+pub fn Window::is_mouse_down(self : Window, button : MouseButton) -> Bool {
+  is_mouse_down(self.handle, button)
+}
+
+///|
+pub fn Window::poll_events(self : Window) -> Array[Event] {
+  poll_events(self.handle)
 }
 
 ///|
@@ -457,8 +937,8 @@ pub fn mouse_pos(win : UInt64) -> (Double, Double) {
 }
 
 ///|
-pub fn is_mouse_down(win : UInt64, button : Int) -> Bool {
-  win_mouse_button_ffi(win, button) != 0
+pub fn is_mouse_down(win : UInt64, button : MouseButton) -> Bool {
+  win_mouse_button_ffi(win, button.index()) != 0
 }
 
 ///|
@@ -471,11 +951,11 @@ fn event_from_code(kind : Int, a : Int, b : Int, c : Int) -> Event {
   match kind {
     1 => Event::CloseRequested
     2 => Event::Resized(a, b)
-    3 => Event::KeyDown(a, b)
-    4 => Event::KeyUp(a, b)
+    3 => Event::KeyDown(KeyCode::from_keysym(a), Modifiers::from_bits(b))
+    4 => Event::KeyUp(KeyCode::from_keysym(a), Modifiers::from_bits(b))
     5 => Event::MouseMove(a, b)
-    6 => Event::MouseDown(a, b, c)
-    7 => Event::MouseUp(a, b, c)
+    6 => Event::MouseDown(MouseButton::from_index(a), b, c)
+    7 => Event::MouseUp(MouseButton::from_index(a), b, c)
     8 => Event::MouseScroll(a, b)
     9 => Event::FocusChanged(a != 0)
     10 => {
