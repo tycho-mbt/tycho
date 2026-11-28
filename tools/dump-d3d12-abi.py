@@ -247,7 +247,33 @@ def referenced_types(interfaces: list[tuple[str, list[dict]]]) -> set[str]:
     return names
 
 
-def render(interfaces: list[tuple[str, list[dict]]], kinds: dict[str, str]) -> str:
+def collect_guids(text: str) -> tuple[dict[str, str], dict[str, str]]:
+    """Extract MIDL_INTERFACE UUIDs and DEFINE_GUID CLSIDs."""
+    iids: dict[str, str] = {}
+    clsids: dict[str, str] = {}
+    for m in re.finditer(r'MIDL_INTERFACE\(\s*"([0-9a-fA-F-]+)"\s*\)\s*(\w+)', text):
+        iids[m.group(2)] = m.group(1).lower()
+    for m in re.finditer(r"DEFINE_GUID\(\s*(CLSID_\w+)\s*,\s*([^)]+)\)", text):
+        parts = [int(p.strip(), 0) for p in m.group(2).split(",")]
+        if len(parts) == 11:
+            d1, d2, d3 = parts[0], parts[1], parts[2]
+            b = parts[3:]
+            raw = (
+                d1.to_bytes(4, "little")
+                + d2.to_bytes(2, "little")
+                + d3.to_bytes(2, "little")
+                + bytes(b)
+            )
+            clsids[m.group(1)] = raw.hex()
+    return iids, clsids
+
+
+def render(
+    interfaces: list[tuple[str, list[dict]]],
+    kinds: dict[str, str],
+    iids: dict[str, str],
+    clsids: dict[str, str],
+) -> str:
     lines = [
         "# Direct3D 12 COM ABI distilled from d3d12.h - DO NOT EDIT.",
         "# Regenerate with: python tools/dump-d3d12-abi.py",
@@ -272,6 +298,18 @@ def render(interfaces: list[tuple[str, list[dict]]], kinds: dict[str, str]) -> s
         lines.append("# ABI classification for aggregate types used by value or pointer")
         for name, kind in aggregates:
             lines.append(f"kind {kind} {name}")
+    iface_names = [iface for iface, _ in interfaces]
+    lines.append("")
+    lines.append("# Interface IIDs (from MIDL_INTERFACE declarations)")
+    lines.append("iid IUnknown 00000000-0000-0000-c000-000000000046")
+    for iface in iface_names:
+        if iface in iids:
+            lines.append(f"iid {iface} {iids[iface]}")
+    if clsids:
+        lines.append("")
+        lines.append("# D3D12 factory/singleton CLSIDs (little-endian 16-byte GUID hex)")
+        for name in sorted(clsids):
+            lines.append(f"clsid {name} {clsids[name]}")
     lines.append("")
     return "\n".join(lines)
 
@@ -281,6 +319,8 @@ def main() -> int:
     headers = [pathlib.Path(a) for a in args] if args else DEFAULT_HEADERS
     interfaces = []
     kinds: dict[str, str] = {}
+    iids: dict[str, str] = {}
+    clsids: dict[str, str] = {}
     seen: set[str] = set()
     all_text: list[str] = []
     for header_path in headers:
@@ -291,6 +331,9 @@ def main() -> int:
         all_text.append(raw)
         header = raw.splitlines()
         kinds.update(collect_kinds(raw))
+        h_iids, h_clsids = collect_guids(raw)
+        iids.update(h_iids)
+        clsids.update(h_clsids)
         i = 0
         while i < len(header):
             match = re.match(r"\s*typedef struct (\w+)Vtbl\s*$", header[i])
@@ -307,7 +350,7 @@ def main() -> int:
         print("ERROR: no interfaces matched", file=sys.stderr)
         return 1
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(render(interfaces, kinds), encoding="utf-8", newline="\n")
+    OUTPUT.write_text(render(interfaces, kinds, iids, clsids), encoding="utf-8", newline="\n")
     total = sum(len(m) for _, m in interfaces)
     print(f"wrote {OUTPUT.relative_to(ROOT)} ({len(interfaces)} interfaces, {total} methods)")
     return 0

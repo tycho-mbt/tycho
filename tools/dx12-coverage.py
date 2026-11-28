@@ -60,7 +60,7 @@ def manifest_surface() -> dict[str, int]:
         if line.startswith("interface "):
             current = line.split()[1]
             surface[current] = 0
-        elif line.startswith("kind ") or not line or line.startswith("#"):
+        elif line.startswith(("kind ", "iid ", "clsid ")) or not line or line.startswith("#"):
             continue
         elif current and raw.startswith("  ") and " ret=" in line:
             surface[current] += 1

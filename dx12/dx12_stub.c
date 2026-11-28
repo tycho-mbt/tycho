@@ -37,6 +37,8 @@ static PFN_D3D12CreateDevice g_create_device = NULL;
 static PFN_D3D12GetDebugInterface g_get_debug = NULL;
 static PFN_D3D12SerializeVersionedRootSignature g_serialize_rs = NULL;
 static PFN_CreateDXGIFactory2 g_create_factory2 = NULL;
+static HMODULE g_d3d12_mod = NULL;
+static HMODULE g_dxgi_mod = NULL;
 static HRESULT g_last_hr = S_OK;
 
 // Hand-written IIDs. Verified byte-for-byte against the Windows SDK (INITGUID)
@@ -329,6 +331,8 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_init(void) {
   HMODULE dxgi = (dxgi_path && dxgi_path[0]) ? LoadLibraryA(dxgi_path) : NULL;
   if (!dxgi) dxgi = LoadLibraryA("dxgi.dll");
   if (!d3d12 || !dxgi) return 0;
+  g_d3d12_mod = d3d12;
+  g_dxgi_mod = dxgi;
   g_create_device = (PFN_D3D12CreateDevice)GetProcAddress(d3d12, "D3D12CreateDevice");
   g_get_debug = (PFN_D3D12GetDebugInterface)GetProcAddress(d3d12, "D3D12GetDebugInterface");
   g_serialize_rs = (PFN_D3D12SerializeVersionedRootSignature)GetProcAddress(
@@ -350,7 +354,14 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_as_ptr(const void *p) {
 
 // IUnknown lifetime for raw COM objects handed out by the generated dispatch
 // layer (the manifest deliberately omits QueryInterface/AddRef/Release). Every
-// COM vtable begins with IUnknown, so slot 1 is AddRef and slot 2 is Release.
+// COM vtable begins with IUnknown, so slot 0 is QueryInterface, 1 is AddRef, 2 is Release.
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_com_query_interface(uint64_t obj, uint64_t riid,
+                                                          uint64_t ppv_out) {
+  IUnknown *u = (IUnknown *)(uintptr_t)obj;
+  if (!u || !riid || !ppv_out) return (int32_t)E_INVALIDARG;
+  return (int32_t)u->lpVtbl->QueryInterface(u, (REFIID)(uintptr_t)riid, (void **)(uintptr_t)ppv_out);
+}
+
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_com_add_ref(uint64_t obj) {
   IUnknown *u = (IUnknown *)(uintptr_t)obj;
   return u ? (uint64_t)u->lpVtbl->AddRef(u) : 0;
@@ -359,6 +370,216 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_com_add_ref(uint64_t obj) {
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_com_release(uint64_t obj) {
   IUnknown *u = (IUnknown *)(uintptr_t)obj;
   return u ? (uint64_t)u->lpVtbl->Release(u) : 0;
+}
+
+// ---------------------------------------------------------------------------
+// Free DLL entry points (d3d12.dll + dxgi.dll) resolved via GetProcAddress
+// ---------------------------------------------------------------------------
+
+typedef HRESULT(WINAPI *PFN_D3D12SerializeRootSignature)(
+    const D3D12_ROOT_SIGNATURE_DESC *, D3D_ROOT_SIGNATURE_VERSION, ID3DBlob **, ID3DBlob **);
+typedef HRESULT(WINAPI *PFN_D3D12CreateRootSignatureDeserializer)(
+    LPCVOID, SIZE_T, REFIID, void **);
+typedef HRESULT(WINAPI *PFN_D3D12CreateVersionedRootSignatureDeserializer)(
+    LPCVOID, SIZE_T, REFIID, void **);
+typedef HRESULT(WINAPI *PFN_D3D12CreateVersionedRootSignatureDeserializerFromSubobjectInLibrary)(
+    LPCVOID, SIZE_T, LPCWSTR, REFIID, void **);
+typedef HRESULT(WINAPI *PFN_D3D12EnableExperimentalFeatures)(
+    UINT, const IID *, void *, UINT *);
+typedef HRESULT(WINAPI *PFN_D3D12GetInterface)(REFCLSID, REFIID, void **);
+typedef HRESULT(WINAPI *PFN_CreateDXGIFactory)(REFIID, void **);
+typedef HRESULT(WINAPI *PFN_CreateDXGIFactory1)(REFIID, void **);
+typedef HRESULT(WINAPI *PFN_DXGIGetDebugInterface1)(UINT, REFIID, void **);
+typedef HRESULT(WINAPI *PFN_DXGIDeclareAdapterRemovalSupport)(void);
+typedef HRESULT(WINAPI *PFN_DXGIDisableVBlankVirtualization)(void);
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_device(uint64_t adapter, int32_t feature_level,
+                                                       uint64_t riid, uint64_t ppv) {
+  if (!tycho_dx12_init() || !g_create_device) return (int32_t)E_NOINTERFACE;
+  return (int32_t)g_create_device((IUnknown *)(uintptr_t)adapter,
+                                  (D3D_FEATURE_LEVEL)feature_level,
+                                  (REFIID)(uintptr_t)riid, (void **)(uintptr_t)ppv);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_get_debug_interface(uint64_t riid, uint64_t ppv) {
+  if (!tycho_dx12_init() || !g_get_debug) return (int32_t)E_NOINTERFACE;
+  return (int32_t)g_get_debug((REFIID)(uintptr_t)riid, (void **)(uintptr_t)ppv);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_serialize_root_signature(uint64_t desc, int32_t version,
+                                                                  uint64_t pp_blob,
+                                                                  uint64_t pp_err) {
+  if (!tycho_dx12_init() || !g_d3d12_mod) return (int32_t)E_NOINTERFACE;
+  PFN_D3D12SerializeRootSignature fn = (PFN_D3D12SerializeRootSignature)GetProcAddress(
+      g_d3d12_mod, "D3D12SerializeRootSignature");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn((const D3D12_ROOT_SIGNATURE_DESC *)(uintptr_t)desc,
+                     (D3D_ROOT_SIGNATURE_VERSION)version,
+                     (ID3DBlob **)(uintptr_t)pp_blob, (ID3DBlob **)(uintptr_t)pp_err);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_root_signature_deserializer(
+    uint64_t src, int64_t src_bytes, uint64_t riid, uint64_t ppv) {
+  if (!tycho_dx12_init() || !g_d3d12_mod) return (int32_t)E_NOINTERFACE;
+  PFN_D3D12CreateRootSignatureDeserializer fn =
+      (PFN_D3D12CreateRootSignatureDeserializer)GetProcAddress(
+          g_d3d12_mod, "D3D12CreateRootSignatureDeserializer");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn((LPCVOID)(uintptr_t)src, (SIZE_T)src_bytes,
+                     (REFIID)(uintptr_t)riid, (void **)(uintptr_t)ppv);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_serialize_versioned_root_signature(
+    uint64_t desc, uint64_t pp_blob, uint64_t pp_err) {
+  if (!tycho_dx12_init() || !g_serialize_rs) return (int32_t)E_NOINTERFACE;
+  return (int32_t)g_serialize_rs(
+      (const D3D12_VERSIONED_ROOT_SIGNATURE_DESC *)(uintptr_t)desc,
+      (ID3DBlob **)(uintptr_t)pp_blob, (ID3DBlob **)(uintptr_t)pp_err);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_versioned_root_signature_deserializer(
+    uint64_t src, int64_t src_bytes, uint64_t riid, uint64_t ppv) {
+  if (!tycho_dx12_init() || !g_d3d12_mod) return (int32_t)E_NOINTERFACE;
+  PFN_D3D12CreateVersionedRootSignatureDeserializer fn =
+      (PFN_D3D12CreateVersionedRootSignatureDeserializer)GetProcAddress(
+          g_d3d12_mod, "D3D12CreateVersionedRootSignatureDeserializer");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn((LPCVOID)(uintptr_t)src, (SIZE_T)src_bytes,
+                     (REFIID)(uintptr_t)riid, (void **)(uintptr_t)ppv);
+}
+
+MOONBIT_FFI_EXPORT int32_t
+tycho_dx12_fn_create_versioned_root_signature_deserializer_from_subobject_in_library(
+    uint64_t src, int64_t src_bytes, uint64_t name_wstr, uint64_t riid, uint64_t ppv) {
+  if (!tycho_dx12_init() || !g_d3d12_mod) return (int32_t)E_NOINTERFACE;
+  PFN_D3D12CreateVersionedRootSignatureDeserializerFromSubobjectInLibrary fn =
+      (PFN_D3D12CreateVersionedRootSignatureDeserializerFromSubobjectInLibrary)GetProcAddress(
+          g_d3d12_mod, "D3D12CreateVersionedRootSignatureDeserializerFromSubobjectInLibrary");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn((LPCVOID)(uintptr_t)src, (SIZE_T)src_bytes,
+                     (LPCWSTR)(uintptr_t)name_wstr,
+                     (REFIID)(uintptr_t)riid, (void **)(uintptr_t)ppv);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_enable_experimental_features(
+    int32_t num, uint64_t riids, uint64_t configs, uint64_t config_sizes) {
+  if (!tycho_dx12_init() || !g_d3d12_mod) return (int32_t)E_NOINTERFACE;
+  PFN_D3D12EnableExperimentalFeatures fn =
+      (PFN_D3D12EnableExperimentalFeatures)GetProcAddress(
+          g_d3d12_mod, "D3D12EnableExperimentalFeatures");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn((UINT)num, (const IID *)(uintptr_t)riids,
+                     (void *)(uintptr_t)configs, (UINT *)(uintptr_t)config_sizes);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_get_interface(uint64_t rclsid, uint64_t riid,
+                                                       uint64_t ppv) {
+  if (!tycho_dx12_init() || !g_d3d12_mod) return (int32_t)E_NOINTERFACE;
+  PFN_D3D12GetInterface fn =
+      (PFN_D3D12GetInterface)GetProcAddress(g_d3d12_mod, "D3D12GetInterface");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn((REFCLSID)(uintptr_t)rclsid, (REFIID)(uintptr_t)riid,
+                     (void **)(uintptr_t)ppv);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_dxgi_factory(uint64_t riid, uint64_t ppv) {
+  if (!tycho_dx12_init() || !g_dxgi_mod) return (int32_t)E_NOINTERFACE;
+  PFN_CreateDXGIFactory fn =
+      (PFN_CreateDXGIFactory)GetProcAddress(g_dxgi_mod, "CreateDXGIFactory");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn((REFIID)(uintptr_t)riid, (void **)(uintptr_t)ppv);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_dxgi_factory1(uint64_t riid, uint64_t ppv) {
+  if (!tycho_dx12_init() || !g_dxgi_mod) return (int32_t)E_NOINTERFACE;
+  PFN_CreateDXGIFactory1 fn =
+      (PFN_CreateDXGIFactory1)GetProcAddress(g_dxgi_mod, "CreateDXGIFactory1");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn((REFIID)(uintptr_t)riid, (void **)(uintptr_t)ppv);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_dxgi_factory2(int32_t flags, uint64_t riid,
+                                                               uint64_t ppv) {
+  if (!tycho_dx12_init() || !g_create_factory2) return (int32_t)E_NOINTERFACE;
+  return (int32_t)g_create_factory2((UINT)flags, (REFIID)(uintptr_t)riid,
+                                    (void **)(uintptr_t)ppv);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_dxgi_get_debug_interface1(int32_t flags, uint64_t riid,
+                                                                   uint64_t ppv) {
+  if (!tycho_dx12_init() || !g_dxgi_mod) return (int32_t)E_NOINTERFACE;
+  PFN_DXGIGetDebugInterface1 fn =
+      (PFN_DXGIGetDebugInterface1)GetProcAddress(g_dxgi_mod, "DXGIGetDebugInterface1");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn((UINT)flags, (REFIID)(uintptr_t)riid, (void **)(uintptr_t)ppv);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_dxgi_declare_adapter_removal_support(void) {
+  if (!tycho_dx12_init() || !g_dxgi_mod) return (int32_t)E_NOINTERFACE;
+  PFN_DXGIDeclareAdapterRemovalSupport fn =
+      (PFN_DXGIDeclareAdapterRemovalSupport)GetProcAddress(
+          g_dxgi_mod, "DXGIDeclareAdapterRemovalSupport");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn();
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_dxgi_disable_vblank_virtualization(void) {
+  if (!tycho_dx12_init() || !g_dxgi_mod) return (int32_t)E_NOINTERFACE;
+  PFN_DXGIDisableVBlankVirtualization fn =
+      (PFN_DXGIDisableVBlankVirtualization)GetProcAddress(
+          g_dxgi_mod, "DXGIDisableVBlankVirtualization");
+  if (!fn) return (int32_t)E_NOTIMPL;
+  return (int32_t)fn();
+}
+
+// ---------------------------------------------------------------------------
+// Win32 events & raw memory marshalling helpers
+// ---------------------------------------------------------------------------
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_create_event(void) {
+  return (uint64_t)(uintptr_t)CreateEventW(NULL, FALSE, FALSE, NULL);
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_wait_event(uint64_t h, int32_t timeout_ms) {
+  if (!h) return -1;
+  return (int32_t)WaitForSingleObject((HANDLE)(uintptr_t)h, (DWORD)timeout_ms);
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_close_handle(uint64_t h) {
+  if (h) CloseHandle((HANDLE)(uintptr_t)h);
+}
+
+MOONBIT_FFI_EXPORT uint32_t tycho_dx12_read_u32(uint64_t ptr, int32_t byte_offset) {
+  uint32_t val = 0;
+  if (ptr) memcpy(&val, (const uint8_t *)(uintptr_t)ptr + byte_offset, sizeof val);
+  return val;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_read_u64(uint64_t ptr, int32_t byte_offset) {
+  uint64_t val = 0;
+  if (ptr) memcpy(&val, (const uint8_t *)(uintptr_t)ptr + byte_offset, sizeof val);
+  return val;
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_write_u32(uint64_t ptr, int32_t byte_offset, uint32_t val) {
+  if (ptr) memcpy((uint8_t *)(uintptr_t)ptr + byte_offset, &val, sizeof val);
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_write_u64(uint64_t ptr, int32_t byte_offset, uint64_t val) {
+  if (ptr) memcpy((uint8_t *)(uintptr_t)ptr + byte_offset, &val, sizeof val);
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_memcpy_ptr(uint64_t dst, uint64_t src, int32_t bytes) {
+  if (dst && src && bytes > 0) memcpy((void *)(uintptr_t)dst, (const void *)(uintptr_t)src, (size_t)bytes);
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_alloc(int32_t bytes) {
+  if (bytes <= 0) return 0;
+  return (uint64_t)(uintptr_t)calloc(1, (size_t)bytes);
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_free(uint64_t ptr) {
+  if (ptr) free((void *)(uintptr_t)ptr);
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_env_requests_warp(void) {
@@ -3580,6 +3801,14 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_as_ptr(const void *p) {
   return (uint64_t)(uintptr_t)p;
 }
 
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_com_query_interface(uint64_t obj, uint64_t riid,
+                                                          uint64_t ppv_out) {
+  (void)obj;
+  (void)riid;
+  (void)ppv_out;
+  return -1;
+}
+
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_com_add_ref(uint64_t obj) {
   (void)obj;
   return 0;
@@ -3588,6 +3817,106 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_com_add_ref(uint64_t obj) {
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_com_release(uint64_t obj) {
   (void)obj;
   return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_device(uint64_t adapter, int32_t feature_level,
+                                                       uint64_t riid, uint64_t ppv) {
+  (void)adapter; (void)feature_level; (void)riid; (void)ppv;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_get_debug_interface(uint64_t riid, uint64_t ppv) {
+  (void)riid; (void)ppv;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_serialize_root_signature(uint64_t desc, int32_t version,
+                                                                  uint64_t pp_blob,
+                                                                  uint64_t pp_err) {
+  (void)desc; (void)version; (void)pp_blob; (void)pp_err;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_root_signature_deserializer(
+    uint64_t src, int64_t src_bytes, uint64_t riid, uint64_t ppv) {
+  (void)src; (void)src_bytes; (void)riid; (void)ppv;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_serialize_versioned_root_signature(
+    uint64_t desc, uint64_t pp_blob, uint64_t pp_err) {
+  (void)desc; (void)pp_blob; (void)pp_err;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_versioned_root_signature_deserializer(
+    uint64_t src, int64_t src_bytes, uint64_t riid, uint64_t ppv) {
+  (void)src; (void)src_bytes; (void)riid; (void)ppv;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t
+tycho_dx12_fn_create_versioned_root_signature_deserializer_from_subobject_in_library(
+    uint64_t src, int64_t src_bytes, uint64_t name_wstr, uint64_t riid, uint64_t ppv) {
+  (void)src; (void)src_bytes; (void)name_wstr; (void)riid; (void)ppv;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_enable_experimental_features(
+    int32_t num, uint64_t riids, uint64_t configs, uint64_t config_sizes) {
+  (void)num; (void)riids; (void)configs; (void)config_sizes;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_get_interface(uint64_t rclsid, uint64_t riid,
+                                                       uint64_t ppv) {
+  (void)rclsid; (void)riid; (void)ppv;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_dxgi_factory(uint64_t riid, uint64_t ppv) {
+  (void)riid; (void)ppv;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_dxgi_factory1(uint64_t riid, uint64_t ppv) {
+  (void)riid; (void)ppv;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_create_dxgi_factory2(int32_t flags, uint64_t riid,
+                                                               uint64_t ppv) {
+  (void)flags; (void)riid; (void)ppv;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_dxgi_get_debug_interface1(int32_t flags, uint64_t riid,
+                                                                   uint64_t ppv) {
+  (void)flags; (void)riid; (void)ppv;
+  return -1;
+}
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_dxgi_declare_adapter_removal_support(void) { return -1; }
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_fn_dxgi_disable_vblank_virtualization(void) { return -1; }
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_create_event(void) { return 0; }
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_wait_event(uint64_t h, int32_t timeout_ms) {
+  (void)h; (void)timeout_ms;
+  return -1;
+}
+MOONBIT_FFI_EXPORT void tycho_dx12_close_handle(uint64_t h) { (void)h; }
+MOONBIT_FFI_EXPORT uint32_t tycho_dx12_read_u32(uint64_t ptr, int32_t byte_offset) {
+  uint32_t val = 0;
+  if (ptr) memcpy(&val, (const uint8_t *)(uintptr_t)ptr + byte_offset, sizeof val);
+  return val;
+}
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_read_u64(uint64_t ptr, int32_t byte_offset) {
+  uint64_t val = 0;
+  if (ptr) memcpy(&val, (const uint8_t *)(uintptr_t)ptr + byte_offset, sizeof val);
+  return val;
+}
+MOONBIT_FFI_EXPORT void tycho_dx12_write_u32(uint64_t ptr, int32_t byte_offset, uint32_t val) {
+  if (ptr) memcpy((uint8_t *)(uintptr_t)ptr + byte_offset, &val, sizeof val);
+}
+MOONBIT_FFI_EXPORT void tycho_dx12_write_u64(uint64_t ptr, int32_t byte_offset, uint64_t val) {
+  if (ptr) memcpy((uint8_t *)(uintptr_t)ptr + byte_offset, &val, sizeof val);
+}
+MOONBIT_FFI_EXPORT void tycho_dx12_memcpy_ptr(uint64_t dst, uint64_t src, int32_t bytes) {
+  if (dst && src && bytes > 0) memcpy((void *)(uintptr_t)dst, (const void *)(uintptr_t)src, (size_t)bytes);
+}
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_alloc(int32_t bytes) {
+  if (bytes <= 0) return 0;
+  return (uint64_t)(uintptr_t)calloc(1, (size_t)bytes);
+}
+MOONBIT_FFI_EXPORT void tycho_dx12_free(uint64_t ptr) {
+  if (ptr) free((void *)(uintptr_t)ptr);
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_env_requests_warp(void) { return 0; }

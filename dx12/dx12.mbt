@@ -25,9 +25,61 @@ extern "c" fn bytes_ptr_ffi(values : FixedArray[Byte]) -> UInt64 = "tycho_dx12_a
 #borrow(values)
 extern "c" fn int64_ptr_ffi(values : FixedArray[Int64]) -> UInt64 = "tycho_dx12_as_ptr"
 
+extern "c" fn com_query_interface_ffi(obj : UInt64, riid : UInt64, ppv_out : UInt64) -> Int32 = "tycho_dx12_com_query_interface"
+
 extern "c" fn com_add_ref_ffi(obj : UInt64) -> UInt64 = "tycho_dx12_com_add_ref"
 
 extern "c" fn com_release_ffi(obj : UInt64) -> UInt64 = "tycho_dx12_com_release"
+
+extern "c" fn fn_create_device_ffi(adapter : UInt64, feature_level : Int, riid : UInt64, ppv : UInt64) -> Int32 = "tycho_dx12_fn_create_device"
+
+extern "c" fn fn_get_debug_interface_ffi(riid : UInt64, ppv : UInt64) -> Int32 = "tycho_dx12_fn_get_debug_interface"
+
+extern "c" fn fn_serialize_root_signature_ffi(desc : UInt64, version : Int, pp_blob : UInt64, pp_err : UInt64) -> Int32 = "tycho_dx12_fn_serialize_root_signature"
+
+extern "c" fn fn_create_root_signature_deserializer_ffi(src : UInt64, src_bytes : Int64, riid : UInt64, ppv : UInt64) -> Int32 = "tycho_dx12_fn_create_root_signature_deserializer"
+
+extern "c" fn fn_serialize_versioned_root_signature_ffi(desc : UInt64, pp_blob : UInt64, pp_err : UInt64) -> Int32 = "tycho_dx12_fn_serialize_versioned_root_signature"
+
+extern "c" fn fn_create_versioned_root_signature_deserializer_ffi(src : UInt64, src_bytes : Int64, riid : UInt64, ppv : UInt64) -> Int32 = "tycho_dx12_fn_create_versioned_root_signature_deserializer"
+
+extern "c" fn fn_create_versioned_root_signature_deserializer_from_subobject_in_library_ffi(src : UInt64, src_bytes : Int64, name_wstr : UInt64, riid : UInt64, ppv : UInt64) -> Int32 = "tycho_dx12_fn_create_versioned_root_signature_deserializer_from_subobject_in_library"
+
+extern "c" fn fn_enable_experimental_features_ffi(num : Int, riids : UInt64, configs : UInt64, config_sizes : UInt64) -> Int32 = "tycho_dx12_fn_enable_experimental_features"
+
+extern "c" fn fn_get_interface_ffi(rclsid : UInt64, riid : UInt64, ppv : UInt64) -> Int32 = "tycho_dx12_fn_get_interface"
+
+extern "c" fn fn_create_dxgi_factory_ffi(riid : UInt64, ppv : UInt64) -> Int32 = "tycho_dx12_fn_create_dxgi_factory"
+
+extern "c" fn fn_create_dxgi_factory1_ffi(riid : UInt64, ppv : UInt64) -> Int32 = "tycho_dx12_fn_create_dxgi_factory1"
+
+extern "c" fn fn_create_dxgi_factory2_ffi(flags : Int, riid : UInt64, ppv : UInt64) -> Int32 = "tycho_dx12_fn_create_dxgi_factory2"
+
+extern "c" fn fn_dxgi_get_debug_interface1_ffi(flags : Int, riid : UInt64, ppv : UInt64) -> Int32 = "tycho_dx12_fn_dxgi_get_debug_interface1"
+
+extern "c" fn fn_dxgi_declare_adapter_removal_support_ffi() -> Int32 = "tycho_dx12_fn_dxgi_declare_adapter_removal_support"
+
+extern "c" fn fn_dxgi_disable_vblank_virtualization_ffi() -> Int32 = "tycho_dx12_fn_dxgi_disable_vblank_virtualization"
+
+extern "c" fn create_event_ffi() -> UInt64 = "tycho_dx12_create_event"
+
+extern "c" fn wait_event_ffi(h : UInt64, timeout_ms : Int) -> Int32 = "tycho_dx12_wait_event"
+
+extern "c" fn close_handle_ffi(h : UInt64) = "tycho_dx12_close_handle"
+
+extern "c" fn read_u32_ffi(ptr : UInt64, byte_offset : Int) -> UInt32 = "tycho_dx12_read_u32"
+
+extern "c" fn read_u64_ffi(ptr : UInt64, byte_offset : Int) -> UInt64 = "tycho_dx12_read_u64"
+
+extern "c" fn write_u32_ffi(ptr : UInt64, byte_offset : Int, val : UInt32) = "tycho_dx12_write_u32"
+
+extern "c" fn write_u64_ffi(ptr : UInt64, byte_offset : Int, val : UInt64) = "tycho_dx12_write_u64"
+
+extern "c" fn memcpy_ptr_ffi(dst : UInt64, src : UInt64, bytes : Int) = "tycho_dx12_memcpy_ptr"
+
+extern "c" fn raw_alloc_ffi(bytes : Int) -> UInt64 = "tycho_dx12_alloc"
+
+extern "c" fn raw_free_ffi(ptr : UInt64) = "tycho_dx12_free"
 
 extern "c" fn device_create_ffi(use_warp : Int, debug : Int) -> UInt64 = "tycho_dx12_device_create"
 
@@ -261,6 +313,13 @@ pub fn int64_ptr(values : FixedArray[Int64]) -> UInt64 {
 }
 
 ///|
+/// `IUnknown::QueryInterface` on a raw COM object from the generated dispatch layer.
+/// Returns the HRESULT (`0` on success).
+pub fn com_query_interface(obj : UInt64, riid : UInt64, ppv_out : UInt64) -> Int {
+  com_query_interface_ffi(obj, riid, ppv_out).to_int()
+}
+
+///|
 /// `IUnknown::AddRef` on a raw COM object from the generated dispatch layer.
 /// Returns the new reference count. The manifest omits the IUnknown methods, so
 /// these helpers are the lifetime boundary for raw-dispatch callers.
@@ -274,6 +333,206 @@ pub fn com_add_ref(obj : UInt64) -> UInt64 {
 /// method hands back once the GPU is done with it.
 pub fn com_release(obj : UInt64) -> UInt64 {
   com_release_ffi(obj)
+}
+
+///|
+/// `D3D12CreateDevice` loaded dynamically from `d3d12.dll`.
+pub fn d3d12_create_device(
+  adapter : UInt64,
+  feature_level : Int,
+  riid : UInt64,
+  ppv : UInt64,
+) -> Int {
+  fn_create_device_ffi(adapter, feature_level, riid, ppv).to_int()
+}
+
+///|
+/// `D3D12GetDebugInterface` loaded dynamically from `d3d12.dll`.
+pub fn d3d12_get_debug_interface(riid : UInt64, ppv : UInt64) -> Int {
+  fn_get_debug_interface_ffi(riid, ppv).to_int()
+}
+
+///|
+/// `D3D12SerializeRootSignature` loaded dynamically from `d3d12.dll`.
+pub fn d3d12_serialize_root_signature(
+  desc : UInt64,
+  version : Int,
+  pp_blob : UInt64,
+  pp_err : UInt64,
+) -> Int {
+  fn_serialize_root_signature_ffi(desc, version, pp_blob, pp_err).to_int()
+}
+
+///|
+/// `D3D12CreateRootSignatureDeserializer` loaded dynamically from `d3d12.dll`.
+pub fn d3d12_create_root_signature_deserializer(
+  src : UInt64,
+  src_bytes : Int64,
+  riid : UInt64,
+  ppv : UInt64,
+) -> Int {
+  fn_create_root_signature_deserializer_ffi(src, src_bytes, riid, ppv).to_int()
+}
+
+///|
+/// `D3D12SerializeVersionedRootSignature` loaded dynamically from `d3d12.dll`.
+pub fn d3d12_serialize_versioned_root_signature(
+  desc : UInt64,
+  pp_blob : UInt64,
+  pp_err : UInt64,
+) -> Int {
+  fn_serialize_versioned_root_signature_ffi(desc, pp_blob, pp_err).to_int()
+}
+
+///|
+/// `D3D12CreateVersionedRootSignatureDeserializer` loaded dynamically from `d3d12.dll`.
+pub fn d3d12_create_versioned_root_signature_deserializer(
+  src : UInt64,
+  src_bytes : Int64,
+  riid : UInt64,
+  ppv : UInt64,
+) -> Int {
+  fn_create_versioned_root_signature_deserializer_ffi(src, src_bytes, riid, ppv).to_int()
+}
+
+///|
+/// `D3D12CreateVersionedRootSignatureDeserializerFromSubobjectInLibrary` loaded dynamically from `d3d12.dll`.
+pub fn d3d12_create_versioned_root_signature_deserializer_from_subobject_in_library(
+  src : UInt64,
+  src_bytes : Int64,
+  name_wstr : UInt64,
+  riid : UInt64,
+  ppv : UInt64,
+) -> Int {
+  fn_create_versioned_root_signature_deserializer_from_subobject_in_library_ffi(
+    src, src_bytes, name_wstr, riid, ppv,
+  ).to_int()
+}
+
+///|
+/// `D3D12EnableExperimentalFeatures` loaded dynamically from `d3d12.dll`.
+pub fn d3d12_enable_experimental_features(
+  num : Int,
+  riids : UInt64,
+  configs : UInt64,
+  config_sizes : UInt64,
+) -> Int {
+  fn_enable_experimental_features_ffi(num, riids, configs, config_sizes).to_int()
+}
+
+///|
+/// `D3D12GetInterface` loaded dynamically from `d3d12.dll`.
+pub fn d3d12_get_interface(rclsid : UInt64, riid : UInt64, ppv : UInt64) -> Int {
+  fn_get_interface_ffi(rclsid, riid, ppv).to_int()
+}
+
+///|
+/// `CreateDXGIFactory` loaded dynamically from `dxgi.dll`.
+pub fn create_dxgi_factory(riid : UInt64, ppv : UInt64) -> Int {
+  fn_create_dxgi_factory_ffi(riid, ppv).to_int()
+}
+
+///|
+/// `CreateDXGIFactory1` loaded dynamically from `dxgi.dll`.
+pub fn create_dxgi_factory1(riid : UInt64, ppv : UInt64) -> Int {
+  fn_create_dxgi_factory1_ffi(riid, ppv).to_int()
+}
+
+///|
+/// `CreateDXGIFactory2` loaded dynamically from `dxgi.dll`.
+pub fn create_dxgi_factory2(flags : Int, riid : UInt64, ppv : UInt64) -> Int {
+  fn_create_dxgi_factory2_ffi(flags, riid, ppv).to_int()
+}
+
+///|
+/// `DXGIGetDebugInterface1` loaded dynamically from `dxgi.dll`.
+pub fn dxgi_get_debug_interface1(flags : Int, riid : UInt64, ppv : UInt64) -> Int {
+  fn_dxgi_get_debug_interface1_ffi(flags, riid, ppv).to_int()
+}
+
+///|
+/// `DXGIDeclareAdapterRemovalSupport` loaded dynamically from `dxgi.dll`.
+pub fn dxgi_declare_adapter_removal_support() -> Int {
+  fn_dxgi_declare_adapter_removal_support_ffi().to_int()
+}
+
+///|
+/// `DXGIDisableVBlankVirtualization` loaded dynamically from `dxgi.dll`.
+pub fn dxgi_disable_vblank_virtualization() -> Int {
+  fn_dxgi_disable_vblank_virtualization_ffi().to_int()
+}
+
+///|
+/// Creates an auto-reset Win32 event handle (`CreateEventW`).
+pub fn create_event() -> UInt64 {
+  create_event_ffi()
+}
+
+///|
+/// Waits for a Win32 handle (`WaitForSingleObject`). Returns `0` for `WAIT_OBJECT_0`.
+pub fn wait_event(h : UInt64, timeout_ms : Int) -> Int {
+  wait_event_ffi(h, timeout_ms).to_int()
+}
+
+///|
+/// Closes a Win32 `HANDLE` (`CloseHandle`).
+pub fn close_handle(h : UInt64) -> Unit {
+  close_handle_ffi(h)
+}
+
+///|
+/// Reads a 32-bit unsigned integer at `ptr + byte_offset`.
+pub fn read_u32(ptr : UInt64, byte_offset : Int) -> UInt32 {
+  read_u32_ffi(ptr, byte_offset)
+}
+
+///|
+/// Reads a 64-bit unsigned integer at `ptr + byte_offset`.
+pub fn read_u64(ptr : UInt64, byte_offset : Int) -> UInt64 {
+  read_u64_ffi(ptr, byte_offset)
+}
+
+///|
+/// Writes a 32-bit unsigned integer at `ptr + byte_offset`.
+pub fn write_u32(ptr : UInt64, byte_offset : Int, val : UInt32) -> Unit {
+  write_u32_ffi(ptr, byte_offset, val)
+}
+
+///|
+/// Writes a 64-bit unsigned integer at `ptr + byte_offset`.
+pub fn write_u64(ptr : UInt64, byte_offset : Int, val : UInt64) -> Unit {
+  write_u64_ffi(ptr, byte_offset, val)
+}
+
+///|
+/// Copies `bytes` from raw pointer `src` to raw pointer `dst`.
+pub fn memcpy_ptr(dst : UInt64, src : UInt64, bytes : Int) -> Unit {
+  memcpy_ptr_ffi(dst, src, bytes)
+}
+
+///|
+/// Allocates `bytes` zero-initialized native memory for raw struct marshalling.
+pub fn raw_alloc(bytes : Int) -> UInt64 {
+  raw_alloc_ffi(bytes)
+}
+
+///|
+/// Frees memory allocated by `raw_alloc`.
+pub fn raw_free(ptr : UInt64) -> Unit {
+  raw_free_ffi(ptr)
+}
+
+///|
+/// Encodes a MoonBit `String` (UTF-16) into a null-terminated UTF-16LE `FixedArray[Byte]`.
+pub fn to_utf16(s : String) -> FixedArray[Byte] {
+  let len = s.length()
+  let out = FixedArray::make((len + 1) * 2, (0 : Byte))
+  for i = 0; i < len; i = i + 1 {
+    let cu = s[i].to_int()
+    out[i * 2] = (cu & 0xFF).to_byte()
+    out[i * 2 + 1] = ((cu >> 8) & 0xFF).to_byte()
+  }
+  out
 }
 
 ///|

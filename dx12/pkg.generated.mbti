@@ -6,9 +6,51 @@ pub fn available() -> Bool
 
 pub fn bytes_ptr(FixedArray[Byte]) -> UInt64
 
+pub fn close_handle(UInt64) -> Unit
+
+pub let clsid_d3_d12_debug : FixedArray[Byte]
+
+pub let clsid_d3_d12_device_factory : FixedArray[Byte]
+
+pub let clsid_d3_d12_device_removed_extended_data : FixedArray[Byte]
+
+pub let clsid_d3_d12_dsr_device_factory : FixedArray[Byte]
+
+pub let clsid_d3_d12_sdk_configuration : FixedArray[Byte]
+
+pub let clsid_d3_d12_tools : FixedArray[Byte]
+
 pub fn com_add_ref(UInt64) -> UInt64
 
+pub fn com_query_interface(UInt64, UInt64, UInt64) -> Int32
+
 pub fn com_release(UInt64) -> UInt64
+
+pub fn create_dxgi_factory(UInt64, UInt64) -> Int32
+
+pub fn create_dxgi_factory1(UInt64, UInt64) -> Int32
+
+pub fn create_dxgi_factory2(Int32, UInt64, UInt64) -> Int32
+
+pub fn create_event() -> UInt64
+
+pub fn d3d12_create_device(UInt64, Int32, UInt64, UInt64) -> Int32
+
+pub fn d3d12_create_root_signature_deserializer(UInt64, Int64, UInt64, UInt64) -> Int32
+
+pub fn d3d12_create_versioned_root_signature_deserializer(UInt64, Int64, UInt64, UInt64) -> Int32
+
+pub fn d3d12_create_versioned_root_signature_deserializer_from_subobject_in_library(UInt64, Int64, UInt64, UInt64, UInt64) -> Int32
+
+pub fn d3d12_enable_experimental_features(Int32, UInt64, UInt64, UInt64) -> Int32
+
+pub fn d3d12_get_debug_interface(UInt64, UInt64) -> Int32
+
+pub fn d3d12_get_interface(UInt64, UInt64, UInt64) -> Int32
+
+pub fn d3d12_serialize_root_signature(UInt64, Int32, UInt64, UInt64) -> Int32
+
+pub fn d3d12_serialize_versioned_root_signature(UInt64, UInt64, UInt64) -> Int32
 
 pub fn dx_d3d12_command_allocator_get_device(UInt64, UInt64, UInt64) -> Int32
 
@@ -5516,13 +5558,289 @@ pub fn dx_id3_d_destruction_notifier_register_destruction_callback(UInt64, UInt6
 
 pub fn dx_id3_d_destruction_notifier_unregister_destruction_callback(UInt64, Int32) -> Int32
 
+pub fn dxgi_declare_adapter_removal_support() -> Int32
+
+pub fn dxgi_disable_vblank_virtualization() -> Int32
+
+pub fn dxgi_get_debug_interface1(Int32, UInt64, UInt64) -> Int32
+
 pub fn env_requests_warp() -> Bool
+
+pub let iid_d3d12_command_allocator : FixedArray[Byte]
+
+pub let iid_d3d12_command_list : FixedArray[Byte]
+
+pub let iid_d3d12_command_queue : FixedArray[Byte]
+
+pub let iid_d3d12_command_signature : FixedArray[Byte]
+
+pub let iid_d3d12_descriptor_heap : FixedArray[Byte]
+
+pub let iid_d3d12_device : FixedArray[Byte]
+
+pub let iid_d3d12_device1 : FixedArray[Byte]
+
+pub let iid_d3d12_device10 : FixedArray[Byte]
+
+pub let iid_d3d12_device11 : FixedArray[Byte]
+
+pub let iid_d3d12_device12 : FixedArray[Byte]
+
+pub let iid_d3d12_device13 : FixedArray[Byte]
+
+pub let iid_d3d12_device14 : FixedArray[Byte]
+
+pub let iid_d3d12_device2 : FixedArray[Byte]
+
+pub let iid_d3d12_device3 : FixedArray[Byte]
+
+pub let iid_d3d12_device4 : FixedArray[Byte]
+
+pub let iid_d3d12_device5 : FixedArray[Byte]
+
+pub let iid_d3d12_device6 : FixedArray[Byte]
+
+pub let iid_d3d12_device7 : FixedArray[Byte]
+
+pub let iid_d3d12_device8 : FixedArray[Byte]
+
+pub let iid_d3d12_device9 : FixedArray[Byte]
+
+pub let iid_d3d12_device_child : FixedArray[Byte]
+
+pub let iid_d3d12_device_configuration : FixedArray[Byte]
+
+pub let iid_d3d12_device_configuration1 : FixedArray[Byte]
+
+pub let iid_d3d12_device_factory : FixedArray[Byte]
+
+pub let iid_d3d12_device_removed_extended_data : FixedArray[Byte]
+
+pub let iid_d3d12_device_removed_extended_data1 : FixedArray[Byte]
+
+pub let iid_d3d12_device_removed_extended_data2 : FixedArray[Byte]
+
+pub let iid_d3d12_device_removed_extended_data_settings : FixedArray[Byte]
+
+pub let iid_d3d12_device_removed_extended_data_settings1 : FixedArray[Byte]
+
+pub let iid_d3d12_device_removed_extended_data_settings2 : FixedArray[Byte]
+
+pub let iid_d3d12_device_tools : FixedArray[Byte]
+
+pub let iid_d3d12_device_tools1 : FixedArray[Byte]
+
+pub let iid_d3d12_dsr_device_factory : FixedArray[Byte]
+
+pub let iid_d3d12_fence : FixedArray[Byte]
+
+pub let iid_d3d12_fence1 : FixedArray[Byte]
+
+pub let iid_d3d12_gbv_diagnostics : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list1 : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list10 : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list2 : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list3 : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list4 : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list5 : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list6 : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list7 : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list8 : FixedArray[Byte]
+
+pub let iid_d3d12_graphics_command_list9 : FixedArray[Byte]
+
+pub let iid_d3d12_heap : FixedArray[Byte]
+
+pub let iid_d3d12_heap1 : FixedArray[Byte]
+
+pub let iid_d3d12_lifetime_owner : FixedArray[Byte]
+
+pub let iid_d3d12_lifetime_tracker : FixedArray[Byte]
+
+pub let iid_d3d12_meta_command : FixedArray[Byte]
+
+pub let iid_d3d12_object : FixedArray[Byte]
+
+pub let iid_d3d12_pageable : FixedArray[Byte]
+
+pub let iid_d3d12_pageable_tools : FixedArray[Byte]
+
+pub let iid_d3d12_pipeline_library : FixedArray[Byte]
+
+pub let iid_d3d12_pipeline_library1 : FixedArray[Byte]
+
+pub let iid_d3d12_pipeline_state : FixedArray[Byte]
+
+pub let iid_d3d12_protected_resource_session : FixedArray[Byte]
+
+pub let iid_d3d12_protected_resource_session1 : FixedArray[Byte]
+
+pub let iid_d3d12_protected_session : FixedArray[Byte]
+
+pub let iid_d3d12_query_heap : FixedArray[Byte]
+
+pub let iid_d3d12_resource : FixedArray[Byte]
+
+pub let iid_d3d12_resource1 : FixedArray[Byte]
+
+pub let iid_d3d12_resource2 : FixedArray[Byte]
+
+pub let iid_d3d12_root_signature : FixedArray[Byte]
+
+pub let iid_d3d12_root_signature_deserializer : FixedArray[Byte]
+
+pub let iid_d3d12_sdk_configuration : FixedArray[Byte]
+
+pub let iid_d3d12_sdk_configuration1 : FixedArray[Byte]
+
+pub let iid_d3d12_shader_cache_session : FixedArray[Byte]
+
+pub let iid_d3d12_state_object : FixedArray[Byte]
+
+pub let iid_d3d12_state_object_properties : FixedArray[Byte]
+
+pub let iid_d3d12_state_object_properties1 : FixedArray[Byte]
+
+pub let iid_d3d12_swap_chain_assistant : FixedArray[Byte]
+
+pub let iid_d3d12_tools : FixedArray[Byte]
+
+pub let iid_d3d12_tools1 : FixedArray[Byte]
+
+pub let iid_d3d12_tools2 : FixedArray[Byte]
+
+pub let iid_d3d12_versioned_root_signature_deserializer : FixedArray[Byte]
+
+pub let iid_d3d12_virtualization_guest_device : FixedArray[Byte]
+
+pub let iid_d3d12_work_graph_properties : FixedArray[Byte]
+
+pub let iid_dxgi_adapter : FixedArray[Byte]
+
+pub let iid_dxgi_adapter1 : FixedArray[Byte]
+
+pub let iid_dxgi_adapter2 : FixedArray[Byte]
+
+pub let iid_dxgi_adapter3 : FixedArray[Byte]
+
+pub let iid_dxgi_adapter4 : FixedArray[Byte]
+
+pub let iid_dxgi_decode_swap_chain : FixedArray[Byte]
+
+pub let iid_dxgi_device : FixedArray[Byte]
+
+pub let iid_dxgi_device1 : FixedArray[Byte]
+
+pub let iid_dxgi_device2 : FixedArray[Byte]
+
+pub let iid_dxgi_device3 : FixedArray[Byte]
+
+pub let iid_dxgi_device4 : FixedArray[Byte]
+
+pub let iid_dxgi_device_sub_object : FixedArray[Byte]
+
+pub let iid_dxgi_display_control : FixedArray[Byte]
+
+pub let iid_dxgi_factory : FixedArray[Byte]
+
+pub let iid_dxgi_factory1 : FixedArray[Byte]
+
+pub let iid_dxgi_factory2 : FixedArray[Byte]
+
+pub let iid_dxgi_factory3 : FixedArray[Byte]
+
+pub let iid_dxgi_factory4 : FixedArray[Byte]
+
+pub let iid_dxgi_factory5 : FixedArray[Byte]
+
+pub let iid_dxgi_factory6 : FixedArray[Byte]
+
+pub let iid_dxgi_factory7 : FixedArray[Byte]
+
+pub let iid_dxgi_factory_media : FixedArray[Byte]
+
+pub let iid_dxgi_keyed_mutex : FixedArray[Byte]
+
+pub let iid_dxgi_object : FixedArray[Byte]
+
+pub let iid_dxgi_output : FixedArray[Byte]
+
+pub let iid_dxgi_output1 : FixedArray[Byte]
+
+pub let iid_dxgi_output2 : FixedArray[Byte]
+
+pub let iid_dxgi_output3 : FixedArray[Byte]
+
+pub let iid_dxgi_output4 : FixedArray[Byte]
+
+pub let iid_dxgi_output5 : FixedArray[Byte]
+
+pub let iid_dxgi_output6 : FixedArray[Byte]
+
+pub let iid_dxgi_output_duplication : FixedArray[Byte]
+
+pub let iid_dxgi_resource : FixedArray[Byte]
+
+pub let iid_dxgi_resource1 : FixedArray[Byte]
+
+pub let iid_dxgi_surface : FixedArray[Byte]
+
+pub let iid_dxgi_surface1 : FixedArray[Byte]
+
+pub let iid_dxgi_surface2 : FixedArray[Byte]
+
+pub let iid_dxgi_swap_chain : FixedArray[Byte]
+
+pub let iid_dxgi_swap_chain1 : FixedArray[Byte]
+
+pub let iid_dxgi_swap_chain2 : FixedArray[Byte]
+
+pub let iid_dxgi_swap_chain3 : FixedArray[Byte]
+
+pub let iid_dxgi_swap_chain4 : FixedArray[Byte]
+
+pub let iid_dxgi_swap_chain_media : FixedArray[Byte]
+
+pub let iid_id3_d10_blob : FixedArray[Byte]
+
+pub let iid_id3_d_destruction_notifier : FixedArray[Byte]
+
+pub let iid_iunknown : FixedArray[Byte]
 
 pub fn int32_ptr(FixedArray[Int32]) -> UInt64
 
 pub fn int64_ptr(FixedArray[Int64]) -> UInt64
 
 pub fn last_error() -> Int32
+
+pub fn memcpy_ptr(UInt64, UInt64, Int32) -> Unit
+
+pub fn raw_alloc(Int32) -> UInt64
+
+pub fn raw_free(UInt64) -> Unit
+
+pub fn read_u32(UInt64, Int32) -> UInt32
+
+pub fn read_u64(UInt64, Int32) -> UInt64
+
+pub fn to_utf16(String) -> FixedArray[Byte]
+
+pub fn wait_event(UInt64, Int32) -> Int32
+
+pub fn write_u32(UInt64, Int32, UInt32) -> Unit
+
+pub fn write_u64(UInt64, Int32, UInt64) -> Unit
 
 // Errors
 
