@@ -48,6 +48,14 @@ TARGETS = [
             ("dx12_present_ps", "ps_main", "ps_6_0"),
         ],
     ),
+    (
+        "examples/dx12/rayquery",
+        "shaders.hlsl",
+        "shaders_dxil.mbt",
+        [
+            ("dx12_rayquery_cs", "cs_main", "cs_6_5"),
+        ],
+    ),
 ]
 
 

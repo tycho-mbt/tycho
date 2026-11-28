@@ -3502,10 +3502,15 @@ static void rt_record_copy(ID3D12GraphicsCommandList *list, void *ctx) {
   list->lpVtbl->CopyBufferRegion(list, copy->dst, 0, copy->src, 0, copy->size);
 }
 
+typedef struct {
+  D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC *desc;
+  ID3D12Resource *dest;
+} TychoRtBuild;
+
 static void rt_record_build(ID3D12GraphicsCommandList *list, void *ctx) {
-  D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC *desc =
-      (D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC *)ctx;
+  TychoRtBuild *build = (TychoRtBuild *)ctx;
   ID3D12GraphicsCommandList4 *list4 = NULL;
+  D3D12_RESOURCE_BARRIER uav;
   HRESULT hr;
   // The build entry point lives on GraphicsCommandList4, not the base list.
   hr = list->lpVtbl->QueryInterface(list, &kIID_ID3D12GraphicsCommandList4,
@@ -3514,8 +3519,13 @@ static void rt_record_build(ID3D12GraphicsCommandList *list, void *ctx) {
     fprintf(stderr, "[tycho-dx12] GraphicsCommandList4 is unavailable; acceleration structures need it\n");
     return;
   }
-  list4->lpVtbl->BuildRaytracingAccelerationStructure(list4, desc, 0, NULL);
+  list4->lpVtbl->BuildRaytracingAccelerationStructure(list4, build->desc, 0, NULL);
   list4->lpVtbl->Release(list4);
+  memset(&uav, 0, sizeof uav);
+  uav.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+  uav.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+  uav.UAV.pResource = build->dest;
+  list->lpVtbl->ResourceBarrier(list, 1, &uav);
 }
 
 // Allocates the result buffer, builds, and installs an SRV for ray queries.
@@ -3525,11 +3535,11 @@ static uint64_t accel_build(TychoDxDevice *dev,
   TychoDxAccelStruct *accel;
   D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info;
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc;
+  TychoRtBuild build;
   D3D12_SHADER_RESOURCE_VIEW_DESC srv;
   D3D12_CPU_DESCRIPTOR_HANDLE handle;
   ID3D12Resource *scratch = NULL;
   UINT slot;
-  HRESULT hr;
   if (!device5) {
     fprintf(stderr, "[tycho-dx12] ID3D12Device5 is unavailable; ray queries need it\n");
     return 0;
@@ -3549,7 +3559,7 @@ static uint64_t accel_build(TychoDxDevice *dev,
   accel->resource = rt_buffer_create(dev, info.ResultDataMaxSizeInBytes, D3D12_HEAP_TYPE_DEFAULT,
                                      D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
   scratch = rt_buffer_create(dev, info.ScratchDataSizeInBytes, D3D12_HEAP_TYPE_DEFAULT,
-                             D3D12_RESOURCE_STATE_COMMON);
+                             D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
   if (!accel->resource || !scratch) {
     if (accel->resource) accel->resource->lpVtbl->Release(accel->resource);
     if (scratch) scratch->lpVtbl->Release(scratch);
@@ -3565,7 +3575,9 @@ static uint64_t accel_build(TychoDxDevice *dev,
   desc.SourceAccelerationStructureData = 0;
   desc.ScratchAccelerationStructureData =
       scratch->lpVtbl->GetGPUVirtualAddress(scratch);
-  if (!rt_submit(dev, rt_record_build, &desc)) {
+  build.desc = &desc;
+  build.dest = accel->resource;
+  if (!rt_submit(dev, rt_record_build, &build)) {
     fprintf(stderr, "[tycho-dx12] BuildRaytracingAccelerationStructure failed: 0x%08lX\n",
             (unsigned long)g_last_hr);
     dump_info_queue(dev, "BuildRaytracingAccelerationStructure");
@@ -3700,39 +3712,27 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_tlas_create(uint64_t dev_p, uint64_t blas
   TychoDxDevice *dev = as_device(dev_p);
   D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs;
   D3D12_RAYTRACING_INSTANCE_DESC *instance;
-  ID3D12Resource *staging = NULL;
   ID3D12Resource *instances = NULL;
-  TychoRtCopy copy;
   void *mapped = NULL;
   uint64_t result;
   const UINT64 kInstanceBytes = sizeof(D3D12_RAYTRACING_INSTANCE_DESC);
   if (!dev || blas_address == 0 || !transform12) return 0;
 
-  // The instance descriptors are filled on the CPU, but the build reads them
-  // through a non-pixel-shader path, so they live in a DEFAULT-heap buffer and are
-  // copied from a staging buffer rather than read straight out of the upload heap.
-  staging = rt_buffer_create(dev, kInstanceBytes, D3D12_HEAP_TYPE_UPLOAD,
-                             D3D12_RESOURCE_STATE_GENERIC_READ);
-  instances = rt_buffer_create(dev, kInstanceBytes, D3D12_HEAP_TYPE_DEFAULT,
-                               D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-  if (!staging || !instances) goto fail;
-  if (FAILED(staging->lpVtbl->Map(staging, 0, NULL, &mapped)) || !mapped) goto fail;
+  // D3D12 explicitly accepts UPLOAD-heap buffers in GENERIC_READ for TLAS InstanceDescs.
+  instances = rt_buffer_create(dev, kInstanceBytes, D3D12_HEAP_TYPE_UPLOAD,
+                               D3D12_RESOURCE_STATE_GENERIC_READ);
+  if (!instances) goto fail;
+  if (FAILED(instances->lpVtbl->Map(instances, 0, NULL, &mapped)) || !mapped) goto fail;
   instance = (D3D12_RAYTRACING_INSTANCE_DESC *)mapped;
   memset(instance, 0, (size_t)kInstanceBytes);
   // `transform12` is 3x4 row-major, matching FLOAT Transform[3][4].
   memcpy(instance->Transform, transform12, sizeof(float) * 12);
-  instance->InstanceID = 0;
+  instance->InstanceID = (UINT)(custom_index & 0xFFFFFF);
   instance->InstanceMask = (UINT)(mask & 0xFF);
-  instance->InstanceContributionToHitGroupIndex = (UINT)(custom_index & 0xFFFFFF);
+  instance->InstanceContributionToHitGroupIndex = 0;
   instance->Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
   instance->AccelerationStructure = blas_address;
-  staging->lpVtbl->Unmap(staging, 0, NULL);
-
-  memset(&copy, 0, sizeof copy);
-  copy.dst = instances;
-  copy.src = staging;
-  copy.size = kInstanceBytes;
-  if (!rt_submit(dev, rt_record_copy, &copy)) goto fail;
+  instances->lpVtbl->Unmap(instances, 0, NULL);
 
   memset(&inputs, 0, sizeof inputs);
   inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
@@ -3742,18 +3742,18 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_tlas_create(uint64_t dev_p, uint64_t blas
   inputs.InstanceDescs = instances->lpVtbl->GetGPUVirtualAddress(instances);
 
   result = accel_build(dev, &inputs);
-  if (result != 0) {
-    fprintf(stderr, "[tycho-dx12] TLAS built\n");
-  }
   instances->lpVtbl->Release(instances);
-  staging->lpVtbl->Release(staging);
   return result;
 
 fail:
   if (instances) instances->lpVtbl->Release(instances);
-  if (staging) staging->lpVtbl->Release(staging);
   fprintf(stderr, "[tycho-dx12] TLAS instance buffer setup failed\n");
   return 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_accel_gpu_address(uint64_t accel_p) {
+  TychoDxAccelStruct *accel = as_accel(accel_p);
+  return accel ? (uint64_t)accel->gpu_address : 0;
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_accel(uint64_t cmd_p, int32_t root_index,
@@ -4550,5 +4550,10 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_accel(uint64_t cmd, int32_t root_i
 }
 
 MOONBIT_FFI_EXPORT void tycho_dx12_accel_destroy(uint64_t accel) { (void)accel; }
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_accel_gpu_address(uint64_t accel) {
+  (void)accel;
+  return 0;
+}
 
 #endif  // defined(_WIN32)

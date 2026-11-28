@@ -143,6 +143,8 @@ extern "c" fn cmd_set_accel_ffi(cmds : UInt64, root_index : Int, accel : UInt64,
 
 extern "c" fn accel_destroy_ffi(accel : UInt64) = "tycho_dx12_accel_destroy"
 
+extern "c" fn accel_gpu_address_ffi(accel : UInt64) -> UInt64 = "tycho_dx12_accel_gpu_address"
+
 extern "c" fn cmd_dispatch_mesh_ffi(cmds : UInt64, tex : UInt64, x : Int, y : Int, z : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_dispatch_mesh"
 
 extern "c" fn cmd_draw_ffi(cmds : UInt64, tex : UInt64, vertices : Int, instances : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_draw"
@@ -1321,6 +1323,11 @@ pub fn AccelStruct::create_tlas(
 ///|
 pub fn AccelStruct::handle(self : AccelStruct) -> UInt64 {
   self.handle
+}
+
+///|
+pub fn AccelStruct::gpu_address(self : AccelStruct) -> UInt64 {
+  accel_gpu_address_ffi(self.handle)
 }
 
 ///|

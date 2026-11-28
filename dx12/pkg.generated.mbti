@@ -5851,6 +5851,7 @@ pub struct AccelStruct {
 pub fn AccelStruct::create_blas(Device, UInt64, Int32, vertex_stride? : Int32, index_address? : UInt64, index_count? : Int32, index32? : Bool, is_opaque? : Bool) -> Self?
 pub fn AccelStruct::create_tlas(Device, UInt64, FixedArray[Float], custom_index? : Int32, mask? : Int32) -> Self?
 pub fn AccelStruct::destroy(Self) -> Unit
+pub fn AccelStruct::gpu_address(Self) -> UInt64
 pub fn AccelStruct::handle(Self) -> UInt64
 
 pub struct Buffer {

@@ -1307,7 +1307,7 @@ fn dx12_create_tlas(
   }
   let instance = instances[0]
   let blas_address = match instance.blas.backend {
-    Dx12Accel(accel) => accel.handle()
+    Dx12Accel(accel) => accel.gpu_address()
     VkAccel(_) => raise RhiError::InvalidArgument("Vulkan BLAS in a DX12 TLAS build")
   }
   // 12 floats (3x4 row-major); a shorter transform is padded with identity.
