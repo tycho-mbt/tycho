@@ -14,6 +14,7 @@ EXAMPLES=(
   3d/hello
   3d/transmission
   3d/ssao
+  3d/taa
   geometry/primitives
   3d/instances
   3d/textures
