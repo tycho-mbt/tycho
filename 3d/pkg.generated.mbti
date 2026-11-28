@@ -328,6 +328,9 @@ pub(all) struct MaterialDesc {
   sheen_roughness : Float
   transmission : Float
   ior : Float
+  iridescence : Float
+  iridescence_ior : Float
+  iridescence_thickness : Float
   alpha_mode : AlphaMode
   double_sided : Bool
   albedo_tex : TextureHandle?
@@ -345,6 +348,7 @@ pub fn MaterialDesc::with_base_color(Self, @tycho_math.Vec4) -> Self
 pub fn MaterialDesc::with_clearcoat(Self, Float, roughness? : Float) -> Self
 pub fn MaterialDesc::with_double_sided(Self, Bool) -> Self
 pub fn MaterialDesc::with_emissive(Self, @tycho_math.Vec3) -> Self
+pub fn MaterialDesc::with_iridescence(Self, Float, ior? : Float, thickness_nm? : Float) -> Self
 pub fn MaterialDesc::with_metallic(Self, Float) -> Self
 pub fn MaterialDesc::with_normal_tex(Self, TextureHandle) -> Self
 pub fn MaterialDesc::with_roughness(Self, Float) -> Self

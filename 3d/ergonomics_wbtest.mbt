@@ -575,3 +575,20 @@ test "taa descriptor and jitter" {
   need(close(origin.y, (2.0 * 2.0) / (600.0 : Float), eps=1.0e-6), "jitter y")
   need(close(origin.z, (0.0 : Float)) && close(origin.w, (1.0 : Float)), "jitter keeps z/w")
 }
+
+///|
+test "iridescence material builder" {
+  let m = MaterialDesc::standard(hex(0x101418), roughness=(0.1 : Float))
+  need(close(m.iridescence, (0.0 : Float)), "off by default")
+  need(close(m.iridescence_ior, (1.3 : Float)), "default film ior")
+  need(close(m.iridescence_thickness, (400.0 : Float)), "default thickness")
+  let film = m.with_iridescence((1.5 : Float), ior=(0.5 : Float), thickness_nm=(-10.0 : Float))
+  need(close(film.iridescence, (1.0 : Float)), "amount clamps")
+  need(close(film.iridescence_ior, (1.0 : Float)), "ior clamps")
+  need(close(film.iridescence_thickness, (0.0 : Float)), "thickness clamps")
+  // The base PBR parameters are untouched.
+  need(close(film.roughness, (0.1 : Float)) && close(film.metallic, m.metallic), "base untouched")
+  let custom = m.with_iridescence((0.5 : Float), ior=(1.35 : Float), thickness_nm=(650.0 : Float))
+  need(close(custom.iridescence_thickness, (650.0 : Float)), "thickness")
+  need(close(custom.iridescence_ior, (1.35 : Float)), "ior")
+}

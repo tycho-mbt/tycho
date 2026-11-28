@@ -73,6 +73,14 @@ pub(all) struct MaterialDesc {
   // Requires the static-mesh PBR path; skinned/morph meshes ignore it.
   transmission : Float
   ior : Float
+  // Thin-film iridescence (three.js `iridescence` / glTF
+  // `KHR_materials_iridescence`). `amount` in `[0, 1]`, `iridescence_ior` is
+  // the film's index of refraction and `iridescence_thickness` its thickness in
+  // nanometres; the two-beam interference is evaluated per pixel, so thin
+  // (~200-800 nm) films tint the specular reflection by view angle.
+  iridescence : Float
+  iridescence_ior : Float
+  iridescence_thickness : Float
   alpha_mode : AlphaMode
   double_sided : Bool
   albedo_tex : TextureHandle?
@@ -99,6 +107,9 @@ pub fn MaterialDesc::pbr(
     sheen_roughness: 0.5,
     transmission: 0.0,
     ior: 1.5,
+    iridescence: 0.0,
+    iridescence_ior: 1.3,
+    iridescence_thickness: 400.0,
     alpha_mode: AlphaMode::Opaque,
     double_sided: false,
     albedo_tex: None,
@@ -122,6 +133,9 @@ pub fn MaterialDesc::unlit(color : @tmath.Vec4) -> MaterialDesc {
     sheen_roughness: 0.5,
     transmission: 0.0,
     ior: 1.5,
+    iridescence: 0.0,
+    iridescence_ior: 1.3,
+    iridescence_thickness: 400.0,
     alpha_mode: AlphaMode::Opaque,
     double_sided: false,
     albedo_tex: None,
@@ -158,6 +172,29 @@ pub fn MaterialDesc::with_transmission(
   ior? : Float = 1.5,
 ) -> MaterialDesc {
   { ..self, transmission: @tmath.saturate(amount), ior }
+}
+
+///|
+/// Thin-film iridescence (three.js `iridescence` / `iridescenceIOR` /
+/// `iridescenceThicknessRange`, glTF `KHR_materials_iridescence`).
+///
+/// The fragment shader evaluates two-beam interference for the R/G/B
+/// wavelengths of a film `thickness_nm` thick with index `ior`, and blends the
+/// resulting view-dependent reflectance into the base specular F0. Typical
+/// values: `with_iridescence(1.0, thickness_nm=350)` gives a soap-bubble /
+/// beetle-shell shift; `amount = 0` disables it.
+pub fn MaterialDesc::with_iridescence(
+  self : MaterialDesc,
+  amount : Float,
+  ior? : Float = 1.3,
+  thickness_nm? : Float = 400.0,
+) -> MaterialDesc {
+  {
+    ..self,
+    iridescence: @tmath.saturate(amount),
+    iridescence_ior: if ior < 1.0 { 1.0 } else { ior },
+    iridescence_thickness: if thickness_nm < 0.0 { 0.0 } else { thickness_nm },
+  }
 }
 
 ///|

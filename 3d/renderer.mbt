@@ -83,9 +83,9 @@ const LIGHT_FLOATS : Int = 40
 
 const LIGHT_BYTES : Int = 160
 
-const MATERIAL_FLOATS : Int = 24
+const MATERIAL_FLOATS : Int = 28
 
-const MATERIAL_BYTES : Int = 96
+const MATERIAL_BYTES : Int = 112
 
 const SHADOW_TILES_MAX : Int = 8
 
@@ -551,6 +551,9 @@ fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
   if sheen_on {
     flags = flags | 8
   }
+  if m.iridescence > 0.0 {
+    flags = flags | 16
+  }
   let cutoff : Float = match m.alpha_mode {
     Mask(c) => c
     _ => 0.0
@@ -584,6 +587,15 @@ fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
   )
   // Transmission: x amount, y ior (three.js transmission / ior).
   w.push_vec4(@tmath.Vec4::new(m.transmission, m.ior, 0.0, 0.0))
+  // Iridescence: x amount, y film ior, z thickness in nanometres.
+  w.push_vec4(
+    @tmath.Vec4::new(
+      m.iridescence,
+      m.iridescence_ior,
+      m.iridescence_thickness,
+      0.0,
+    ),
+  )
 }
 
 ///|

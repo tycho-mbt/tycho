@@ -23,6 +23,7 @@ struct MaterialGpu {
     vec4 texParams; // albedo index, normal index, clearcoat, clearcoat roughness
     vec4 sheen;     // rgb sheen colour, w sheen roughness (0 colour disables)
     vec4 transmission; // x amount, y ior (screen-space transmission)
+    vec4 iridescence;  // x amount, y film ior, z thickness nm
 };
 layout(std430, binding = 2) readonly buffer MaterialBuf { MaterialGpu materials[]; };
 
@@ -159,9 +160,33 @@ vec3 clearcoat_spec(vec3 N, vec3 V, vec3 L, vec3 radiance, float cc, float ccr) 
     return vec3(cc * spec) * radiance * ndotl;
 }
 
-vec3 direct_brdf(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float metallic, float roughness) {
+// Two-beam thin-film interference (Airy) at the R/G/B wavelengths.
+// `F0` is the base specular reflectance, `cosTheta` the view cosine and
+// `thicknessNm` the film thickness in nanometres. The returned, view-dependent
+// reflectance replaces F0 on an iridescent surface.
+vec3 thin_film_f0(vec3 F0, float cosTheta, float filmIor, float thicknessNm) {
+    float n = max(filmIor, 1.01);
+    float cosV = clamp(cosTheta, 0.0, 1.0);
+    float sin2 = 1.0 - cosV * cosV;
+    // Snell: the angle inside the denser film is smaller than the view angle.
+    float cosT = sqrt(max(1.0 - sin2 / (n * n), 0.0));
+    const vec3 lambda = vec3(680.0, 550.0, 440.0);
+    vec3 phase = (4.0 * PI * n * max(thicknessNm, 0.0) * cosT) / lambda;
+    vec3 c = cos(phase);
+    // Interface 1 is air -> film (fixed by the film IOR); interface 2 is
+    // film -> base, whose reflectance is the material's F0. Treating the base
+    // as a perfect mirror correctly removes the effect: a fully reflective
+    // surface has nothing left for the film to modulate.
+    float f0_film = (n - 1.0) / (n + 1.0);
+    vec3 r12 = vec3(f0_film * f0_film);
+    vec3 r23 = clamp(F0, 0.0, 1.0);
+    vec3 g = sqrt(max(r12 * r23, vec3(0.0)));
+    vec3 R = (r12 + r23 + 2.0 * g * c) / (1.0 + r12 * r23 + 2.0 * g * c);
+    return clamp(R, 0.0, 1.0);
+}
+
+vec3 direct_brdf(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float metallic, float roughness, vec3 F0) {
     vec3 H = normalize(V + L);
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
     float ndotl = max(dot(N, L), 0.0);
     float ndotv = max(dot(N, V), 0.0);
     float D = d_ggx(N, H, roughness);
@@ -245,6 +270,17 @@ void main() {
     bool hasSheen = (flags & 8) != 0;
     vec3 sheenColor = m.sheen.rgb;
     float sheenRoughness = clamp(m.sheen.w, 0.07, 1.0);
+    // Base specular reflectance, shared by the direct and environment terms so
+    // thin-film interference tints both consistently.
+    float ndotv = max(dot(N, V), 0.0);
+    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+    if ((flags & 16) != 0 && m.iridescence.x > 0.0) {
+        F0 = mix(
+            F0,
+            thin_film_f0(F0, ndotv, m.iridescence.y, m.iridescence.z),
+            clamp(m.iridescence.x, 0.0, 1.0)
+        );
+    }
 
     vec3 lighting = vec3(0.0);
     vec3 ambientSum = vec3(0.0);
@@ -280,7 +316,7 @@ void main() {
                 }
             }
 #endif
-            lighting += direct_brdf(N, V, L, l.color.rgb * l.params.x, albedo, metallic, roughness) * sh;
+            lighting += direct_brdf(N, V, L, l.color.rgb * l.params.x, albedo, metallic, roughness, F0) * sh;
             lighting += clearcoat_spec(N, V, L, l.color.rgb * l.params.x, cc, ccr) * sh;
             if (hasSheen) {
                 lighting += sheen_brdf(N, V, L, sheenColor, sheenRoughness) * l.color.rgb * l.params.x * sh;
@@ -320,7 +356,7 @@ void main() {
                     sh = sample_shadow_atlas(uShadow0, l.shadowVP, l.shadowInfo, vWorldPos, N, L);
                 }
             }
-            lighting += direct_brdf(N, V, L, l.color.rgb * atten, albedo, metallic, roughness) * sh;
+            lighting += direct_brdf(N, V, L, l.color.rgb * atten, albedo, metallic, roughness, F0) * sh;
             lighting += clearcoat_spec(N, V, L, l.color.rgb * atten, cc, ccr) * sh;
             if (hasSheen) {
                 lighting += sheen_brdf(N, V, L, sheenColor, sheenRoughness) * l.color.rgb * atten * sh;
@@ -338,7 +374,6 @@ void main() {
     float maxLod = float(max(textureQueryLevels(uEnv) - 1, 0));
     vec3 envDiff = textureLod(uEnv, N, maxLod).rgb;
     vec3 envSpec = textureLod(uEnv, R, roughness * maxLod).rgb;
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
     // Split sum: the LUT wraps the GGX/visibility integral, so the specular
     // term scales with F0 instead of a roughness-faded Fresnel guess.
     vec2 ab = texture(uBrdf, vec2(clamp(dot(N, V), 0.0, 1.0), roughness)).rg;
