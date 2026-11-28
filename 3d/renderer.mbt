@@ -17,6 +17,9 @@ pub(all) struct RendererDesc {
   bloom : Bool
   shadows : Bool
   shadow_map_size : Int
+  // Screen-space ambient occlusion. Requires a single-sample depth buffer, so
+  // enabling it forces MSAA off.
+  ssao : Bool
 }
 
 ///|
@@ -33,6 +36,7 @@ pub fn RendererDesc::default() -> RendererDesc {
     shadow_cascades: 2,
     gpu_culling: false,
     bindless: true,
+    ssao: false,
   }
 }
 
@@ -46,6 +50,19 @@ pub fn RendererDesc::with_shadows(self : RendererDesc, on : Bool) -> RendererDes
   { ..self, shadows: on }
 }
 
+///|
+/// Enable screen-space ambient occlusion. SSAO reconstructs positions from the
+/// depth buffer, which a multisampled depth attachment cannot provide, so
+/// turning it on also turns MSAA off (they are mutually exclusive).
+pub fn RendererDesc::with_ssao(self : RendererDesc, on : Bool) -> RendererDesc {
+  { ..self, ssao: on, msaa: if on { false } else { self.msaa } }
+}
+
+///|
+pub fn RendererDesc::with_msaa(self : RendererDesc, on : Bool) -> RendererDesc {
+  { ..self, msaa: on && !self.ssao }
+}
+
 const OBJECT_FLOATS : Int = 40
 
 const OBJECT_BYTES : Int = 160
@@ -54,9 +71,9 @@ const LIGHT_FLOATS : Int = 40
 
 const LIGHT_BYTES : Int = 160
 
-const MATERIAL_FLOATS : Int = 16
+const MATERIAL_FLOATS : Int = 24
 
-const MATERIAL_BYTES : Int = 64
+const MATERIAL_BYTES : Int = 96
 
 const SHADOW_TILES_MAX : Int = 8
 
@@ -66,19 +83,24 @@ const MAX_BONES : Int = 4096
 
 const BONE_BYTES : Int = 64
 
-const FRAME_FLOATS : Int = 60
+const FRAME_FLOATS : Int = 68
 
 const BRDF_LUT_SIZE : Int = 64
 
-const FRAME_BYTES : Int = 240
+const FRAME_BYTES : Int = 272
 
-const FRAME_SLOT_BYTES : Int = 256
+const FRAME_SLOT_BYTES : Int = 512
 
 const SKY_FLOATS : Int = 20
 
 const SKY_BYTES : Int = 80
 
 const SKY_SLOT_BYTES : Int = 128
+
+// SSAO UBO: viewProj + invViewProj (2 mat4), camPos + params (2 vec4).
+const SSAO_FLOATS : Int = 40
+
+const SSAO_BYTES : Int = 160
 
 ///|
 priv struct FrameTargets {
@@ -88,6 +110,11 @@ priv struct FrameTargets {
   hdr : @tycho.Texture
   // Set when MSAA is on; `hdr` is the multisampled colour attachment.
   hdr_resolve : @tycho.Texture?
+  // Copy of the opaque colour sampled by the transmission pass.
+  scene_copy : @tycho.Texture
+  // SSAO raw + blurred results; present only when SSAO is enabled.
+  ao_a : @tycho.Texture?
+  ao_b : @tycho.Texture?
   bloom_a : @tycho.Texture
   bloom_b : @tycho.Texture
 }
@@ -200,6 +227,9 @@ pub struct Renderer3D {
   priv rt_cull_pipe : @tycho.Pipeline?
   priv mut rt_tlas : @tycho.AccelStruct?
   priv rt_meshes : Array[RtMesh?]
+  // Lazily built per-mesh picking BVHs, parallel to `meshes`. `None` until a
+  // pointer ray first reaches that mesh.
+  priv pick_bvhs : Array[MeshBvh?]
   priv materials : Array[MaterialDesc]
   priv object_ring : @pool.FrameRing
   priv light_ring : @pool.FrameRing
@@ -223,14 +253,30 @@ pub struct Renderer3D {
   priv mut env_sun : @tmath.Vec3
   priv mut env_intensity : Float
   priv mut owns_env : Bool
+  // When set, the sky pass is skipped and the HDR target clears to this linear
+  // color instead (three.js `scene.background`). `None` renders the environment.
+  priv mut background : @tmath.Vec4?
+  // Linear / exp2 distance fog applied by the PBR fragment shader.
+  priv mut fog : Fog?
   priv shadow_pipe : @tycho.Pipeline
   priv pbr_pipe : @tycho.Pipeline
   priv pbr_blend_pipe : @tycho.Pipeline
+  priv pbr_transmission_pipe : @tycho.Pipeline
   priv sky_pipe : @tycho.Pipeline
   priv bloom_extract_pipe : @tycho.Pipeline
   priv bloom_blur_pipe : @tycho.Pipeline
   priv tonemap_srgb_pipe : @tycho.Pipeline
   priv tonemap_linear_pipe : @tycho.Pipeline
+  // Screen-space ambient occlusion (disabled unless `RendererDesc.ssao`).
+  priv ssao : Bool
+  priv mut ssao_radius : Float
+  priv mut ssao_intensity : Float
+  priv mut ssao_bias : Float
+  priv ssao_ubo : @tycho.Buffer
+  priv ssao_pipe : @tycho.Pipeline
+  priv ssao_blur_pipe : @tycho.Pipeline
+  priv ssao_writer : @tmath.GpuPackWriter
+  priv depth_sampler : @tycho.Sampler
   priv gpu_culling : Bool
   priv cull_pipe : @tycho.Pipeline?
   priv pbr_cull_pipe : @tycho.Pipeline?
@@ -428,6 +474,12 @@ fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
   if m.normal_tex is Some(_) {
     flags = flags | 4
   }
+  let sheen_on = m.sheen_color.x > 0.0 ||
+    m.sheen_color.y > 0.0 ||
+    m.sheen_color.z > 0.0
+  if sheen_on {
+    flags = flags | 8
+  }
   let cutoff : Float = match m.alpha_mode {
     Mask(c) => c
     _ => 0.0
@@ -450,6 +502,17 @@ fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
   w.push_float(f_of_int(normal))
   w.push_float(m.clearcoat)
   w.push_float(m.clearcoat_roughness)
+  // Sheen: rgb colour, w roughness (glTF KHR_materials_sheen).
+  w.push_vec4(
+    @tmath.Vec4::new(
+      m.sheen_color.x,
+      m.sheen_color.y,
+      m.sheen_color.z,
+      m.sheen_roughness,
+    ),
+  )
+  // Transmission: x amount, y ior (three.js transmission / ior).
+  w.push_vec4(@tmath.Vec4::new(m.transmission, m.ior, 0.0, 0.0))
 }
 
 ///|
@@ -502,7 +565,8 @@ pub fn Renderer3D::new(
   dev : @tycho.Device,
   desc? : RendererDesc = RendererDesc::default(),
 ) -> Renderer3D raise {
-  let samples = if desc.msaa {
+  let msaa = desc.msaa && !desc.ssao
+  let samples = if msaa {
     @tycho.SampleCount::X4
   } else {
     @tycho.SampleCount::X1
@@ -570,6 +634,30 @@ pub fn Renderer3D::new(
       pbr_frag,
       depth_test=true,
       depth_write=true,
+      depth_compare=@tycho.CompareOp::GreaterEqual,
+      depth_format=@tycho.TextureFormat::Depth32F,
+      cull_mode=@tycho.CullMode::Back,
+      front_face=@tycho.FrontFace::CounterClockwise,
+      color_format=@tycho.TextureFormat::RGBA16F,
+      vertex_layouts=mesh_layouts,
+      bindless_heap?=bindless,
+      samples=samples,
+    ),
+  )
+  // Transmission samples an opaque color copy, so it is a separate pipeline
+  // variant (static meshes only) drawn in a second pass. No blending: the
+  // shader already composites the refracted background.
+  let transmission_frag = if bindless_ok {
+    spv_pbr_frag_transmission
+  } else {
+    spv_pbr_frag_transmission_nobindless
+  }
+  let pbr_transmission_pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_pbr_vert,
+      transmission_frag,
+      depth_test=true,
+      depth_write=false,
       depth_compare=@tycho.CompareOp::GreaterEqual,
       depth_format=@tycho.TextureFormat::Depth32F,
       cull_mode=@tycho.CullMode::Back,
@@ -785,6 +873,35 @@ pub fn Renderer3D::new(
       color_format=@tycho.TextureFormat::RGBA8,
     ),
   )
+  let ssao_pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_fullscreen_vert,
+      spv_ssao_frag,
+      color_format=@tycho.TextureFormat::RGBA8,
+    ),
+  )
+  let ssao_blur_pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_fullscreen_vert,
+      spv_ssao_blur_frag,
+      color_format=@tycho.TextureFormat::RGBA8,
+    ),
+  )
+  // Depth is sampled as a plain texel value, so nearest + clamp is the correct
+  // filtering (linear depth filtering would blur silhouettes).
+  let depth_sampler = dev.create_sampler_desc(
+    @tycho.SamplerDesc::new(
+      mag=@tycho.Filter::Nearest,
+      min=@tycho.Filter::Nearest,
+      mipmap=@tycho.Filter::Nearest,
+      address=@tycho.AddressMode::ClampToEdge,
+    ),
+  )
+  let ssao_ubo = dev.create_buffer_with(
+    SSAO_BYTES,
+    @tycho.BufferKind::Uniform,
+    location=@tycho.MemoryLocation::CpuToGpu,
+  )
   let mut cull_pipe : @tycho.Pipeline? = None
   let mut pbr_cull_pipe : @tycho.Pipeline? = None
   let cull_vis : Array[@tycho.Buffer] = []
@@ -890,7 +1007,7 @@ pub fn Renderer3D::new(
   {
     dev,
     desc,
-    msaa: desc.msaa,
+    msaa,
     meshes: [],
     vertex_arena: dev.create_buffer_with(
       4,
@@ -942,6 +1059,7 @@ pub fn Renderer3D::new(
     rt_cull_pipe,
     rt_tlas: None,
     rt_meshes: [],
+    pick_bvhs: [],
     materials: [],
     object_ring: @pool.FrameRing::new(dev, desc.max_objects * OBJECT_BYTES),
     light_ring: @pool.FrameRing::new(dev, desc.max_lights * LIGHT_BYTES),
@@ -977,6 +1095,8 @@ pub fn Renderer3D::new(
     env_sun: @tmath.Vec3::new(3.0, 4.0, -2.0).normalize(),
     env_intensity: 1.0,
     owns_env: true,
+    background: None,
+    fog: None,
     shadow_pipe,
     shadow_skin_pipe,
     pbr_pipe,
@@ -985,11 +1105,21 @@ pub fn Renderer3D::new(
     morph_pipe,
     morph_shadow_pipe,
     pbr_blend_pipe,
+    pbr_transmission_pipe,
     sky_pipe,
     bloom_extract_pipe,
     bloom_blur_pipe,
     tonemap_srgb_pipe,
     tonemap_linear_pipe,
+    ssao: desc.ssao,
+    ssao_radius: 0.6,
+    ssao_intensity: 1.0,
+    ssao_bias: 0.02,
+    ssao_ubo,
+    ssao_pipe,
+    ssao_blur_pipe,
+    ssao_writer: @tmath.GpuPackWriter::std140(SSAO_FLOATS),
+    depth_sampler,
     gpu_culling: desc.gpu_culling && bindless_ok,
     cull_pipe,
     pbr_cull_pipe,
@@ -1052,6 +1182,7 @@ pub fn Renderer3D::upload_mesh(self : Renderer3D, mesh : @tgeo.MeshData) -> Mesh
     fv
   }
   self.meshes.push(GpuMesh::range(mesh, first_vertex, first_index))
+  self.pick_bvhs.push(None)
   if self.rt_supported && !mesh.has_skin() && !mesh.has_morph() {
     self.rt_meshes.push(Some(self.build_mesh_blas(mesh)))
   } else {
@@ -1294,7 +1425,7 @@ fn Renderer3D::bind_morph_arenas(self : Renderer3D, cmd : @tycho.CommandBuffer) 
 fn Renderer3D::morph_weights_of(self : Renderer3D, node : NodeId) -> (Float, Float) {
   for entry in self.morph_weights {
     let (n, w) = entry
-    if n.index() == node.index() {
+    if n == node {
       let w0 : Float = if w.length() > 0 { w[0] } else { 0.0 }
       let w1 : Float = if w.length() > 1 { w[1] } else { 0.0 }
       return (w0, w1)
@@ -1520,6 +1651,15 @@ fn Renderer3D::destroy_targets(targets : FrameTargets) -> Unit {
     None => ()
   }
   targets.hdr.destroy()
+  targets.scene_copy.destroy()
+  match targets.ao_a {
+    Some(t) => t.destroy()
+    None => ()
+  }
+  match targets.ao_b {
+    Some(t) => t.destroy()
+    None => ()
+  }
   targets.bloom_a.destroy()
   targets.bloom_b.destroy()
 }
@@ -1550,6 +1690,17 @@ fn Renderer3D::create_targets(self : Renderer3D, w : Int, h : Int) -> FrameTarge
     ),
     hdr_resolve: if self.msaa {
       Some(self.dev.create_render_target(w, h, @tycho.TextureFormat::RGBA16F))
+    } else {
+      None
+    },
+    scene_copy: self.dev.create_render_target(w, h, @tycho.TextureFormat::RGBA16F),
+    ao_a: if self.ssao {
+      Some(self.dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8))
+    } else {
+      None
+    },
+    ao_b: if self.ssao {
+      Some(self.dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8))
     } else {
       None
     },
@@ -1629,7 +1780,7 @@ fn Renderer3D::pack_object(
   if mesh.skinned() {
     skinned = 1.0
     for s in self.skins {
-      if s.node.index() == item.node.index() {
+      if s.node == item.node {
         joint_offset = f_of_int(s.offset)
         joint_count = f_of_int(s.count)
       }
@@ -1745,7 +1896,12 @@ fn Renderer3D::collect_lights(
   let nodes : Array[(Light, @tmath.Affine3)] = []
   scene.traverse(fn(id) {
     match scene.payload(id) {
-      Some(NodePayload::Light(l)) => nodes.push((l, scene.world_transform(id)))
+      Some(NodePayload::Light(l)) =>
+        // A hidden light (or one under a hidden group) contributes nothing,
+        // matching `Object3D.visible` in three.js.
+        if scene.is_visible_in_world(id) {
+          nodes.push((l, scene.world_transform(id)))
+        }
       _ => ()
     }
   })
@@ -2032,6 +2188,7 @@ fn Renderer3D::render_frame(
 ) -> Unit raise {
   self.stats = RenderStats3D::new()
   scene.update()
+  self.prune_dead_bindings(scene)
   self.update_bones(scene)
   self.rebuild_rt_tlas(scene)
   let cam = match scene.payload(camera) {
@@ -2056,7 +2213,10 @@ fn Renderer3D::render_frame(
     let all : Array[NodeId] = []
     scene.traverse(fn(id) {
       match scene.payload(id) {
-        Some(NodePayload::Mesh(_)) => all.push(id)
+        Some(NodePayload::Mesh(_)) =>
+          if scene.is_visible_in_world(id) {
+            all.push(id)
+          }
         _ => ()
       }
     })
@@ -2073,6 +2233,7 @@ fn Renderer3D::render_frame(
   }
   let solid : Array[DrawItem] = []
   let transparent : Array[DrawItem] = []
+  let transmissive : Array[DrawItem] = []
   let line_items : Array[(NodeId, LineInstance)] = []
   for id in visible {
     match scene.payload(id) {
@@ -2083,7 +2244,7 @@ fn Renderer3D::render_frame(
         let mut mi = inst.mesh.id()
         let mut level = 0
         for g in self.lods {
-          if g.node.index() == id.index() {
+          if g.node == id {
             while level < g.switch_distances.length() &&
               dist > g.switch_distances[level] {
               level = level + 1
@@ -2099,16 +2260,23 @@ fn Renderer3D::render_frame(
           mi < self.meshes.length() &&
           mati >= 0 &&
           mati < self.materials.length() {
+          let mat = self.materials[mati]
           let item : DrawItem = {
             node: id,
             mesh: mi,
             material: mati,
             distance: dist,
             cast_shadow: inst.cast_shadow,
-            transparent: is_blend_mode(self.materials[mati].alpha_mode),
+            transparent: is_blend_mode(mat.alpha_mode),
           }
           if item.transparent {
             transparent.push(item)
+          } else if mat.transmission > 0.0 &&
+            !self.meshes[mi].skinned() &&
+            self.meshes[mi].morph() == 0 {
+            // Screen-space transmission: static meshes only, drawn in the
+            // second pass against the opaque color copy.
+            transmissive.push(item)
           } else {
             solid.push(item)
           }
@@ -2133,6 +2301,17 @@ fn Renderer3D::render_frame(
     }
   })
   transparent.sort_by(fn(a, b) {
+    if a.distance > b.distance {
+      -1
+    } else if a.distance < b.distance {
+      1
+    } else {
+      0
+    }
+  })
+  // Transmissive objects sample a single opaque copy, so their relative order
+  // does not affect the result; sort for deterministic draw order anyway.
+  transmissive.sort_by(fn(a, b) {
     if a.distance > b.distance {
       -1
     } else if a.distance < b.distance {
@@ -2172,6 +2351,32 @@ fn Renderer3D::render_frame(
     records = records + 1
   }
   let main_count = records
+  // Transmissive batches reuse the same object records but are drawn in the
+  // second pass, after the opaque color has been copied for refraction.
+  let transmission_batches : Array[DrawBatch] = []
+  for item in transmissive {
+    self.pack_object(item, scene)
+    let (mw0, mw1) = self.morph_weights_of(item.node)
+    let n = transmission_batches.length()
+    if n > 0 &&
+      transmission_batches[n - 1].mesh == item.mesh &&
+      transmission_batches[n - 1].material == item.material {
+      transmission_batches[n - 1].count = transmission_batches[n - 1].count + 1
+    } else {
+      transmission_batches.push({
+        mesh: item.mesh,
+        material: item.material,
+        first: records,
+        count: 1,
+        cull_cmd: -1,
+        list_offset: 0,
+        skinned: false,
+        morph_w0: mw0,
+        morph_w1: mw1,
+      })
+    }
+    records = records + 1
+  }
   let transparent_batches : Array[DrawBatch] = []
   for item in transparent {
     self.pack_object(item, scene)
@@ -2196,6 +2401,11 @@ fn Renderer3D::render_frame(
     }
   }
   for item in transparent {
+    if item.cast_shadow {
+      casters.push(item)
+    }
+  }
+  for item in transmissive {
     if item.cast_shadow {
       casters.push(item)
     }
@@ -2295,6 +2505,26 @@ fn Renderer3D::render_frame(
   self.frame_writer.push_float(f_of_int(shadow_tiles.length()))
   self.frame_writer.push_float(0.0)
   self.frame_writer.push_float(0.0)
+  // Fog: `fogColor.w` is the mode (0 off, 1 linear, 2 exp2) and `fogParams`
+  // carries (near, far, density, 0).
+  match self.fog {
+    Some(Fog::Linear(color, near, far)) => {
+      self.frame_writer.push_vec4(
+        @tmath.Vec4::new(color.x, color.y, color.z, 1.0),
+      )
+      self.frame_writer.push_vec4(@tmath.Vec4::new(near, far, 0.0, 0.0))
+    }
+    Some(Fog::Exp2(color, density)) => {
+      self.frame_writer.push_vec4(
+        @tmath.Vec4::new(color.x, color.y, color.z, 2.0),
+      )
+      self.frame_writer.push_vec4(@tmath.Vec4::new(0.0, 0.0, density, 0.0))
+    }
+    None => {
+      self.frame_writer.push_vec4(@tmath.Vec4::zero())
+      self.frame_writer.push_vec4(@tmath.Vec4::zero())
+    }
+  }
   self.frame_ubo.upload_floats(
     self.frame_writer.buffer(),
     offset=slot * FRAME_SLOT_BYTES,
@@ -2568,12 +2798,18 @@ fn Renderer3D::render_frame(
       @tycho.RenderTargetDesc::new(
         targets.hdr,
         load_op=@tycho.LoadOp::Clear,
-        store_op=if targets.hdr_resolve is Some(_) {
+        // The transmission pass loads this attachment, so an MSAA target must
+        // be stored (not just resolved) when that pass will run.
+        store_op=if targets.hdr_resolve is Some(_) &&
+          transmission_batches.length() == 0 {
           @tycho.StoreOp::DontCare
         } else {
           @tycho.StoreOp::Store
         },
-        clear_color=@tycho.ClearColor::black(),
+        clear_color=match self.background {
+          Some(c) => @tycho.ClearColor::rgba(c.x, c.y, c.z, c.w)
+          None => @tycho.ClearColor::black()
+        },
         resolve_texture?=targets.hdr_resolve,
       ),
     ],
@@ -2581,23 +2817,32 @@ fn Renderer3D::render_frame(
       @tycho.DepthTargetDesc::new(
         targets.depth,
         load_op=@tycho.LoadOp::Clear,
-        store_op=@tycho.StoreOp::DontCare,
+        // The transmission pass re-tests against the opaque depth buffer.
+        store_op=if transmission_batches.length() > 0 {
+          @tycho.StoreOp::Store
+        } else {
+          @tycho.StoreOp::DontCare
+        },
         clear_depth=0.0,
       )
     ,
   fn(pass) {
     pass.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
     pass.set_scissor(0, 0, w, h)
-    pass.bind_pipeline(self.sky_pipe)
-    pass.bind_uniform(
-      self.sky_pipe,
-      0,
-      self.sky_ubo,
-      offset=slot * SKY_SLOT_BYTES,
-      size=SKY_BYTES,
-    )
-    pass.bind_texture(self.sky_pipe, 0, self.env_cube, self.env_sampler)
-    pass.draw(3, 1)
+    // A flat background replaces the sky draw; the environment cubemap stays
+    // bound for IBL, so lighting is unchanged.
+    if self.background is None {
+      pass.bind_pipeline(self.sky_pipe)
+      pass.bind_uniform(
+        self.sky_pipe,
+        0,
+        self.sky_ubo,
+        offset=slot * SKY_SLOT_BYTES,
+        size=SKY_BYTES,
+      )
+      pass.bind_texture(self.sky_pipe, 0, self.env_cube, self.env_sampler)
+      pass.draw(3, 1)
+    }
     if main_count > 0 {
       self.bind_arenas(cmd)
       let culling = cull_cmd_count > 0
@@ -2944,6 +3189,209 @@ fn Renderer3D::render_frame(
   },
 )
 
+  // Transmission pass: the opaque color was copied out, so this pass can
+  // sample it while drawing the transmissive meshes into the same HDR target.
+  if transmission_batches.length() > 0 {
+    cmd.blit_texture(resolved, targets.scene_copy, filter=@tycho.Filter::Nearest)
+    cmd.render_pass(
+      [
+        @tycho.RenderTargetDesc::new(
+          targets.hdr,
+          load_op=@tycho.LoadOp::Load,
+          store_op=if targets.hdr_resolve is Some(_) {
+            @tycho.StoreOp::DontCare
+          } else {
+            @tycho.StoreOp::Store
+          },
+          resolve_texture?=targets.hdr_resolve,
+        ),
+      ],
+      depth=@tycho.DepthTargetDesc::new(
+        targets.depth,
+        load_op=@tycho.LoadOp::Load,
+        store_op=@tycho.StoreOp::DontCare,
+        clear_depth=0.0,
+      ),
+      fn(pass) {
+        pass.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
+        pass.set_scissor(0, 0, w, h)
+        pass.bind_pipeline(self.pbr_transmission_pipe)
+        self.bind_material_heap(cmd, self.pbr_transmission_pipe)
+        pass.bind_uniform(
+          self.pbr_transmission_pipe,
+          0,
+          self.frame_ubo,
+          offset=slot * FRAME_SLOT_BYTES,
+          size=FRAME_BYTES,
+        )
+        pass.bind_storage(
+          self.pbr_transmission_pipe,
+          0,
+          self.object_ring.buffer(),
+          offset=object_offset,
+          size=bind_objects_bytes(object_count),
+        )
+        pass.bind_storage(
+          self.pbr_transmission_pipe,
+          1,
+          self.material_ssbo,
+          offset=0,
+          size=self.desc.max_materials * MATERIAL_BYTES,
+        )
+        pass.bind_storage(
+          self.pbr_transmission_pipe,
+          2,
+          self.light_ring.buffer(),
+          offset=light_offset,
+          size=bind_lights_bytes(light_count),
+        )
+        pass.bind_storage(
+          self.pbr_transmission_pipe,
+          3,
+          self.shadow_tiles_ssbo,
+          offset=0,
+          size=bind_shadow_tiles_bytes(shadow_tiles.length()),
+        )
+        pass.bind_texture(
+          self.pbr_transmission_pipe,
+          0,
+          self.shadow_atlas,
+          self.shadow_sampler,
+        )
+        pass.bind_texture(
+          self.pbr_transmission_pipe,
+          1,
+          self.shadow_atlas,
+          self.shadow_sampler,
+        )
+        pass.bind_texture(
+          self.pbr_transmission_pipe,
+          2,
+          self.env_cube,
+          self.env_sampler,
+        )
+        pass.bind_texture(
+          self.pbr_transmission_pipe,
+          3,
+          self.brdf_lut,
+          self.linear_sampler,
+        )
+        // `uSceneColor` is declared at binding 10, after the bindless set (5
+        // textures) or after albedo/normal (7) in the fallback variant.
+        pass.bind_texture(
+          self.pbr_transmission_pipe,
+          if self.bindless_ok { 4 } else { 6 },
+          targets.scene_copy,
+          self.linear_sampler,
+        )
+        self.bind_arenas(cmd)
+        for b in transmission_batches {
+          self.bind_material_textures(cmd, self.pbr_transmission_pipe, b.material)
+          let mesh = self.meshes[b.mesh]
+          pass.draw_indexed_full(
+            mesh.index_count(),
+            b.count,
+            mesh.first_index(),
+            mesh.first_vertex(),
+            b.first,
+          )
+          self.stats.draw_calls = self.stats.draw_calls + 1
+          self.stats.triangles = self.stats.triangles + mesh.index_count() / 3 * b.count
+        }
+      },
+    )
+  }
+
+  // SSAO: reconstruct positions from depth, accumulate hemisphere occlusion,
+  // then box-blur the noisy result. Runs before bloom so the bloom source stays
+  // untouched; the tonemap pass multiplies the blurred AO into the image.
+  let mut ao_texture : @tycho.Texture? = None
+  if self.ssao {
+    match (targets.ao_a, targets.ao_b) {
+      (Some(ssao_rt), Some(blur_rt)) => {
+        let inv_vp = match @tmath.invert_view_proj(vp) {
+          Some(m) => m
+          None => @tmath.Mat4::identity()
+        }
+        self.ssao_writer.reset()
+        self.ssao_writer.push_mat4(vp)
+        self.ssao_writer.push_mat4(inv_vp)
+        self.ssao_writer.push_vec3_padded(eye)
+        self.ssao_writer.push_float(self.ssao_radius)
+        self.ssao_writer.push_float(self.ssao_intensity)
+        self.ssao_writer.push_float(self.ssao_bias)
+        self.ssao_writer.push_float(0.0)
+        self.ssao_ubo.upload_floats(self.ssao_writer.buffer(), count=SSAO_FLOATS)
+        // The depth attachment is still in DEPTH_STENCIL_ATTACHMENT layout
+        // after the scene pass; move it to a sampled layout before the AO
+        // shader reads it.
+        cmd.transition_for_sampling(targets.depth)
+        cmd.render_pass(
+          [
+            @tycho.RenderTargetDesc::new(
+              ssao_rt,
+              load_op=@tycho.LoadOp::Clear,
+              store_op=@tycho.StoreOp::Store,
+              clear_color=@tycho.ClearColor::rgba(1.0, 1.0, 1.0, 1.0),
+            ),
+          ],
+          fn(pass) {
+            pass.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
+            pass.set_scissor(0, 0, w, h)
+            pass.bind_pipeline(self.ssao_pipe)
+            pass.bind_uniform(
+              self.ssao_pipe,
+              0,
+              self.ssao_ubo,
+              offset=0,
+              size=SSAO_BYTES,
+            )
+            pass.bind_texture(
+              self.ssao_pipe,
+              0,
+              targets.depth,
+              self.depth_sampler,
+            )
+            pass.draw(3, 1)
+          },
+        )
+        cmd.render_pass(
+          [
+            @tycho.RenderTargetDesc::new(
+              blur_rt,
+              load_op=@tycho.LoadOp::Clear,
+              store_op=@tycho.StoreOp::Store,
+              clear_color=@tycho.ClearColor::rgba(1.0, 1.0, 1.0, 1.0),
+            ),
+          ],
+          fn(pass) {
+            pass.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
+            pass.set_scissor(0, 0, w, h)
+            pass.bind_pipeline(self.ssao_blur_pipe)
+            pass.bind_texture(
+              self.ssao_blur_pipe,
+              0,
+              ssao_rt,
+              self.linear_sampler,
+            )
+            pass.push_constants_floats(
+              self.ssao_blur_pipe,
+              [
+                1.0 / f_of_int(w),
+                1.0 / f_of_int(h),
+                0.0,
+                0.0,
+              ],
+            )
+            pass.draw(3, 1)
+          },
+        )
+        ao_texture = Some(blur_rt)
+      }
+      _ => ()
+    }
+  }
+
   // Bloom chain.
   let mut bloom_result = resolved
   if self.desc.bloom {
@@ -3038,11 +3486,17 @@ fn Renderer3D::render_frame(
     pass.bind_pipeline(tm_pipe)
     pass.bind_texture(tm_pipe, 0, resolved, self.linear_sampler)
     pass.bind_texture(tm_pipe, 1, bloom_result, self.linear_sampler)
+    // 1x1 white when SSAO is off, so the shader path stays identical.
+    let ao_bind = match ao_texture {
+      Some(t) => t
+      None => self.white_tex
+    }
+    pass.bind_texture(tm_pipe, 2, ao_bind, self.linear_sampler)
     pass.draw(3, 1)
   
   },
 )
-  self.stats.draw_calls = self.stats.draw_calls + 4
+  self.stats.draw_calls = self.stats.draw_calls + 4 + (if self.ssao { 2 } else { 0 })
 }
 
 ///|
@@ -3220,10 +3674,15 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   }
   self.tonemap_linear_pipe.destroy()
   self.tonemap_srgb_pipe.destroy()
+  self.ssao_pipe.destroy()
+  self.ssao_blur_pipe.destroy()
+  self.ssao_ubo.destroy()
+  self.depth_sampler.destroy()
   self.bloom_blur_pipe.destroy()
   self.bloom_extract_pipe.destroy()
   self.sky_pipe.destroy()
   self.pbr_blend_pipe.destroy()
+  self.pbr_transmission_pipe.destroy()
   self.pbr_pipe.destroy()
   self.skin_pipe.destroy()
   self.skin_blend_pipe.destroy()
@@ -3288,6 +3747,7 @@ pub fn Renderer3D::create_morph_mesh_node(
   weights : Array[Float],
   transform? : @tmath.Transform = @tmath.Transform::identity(),
   name? : String = "",
+  parent? : NodeId,
 ) -> NodeId raise {
   let mi = mesh.id()
   if mi < 0 || mi >= self.meshes.length() || self.meshes[mi].morph() == 0 {
@@ -3307,7 +3767,14 @@ pub fn Renderer3D::create_morph_mesh_node(
   if weights.length() > self.meshes[mi].morph() {
     raise Render3DError::InvalidMesh("Renderer3D::create_morph_mesh_node: more weights than morph targets")
   }
-  let node = self.create_mesh_node(scene, mesh, material, transform~, name~)
+  let node = self.create_mesh_node(
+    scene,
+    mesh,
+    material,
+    transform~,
+    name~,
+    parent?=parent,
+  )
   self.set_morph_weights(node, weights)
   node
 }
@@ -3323,6 +3790,7 @@ pub fn Renderer3D::create_morph_node(
   weights : Array[Float],
   transform? : @tmath.Transform = @tmath.Transform::identity(),
   name? : String = "",
+  parent? : NodeId,
 ) -> NodeId raise {
   let mi = mesh.id()
   if mi < 0 || mi >= self.meshes.length() || self.meshes[mi].morph() == 0 {
@@ -3339,7 +3807,15 @@ pub fn Renderer3D::create_morph_node(
     raise Render3DError::InvalidMesh("Renderer3D::create_morph_node: more weights than morph targets")
   }
   let material = self.create_material(desc)
-  self.create_morph_mesh_node(scene, mesh, material, weights, transform~, name~)
+  self.create_morph_mesh_node(
+    scene,
+    mesh,
+    material,
+    weights,
+    transform~,
+    name~,
+    parent?=parent,
+  )
 }
 
 ///|
@@ -3354,6 +3830,7 @@ pub fn Renderer3D::create_lod_node(
   material : MaterialHandle,
   transform? : @tmath.Transform = @tmath.Transform::identity(),
   name? : String = "",
+  parent? : NodeId,
 ) -> NodeId raise {
   if levels.length() == 0 || switch_distances.length() != levels.length() - 1 {
     raise Render3DError::InvalidMesh("Renderer3D::create_lod_node: levels/distances mismatch")
@@ -3377,6 +3854,7 @@ pub fn Renderer3D::create_lod_node(
     raise Render3DError::InvalidMaterial("Renderer3D::create_lod_node: invalid material handle")
   }
   let node = scene.create_node(
+    parent?=parent,
     transform=transform,
     payload=NodePayload::Mesh(MeshInstance::new(levels[0], material)),
     name=name,
@@ -3407,6 +3885,7 @@ pub fn Renderer3D::create_skinned_mesh_node(
   inverse_bind : Array[@tmath.Mat4],
   transform? : @tmath.Transform = @tmath.Transform::identity(),
   name? : String = "",
+  parent? : NodeId,
 ) -> NodeId raise {
   if joints.length() == 0 || joints.length() != inverse_bind.length() {
     raise Render3DError::InvalidMesh("Renderer3D::create_skinned_mesh_node: joints and inverse_bind must match")
@@ -3423,6 +3902,7 @@ pub fn Renderer3D::create_skinned_mesh_node(
     raise Render3DError::CapacityExceeded("Renderer3D::create_skinned_mesh_node: bone palette exhausted")
   }
   let node = scene.create_node(
+    parent?=parent,
     transform=transform,
     payload=NodePayload::Mesh(MeshInstance::new(mesh, material)),
     name=name,
@@ -3451,6 +3931,7 @@ pub fn Renderer3D::create_skinned_node(
   inverse_bind : Array[@tmath.Mat4],
   transform? : @tmath.Transform = @tmath.Transform::identity(),
   name? : String = "",
+  parent? : NodeId,
 ) -> NodeId raise {
   if joints.length() == 0 || joints.length() != inverse_bind.length() {
     raise Render3DError::InvalidMesh("Renderer3D::create_skinned_node: joints and inverse_bind must match")
@@ -3463,7 +3944,16 @@ pub fn Renderer3D::create_skinned_node(
     raise Render3DError::CapacityExceeded("Renderer3D::create_skinned_node: bone palette exhausted")
   }
   let mat = self.create_material(desc)
-  self.create_skinned_mesh_node(scene, mesh, mat, joints, inverse_bind, transform~, name~)
+  self.create_skinned_mesh_node(
+    scene,
+    mesh,
+    mat,
+    joints,
+    inverse_bind,
+    transform~,
+    name~,
+    parent?=parent,
+  )
 }
 
 ///|
@@ -3475,8 +3965,10 @@ pub fn Renderer3D::create_mesh_node(
   material : MaterialHandle,
   transform? : @tmath.Transform = @tmath.Transform::identity(),
   name? : String = "",
+  parent? : NodeId,
 ) -> NodeId {
   let node = scene.create_node(
+    parent?=parent,
     transform=transform,
     payload=NodePayload::Mesh(MeshInstance::new(mesh, material)),
     name=name,
@@ -3498,8 +3990,10 @@ pub fn Renderer3D::create_line_node(
   material? : LineMaterial = LineMaterial::new(),
   transform? : @tmath.Transform = @tmath.Transform::identity(),
   name? : String = "",
+  parent? : NodeId,
 ) -> NodeId {
   let node = scene.create_node(
+    parent?=parent,
     transform=transform,
     payload=NodePayload::Lines(LineInstance::new(lines, material)),
     name=name,
@@ -3535,7 +4029,8 @@ pub fn Renderer3D::create_pbr_node(
   desc : MaterialDesc,
   transform? : @tmath.Transform = @tmath.Transform::identity(),
   name? : String = "",
+  parent? : NodeId,
 ) -> NodeId raise {
   let mat = self.create_material(desc)
-  self.create_mesh_node(scene, mesh, mat, transform~, name~)
+  self.create_mesh_node(scene, mesh, mat, transform~, name~, parent?=parent)
 }

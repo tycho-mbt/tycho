@@ -12,6 +12,8 @@ layout(binding = 0) uniform FrameUBO {
     vec4 camPos;
     vec4 params;   // x lightCount, y shadow texel, z shadows, w env intensity
     vec4 cascade;  // x split distance, y cascade count
+    vec4 fogColor; // rgb fog colour, w mode (0 off, 1 linear, 2 exp2)
+    vec4 fogParams;// x near, y far, z density
 } frame;
 
 struct MaterialGpu {
@@ -19,6 +21,8 @@ struct MaterialGpu {
     vec4 emissive;
     vec4 params;    // metallic, roughness, alphaCutoff, flags
     vec4 texParams; // albedo index, normal index, clearcoat, clearcoat roughness
+    vec4 sheen;     // rgb sheen colour, w sheen roughness (0 colour disables)
+    vec4 transmission; // x amount, y ior (screen-space transmission)
 };
 layout(std430, binding = 2) readonly buffer MaterialBuf { MaterialGpu materials[]; };
 
@@ -49,6 +53,10 @@ layout(binding = 4) uniform sampler2DShadow uShadow0;
 layout(binding = 5) uniform sampler2DShadow uShadow1;
 layout(binding = 6) uniform samplerCube uEnv;
 layout(binding = 7) uniform sampler2D uBrdf;
+#ifdef TYCHO_TRANSMISSION
+// Opaque colour copy captured before the transmissive pass (screen space).
+layout(binding = 10) uniform sampler2D uSceneColor;
+#endif
 #ifndef TYCHO_NO_BINDLESS
 layout(set = 1, binding = 0) uniform sampler2D uTextures[];
 #else
@@ -164,6 +172,45 @@ vec3 direct_brdf(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float metal
     return (kD * albedo / PI + spec) * radiance * ndotl;
 }
 
+// glTF KHR_materials_sheen: Charlie distribution + Ashikhmin visibility. It is
+// a grazing-angle lobe added on top of the base BRDF, which is what gives
+// cloth its soft rim instead of a mirror highlight.
+float D_Charlie(float roughness, float NoH) {
+    float invAlpha = 1.0 / max(roughness, 0.07);
+    float cos2h = NoH * NoH;
+    float sin2h = max(1.0 - cos2h, 0.0078125);
+    return (2.0 + invAlpha) * pow(sin2h, invAlpha * 0.5) / (2.0 * PI);
+}
+
+vec3 sheen_brdf(vec3 N, vec3 V, vec3 L, vec3 sheenColor, float sheenRoughness) {
+    vec3 H = normalize(V + L);
+    float NoL = max(dot(N, L), 0.0);
+    float NoV = max(dot(N, V), 0.0);
+    float NoH = max(dot(N, H), 0.0);
+    float D = D_Charlie(sheenRoughness, NoH);
+    float vis = 1.0 / max(4.0 * (NoL + NoV - NoL * NoV), 1e-4);
+    return sheenColor * D * vis * NoL;
+}
+
+// Linear-space distance fog, applied before the HDR target is written so the
+// blend is tone-mapped with the rest of the frame.
+vec3 apply_fog(vec3 color, vec3 worldPos) {
+    float mode = frame.fogColor.w;
+    if (mode < 0.5) {
+        return color;
+    }
+    float depth = length(frame.camPos.xyz - worldPos);
+    float f;
+    if (mode < 1.5) {
+        float span = max(frame.fogParams.y - frame.fogParams.x, 1e-4);
+        f = clamp((depth - frame.fogParams.x) / span, 0.0, 1.0);
+    } else {
+        float d = frame.fogParams.z * depth;
+        f = 1.0 - exp(-d * d);
+    }
+    return mix(color, frame.fogColor.rgb, f);
+}
+
 void main() {
     MaterialGpu m = materials[int(vMaterial + 0.5)];
     int flags = int(m.params.w + 0.5);
@@ -178,7 +225,7 @@ void main() {
     }
     vec3 emissive = m.emissive.rgb;
     if ((flags & 1) != 0) {
-        outHDR = vec4(base.rgb + emissive, base.a);
+        outHDR = vec4(apply_fog(base.rgb + emissive, vWorldPos), base.a);
         return;
     }
 
@@ -195,6 +242,9 @@ void main() {
     float roughness = clamp(m.params.y, 0.05, 1.0);
     float cc = clamp(m.texParams.z, 0.0, 1.0);
     float ccr = clamp(m.texParams.w, 0.03, 1.0);
+    bool hasSheen = (flags & 8) != 0;
+    vec3 sheenColor = m.sheen.rgb;
+    float sheenRoughness = clamp(m.sheen.w, 0.07, 1.0);
 
     vec3 lighting = vec3(0.0);
     vec3 ambientSum = vec3(0.0);
@@ -232,6 +282,9 @@ void main() {
 #endif
             lighting += direct_brdf(N, V, L, l.color.rgb * l.params.x, albedo, metallic, roughness) * sh;
             lighting += clearcoat_spec(N, V, L, l.color.rgb * l.params.x, cc, ccr) * sh;
+            if (hasSheen) {
+                lighting += sheen_brdf(N, V, L, sheenColor, sheenRoughness) * l.color.rgb * l.params.x * sh;
+            }
         } else if (typeCode == 1 || typeCode == 2) {
             vec3 toLight = l.posDir.xyz - vWorldPos;
             float dist = length(toLight);
@@ -269,6 +322,9 @@ void main() {
             }
             lighting += direct_brdf(N, V, L, l.color.rgb * atten, albedo, metallic, roughness) * sh;
             lighting += clearcoat_spec(N, V, L, l.color.rgb * atten, cc, ccr) * sh;
+            if (hasSheen) {
+                lighting += sheen_brdf(N, V, L, sheenColor, sheenRoughness) * l.color.rgb * atten * sh;
+            }
         } else if (typeCode == 3) {
             ambientSum += l.color.rgb * l.params.x;
         } else if (typeCode == 4) {
@@ -289,6 +345,11 @@ void main() {
     vec3 F_env = clamp(F0 * ab.x + vec3(ab.y), 0.0, 1.0);
     vec3 kD = (vec3(1.0) - F_env) * (1.0 - metallic);
     vec3 ambient = kD * envDiff * albedo + F_env * envSpec + ambientSum * albedo;
+    if (hasSheen) {
+        // Sheen IBL approximation: the diffuse irradiance already holds the
+        // hemisphere average a fabric lobe would gather at grazing angles.
+        ambient += sheenColor * envDiff * 0.5;
+    }
     if (cc > 0.001) {
         // Coat-reflection: a second, sharper environment lookup.
         vec3 ccSpec = textureLod(uEnv, R, ccr * maxLod).rgb;
@@ -297,5 +358,25 @@ void main() {
         ambient += ccSpec * (cc * ccF) * envI;
     }
 
-    outHDR = vec4(ambient + lighting + emissive, base.a);
+    vec3 lit = ambient + lighting + emissive;
+#ifdef TYCHO_TRANSMISSION
+    float transmission = clamp(m.transmission.x, 0.0, 1.0);
+    if (transmission > 0.001) {
+        float ior = clamp(m.transmission.y, 1.0, 2.5);
+        vec2 vp = vec2(textureSize(uSceneColor, 0));
+        vec2 uv = gl_FragCoord.xy / max(vp, vec2(1.0));
+        vec3 rd = refract(-V, N, 1.0 / ior);
+        // Total internal reflection leaves no refracted direction: look straight
+        // through instead of sampling noise.
+        if (dot(rd, rd) < 1e-6) {
+            rd = -V;
+        }
+        vec2 offs = (rd.xy - (-V).xy) * 0.4 * transmission;
+        vec3 behind = texture(uSceneColor, clamp(uv + offs, vec2(0.001), vec2(0.999))).rgb;
+        vec3 reflected = textureLod(uEnv, reflect(-V, N), roughness * maxLod).rgb * envI;
+        float fres = 0.04 + 0.96 * pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 5.0);
+        lit = mix(lit, mix(behind, reflected, fres), transmission);
+    }
+#endif
+    outHDR = vec4(apply_fog(lit, vWorldPos), base.a);
 }

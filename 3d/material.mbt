@@ -64,6 +64,15 @@ pub(all) struct MaterialDesc {
   clearcoat_roughness : Float
   // Linear HDR emissive, may exceed 1.
   emissive : @tmath.Vec3
+  // Physical sheen: a low-grazing-angle fabric lobe (glTF KHR_materials_sheen
+  // / three.js `sheenColor` + `sheenRoughness`). A zero colour disables it.
+  sheen_color : @tmath.Vec3
+  sheen_roughness : Float
+  // Screen-space transmission (three.js `transmission` + `ior`): a fraction in
+  // `[0, 1]` of the surface that shows the scene behind it, refracted by `ior`.
+  // Requires the static-mesh PBR path; skinned/morph meshes ignore it.
+  transmission : Float
+  ior : Float
   alpha_mode : AlphaMode
   double_sided : Bool
   albedo_tex : TextureHandle?
@@ -86,6 +95,10 @@ pub fn MaterialDesc::pbr(
     clearcoat: 0.0,
     clearcoat_roughness: 0.04,
     emissive: @tmath.Vec3::zero(),
+    sheen_color: @tmath.Vec3::zero(),
+    sheen_roughness: 0.5,
+    transmission: 0.0,
+    ior: 1.5,
     alpha_mode: AlphaMode::Opaque,
     double_sided: false,
     albedo_tex: None,
@@ -105,6 +118,10 @@ pub fn MaterialDesc::unlit(color : @tmath.Vec4) -> MaterialDesc {
     clearcoat: 0.0,
     clearcoat_roughness: 0.04,
     emissive: @tmath.Vec3::zero(),
+    sheen_color: @tmath.Vec3::zero(),
+    sheen_roughness: 0.5,
+    transmission: 0.0,
+    ior: 1.5,
     alpha_mode: AlphaMode::Opaque,
     double_sided: false,
     albedo_tex: None,
@@ -112,6 +129,80 @@ pub fn MaterialDesc::unlit(color : @tmath.Vec4) -> MaterialDesc {
     metallic_roughness_tex: None,
     emissive_tex: None,
   }
+}
+
+///|
+/// Physical sheen lobe (three.js `sheenColor` / `sheenRoughness`, glTF
+/// `KHR_materials_sheen`). Use a light colour such as `srgb(1, 1, 1).truncate()`
+/// for fabric-like grazing highlights; a zero colour disables the lobe.
+pub fn MaterialDesc::with_sheen(
+  self : MaterialDesc,
+  color : @tmath.Vec3,
+  roughness? : Float = 0.5,
+) -> MaterialDesc {
+  { ..self, sheen_color: color, sheen_roughness: roughness }
+}
+
+///|
+/// Screen-space transmission (three.js `transmission` / `ior`, glTF
+/// `KHR_materials_transmission` / `KHR_materials_ior`).
+///
+/// `amount` is the fraction of the surface that shows the scene behind it
+/// (0 = opaque, 1 = fully transmissive) and `ior` bends that view. The renderer
+/// draws transmissive static meshes in a second pass against a copy of the
+/// opaque color, so the background is genuinely refracted instead of merely
+/// alpha-blended. Skinned and morph meshes ignore transmission for now.
+pub fn MaterialDesc::with_transmission(
+  self : MaterialDesc,
+  amount : Float,
+  ior? : Float = 1.5,
+) -> MaterialDesc {
+  { ..self, transmission: @tmath.saturate(amount), ior }
+}
+
+///|
+/// three.js-style name for `pbr`: `MeshStandardMaterial`.
+/// `standard(hex(0xFF8800), roughness=0.4)` reads like the three.js original.
+pub fn MaterialDesc::standard(
+  base_color : @tmath.Vec4,
+  metallic? : Float = 0.0,
+  roughness? : Float = 0.5,
+) -> MaterialDesc {
+  MaterialDesc::pbr(base_color, metallic~, roughness~)
+}
+
+///|
+/// three.js-style name for `unlit`: `MeshBasicMaterial` — a solid color with
+/// no lighting, IBL or shadow response.
+pub fn MaterialDesc::basic(color : @tmath.Vec4) -> MaterialDesc {
+  MaterialDesc::unlit(color)
+}
+
+///|
+/// Replace the linear base color, keeping the rest of the material.
+pub fn MaterialDesc::with_base_color(
+  self : MaterialDesc,
+  color : @tmath.Vec4,
+) -> MaterialDesc {
+  { ..self, base_color: color }
+}
+
+///|
+/// Replace the metallic factor (0..1).
+pub fn MaterialDesc::with_metallic(
+  self : MaterialDesc,
+  metallic : Float,
+) -> MaterialDesc {
+  { ..self, metallic }
+}
+
+///|
+/// Replace the roughness factor (0..1).
+pub fn MaterialDesc::with_roughness(
+  self : MaterialDesc,
+  roughness : Float,
+) -> MaterialDesc {
+  { ..self, roughness }
 }
 
 ///|

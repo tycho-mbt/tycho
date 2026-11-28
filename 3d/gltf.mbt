@@ -221,7 +221,7 @@ pub fn load_gltf_animations(
       }
       let mut slot = -1
       for i = 0; i < ids.length(); i = i + 1 {
-        if ids[i].index() == id.index() {
+        if ids[i] == id {
           slot = i
         }
       }

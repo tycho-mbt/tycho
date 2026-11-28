@@ -177,6 +177,24 @@ pub fn ray_lines_hit(
 }
 
 ///|
+/// The picking BVH for mesh slot `mi`, built on first use and cached for the
+/// renderer's lifetime. Uploaded meshes are immutable, so the tree never needs
+/// invalidation; the CPU copy is already retained for picking.
+fn Renderer3D::pick_bvh(self : Renderer3D, mi : Int) -> MeshBvh? {
+  if mi < 0 || mi >= self.pick_bvhs.length() || mi >= self.meshes.length() {
+    return None
+  }
+  match self.pick_bvhs[mi] {
+    Some(b) => Some(b)
+    None => {
+      let b = MeshBvh::build(self.meshes[mi].mesh())
+      self.pick_bvhs[mi] = Some(b)
+      Some(b)
+    }
+  }
+}
+
+///|
 /// Nearest mesh or line node under an NDC point. Uses the frustum-culled
 /// drawable list, so nodes behind the camera or past the far plane are not
 /// pickable.
@@ -210,22 +228,26 @@ pub fn Renderer3D::pick(
       Some(NodePayload::Mesh(inst)) => {
         let mi = inst.mesh.id()
         if mi >= 0 && mi < self.meshes.length() {
-          match ray_mesh_hit(ray, self.meshes[mi].mesh(), scene.world_transform(id)) {
-            Some(h) => {
-              let closer = match best {
-                Some(b) => h.distance < b.distance
-                None => true
+          match self.pick_bvh(mi) {
+            Some(bvh) =>
+              match bvh.ray_hit(ray, scene.world_transform(id)) {
+                Some(h) => {
+                  let closer = match best {
+                    Some(b) => h.distance < b.distance
+                    None => true
+                  }
+                  if closer {
+                    best = Some({
+                      node: id,
+                      distance: h.distance,
+                      position: h.position,
+                      normal: h.normal,
+                      triangle: h.triangle,
+                    })
+                  }
+                }
+                None => ()
               }
-              if closer {
-                best = Some({
-                  node: id,
-                  distance: h.distance,
-                  position: h.position,
-                  normal: h.normal,
-                  triangle: h.triangle,
-                })
-              }
-            }
             None => ()
           }
         }

@@ -119,6 +119,7 @@ fn main {
       shadow_cascades: 2,
       gpu_culling: true,
       bindless: true,
+      ssao: false,
     }
     let desc_cpu : @t3d.RendererDesc = {
       max_objects: 24000,
@@ -132,6 +133,7 @@ fn main {
       shadow_cascades: 2,
       gpu_culling: false,
       bindless: true,
+      ssao: false,
     }
     let r_gpu = @t3d.Renderer3D::new(dev, desc=desc_gpu)
     let r_cpu = @t3d.Renderer3D::new(dev, desc=desc_cpu)

@@ -50,6 +50,20 @@ pub fn Camera::perspective(
 }
 
 ///|
+/// Perspective camera taking the vertical field of view in **degrees**, which
+/// is how three.js `PerspectiveCamera` authors it. Composition is left
+/// unchanged: the value is converted once, at this boundary.
+pub fn Camera::perspective_deg(
+  fov_y_deg : Float,
+  aspect : Float,
+  near? : Float = 0.1,
+  far? : Float,
+  clip? : @tmath.ClipSpace = @tmath.ClipSpace::Vulkan,
+) -> Camera {
+  Camera::perspective(@tmath.deg_to_rad(fov_y_deg), aspect, near~, far?=far, clip~)
+}
+
+///|
 pub fn Camera::orthographic(
   left : Float,
   right : Float,
@@ -164,4 +178,89 @@ pub fn Camera::with_aspect(self : Camera, aspect : Float) -> Camera {
     }
     Orthographic(_) => self
   }
+}
+
+///|
+/// Resize helper taking the viewport in pixels: aspect is recomputed from
+/// `width / height`; non-positive sizes are ignored.
+pub fn Camera::with_viewport(
+  self : Camera,
+  width : Float,
+  height : Float,
+) -> Camera {
+  if width <= 0.0 || height <= 0.0 {
+    self
+  } else {
+    self.with_aspect(width / height)
+  }
+}
+
+///|
+/// Vertical field of view in radians; `0` for an orthographic camera.
+pub fn Camera::fov_y(self : Camera) -> Float {
+  match self.projection {
+    Perspective(p) => p.fov_y_rad
+    Orthographic(_) => 0.0
+  }
+}
+
+///|
+/// Viewport aspect ratio (width / height); `0` for an orthographic camera.
+pub fn Camera::aspect(self : Camera) -> Float {
+  match self.projection {
+    Perspective(p) => p.aspect
+    Orthographic(_) => 0.0
+  }
+}
+
+///|
+/// Near plane distance.
+pub fn Camera::near(self : Camera) -> Float {
+  match self.projection {
+    Perspective(p) => p.near
+    Orthographic(o) => o.near
+  }
+}
+
+///|
+/// Far plane distance; `None` for an infinite reversed-Z perspective camera.
+pub fn Camera::far(self : Camera) -> Float? {
+  match self.projection {
+    Perspective(p) => p.far
+    Orthographic(o) => Some(o.far)
+  }
+}
+
+///|
+/// `true` for an orthographic projection.
+pub fn Camera::is_orthographic(self : Camera) -> Bool {
+  match self.projection {
+    Orthographic(_) => true
+    Perspective(_) => false
+  }
+}
+
+///|
+/// Ray through a pixel coordinate, with the conventional top-left window
+/// origin that pointer events report (three.js `Raycaster.setFromCamera`
+/// after `setFromWindow`). `width` / `height` are the viewport size in pixels.
+///
+/// The NDC mapping honours the camera's `ClipSpace`, so a Vulkan (y-down NDC)
+/// camera and a Metal/WebGPU (y-up NDC) camera both put the top-left pixel at
+/// the top-left of the image.
+pub fn Camera::screen_ray_pixels(
+  self : Camera,
+  world : @tmath.Affine3,
+  x : Float,
+  y : Float,
+  width : Float,
+  height : Float,
+) -> @tmath.Ray? {
+  if width <= 0.0 || height <= 0.0 {
+    return None
+  }
+  let ndc_x = (2.0 : Float) * x / width - 1.0
+  let ndc_y = (2.0 : Float) * y / height - 1.0
+  let ndc_y = if self.clip.is_y_down() { ndc_y } else { -ndc_y }
+  self.screen_ray(world, ndc_x, ndc_y)
 }

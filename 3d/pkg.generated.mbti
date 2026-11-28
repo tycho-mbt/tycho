@@ -26,9 +26,15 @@ pub const SKIN_VERTEX_BYTES : Int32 = 80
 
 pub const SKIN_VERTEX_FLOATS : Int32 = 20
 
+pub fn aabb_line_data(@tycho_math.Aabb3) -> @tycho_geometry.LineData
+
 pub fn add_ambient(Scene, color? : @tycho_math.Vec3, intensity? : Float) -> NodeId
 
 pub fn add_sun(Scene, @tycho_math.Vec3, color? : @tycho_math.Vec3, intensity? : Float, shadow? : Bool) -> NodeId
+
+pub fn axis_line_data(size? : Float) -> @tycho_geometry.LineData
+
+pub fn circle_line_data(radius? : Float, segments? : Int32) -> @tycho_geometry.LineData
 
 pub fn decode_hdr(Bytes) -> HdrImage?
 
@@ -43,6 +49,18 @@ pub fn equirect_uv(@tycho_math.Vec3) -> (Float, Float)
 pub fn f16_bits(Float) -> UInt16
 
 pub fn f16_to_float(UInt16) -> Float
+
+pub fn fog_exp2(@tycho_math.Vec3, density? : Float) -> Fog
+
+pub fn fog_linear(@tycho_math.Vec3, near? : Float, far? : Float) -> Fog
+
+pub fn grid_line_data(size? : Float, divisions? : Int32) -> @tycho_geometry.LineData
+
+pub fn hex(Int32, a? : Float) -> @tycho_math.Vec4
+
+pub fn hsl(Float, Float, Float, a? : Float) -> @tycho_math.Vec4
+
+pub fn linear(Float, Float, Float, a? : Float) -> @tycho_math.Vec4
 
 pub fn load_gltf(Renderer3D, Scene, @tycho_geometry.GltfScene, parent? : NodeId) -> Array[NodeId] raise
 
@@ -90,6 +108,29 @@ pub(all) struct AmbientLight {
   intensity : Float
 }
 
+pub struct AnimationAction {
+  clip : AnimationClip
+  // private fields
+}
+pub fn AnimationAction::duration(Self) -> Float
+pub fn AnimationAction::fade_in(Self, Float) -> Unit
+pub fn AnimationAction::fade_out(Self, Float) -> Unit
+pub fn AnimationAction::is_finished(Self) -> Bool
+pub fn AnimationAction::is_paused(Self) -> Bool
+pub fn AnimationAction::is_playing(Self) -> Bool
+pub fn AnimationAction::loop_mode(Self) -> LoopMode
+pub fn AnimationAction::name(Self) -> String
+pub fn AnimationAction::pause(Self) -> Unit
+pub fn AnimationAction::play(Self) -> Unit
+pub fn AnimationAction::seek(Self, Float) -> Unit
+pub fn AnimationAction::set_loop(Self, LoopMode) -> Unit
+pub fn AnimationAction::set_speed(Self, Float) -> Unit
+pub fn AnimationAction::set_weight(Self, Float) -> Unit
+pub fn AnimationAction::speed(Self) -> Float
+pub fn AnimationAction::stop(Self) -> Unit
+pub fn AnimationAction::time(Self) -> Float
+pub fn AnimationAction::weight(Self) -> Float
+
 pub(all) struct AnimationChannel {
   node : NodeId
   track : TransformTrack
@@ -102,6 +143,19 @@ pub(all) struct AnimationClip {
 }
 pub fn AnimationClip::duration(Self) -> Float
 pub fn AnimationClip::new(String, Array[AnimationChannel]) -> Self
+
+pub struct AnimationMixer {
+  // private fields
+}
+pub fn AnimationMixer::action(Self, String) -> AnimationAction?
+pub fn AnimationMixer::action_count(Self) -> Int32
+pub fn AnimationMixer::add(Self, AnimationClip) -> AnimationAction
+pub fn AnimationMixer::cross_fade(Self, AnimationAction, AnimationAction, Float) -> Unit
+pub fn AnimationMixer::new() -> Self
+pub fn AnimationMixer::set_time_scale(Self, Float) -> Unit
+pub fn AnimationMixer::stop_all(Self) -> Unit
+pub fn AnimationMixer::time_scale(Self) -> Float
+pub fn AnimationMixer::update(Self, Scene, Float) -> Unit
 
 pub(all) struct AnimationPlayer {
   clip : AnimationClip
@@ -123,14 +177,22 @@ pub(all) struct Camera {
   projection : Projection
   clip : @tycho_math.ClipSpace
 }
+pub fn Camera::aspect(Self) -> Float
+pub fn Camera::far(Self) -> Float?
+pub fn Camera::fov_y(Self) -> Float
+pub fn Camera::is_orthographic(Self) -> Bool
+pub fn Camera::near(Self) -> Float
 pub fn Camera::orthographic(Float, Float, Float, Float, near? : Float, far? : Float, clip? : @tycho_math.ClipSpace) -> Self
 pub fn Camera::perspective(Float, Float, near? : Float, far? : Float, clip? : @tycho_math.ClipSpace) -> Self
+pub fn Camera::perspective_deg(Float, Float, near? : Float, far? : Float, clip? : @tycho_math.ClipSpace) -> Self
 pub fn Camera::projection_matrix(Self) -> @tycho_math.Mat4
 pub fn Camera::screen_ray(Self, @tycho_math.Affine3, Float, Float) -> @tycho_math.Ray?
+pub fn Camera::screen_ray_pixels(Self, @tycho_math.Affine3, Float, Float, Float, Float) -> @tycho_math.Ray?
 pub fn Camera::sky_ray_matrix(Self, @tycho_math.Affine3) -> @tycho_math.Mat3?
 pub fn Camera::view_matrix(Self, @tycho_math.Affine3) -> @tycho_math.Mat4?
 pub fn Camera::view_proj(Self, @tycho_math.Affine3) -> @tycho_math.Mat4?
 pub fn Camera::with_aspect(Self, Float) -> Self
+pub fn Camera::with_viewport(Self, Float, Float) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) struct CameraId {
@@ -138,6 +200,17 @@ pub(all) struct CameraId {
 }
 pub fn CameraId::index(Self) -> Int32
 pub fn CameraId::node(Self) -> NodeId
+
+pub struct Clock {
+  // private fields
+}
+pub fn Clock::delta(Self) -> Float
+pub fn Clock::elapsed(Self) -> Float
+pub fn Clock::fps(Self) -> Float
+pub fn Clock::frames(Self) -> Int32
+pub fn Clock::new(max_delta? : Float) -> Self
+pub fn Clock::reset(Self) -> Unit
+pub fn Clock::tick(Self, Float) -> Float
 
 pub(all) struct DirectionalLight {
   color : @tycho_math.Vec3
@@ -155,6 +228,12 @@ pub fn FlyCamera::position(Self) -> @tycho_math.Vec3
 pub fn FlyCamera::rotation(Self) -> @tycho_math.Quat
 pub fn FlyCamera::transform(Self) -> @tycho_math.Transform
 pub fn FlyCamera::yaw(Self) -> Float
+
+pub(all) enum Fog {
+  Linear(@tycho_math.Vec3, Float, Float)
+  Exp2(@tycho_math.Vec3, Float)
+}
+pub fn Fog::color(Self) -> @tycho_math.Vec3
 
 pub(all) struct GltfInstance {
   roots : Array[NodeId]
@@ -231,6 +310,12 @@ pub(all) struct LineMaterial {
 }
 pub fn LineMaterial::new(color? : @tycho_math.Vec3) -> Self
 
+pub(all) enum LoopMode {
+  Repeat
+  Once
+  PingPong
+}
+
 pub(all) struct MaterialDesc {
   shading : Shading
   base_color : @tycho_math.Vec4
@@ -239,6 +324,10 @@ pub(all) struct MaterialDesc {
   clearcoat : Float
   clearcoat_roughness : Float
   emissive : @tycho_math.Vec3
+  sheen_color : @tycho_math.Vec3
+  sheen_roughness : Float
+  transmission : Float
+  ior : Float
   alpha_mode : AlphaMode
   double_sided : Bool
   albedo_tex : TextureHandle?
@@ -246,20 +335,37 @@ pub(all) struct MaterialDesc {
   metallic_roughness_tex : TextureHandle?
   emissive_tex : TextureHandle?
 }
+pub fn MaterialDesc::basic(@tycho_math.Vec4) -> Self
 pub fn MaterialDesc::pbr(@tycho_math.Vec4, metallic? : Float, roughness? : Float) -> Self
+pub fn MaterialDesc::standard(@tycho_math.Vec4, metallic? : Float, roughness? : Float) -> Self
 pub fn MaterialDesc::unlit(@tycho_math.Vec4) -> Self
 pub fn MaterialDesc::with_albedo_tex(Self, TextureHandle) -> Self
 pub fn MaterialDesc::with_alpha(Self, AlphaMode) -> Self
+pub fn MaterialDesc::with_base_color(Self, @tycho_math.Vec4) -> Self
 pub fn MaterialDesc::with_clearcoat(Self, Float, roughness? : Float) -> Self
 pub fn MaterialDesc::with_double_sided(Self, Bool) -> Self
 pub fn MaterialDesc::with_emissive(Self, @tycho_math.Vec3) -> Self
+pub fn MaterialDesc::with_metallic(Self, Float) -> Self
 pub fn MaterialDesc::with_normal_tex(Self, TextureHandle) -> Self
+pub fn MaterialDesc::with_roughness(Self, Float) -> Self
+pub fn MaterialDesc::with_sheen(Self, @tycho_math.Vec3, roughness? : Float) -> Self
+pub fn MaterialDesc::with_transmission(Self, Float, ior? : Float) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) struct MaterialHandle {
   // private fields
 }
 pub fn MaterialHandle::id(Self) -> Int32
+
+pub struct MeshBvh {
+  // private fields
+}
+pub fn MeshBvh::bounds(Self) -> @tycho_math.Aabb3
+pub fn MeshBvh::build(@tycho_geometry.MeshData) -> Self
+pub fn MeshBvh::mesh(Self) -> @tycho_geometry.MeshData
+pub fn MeshBvh::node_count(Self) -> Int32
+pub fn MeshBvh::ray_hit(Self, @tycho_math.Ray, @tycho_math.Affine3) -> MeshHit?
+pub fn MeshBvh::triangle_count(Self) -> Int32
 
 #derive(Eq, @debug.Debug)
 pub(all) struct MeshHandle {
@@ -374,34 +480,55 @@ pub fn RenderStats3D::to_json(Self) -> String
 pub struct Renderer3D {
   // private fields
 }
+pub fn Renderer3D::add(Self, Scene, @tycho_geometry.MeshData, MaterialDesc, transform? : @tycho_math.Transform, parent? : NodeId, name? : String) -> NodeId raise
+pub fn Renderer3D::add_axes(Self, Scene, size? : Float, parent? : NodeId) -> (NodeId, NodeId, NodeId) raise
 pub fn Renderer3D::add_debug_aabb(Self, @tycho_math.Aabb3, @tycho_math.Vec3) -> Unit
 pub fn Renderer3D::add_debug_line(Self, @tycho_math.Vec3, @tycho_math.Vec3, @tycho_math.Vec3) -> Unit
+pub fn Renderer3D::add_grid(Self, Scene, size? : Float, divisions? : Int32, color? : @tycho_math.Vec4, parent? : NodeId, name? : String) -> NodeId raise
+pub fn Renderer3D::add_lines(Self, Scene, @tycho_geometry.LineData, color? : @tycho_math.Vec4, transform? : @tycho_math.Transform, parent? : NodeId, name? : String) -> NodeId raise
+pub fn Renderer3D::background(Self) -> @tycho_math.Vec4?
 pub fn Renderer3D::brdf_lut(Self) -> @tycho.Texture
+pub fn Renderer3D::clear_background(Self) -> Unit
 pub fn Renderer3D::clear_debug_lines(Self) -> Unit
-pub fn Renderer3D::create_line_node(Self, Scene, LineHandle, material? : LineMaterial, transform? : @tycho_math.Transform, name? : String) -> NodeId
-pub fn Renderer3D::create_lod_node(Self, Scene, Array[MeshHandle], Array[Float], MaterialHandle, transform? : @tycho_math.Transform, name? : String) -> NodeId raise
+pub fn Renderer3D::clear_fog(Self) -> Unit
+pub fn Renderer3D::create_line_node(Self, Scene, LineHandle, material? : LineMaterial, transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId
+pub fn Renderer3D::create_lod_node(Self, Scene, Array[MeshHandle], Array[Float], MaterialHandle, transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId raise
 pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
-pub fn Renderer3D::create_mesh_node(Self, Scene, MeshHandle, MaterialHandle, transform? : @tycho_math.Transform, name? : String) -> NodeId
-pub fn Renderer3D::create_morph_mesh_node(Self, Scene, MeshHandle, MaterialHandle, Array[Float], transform? : @tycho_math.Transform, name? : String) -> NodeId raise
-pub fn Renderer3D::create_morph_node(Self, Scene, MeshHandle, MaterialDesc, Array[Float], transform? : @tycho_math.Transform, name? : String) -> NodeId raise
-pub fn Renderer3D::create_pbr_node(Self, Scene, MeshHandle, MaterialDesc, transform? : @tycho_math.Transform, name? : String) -> NodeId raise
-pub fn Renderer3D::create_skinned_mesh_node(Self, Scene, MeshHandle, MaterialHandle, Array[NodeId], Array[@tycho_math.Mat4], transform? : @tycho_math.Transform, name? : String) -> NodeId raise
-pub fn Renderer3D::create_skinned_node(Self, Scene, MeshHandle, MaterialDesc, Array[NodeId], Array[@tycho_math.Mat4], transform? : @tycho_math.Transform, name? : String) -> NodeId raise
+pub fn Renderer3D::create_mesh_node(Self, Scene, MeshHandle, MaterialHandle, transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId
+pub fn Renderer3D::create_morph_mesh_node(Self, Scene, MeshHandle, MaterialHandle, Array[Float], transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId raise
+pub fn Renderer3D::create_morph_node(Self, Scene, MeshHandle, MaterialDesc, Array[Float], transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId raise
+pub fn Renderer3D::create_pbr_node(Self, Scene, MeshHandle, MaterialDesc, transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId raise
+pub fn Renderer3D::create_skinned_mesh_node(Self, Scene, MeshHandle, MaterialHandle, Array[NodeId], Array[@tycho_math.Mat4], transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId raise
+pub fn Renderer3D::create_skinned_node(Self, Scene, MeshHandle, MaterialDesc, Array[NodeId], Array[@tycho_math.Mat4], transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId raise
 pub fn Renderer3D::create_texture(Self, Int32, Int32, FixedArray[Byte], srgb? : Bool) -> TextureHandle raise
 pub fn Renderer3D::destroy(Self) -> Unit
+pub fn Renderer3D::fog(Self) -> Fog?
 pub fn Renderer3D::lines_bounds(Self, LineHandle) -> @tycho_math.Aabb3?
+pub fn Renderer3D::material(Self, MaterialHandle) -> MaterialDesc?
+pub fn Renderer3D::material_count(Self) -> Int32
 pub fn Renderer3D::mesh_bounds(Self, MeshHandle) -> @tycho_math.Aabb3?
+pub fn Renderer3D::mesh_count(Self) -> Int32
 pub fn Renderer3D::new(@tycho.Device, desc? : RendererDesc) -> Self raise
 pub fn Renderer3D::pick(Self, Scene, NodeId, Float, Float, layer_mask? : UInt32) -> PickHit?
+pub fn Renderer3D::pick_pixels(Self, Scene, CameraId, Float, Float, Float, Float, layer_mask? : UInt32) -> PickHit?
 pub fn Renderer3D::ray_shadows_supported(Self) -> Bool
+pub fn Renderer3D::release_node(Self, NodeId) -> Unit
 pub fn Renderer3D::render_offscreen(Self, @tycho.Texture, Scene, CameraId) -> Unit raise
 pub fn Renderer3D::render_swapchain(Self, @tycho.Swapchain, Scene, CameraId) -> Unit raise
 pub fn Renderer3D::render_swapchain_into(Self, @tycho.CommandBuffer, @tycho.Swapchain, Scene, CameraId) -> Unit raise
+pub fn Renderer3D::set_background(Self, @tycho_math.Vec4) -> Unit
 pub fn Renderer3D::set_environment(Self, @tycho.Texture, @tycho_math.Vec3, intensity? : Float) -> Unit
+pub fn Renderer3D::set_fog(Self, Fog) -> Unit
 pub fn Renderer3D::set_morph_weights(Self, NodeId, Array[Float]) -> Unit raise
 pub fn Renderer3D::set_procedural_environment(Self, @tycho_math.Vec3, size? : Int32, samples? : Int32) -> Unit raise
 pub fn Renderer3D::set_ray_shadows(Self, Bool) -> Unit
+pub fn Renderer3D::set_ssao_bias(Self, Float) -> Unit
+pub fn Renderer3D::set_ssao_intensity(Self, Float) -> Unit
+pub fn Renderer3D::set_ssao_radius(Self, Float) -> Unit
+pub fn Renderer3D::ssao_enabled(Self) -> Bool
+pub fn Renderer3D::ssao_intensity(Self) -> Float
 pub fn Renderer3D::stats(Self) -> RenderStats3D
+pub fn Renderer3D::texture_count(Self) -> Int32
 pub fn Renderer3D::update_material(Self, MaterialHandle, MaterialDesc) -> Unit raise
 pub fn Renderer3D::upload_lines(Self, @tycho_geometry.LineData) -> LineHandle raise
 pub fn Renderer3D::upload_mesh(Self, @tycho_geometry.MeshData) -> MeshHandle raise
@@ -418,37 +545,77 @@ pub(all) struct RendererDesc {
   bloom : Bool
   shadows : Bool
   shadow_map_size : Int32
+  ssao : Bool
 }
 pub fn RendererDesc::default() -> Self
 pub fn RendererDesc::with_bindless(Self, Bool) -> Self
+pub fn RendererDesc::with_msaa(Self, Bool) -> Self
 pub fn RendererDesc::with_shadows(Self, Bool) -> Self
+pub fn RendererDesc::with_ssao(Self, Bool) -> Self
 
 pub struct Scene {
   // private fields
 }
+pub fn Scene::add_ambient_light(Self, color? : @tycho_math.Vec3, intensity? : Float, parent? : NodeId, name? : String) -> NodeId
 pub fn Scene::add_camera(Self, Camera, transform? : @tycho_math.Transform, name? : String) -> CameraId
+pub fn Scene::add_directional_light(Self, color? : @tycho_math.Vec3, intensity? : Float, direction? : @tycho_math.Vec3, shadow? : Bool, parent? : NodeId, name? : String) -> NodeId
+pub fn Scene::add_group(Self, parent? : NodeId, transform? : @tycho_math.Transform, name? : String) -> NodeId
+pub fn Scene::add_hemisphere_light(Self, @tycho_math.Vec3, @tycho_math.Vec3, intensity? : Float, parent? : NodeId, name? : String) -> NodeId
+pub fn Scene::add_light(Self, Light, transform? : @tycho_math.Transform, parent? : NodeId, name? : String) -> NodeId
+pub fn Scene::add_point_light(Self, color? : @tycho_math.Vec3, intensity? : Float, range? : Float, decay? : Float, shadow? : Bool, position? : @tycho_math.Vec3, parent? : NodeId, name? : String) -> NodeId
+pub fn Scene::add_spot_light(Self, color? : @tycho_math.Vec3, intensity? : Float, range? : Float, inner_angle? : Float, outer_angle? : Float, shadow? : Bool, position? : @tycho_math.Vec3, direction? : @tycho_math.Vec3, parent? : NodeId, name? : String) -> NodeId
 pub fn Scene::alive_count(Self) -> Int32
+pub fn Scene::camera(Self, CameraId) -> Camera?
+pub fn Scene::camera_component(Self, NodeId) -> Camera?
 pub fn Scene::camera_of(Self, NodeId) -> CameraId?
+pub fn Scene::child_count(Self, NodeId) -> Int32
 pub fn Scene::children_of(Self, NodeId) -> Array[NodeId]
+pub fn Scene::clear(Self) -> Unit
 pub fn Scene::collect_visible(Self, @tycho_math.Frustum, UInt32) -> Array[NodeId]
 pub fn Scene::create_node(Self, parent? : NodeId, transform? : @tycho_math.Transform, payload? : NodePayload, name? : String, layer_mask? : UInt32) -> NodeId
 pub fn Scene::destroy_node(Self, NodeId) -> Unit
+pub fn Scene::direction_to_world(Self, NodeId, @tycho_math.Vec3) -> @tycho_math.Vec3
+pub fn Scene::find_all_by_name(Self, String) -> Array[NodeId]
 pub fn Scene::find_by_name(Self, String) -> NodeId?
 pub fn Scene::is_alive(Self, NodeId) -> Bool
+pub fn Scene::is_visible_in_world(Self, NodeId) -> Bool
+pub fn Scene::layer_mask(Self, NodeId) -> UInt32
+pub fn Scene::light_of(Self, NodeId) -> Light?
+pub fn Scene::lines_of(Self, NodeId) -> LineInstance?
+pub fn Scene::local_to_world(Self, NodeId, @tycho_math.Vec3) -> @tycho_math.Vec3
+pub fn Scene::look_at(Self, NodeId, @tycho_math.Vec3, up? : @tycho_math.Vec3) -> Unit
+pub fn Scene::mesh_of(Self, NodeId) -> MeshInstance?
+pub fn Scene::name(Self, NodeId) -> String
 pub fn Scene::new() -> Self
 pub fn Scene::parent_of(Self, NodeId) -> NodeId?
 pub fn Scene::payload(Self, NodeId) -> NodePayload?
+pub fn Scene::position(Self, NodeId) -> @tycho_math.Vec3
+pub fn Scene::remove(Self, NodeId) -> Unit
+pub fn Scene::roots(Self) -> Array[NodeId]
+pub fn Scene::rotate(Self, NodeId, @tycho_math.Vec3, Float) -> Unit
+pub fn Scene::rotate_world(Self, NodeId, @tycho_math.Vec3, Float) -> Unit
+pub fn Scene::rotation(Self, NodeId) -> @tycho_math.Quat
+pub fn Scene::scale(Self, NodeId) -> @tycho_math.Vec3
+pub fn Scene::set_camera(Self, CameraId, Camera) -> Unit
+pub fn Scene::set_euler(Self, NodeId, Float, Float, Float, order? : @tycho_math.EulerOrder) -> Unit
 pub fn Scene::set_layer_mask(Self, NodeId, UInt32) -> Unit
 pub fn Scene::set_local_bounds(Self, NodeId, @tycho_math.Aabb3?) -> Unit
 pub fn Scene::set_name(Self, NodeId, String) -> Unit
 pub fn Scene::set_parent(Self, NodeId, NodeId?, keep_world? : Bool) -> Bool
 pub fn Scene::set_payload(Self, NodeId, NodePayload) -> Unit
+pub fn Scene::set_position(Self, NodeId, @tycho_math.Vec3) -> Unit
+pub fn Scene::set_rotation(Self, NodeId, @tycho_math.Quat) -> Unit
+pub fn Scene::set_scale(Self, NodeId, @tycho_math.Vec3) -> Unit
 pub fn Scene::set_transform(Self, NodeId, @tycho_math.Transform) -> Unit
+pub fn Scene::set_uniform_scale(Self, NodeId, Float) -> Unit
 pub fn Scene::set_visible(Self, NodeId, Bool) -> Unit
 pub fn Scene::transform(Self, NodeId) -> @tycho_math.Transform
+pub fn Scene::translate(Self, NodeId, @tycho_math.Vec3) -> Unit
 pub fn Scene::traverse(Self, (NodeId) -> Unit, root? : NodeId) -> Unit
 pub fn Scene::update(Self) -> Unit
+pub fn Scene::visible(Self, NodeId) -> Bool
 pub fn Scene::world_bounds(Self, NodeId) -> @tycho_math.Aabb3?
+pub fn Scene::world_to_local(Self, NodeId, @tycho_math.Vec3) -> @tycho_math.Vec3?
 pub fn Scene::world_transform(Self, NodeId) -> @tycho_math.Affine3
 
 pub(all) enum Shading {

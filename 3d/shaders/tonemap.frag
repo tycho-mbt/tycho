@@ -1,6 +1,8 @@
 #version 450
 layout(binding = 0) uniform sampler2D uHDR;
 layout(binding = 1) uniform sampler2D uBloom;
+// Screen-space ambient occlusion (1x1 white when SSAO is disabled).
+layout(binding = 2) uniform sampler2D uAO;
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 outSRGB;
 
@@ -10,5 +12,9 @@ vec3 aces(vec3 x) {
 
 void main() {
     vec3 hdr = texture(uHDR, vUV).rgb + texture(uBloom, vUV).rgb * 0.7;
+    // Ambient occlusion is applied to the shaded image just before ACES. It is
+    // a contact-shadow approximation: direct light is attenuated too, which is
+    // the usual cheap trade-off when no separate ambient buffer exists.
+    hdr *= texture(uAO, vUV).r;
     outSRGB = vec4(aces(hdr * 0.9), 1.0);
 }

@@ -184,11 +184,25 @@ pub struct Scene {
   priv roots : Array[NodeId]
   priv free : Array[Int]
   priv mut alive_count : Int
+  // Reused by `update()` so the per-frame world-transform pass does not
+  // allocate. Scene is single-threaded per instance, and `update` is not
+  // re-entrant, so one scratch triple is enough.
+  priv scratch_ids : Array[NodeId]
+  priv scratch_worlds : Array[@tmath.Affine3]
+  priv scratch_dirty : Array[Bool]
 }
 
 ///|
 pub fn Scene::new() -> Scene {
-  { nodes: [], roots: [], free: [], alive_count: 0 }
+  {
+    nodes: [],
+    roots: [],
+    free: [],
+    alive_count: 0,
+    scratch_ids: [],
+    scratch_worlds: [],
+    scratch_dirty: [],
+  }
 }
 
 ///|
@@ -494,9 +508,12 @@ pub fn Scene::children_of(self : Scene, id : NodeId) -> Array[NodeId] {
 /// Propagate local TRS into world `Affine3` with one iterative DFS. Only
 /// nodes whose own or ancestor transform is dirty are recomputed.
 pub fn Scene::update(self : Scene) -> Unit {
-  let ids : Array[NodeId] = []
-  let worlds : Array[@tmath.Affine3] = []
-  let dirty : Array[Bool] = []
+  let ids = self.scratch_ids
+  let worlds = self.scratch_worlds
+  let dirty = self.scratch_dirty
+  ids.clear()
+  worlds.clear()
+  dirty.clear()
   for r in self.roots {
     ids.push(r)
     worlds.push(@tmath.Affine3::identity())
@@ -585,6 +602,9 @@ pub fn Scene::traverse(
 ///|
 /// Mesh nodes that pass the layer mask and frustum test. Call `update()` first
 /// so world matrices are current. Nodes without local bounds are kept.
+///
+/// Visibility is inherited: hiding a group removes its whole subtree, exactly
+/// like three.js `Object3D.visible = false`.
 pub fn Scene::collect_visible(
   self : Scene,
   frustum : @tmath.Frustum,
@@ -593,20 +613,21 @@ pub fn Scene::collect_visible(
   let out : Array[NodeId] = []
   for i = 0; i < self.nodes.length(); i = i + 1 {
     let n = self.nodes[i]
-    if n.alive &&
-      n.visible &&
-      (n.layer_mask & camera_mask) != (0 : UInt) {
-      let drawable = match n.payload {
-        Mesh(_) => true
-        Lines(_) => true
-        _ => false
-      }
-      if drawable {
-        match n.local_bounds {
-          Some(b) => if frustum.intersects_aabb(b.transform(n.world)) {
-            out.push(NodeId::new(i, n.generation))
+    if n.alive && (n.layer_mask & camera_mask) != (0 : UInt) {
+      let id = NodeId::new(i, n.generation)
+      if self.is_visible_in_world(id) {
+        let drawable = match n.payload {
+          Mesh(_) => true
+          Lines(_) => true
+          _ => false
+        }
+        if drawable {
+          match n.local_bounds {
+            Some(b) => if frustum.intersects_aabb(b.transform(n.world)) {
+              out.push(id)
+            }
+            None => out.push(id)
           }
-          None => out.push(NodeId::new(i, n.generation))
         }
       }
     }
