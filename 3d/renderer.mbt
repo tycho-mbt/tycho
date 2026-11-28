@@ -68,6 +68,17 @@ pub fn RendererDesc::with_msaa(self : RendererDesc, on : Bool) -> RendererDesc {
 }
 
 ///|
+/// Capacity of the per-frame object SSBO. One record exists per drawn instance
+/// (plus one shadow copy per caster), so a large instanced field raises this
+/// before it raises the scene's node count.
+pub fn RendererDesc::with_max_objects(
+  self : RendererDesc,
+  max_objects : Int,
+) -> RendererDesc {
+  { ..self, max_objects: if max_objects < 1 { 1 } else { max_objects } }
+}
+
+///|
 /// Enable temporal anti-aliasing. TAA jitters the projection every frame and
 /// resolves against a reprojected history buffer; it composes with MSAA but is
 /// cheapest with it off.
@@ -75,9 +86,10 @@ pub fn RendererDesc::with_taa(self : RendererDesc, on : Bool) -> RendererDesc {
   { ..self, taa: on }
 }
 
-const OBJECT_FLOATS : Int = 40
+// model(16) + normalMat(16) + bounds(4) + extra(4) + tint(4).
+const OBJECT_FLOATS : Int = 44
 
-const OBJECT_BYTES : Int = 160
+const OBJECT_BYTES : Int = 176
 
 const LIGHT_FLOATS : Int = 40
 
@@ -213,10 +225,11 @@ priv struct RtMesh {
 }
 
 ///|
-/// Distance-based mesh selection for one node. `levels[0]` is the highest
-/// detail; `switch_distances[i]` is the distance where level i+1 takes over.
-priv struct LodGroup {
-  node : NodeId
+/// Distance-based mesh selection. `levels[0]` is the highest detail;
+/// `switch_distances[i]` is the camera distance where level i+1 takes over.
+/// Specs are renderer-owned and shared by any number of nodes, so 10k
+/// instances of one LOD chain cost one array pair instead of 10k.
+priv struct LodSpec {
   levels : Array[MeshHandle]
   switch_distances : Array[Float]
 }
@@ -274,7 +287,7 @@ pub struct Renderer3D {
   priv bone_scratch : FixedArray[Float]
   priv mut bone_cursor : Int
   priv skins : Array[SkinBinding]
-  priv lods : Array[LodGroup]
+  priv lod_specs : Array[LodSpec]
   // Morph meshes use a 72-byte stream; weights travel per draw.
   priv mut morph_arena : @tycho.Buffer
   priv morph_floats : Array[Float]
@@ -1148,7 +1161,7 @@ pub fn Renderer3D::new(
     bone_scratch: FixedArray::make(MAX_BONES * 16, (0.0 : Float)),
     bone_cursor: 0,
     skins: [],
-    lods: [],
+    lod_specs: [],
     morph_arena: dev.create_buffer_with(
       4,
       @tycho.BufferKind::Vertex,
@@ -1925,6 +1938,52 @@ fn Renderer3D::pack_object(
   self.object_writer.push_float(joint_offset)
   self.object_writer.push_float(joint_count)
   self.object_writer.push_float(skinned)
+  // Per-instance tint (linear RGBA). One shared material can paint thousands of
+  // differently coloured instances (three.js `setColorAt`).
+  let tint = match scene.instance_tint(item.node) {
+    Some(t) => t
+    None => @tmath.Vec4::one()
+  }
+  self.object_writer.push_float(tint.x)
+  self.object_writer.push_float(tint.y)
+  self.object_writer.push_float(tint.z)
+  self.object_writer.push_float(tint.w)
+}
+
+///|
+/// Level index selected by `distance` for an ascending switch-distance table.
+/// A node exactly at a switch distance stays on the higher-detail level, so
+/// the boundary belongs to the level it came from (three.js selects the next
+/// LOD once the screen-space size drops below the threshold).
+fn lod_level_for(switch_distances : Array[Float], distance : Float) -> Int {
+  let mut level = 0
+  while level < switch_distances.length() && distance > switch_distances[level] {
+    level = level + 1
+  }
+  level
+}
+
+///|
+/// Resolve an instance's mesh id for the given camera distance, returning the
+/// level index alongside it. Nodes without a LOD spec always use level 0.
+fn Renderer3D::lod_mesh_of(
+  self : Renderer3D,
+  inst : MeshInstance,
+  distance : Float,
+) -> (Int, Int) {
+  match inst.lod {
+    Some(h) => {
+      let i = h.id()
+      if i >= 0 && i < self.lod_specs.length() {
+        let spec = self.lod_specs[i]
+        let level = lod_level_for(spec.switch_distances, distance)
+        (spec.levels[level].id(), level)
+      } else {
+        (inst.mesh.id(), 0)
+      }
+    }
+    None => (inst.mesh.id(), 0)
+  }
 }
 
 ///|
@@ -2388,19 +2447,9 @@ fn Renderer3D::render_frame(
       Some(NodePayload::Mesh(inst)) => {
         let world = scene.world_transform(id)
         let dist = (world.translation - eye).length()
-        let mut mi = inst.mesh.id()
-        let mut level = 0
-        for g in self.lods {
-          if g.node == id {
-            while level < g.switch_distances.length() &&
-              dist > g.switch_distances[level] {
-              level = level + 1
-            }
-            mi = g.levels[level].id()
-            if level > 0 {
-              self.stats.lod_switches = self.stats.lod_switches + 1
-            }
-          }
+        let (mi, level) = self.lod_mesh_of(inst, dist)
+        if level > 0 {
+          self.stats.lod_switches = self.stats.lod_switches + 1
         }
         let mati = inst.material.id()
         if mi >= 0 &&
@@ -2729,6 +2778,26 @@ fn Renderer3D::render_frame(
   }
   self.stats.upload_bytes = upload_bytes + line_verts * 24
   self.stats.visible_nodes = solid.length() + transparent.length()
+  // CPU path: report what the frustum rejected. The GPU-driven path culls in
+  // compute, so its rejected count is not known on the CPU and stays 0.
+  if !gpu_cull_enabled {
+    let mesh_nodes : Array[Int] = [0]
+    scene.traverse(fn(id) {
+      match scene.payload(id) {
+        Some(NodePayload::Mesh(_)) =>
+          if scene.is_visible_in_world(id) {
+            mesh_nodes[0] = mesh_nodes[0] + 1
+          }
+        _ => ()
+      }
+    })
+    let drawn = solid.length() + transparent.length() + transmissive.length()
+    self.stats.culled_nodes = if mesh_nodes[0] > drawn {
+      mesh_nodes[0] - drawn
+    } else {
+      0
+    }
+  }
 
   // Shadow pass.
   // Static batch cache: every solid batch is one indirect command over the
@@ -4052,31 +4121,77 @@ pub fn Renderer3D::create_lod_node(
   name? : String = "",
   parent? : NodeId,
 ) -> NodeId raise {
+  let spec = self.create_lod_spec(levels, switch_distances)
+  self.create_lod_instance(
+    scene,
+    spec,
+    material,
+    transform~,
+    name~,
+    parent?=parent,
+  )
+}
+
+///|
+/// Register a distance-LOD chain once and reuse it for any number of nodes.
+/// `levels` runs from highest to lowest detail; `switch_distances` (length
+/// `levels.length() - 1`) holds the strictly increasing camera distances where
+/// the next level takes over.
+pub fn Renderer3D::create_lod_spec(
+  self : Renderer3D,
+  levels : Array[MeshHandle],
+  switch_distances : Array[Float],
+) -> LodHandle raise {
   if levels.length() == 0 || switch_distances.length() != levels.length() - 1 {
-    raise Render3DError::InvalidMesh("Renderer3D::create_lod_node: levels/distances mismatch")
+    raise Render3DError::InvalidMesh("Renderer3D::create_lod_spec: levels/distances mismatch")
   }
   for i = 0; i < levels.length(); i = i + 1 {
     let mi = levels[i].id()
     if mi < 0 || mi >= self.meshes.length() {
-      raise Render3DError::InvalidMesh("Renderer3D::create_lod_node: invalid mesh handle")
+      raise Render3DError::InvalidMesh("Renderer3D::create_lod_spec: invalid mesh handle")
     }
     if self.meshes[mi].skinned() {
-      raise Render3DError::Unsupported("Renderer3D::create_lod_node: skinned LOD is not supported")
+      raise Render3DError::Unsupported("Renderer3D::create_lod_spec: skinned LOD is not supported")
     }
   }
   for i = 1; i < switch_distances.length(); i = i + 1 {
     if switch_distances[i] <= switch_distances[i - 1] {
-      raise Render3DError::InvalidMesh("Renderer3D::create_lod_node: switch distances must increase")
+      raise Render3DError::InvalidMesh("Renderer3D::create_lod_spec: switch distances must increase")
     }
+  }
+  let id = self.lod_specs.length()
+  self.lod_specs.push({ levels, switch_distances })
+  LodHandle::from_id(id)
+}
+
+///|
+/// Create a mesh node driven by a shared LOD spec. Instances of the same spec
+/// still collapse into one instanced draw per level, so a field of 10k LOD
+/// nodes costs one draw per (level, material) pair.
+pub fn Renderer3D::create_lod_instance(
+  self : Renderer3D,
+  scene : Scene,
+  spec : LodHandle,
+  material : MaterialHandle,
+  transform? : @tmath.Transform = @tmath.Transform::identity(),
+  name? : String = "",
+  parent? : NodeId,
+) -> NodeId raise {
+  let si = spec.id()
+  if si < 0 || si >= self.lod_specs.length() {
+    raise Render3DError::InvalidMesh("Renderer3D::create_lod_instance: invalid LOD handle")
   }
   let mati = material.id()
   if mati < 0 || mati >= self.materials.length() {
-    raise Render3DError::InvalidMaterial("Renderer3D::create_lod_node: invalid material handle")
+    raise Render3DError::InvalidMaterial("Renderer3D::create_lod_instance: invalid material handle")
   }
+  let levels = self.lod_specs[si].levels
   let node = scene.create_node(
     parent?=parent,
     transform=transform,
-    payload=NodePayload::Mesh(MeshInstance::new(levels[0], material)),
+    payload=NodePayload::Mesh(
+      MeshInstance::new(levels[0], material).with_lod(spec),
+    ),
     name=name,
   )
   let mut bounds = self.mesh_bounds(levels[0])
@@ -4088,7 +4203,6 @@ pub fn Renderer3D::create_lod_node(
     }
   }
   scene.set_local_bounds(node, bounds)
-  self.lods.push({ node, levels, switch_distances })
   node
 }
 

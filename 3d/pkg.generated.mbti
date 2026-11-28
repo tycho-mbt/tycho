@@ -310,6 +310,12 @@ pub(all) struct LineMaterial {
 }
 pub fn LineMaterial::new(color? : @tycho_math.Vec3) -> Self
 
+#derive(Eq, @debug.Debug)
+pub(all) struct LodHandle {
+  // private fields
+}
+pub fn LodHandle::id(Self) -> Int32
+
 pub(all) enum LoopMode {
   Repeat
   Once
@@ -389,8 +395,13 @@ pub(all) struct MeshInstance {
   material : MaterialHandle
   cast_shadow : Bool
   receive_shadow : Bool
+  tint : @tycho_math.Vec4
+  lod : LodHandle?
 }
 pub fn MeshInstance::new(MeshHandle, MaterialHandle) -> Self
+pub fn MeshInstance::tint(Self) -> @tycho_math.Vec4
+pub fn MeshInstance::with_lod(Self, LodHandle) -> Self
+pub fn MeshInstance::with_tint(Self, @tycho_math.Vec4) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) struct NodeId {
@@ -496,7 +507,9 @@ pub fn Renderer3D::clear_background(Self) -> Unit
 pub fn Renderer3D::clear_debug_lines(Self) -> Unit
 pub fn Renderer3D::clear_fog(Self) -> Unit
 pub fn Renderer3D::create_line_node(Self, Scene, LineHandle, material? : LineMaterial, transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId
+pub fn Renderer3D::create_lod_instance(Self, Scene, LodHandle, MaterialHandle, transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId raise
 pub fn Renderer3D::create_lod_node(Self, Scene, Array[MeshHandle], Array[Float], MaterialHandle, transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId raise
+pub fn Renderer3D::create_lod_spec(Self, Array[MeshHandle], Array[Float]) -> LodHandle raise
 pub fn Renderer3D::create_material(Self, MaterialDesc) -> MaterialHandle raise
 pub fn Renderer3D::create_mesh_node(Self, Scene, MeshHandle, MaterialHandle, transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId
 pub fn Renderer3D::create_morph_mesh_node(Self, Scene, MeshHandle, MaterialHandle, Array[Float], transform? : @tycho_math.Transform, name? : String, parent? : NodeId) -> NodeId raise
@@ -560,6 +573,7 @@ pub(all) struct RendererDesc {
 }
 pub fn RendererDesc::default() -> Self
 pub fn RendererDesc::with_bindless(Self, Bool) -> Self
+pub fn RendererDesc::with_max_objects(Self, Int32) -> Self
 pub fn RendererDesc::with_msaa(Self, Bool) -> Self
 pub fn RendererDesc::with_shadows(Self, Bool) -> Self
 pub fn RendererDesc::with_ssao(Self, Bool) -> Self
@@ -589,6 +603,8 @@ pub fn Scene::destroy_node(Self, NodeId) -> Unit
 pub fn Scene::direction_to_world(Self, NodeId, @tycho_math.Vec3) -> @tycho_math.Vec3
 pub fn Scene::find_all_by_name(Self, String) -> Array[NodeId]
 pub fn Scene::find_by_name(Self, String) -> NodeId?
+pub fn Scene::instance_lod(Self, NodeId) -> LodHandle?
+pub fn Scene::instance_tint(Self, NodeId) -> @tycho_math.Vec4?
 pub fn Scene::is_alive(Self, NodeId) -> Bool
 pub fn Scene::is_visible_in_world(Self, NodeId) -> Bool
 pub fn Scene::layer_mask(Self, NodeId) -> UInt32
@@ -610,6 +626,7 @@ pub fn Scene::rotation(Self, NodeId) -> @tycho_math.Quat
 pub fn Scene::scale(Self, NodeId) -> @tycho_math.Vec3
 pub fn Scene::set_camera(Self, CameraId, Camera) -> Unit
 pub fn Scene::set_euler(Self, NodeId, Float, Float, Float, order? : @tycho_math.EulerOrder) -> Unit
+pub fn Scene::set_instance_tint(Self, NodeId, @tycho_math.Vec4) -> Unit
 pub fn Scene::set_layer_mask(Self, NodeId, UInt32) -> Unit
 pub fn Scene::set_local_bounds(Self, NodeId, @tycho_math.Aabb3?) -> Unit
 pub fn Scene::set_name(Self, NodeId, String) -> Unit

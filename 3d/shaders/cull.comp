@@ -8,6 +8,7 @@ struct ObjectGpu {
     mat4 normalMat;
     vec4 bounds; // xyz local centre, w radius
     vec4 extra;  // x material index
+    vec4 tint;   // per-instance base-colour multiplier (unused here)
 };
 layout(std430, binding = 0) readonly buffer Obj { ObjectGpu objects[]; };
 layout(std430, binding = 1) writeonly buffer Vis { uint visible[]; };

@@ -22,6 +22,7 @@ struct ObjectGpu {
     mat4 normalMat;
     vec4 bounds;
     vec4 extra; // x material, y/z/w skinning
+    vec4 tint;  // per-instance base-colour multiplier
 };
 layout(std430, binding = 1) readonly buffer ObjectBuf { ObjectGpu objects[]; };
 
@@ -32,6 +33,7 @@ layout(location = 1) out vec3 vNormal;
 layout(location = 2) out vec2 vUV;
 layout(location = 3) out vec4 vTangent;
 layout(location = 4) flat out float vMaterial;
+layout(location = 5) flat out vec4 vTint;
 
 void main() {
     ObjectGpu o = objects[gl_InstanceIndex];
@@ -43,5 +45,6 @@ void main() {
     vUV = inUV;
     vTangent = vec4(mat3(o.normalMat) * inTangent.xyz, inTangent.w);
     vMaterial = o.extra.x;
+    vTint = o.tint;
     gl_Position = frame.viewProj * wp;
 }

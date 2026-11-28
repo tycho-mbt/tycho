@@ -34,6 +34,7 @@ EXAMPLES=(
   3d/gltf-animation
   3d/skinning
   3d/lod
+  3d/batch-lod-bvh
   3d/clearcoat
   3d/morph
   3d/point-shadow

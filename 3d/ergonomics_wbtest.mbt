@@ -592,3 +592,48 @@ test "iridescence material builder" {
   need(close(custom.iridescence_thickness, (650.0 : Float)), "thickness")
   need(close(custom.iridescence_ior, (1.35 : Float)), "ior")
 }
+///|
+test "distance LOD level selection" {
+  let switches : Array[Float] = [10.0, 20.0, 40.0]
+  need(lod_level_for(switches, (0.0 : Float)) == 0, "near uses the highest detail")
+  need(lod_level_for(switches, (9.9 : Float)) == 0, "just inside level 0")
+  // A node exactly on the switch keeps the level it came from.
+  need(lod_level_for(switches, (10.0 : Float)) == 0, "boundary stays on level 0")
+  need(lod_level_for(switches, (10.1 : Float)) == 1, "past the first switch")
+  need(lod_level_for(switches, (40.0 : Float)) == 2, "second boundary")
+  need(lod_level_for(switches, (500.0 : Float)) == 3, "beyond the last switch clamps")
+  let none : Array[Float] = []
+  need(lod_level_for(none, (100.0 : Float)) == 0, "no switches is always level 0")
+}
+
+///|
+test "per-instance tint and shared LOD spec" {
+  let inst = MeshInstance::new(MeshHandle::from_id(1), MaterialHandle::from_id(1))
+  need_vec3(inst.tint().truncate(), @tmath.Vec3::one(), eps=1.0e-6)
+  need(close(inst.tint().w, (1.0 : Float)), "opaque by default")
+  let tinted = inst.with_tint(linear(0.5, 0.25, 0.0))
+  need_vec3(tinted.tint().truncate(), @tmath.Vec3::new(0.5, 0.25, 0.0), eps=1.0e-6)
+  need(inst.lod == None, "no LOD by default")
+
+  let s = Scene::new()
+  let node = s.create_node(payload=NodePayload::Mesh(inst))
+  need(s.instance_tint(node) is Some(_), "mesh node reports a tint")
+  s.set_instance_tint(node, linear(0.0, 1.0, 0.0))
+  match s.instance_tint(node) {
+    Some(t) => need_vec3(t.truncate(), @tmath.Vec3::new(0.0, 1.0, 0.0), eps=1.0e-6)
+    None => fail("tint disappeared")
+  }
+  need(s.instance_lod(node) == None, "no lod on a plain instance")
+
+  let mesh = s.create_node(payload=NodePayload::Mesh(inst.with_lod(LodHandle::from_id(3))))
+  match s.instance_lod(mesh) {
+    Some(h) => need(h.id() == 3, "lod handle round-trips")
+    None => fail("lod lost")
+  }
+
+  // Non-mesh payloads ignore the tint write and report None.
+  let lamp = s.add_point_light(intensity=(1.0 : Float))
+  s.set_instance_tint(lamp, linear(1.0, 0.0, 0.0))
+  need(s.instance_tint(lamp) == None, "light has no tint")
+  need(s.instance_lod(lamp) == None, "light has no lod")
+}

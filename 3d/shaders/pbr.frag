@@ -71,6 +71,7 @@ layout(location = 1) in vec3 vNormal;
 layout(location = 2) in vec2 vUV;
 layout(location = 3) in vec4 vTangent;
 layout(location = 4) flat in float vMaterial;
+layout(location = 5) flat in vec4 vTint;
 layout(location = 0) out vec4 outHDR;
 
 vec4 sample_albedo_map(MaterialGpu m, vec2 uv) {
@@ -241,7 +242,9 @@ void main() {
     int flags = int(m.params.w + 0.5);
     bool hasAlbedo = (flags & 2) != 0;
     bool hasNormal = (flags & 4) != 0;
-    vec4 base = m.baseColor;
+    // Per-instance tint multiplies the material colour, so one shared material
+    // paints thousands of differently coloured instances (setColorAt).
+    vec4 base = m.baseColor * vTint;
     if (hasAlbedo) {
         base *= sample_albedo_map(m, vUV);
     }

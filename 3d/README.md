@@ -95,6 +95,15 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
 - Distance LOD: `create_lod_node(scene, levels, switch_distances, material)`
   swaps meshes per camera distance, shares one material for instancing, and
   reports `stats.lod_switches` (`3d/lod` selects 48x32 / 20x12 / 8x5 spheres).
+- Shared LOD specs: `create_lod_spec(levels, switch_distances)` registers a
+  level chain once, and `create_lod_instance(scene, spec, material, ...)` spawns
+  any number of nodes on it — 10k instances of one chain cost one spec instead
+  of 10k per-node arrays (three.js `BatchedMesh.addGeometryLOD`). The binding is
+  visible through `Scene::instance_lod`.
+- Per-instance tint: `MeshInstance::with_tint` / `Scene::set_instance_tint`
+  multiplies the material base colour per node (linear RGBA), so one shared
+  material paints thousands of differently coloured instances and a hover
+  highlight rewrites exactly one object record (`3d/batch-lod-bvh`).
 - GPU skinning: `MeshData::set_skin` attaches four joint indices/weights per
   vertex (80-byte stream), `Renderer3D::create_skinned_node` binds a joint list
   plus inverse bind matrices, and the vertex shader applies the palette from a
@@ -194,8 +203,10 @@ renderer.render_swapchain(sc, scene, camera_node)
 ```
 
 See [`examples/3d/hello`](../examples/3d/hello) for the smallest complete scene
-written with this layer, and [`examples/3d/showcase`](../examples/3d/showcase)
-for the full PBR showcase.
+written with this layer, [`examples/3d/showcase`](../examples/3d/showcase) for
+the full PBR showcase, and [`examples/3d/batch-lod-bvh`](../examples/3d/batch-lod-bvh)
+for the three.js `webgl_batch_lod_bvh` port (shared LOD specs, per-instance
+tint, BVH picking over 4096 instances).
 
 ## three.js-style authoring layer
 
@@ -270,6 +281,8 @@ let clock = @t3d.Clock::new()
 | `scene.fog = new Fog(c, near, far)` | `Renderer3D::set_fog(fog_linear(c, near=..., far=...))` |
 | `scene.fog = new FogExp2(c, density)` | `Renderer3D::set_fog(fog_exp2(c, density=...))` |
 | `GridHelper` / `AxesHelper` | `Renderer3D::add_grid` / `add_axes` |
+| `InstancedMesh.setColorAt(i, c)` | `Scene::set_instance_tint(id, c)` (`MeshInstance::with_tint`) |
+| `BatchedMesh.addGeometryLOD` + `instanceCount` | `create_lod_spec` / `create_lod_instance` (`3d/batch-lod-bvh`) |
 | `Raycaster` | `Renderer3D::pick_pixels` (pixels) or `pick` (NDC) |
 | `Clock.getDelta()` | `Clock::tick(now_seconds)` |
 | `GLTFLoader` | `@tgeo.parse_gltf` + `Renderer3D::load_gltf_instance` |

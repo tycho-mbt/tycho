@@ -21,6 +21,7 @@ struct ObjectGpu {
     mat4 normalMat;
     vec4 bounds;
     vec4 extra; // x material, y joint offset, z joint count, w skinned
+    vec4 tint;  // per-instance base-colour multiplier (unused here)
 };
 layout(std430, binding = 1) readonly buffer ObjectBuf { ObjectGpu objects[]; };
 

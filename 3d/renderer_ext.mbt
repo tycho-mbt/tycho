@@ -262,21 +262,10 @@ pub fn Renderer3D::release_node(self : Renderer3D, node : NodeId) -> Unit {
 }
 
 ///|
-/// Remove LOD / skin / morph registrations whose node handles no longer refer
-/// to `target`.
+/// Remove skin / morph registrations whose node handles no longer refer to
+/// `target`. LOD specs are renderer-owned and referenced from the instance
+/// payload, so they need no per-node bookkeeping here.
 fn Renderer3D::drop_bindings_for(self : Renderer3D, target : NodeId) -> Unit {
-  let lods : Array[LodGroup] = []
-  for g in self.lods {
-    if g.node != target {
-      lods.push(g)
-    }
-  }
-  if lods.length() != self.lods.length() {
-    self.lods.clear()
-    for g in lods {
-      self.lods.push(g)
-    }
-  }
   let skins : Array[SkinBinding] = []
   for s in self.skins {
     if s.node != target {
@@ -312,16 +301,9 @@ fn Renderer3D::drop_bindings_for(self : Renderer3D, target : NodeId) -> Unit {
 fn Renderer3D::prune_dead_bindings(self : Renderer3D, scene : Scene) -> Unit {
   // Fast path: scenes that never destroy bound nodes pay no allocation at all.
   let mut dead = false
-  for g in self.lods {
-    if !scene.is_alive(g.node) {
+  for s in self.skins {
+    if !scene.is_alive(s.node) {
       dead = true
-    }
-  }
-  if !dead {
-    for s in self.skins {
-      if !scene.is_alive(s.node) {
-        dead = true
-      }
     }
   }
   if !dead {
@@ -333,18 +315,6 @@ fn Renderer3D::prune_dead_bindings(self : Renderer3D, scene : Scene) -> Unit {
   }
   if !dead {
     return
-  }
-  let lods : Array[LodGroup] = []
-  for g in self.lods {
-    if scene.is_alive(g.node) {
-      lods.push(g)
-    }
-  }
-  if lods.length() != self.lods.length() {
-    self.lods.clear()
-    for g in lods {
-      self.lods.push(g)
-    }
   }
   let skins : Array[SkinBinding] = []
   for s in self.skins {

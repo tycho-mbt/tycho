@@ -47,6 +47,27 @@ pub fn LineHandle::id(self : LineHandle) -> Int {
 }
 
 ///|
+/// Renderer-owned distance-LOD spec: a level chain plus the world distances
+/// where the next level takes over. One spec is shared by any number of nodes
+/// (`Renderer3D::create_lod_instance`), so 10k instances of the same LOD chain
+/// cost one allocation instead of one per node (three.js `BatchedMesh` LOD).
+#derive(Eq, Debug)
+pub(all) struct LodHandle {
+  priv id : Int
+}
+
+///|
+/// Crate-internal: LOD handles are only produced by `Renderer3D::create_lod_spec`.
+fn LodHandle::from_id(id : Int) -> LodHandle {
+  { id, }
+}
+
+///|
+pub fn LodHandle::id(self : LodHandle) -> Int {
+  self.id
+}
+
+///|
 /// Generation-checked arena index. Destroying a node bumps its generation, so
 /// stale handles can never alias a reused slot.
 #derive(Eq, Debug)
@@ -99,16 +120,47 @@ pub fn CameraId::index(self : CameraId) -> Int {
 ///|
 /// A mesh node's drawable pair. The renderer resolves both handles to GPU
 /// state; `MeshInstance` itself stays a small value struct.
+///
+/// `tint` is a per-instance multiplier on the material base colour (linear
+/// RGBA), which is how one shared material paints thousands of differently
+/// coloured instances (three.js `InstancedMesh.setColorAt`). `lod`, when set,
+/// swaps `mesh` for the level `LodHandle` selects at the camera distance.
 pub(all) struct MeshInstance {
   mesh : MeshHandle
   material : MaterialHandle
   cast_shadow : Bool
   receive_shadow : Bool
+  tint : @tmath.Vec4
+  lod : LodHandle?
 }
 
 ///|
 pub fn MeshInstance::new(mesh : MeshHandle, material : MaterialHandle) -> MeshInstance {
-  { mesh, material, cast_shadow: true, receive_shadow: true }
+  {
+    mesh,
+    material,
+    cast_shadow: true,
+    receive_shadow: true,
+    tint: @tmath.Vec4::one(),
+    lod: None,
+  }
+}
+
+///|
+/// Same instance with a per-instance colour multiplier (linear RGBA).
+pub fn MeshInstance::with_tint(self : MeshInstance, tint : @tmath.Vec4) -> MeshInstance {
+  { ..self, tint }
+}
+
+///|
+/// Same instance driven by a shared distance-LOD spec.
+pub fn MeshInstance::with_lod(self : MeshInstance, lod : LodHandle) -> MeshInstance {
+  { ..self, lod: Some(lod) }
+}
+
+///|
+pub fn MeshInstance::tint(self : MeshInstance) -> @tmath.Vec4 {
+  self.tint
 }
 
 ///|
@@ -433,6 +485,50 @@ pub fn Scene::set_payload(self : Scene, id : NodeId, p : NodePayload) -> Unit {
 pub fn Scene::payload(self : Scene, id : NodeId) -> NodePayload? {
   match self.node(id) {
     Some(n) => Some(n.payload)
+    None => None
+  }
+}
+
+///|
+/// Change one mesh node's per-instance colour multiplier (linear RGBA). Only a
+/// mesh node is affected; other payloads ignore the call.
+pub fn Scene::set_instance_tint(
+  self : Scene,
+  id : NodeId,
+  tint : @tmath.Vec4,
+) -> Unit {
+  match self.node(id) {
+    Some(n) =>
+      match n.payload {
+        NodePayload::Mesh(inst) => n.payload = NodePayload::Mesh({ ..inst, tint })
+        _ => ()
+      }
+    None => ()
+  }
+}
+
+///|
+/// The mesh node's per-instance tint, or `None` when `id` is not a mesh node.
+pub fn Scene::instance_tint(self : Scene, id : NodeId) -> @tmath.Vec4? {
+  match self.node(id) {
+    Some(n) =>
+      match n.payload {
+        NodePayload::Mesh(inst) => Some(inst.tint)
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
+/// The distance-LOD spec bound to a mesh node, if any.
+pub fn Scene::instance_lod(self : Scene, id : NodeId) -> LodHandle? {
+  match self.node(id) {
+    Some(n) =>
+      match n.payload {
+        NodePayload::Mesh(inst) => inst.lod
+        _ => None
+      }
     None => None
   }
 }
