@@ -1,5 +1,5 @@
 // Tycho shader & asset helpers: GLSL->SPIR-V (glslangValidator), Slang->SPIR-V
-// (slangc), binary SPIR-V loading, PPM/BMP/HDR/PNG image decoding, and filtered
+// (slangc), binary SPIR-V loading, PPM/BMP/HDR image loading, and filtered
 // (deflate) PNG encoding. No C link deps.
 // Decoupled from laplaceliu/tycho_vulkan so core Vulkan users need only -lvulkan.
 
@@ -173,27 +173,6 @@ pub fn load_image(path : String) -> (FixedArray[Byte], Int32, Int32) {
   let h = FixedArray::make(1, (0 : Int32))
   let px = load_image_ffi(b, b.length(), w, h)
   (px, w[0], h[0])
-}
-
-#borrow(data, out_w, out_h)
-extern "c" fn decode_image_ffi(
-  data : Bytes,
-  len : Int32,
-  out_w : FixedArray[Int32],
-  out_h : FixedArray[Int32],
-) -> FixedArray[Byte] = "tycho_shader_decode_image"
-
-///|
-// Decode PNG/JPEG bytes to straight-alpha RGBA8. Returns None for unsupported
-// or corrupt data.
-pub fn decode_image(data : Bytes) -> (Bytes, Int, Int)? {
-  let w = FixedArray::make(1, (0 : Int32))
-  let h = FixedArray::make(1, (0 : Int32))
-  let px = decode_image_ffi(data, data.length(), w, h)
-  if w[0] <= 0 || h[0] <= 0 || px.length() == 0 {
-    return None
-  }
-  Some((Bytes::from_array(px[:]), w[0].to_int(), h[0].to_int()))
 }
 
 

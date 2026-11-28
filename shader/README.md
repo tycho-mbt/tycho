@@ -22,8 +22,9 @@ Optional shader compilation and asset loading helpers for the Tycho graphics sta
 - Radiance `.hdr` decoding to linear `Float` RGB pixels (`load_hdr_image`)
 
 Zero C link dependencies: compilers are resolved from `TYCHO_GLSLANG` / `TYCHO_SLANGC`,
-beside the executable, or on `PATH`; images are decoded by bundled `stb_image.h` and
-encoded by bundled `stb_image_write.h` (both public domain, compiled into the shim).
+beside the executable, or on `PATH`; PNG encoding uses bundled `stb_image_write.h`
+(public domain, compiled into the shim), while general image decoding lives in pure
+MoonBit inside `laplaceliu/tycho_image`.
 Decoupled from `laplaceliu/tycho_vulkan`, so core Vulkan users need neither
 `libshaderc-dev` nor `libstb-dev`.
 

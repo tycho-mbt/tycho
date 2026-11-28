@@ -26,8 +26,6 @@ pub fn compile_slang_checked(String, String) -> FixedArray[UInt32] raise ShaderE
 
 pub fn compile_slang_file(String, String) -> FixedArray[UInt32]
 
-pub fn decode_image(Bytes) -> (Bytes, Int32, Int32)?
-
 pub fn last_error() -> String
 
 pub fn load_hdr_image(String) -> (FixedArray[Float], Int32, Int32)

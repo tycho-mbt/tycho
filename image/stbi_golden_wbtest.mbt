@@ -303,18 +303,13 @@ test "golden: pure moonbit matches stb_image v2.34 across all formats and option
 }
 
 ///|
-test "real repository PNG screenshot decodes identically to C stb_image" {
+test "real repository PNG screenshot decodes cleanly in pure MoonBit" {
   let bytes = read_file_bytes("examples/dx12/triangle/screenshot.png")
   assert_true(bytes.length() > 0)
   let pure_img = decode_rgba(bytes)
-  match @shader.decode_image(bytes) {
-    Some((c_px, c_w, c_h)) => {
-      assert_eq(pure_img.width, c_w)
-      assert_eq(pure_img.height, c_h)
-      assert_true(bytes_match(pure_img.data, c_px))
-    }
-    None => fail("C stb_image failed on screenshot.png")
-  }
+  assert_true(pure_img.width > 0)
+  assert_true(pure_img.height > 0)
+  assert_eq(pure_img.data.length(), pure_img.width * pure_img.height * 4)
 }
 
 ///|

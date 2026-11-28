@@ -2,8 +2,8 @@
 // - GLSL -> SPIR-V via glslangValidator (Vulkan SDK / system PATH, zero C link deps)
 // - Slang -> SPIR-V via slangc (Vulkan SDK / TYCHO_SLANGC / PATH)
 // - Binary SPIR-V loader
-// - Image codecs: stb_image.h (decode) and stb_image_write.h (encode), both
-//   public domain and compiled in, so there is no libstb-dev / zlib link dep
+// - Image codecs: stb_image_write.h (PNG encode), public domain and compiled
+//   in, so there is no libstb-dev / zlib link dep
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -24,15 +24,9 @@
 #endif
 #include "moonbit.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#define STBI_ONLY_PNG
-#define STBI_ONLY_JPEG
-#define STBI_NO_STDIO
-#include "stb_image.h"
-
-// PNG encoding uses the same upstream as the decoder above. Only the in-memory
-// entry point is needed (we write the bytes ourselves), so the stdio variants
-// stay out of the object file.
+// PNG writing goes through stb_image_write's in-memory encoder. Only the
+// in-memory entry point is needed (we write the bytes ourselves), so the stdio
+// variants stay out of the object file.
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STBI_WRITE_NO_STDIO
 #include "stb_image_write.h"
@@ -788,25 +782,4 @@ MOONBIT_FFI_EXPORT float *tycho_shader_load_hdr(
   *out_w = w;
   *out_h = h;
   return out;
-}
-
-// Decode PNG/JPEG bytes to straight-alpha RGBA8. Returns an empty array and
-// zero dimensions on failure.
-MOONBIT_FFI_EXPORT uint8_t *tycho_shader_decode_image(
-    const uint8_t *data, int32_t len, int32_t *out_w, int32_t *out_h) {
-  int w = 0, h = 0, channels = 0;
-  stbi_uc *px = stbi_load_from_memory(data, len, &w, &h, &channels, 4);
-  if (!px || w <= 0 || h <= 0) {
-    if (px) stbi_image_free(px);
-    *out_w = 0;
-    *out_h = 0;
-    return (uint8_t *)moonbit_make_bytes(0, 0);
-  }
-  size_t n = (size_t)w * (size_t)h * 4;
-  uint8_t *arr = (uint8_t *)moonbit_make_bytes((int32_t)n, 0);
-  memcpy(arr, px, n);
-  stbi_image_free(px);
-  *out_w = w;
-  *out_h = h;
-  return arr;
 }
