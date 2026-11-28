@@ -192,8 +192,9 @@ fn main {
   ici.set_enabledLayerCount((1 : UInt32))
   ici.set_ppEnabledLayerNames(@vk.cstr_array(["VK_LAYER_KHRONOS_validation"]))
   if show_win {
-    ici.set_enabledExtensionCount((3 : UInt32))
-    ici.set_ppEnabledExtensionNames(@vk.cstr_array(@win.surface_extensions()))
+    let se = @win.surface_extensions()
+    ici.set_enabledExtensionCount(se.length().reinterpret_as_uint())
+    ici.set_ppEnabledExtensionNames(@vk.cstr_array(se))
   }
   let inst_out = FixedArray::make(1, @vk.VkInstance::null())
   let ir = @vk.vkCreateInstance(ici, na, inst_out)

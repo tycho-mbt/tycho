@@ -219,8 +219,9 @@ fn main {
   let ici = @vk.VkInstanceCreateInfo::new()
   ici.set_pApplicationInfo(app)
   if show_win {
-    ici.set_enabledExtensionCount((3 : UInt32))
-    ici.set_ppEnabledExtensionNames(@vk.cstr_array(@win.surface_extensions()))
+    let se = @win.surface_extensions()
+    ici.set_enabledExtensionCount(se.length().reinterpret_as_uint())
+    ici.set_ppEnabledExtensionNames(@vk.cstr_array(se))
   }
   let inst_out = FixedArray::make(1, @vk.VkInstance::null())
   let _ = @vk.vkCreateInstance(ici, na, inst_out)

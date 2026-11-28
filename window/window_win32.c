@@ -700,4 +700,10 @@ MOONBIT_FFI_EXPORT void tycho_win_wait_events(int32_t timeout_ms) {
     Sleep((DWORD)timeout_ms);
   }
 }
+
+MOONBIT_FFI_EXPORT uint64_t tycho_win_monitor(uint64_t p) {
+  TychoWin32Window *tw = (TychoWin32Window *)(uintptr_t)p;
+  if (!tw || !tw->hwnd || !U.MonitorFromWindow) return 0;
+  return (uint64_t)(uintptr_t)U.MonitorFromWindow(tw->hwnd, MONITOR_DEFAULTTOPRIMARY);
+}
 #endif

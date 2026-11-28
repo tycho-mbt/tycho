@@ -56,6 +56,40 @@ MOONBIT_FFI_EXPORT void *tycho_from_ptr(uint64_t p) { return (void*)(uintptr_t)p
 
 MOONBIT_FFI_EXPORT char *tycho_cstr(const uint8_t *bytes, int32_t len) { char *s = (char*)malloc(len + 1); memcpy(s, bytes, len); s[len] = 0; return s; }
 MOONBIT_FFI_EXPORT moonbit_string_t tycho_read_cstr(uint64_t p) { const char *s = (const char*)(uintptr_t)p; if (!s) return moonbit_make_string_raw(0); int32_t len = (int32_t)strlen(s); moonbit_string_t out = moonbit_make_string_raw(len); for (int32_t i = 0; i < len; i++) out[i] = (uint16_t)(unsigned char)s[i]; return out; }
+MOONBIT_FFI_EXPORT uint64_t tycho_wstr(const uint8_t *bytes, int32_t len) {
+#ifdef _WIN32
+  int wlen = len > 0 ? MultiByteToWideChar(CP_UTF8, 0, (const char*)bytes, len, NULL, 0) : 0;
+  uint16_t *w = (uint16_t*)malloc((size_t)(wlen + 1) * sizeof(uint16_t));
+  if (!w) return 0;
+  if (wlen > 0) MultiByteToWideChar(CP_UTF8, 0, (const char*)bytes, len, (LPWSTR)w, wlen);
+  w[wlen] = 0;
+  return (uint64_t)(uintptr_t)w;
+#else
+  uint16_t *w = (uint16_t*)malloc((size_t)(len + 1) * sizeof(uint16_t));
+  if (!w) return 0;
+  int32_t o = 0;
+  for (int32_t i = 0; i < len; ) {
+    uint32_t cp = bytes[i];
+    if (cp < 0x80) { i += 1; }
+    else if ((cp & 0xE0) == 0xC0 && i + 1 < len) { cp = ((cp & 0x1F) << 6) | (bytes[i+1] & 0x3F); i += 2; }
+    else if ((cp & 0xF0) == 0xE0 && i + 2 < len) { cp = ((cp & 0x0F) << 12) | ((bytes[i+1] & 0x3F) << 6) | (bytes[i+2] & 0x3F); i += 3; }
+    else if ((cp & 0xF8) == 0xF0 && i + 3 < len) { cp = ((cp & 0x07) << 18) | ((bytes[i+1] & 0x3F) << 12) | ((bytes[i+2] & 0x3F) << 6) | (bytes[i+3] & 0x3F); i += 4; }
+    else { cp = 0xFFFD; i += 1; }
+    if (cp <= 0xFFFF) { w[o++] = (uint16_t)cp; }
+    else { cp -= 0x10000; w[o++] = (uint16_t)(0xD800 + (cp >> 10)); w[o++] = (uint16_t)(0xDC00 + (cp & 0x3FF)); }
+  }
+  w[o] = 0;
+  return (uint64_t)(uintptr_t)w;
+#endif
+}
+MOONBIT_FFI_EXPORT moonbit_string_t tycho_read_wstr(uint64_t p) { const uint16_t *s = (const uint16_t*)(uintptr_t)p; if (!s) return moonbit_make_string_raw(0); int32_t len = 0; while (s[len]) len++; moonbit_string_t out = moonbit_make_string_raw(len); for (int32_t i = 0; i < len; i++) out[i] = s[i]; return out; }
+MOONBIT_FFI_EXPORT void tycho_win32_close_handle(uint64_t h) {
+#ifdef _WIN32
+  if (h) CloseHandle((HANDLE)(uintptr_t)h);
+#else
+  (void)h;
+#endif
+}
 #ifdef _WIN32
 typedef struct TychoAlignedNode { void *ptr; struct TychoAlignedNode *next; } TychoAlignedNode;
 static TychoAlignedNode *g_tycho_aligned = NULL;

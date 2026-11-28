@@ -178,6 +178,7 @@ fn main {
   }
   println("[15-cap] queue_families(\{qfc[0]}): \{qsb}")
 
+  let api_ver = props.get_apiVersion()
   f2.free()
   f11.free()
   f12.free()
@@ -186,7 +187,7 @@ fn main {
   props2.free()
   drv.free()
   (ifn.vkDestroyInstance)(inst, na)
-  if props.get_apiVersion() > 0 && dec[0] > 0 {
+  if api_ver > 0 && dec[0] > 0 {
     println("[15-cap] OK — capability dump complete")
   } else {
     println("[15-cap] FAIL — empty capability query")

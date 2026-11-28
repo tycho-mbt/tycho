@@ -495,6 +495,15 @@ pub fn emit_structs(
   // Read a driver-owned C string (e.g. a validation message) into a MoonBit String.
   mb.write_string("extern \"c\" fn read_cstr_ffi(p : UInt64) -> String = \"tycho_read_cstr\"\n")
   mb.write_string("pub fn read_cstr(p : UInt64) -> String { read_cstr_ffi(p) }\n")
+  // UTF-16LE wide-string + Win32 HANDLE helpers for VK_*_win32 extensions.
+  mb.write_string("extern \"c\" fn wstr_ffi(bytes : Bytes, len : Int32) -> UInt64 = \"tycho_wstr\"\n")
+  mb.write_string(
+    "pub fn wstr(s : String) -> UInt64 { let b = @utf8.encode(s); wstr_ffi(b, b.length()) }\n",
+  )
+  mb.write_string("extern \"c\" fn read_wstr_ffi(p : UInt64) -> String = \"tycho_read_wstr\"\n")
+  mb.write_string("pub fn read_wstr(p : UInt64) -> String { read_wstr_ffi(p) }\n")
+  mb.write_string("extern \"c\" fn win32_close_handle_ffi(h : UInt64) = \"tycho_win32_close_handle\"\n")
+  mb.write_string("pub fn win32_close_handle(h : UInt64) -> Unit { win32_close_handle_ffi(h) }\n")
   mb.write_string("extern \"c\" fn bytes_ptr_ffi(a : Bytes) -> UInt64 = \"tycho_as_ptr\"\n")
   mb.write_string("pub fn bytes_ptr(a : Bytes) -> UInt64 { bytes_ptr_ffi(a) }\n")
   // Vulkan requires aligned host pointers in several places (shader binary data
@@ -634,6 +643,46 @@ pub fn emit_structs(
   )
   c.write_string(
     "MOONBIT_FFI_EXPORT moonbit_string_t tycho_read_cstr(uint64_t p) { const char *s = (const char*)(uintptr_t)p; if (!s) return moonbit_make_string_raw(0); int32_t len = (int32_t)strlen(s); moonbit_string_t out = moonbit_make_string_raw(len); for (int32_t i = 0; i < len; i++) out[i] = (uint16_t)(unsigned char)s[i]; return out; }\n",
+  )
+  c.write_string(
+    "MOONBIT_FFI_EXPORT uint64_t tycho_wstr(const uint8_t *bytes, int32_t len) {\n" +
+    "#ifdef _WIN32\n" +
+    "  int wlen = len > 0 ? MultiByteToWideChar(CP_UTF8, 0, (const char*)bytes, len, NULL, 0) : 0;\n" +
+    "  uint16_t *w = (uint16_t*)malloc((size_t)(wlen + 1) * sizeof(uint16_t));\n" +
+    "  if (!w) return 0;\n" +
+    "  if (wlen > 0) MultiByteToWideChar(CP_UTF8, 0, (const char*)bytes, len, (LPWSTR)w, wlen);\n" +
+    "  w[wlen] = 0;\n" +
+    "  return (uint64_t)(uintptr_t)w;\n" +
+    "#else\n" +
+    "  uint16_t *w = (uint16_t*)malloc((size_t)(len + 1) * sizeof(uint16_t));\n" +
+    "  if (!w) return 0;\n" +
+    "  int32_t o = 0;\n" +
+    "  for (int32_t i = 0; i < len; ) {\n" +
+    "    uint32_t cp = bytes[i];\n" +
+    "    if (cp < 0x80) { i += 1; }\n" +
+    "    else if ((cp & 0xE0) == 0xC0 && i + 1 < len) { cp = ((cp & 0x1F) << 6) | (bytes[i+1] & 0x3F); i += 2; }\n" +
+    "    else if ((cp & 0xF0) == 0xE0 && i + 2 < len) { cp = ((cp & 0x0F) << 12) | ((bytes[i+1] & 0x3F) << 6) | (bytes[i+2] & 0x3F); i += 3; }\n" +
+    "    else if ((cp & 0xF8) == 0xF0 && i + 3 < len) { cp = ((cp & 0x07) << 18) | ((bytes[i+1] & 0x3F) << 12) | ((bytes[i+2] & 0x3F) << 6) | (bytes[i+3] & 0x3F); i += 4; }\n" +
+    "    else { cp = 0xFFFD; i += 1; }\n" +
+    "    if (cp <= 0xFFFF) { w[o++] = (uint16_t)cp; }\n" +
+    "    else { cp -= 0x10000; w[o++] = (uint16_t)(0xD800 + (cp >> 10)); w[o++] = (uint16_t)(0xDC00 + (cp & 0x3FF)); }\n" +
+    "  }\n" +
+    "  w[o] = 0;\n" +
+    "  return (uint64_t)(uintptr_t)w;\n" +
+    "#endif\n" +
+    "}\n",
+  )
+  c.write_string(
+    "MOONBIT_FFI_EXPORT moonbit_string_t tycho_read_wstr(uint64_t p) { const uint16_t *s = (const uint16_t*)(uintptr_t)p; if (!s) return moonbit_make_string_raw(0); int32_t len = 0; while (s[len]) len++; moonbit_string_t out = moonbit_make_string_raw(len); for (int32_t i = 0; i < len; i++) out[i] = s[i]; return out; }\n",
+  )
+  c.write_string(
+    "MOONBIT_FFI_EXPORT void tycho_win32_close_handle(uint64_t h) {\n" +
+    "#ifdef _WIN32\n" +
+    "  if (h) CloseHandle((HANDLE)(uintptr_t)h);\n" +
+    "#else\n" +
+    "  (void)h;\n" +
+    "#endif\n" +
+    "}\n",
   )
   c.write_string(
     "#ifdef _WIN32\ntypedef struct TychoAlignedNode { void *ptr; struct TychoAlignedNode *next; } TychoAlignedNode;\nstatic TychoAlignedNode *g_tycho_aligned = NULL;\n#endif\n" +

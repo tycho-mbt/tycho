@@ -39,6 +39,8 @@ extern "c" fn win_display_ffi(win : UInt64) -> UInt64 = "tycho_win_display"
 
 extern "c" fn win_handle_ffi(win : UInt64) -> UInt64 = "tycho_win_handle"
 
+extern "c" fn win_monitor_ffi(win : UInt64) -> UInt64 = "tycho_win_monitor"
+
 extern "c" fn win_set_cursor_mode_ffi(win : UInt64, mode : Int32) = "tycho_win_set_cursor_mode"
 
 extern "c" fn win_set_cursor_shape_ffi(win : UInt64, shape : Int32) = "tycho_win_set_cursor_shape"
@@ -840,11 +842,25 @@ pub fn take_resized(win : UInt64) -> Bool {
 }
 
 ///|
+/// The raw native display/instance handle: `HINSTANCE` on Windows, `Display*`
+/// (X11) or `wl_display*` (Wayland) on Linux.
+pub fn native_display(win : UInt64) -> UInt64 {
+  win_display_ffi(win)
+}
+
+///|
 /// The raw native window handle: `HWND` on Windows, `Window` (X11) on Linux and
 /// the `CAMetalLayer` pointer on macOS. Needed by backends that create their own
 /// swapchain, e.g. DXGI's `CreateSwapChainForHwnd`.
 pub fn native_handle(win : UInt64) -> UInt64 {
   win_handle_ffi(win)
+}
+
+///|
+/// The raw native monitor handle: `HMONITOR` on Windows (`MonitorFromWindow`),
+/// 0 on other platforms. Needed by `VK_EXT_full_screen_exclusive`.
+pub fn monitor_handle(win : UInt64) -> UInt64 {
+  win_monitor_ffi(win)
 }
 
 ///|

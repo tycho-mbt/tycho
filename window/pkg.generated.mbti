@@ -159,7 +159,11 @@ pub fn is_mouse_down(UInt64, MouseButton) -> Bool
 
 pub fn is_wayland() -> Bool
 
+pub fn monitor_handle(UInt64) -> UInt64
+
 pub fn mouse_pos(UInt64) -> (Double, Double)
+
+pub fn native_display(UInt64) -> UInt64
 
 pub fn native_handle(UInt64) -> UInt64
 

@@ -276,7 +276,7 @@ fn main {
     probed = probed + 1
     let _ = (dfn.vkGetExecutionGraphPipelineScratchSizeAMDX)(dev, @vk.VkPipeline::null(), @vk.VkExecutionGraphPipelineScratchSizeAMDX::null())
     probed = probed + 1
-    let _ = (dfn.vkGetFenceWin32HandleKHR)(dev, @vk.VkFenceGetWin32HandleInfoKHR::null(), (0 : UInt64))
+    let _ = (dfn.vkGetFenceWin32HandleKHR)(dev, @vk.VkFenceGetWin32HandleInfoKHR::null(), FixedArray::make(1, (0 : UInt64)))
     probed = probed + 1
     let _ = (dfn.vkGetFramebufferTilePropertiesQCOM)(dev, @vk.VkFramebuffer::null(), FixedArray::make(1, (0 : UInt32)), @vk.VkTilePropertiesQCOM::null())
     probed = probed + 1
@@ -292,9 +292,9 @@ fn main {
     probed = probed + 1
     let _ = (dfn.vkGetMemoryRemoteAddressNV)(dev, @vk.VkMemoryGetRemoteAddressInfoNV::null(), (0 : UInt64))
     probed = probed + 1
-    let _ = (dfn.vkGetMemoryWin32HandleKHR)(dev, @vk.VkMemoryGetWin32HandleInfoKHR::null(), (0 : UInt64))
+    let _ = (dfn.vkGetMemoryWin32HandleKHR)(dev, @vk.VkMemoryGetWin32HandleInfoKHR::null(), FixedArray::make(1, (0 : UInt64)))
     probed = probed + 1
-    let _ = (dfn.vkGetMemoryWin32HandleNV)(dev, @vk.VkDeviceMemory::null(), (0 : UInt32), (0 : UInt64))
+    let _ = (dfn.vkGetMemoryWin32HandleNV)(dev, @vk.VkDeviceMemory::null(), (0 : UInt32), FixedArray::make(1, (0 : UInt64)))
     probed = probed + 1
     let _ = (dfn.vkGetMemoryWin32HandlePropertiesKHR)(dev, (0 : UInt32), (0 : UInt64), @vk.VkMemoryWin32HandlePropertiesKHR::null())
     probed = probed + 1
@@ -326,7 +326,7 @@ fn main {
     probed = probed + 1
     let _ = (dfn.vkGetRefreshCycleDurationGOOGLE)(dev, @vk.VkSwapchainKHR::null(), @vk.VkRefreshCycleDurationGOOGLE::null())
     probed = probed + 1
-    let _ = (dfn.vkGetSemaphoreWin32HandleKHR)(dev, @vk.VkSemaphoreGetWin32HandleInfoKHR::null(), (0 : UInt64))
+    let _ = (dfn.vkGetSemaphoreWin32HandleKHR)(dev, @vk.VkSemaphoreGetWin32HandleInfoKHR::null(), FixedArray::make(1, (0 : UInt64)))
     probed = probed + 1
     let _ = (dfn.vkGetShaderInfoAMD)(dev, @vk.VkPipeline::null(), (0 : UInt32), (0 : UInt32), FixedArray::make(1, (0 : UInt64)), (0 : UInt64))
     probed = probed + 1

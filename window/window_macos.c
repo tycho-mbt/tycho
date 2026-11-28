@@ -625,4 +625,9 @@ MOONBIT_FFI_EXPORT void tycho_win_wait_events(int32_t timeout_ms) {
   ts.tv_nsec = (long)(timeout_ms % 1000) * 1000000L;
   nanosleep(&ts, NULL);
 }
+
+MOONBIT_FFI_EXPORT uint64_t tycho_win_monitor(uint64_t p) {
+  (void)p;
+  return 0;
+}
 #endif

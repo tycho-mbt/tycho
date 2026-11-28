@@ -180,6 +180,11 @@ MOONBIT_FFI_EXPORT uint64_t tycho_win_handle(uint64_t p) {
   return g_use_wayland ? tycho_wl_surface(p) : tycho_x11_handle(p);
 }
 
+MOONBIT_FFI_EXPORT uint64_t tycho_win_monitor(uint64_t p) {
+  (void)p;
+  return 0;
+}
+
 MOONBIT_FFI_EXPORT void tycho_win_set_cursor_mode(uint64_t p, int32_t mode) {
   if (g_use_wayland) tycho_wl_set_cursor_mode(p, mode); else tycho_x11_set_cursor_mode(p, mode);
 }
@@ -254,6 +259,7 @@ MOONBIT_FFI_EXPORT void tycho_win_poll(void) {}
 MOONBIT_FFI_EXPORT double tycho_win_time(void) { return 0.0; }
 MOONBIT_FFI_EXPORT uint64_t tycho_win_display(uint64_t p) { (void)p; return 0; }
 MOONBIT_FFI_EXPORT uint64_t tycho_win_handle(uint64_t p) { (void)p; return 0; }
+MOONBIT_FFI_EXPORT uint64_t tycho_win_monitor(uint64_t p) { (void)p; return 0; }
 MOONBIT_FFI_EXPORT void tycho_win_set_cursor_mode(uint64_t p, int32_t m) { (void)p; (void)m; }
 MOONBIT_FFI_EXPORT void tycho_win_set_cursor_shape(uint64_t p, int32_t s) { (void)p; (void)s; }
 MOONBIT_FFI_EXPORT void tycho_win_set_clipboard(uint64_t p, uint64_t t) { (void)p; (void)t; }

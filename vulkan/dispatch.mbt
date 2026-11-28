@@ -543,7 +543,7 @@ pub struct DeviceFn {
   vkCmdDebugMarkerBeginEXT : FuncRef[(VkCommandBuffer, VkDebugMarkerMarkerInfoEXT) -> Unit]
   vkCmdDebugMarkerEndEXT : FuncRef[(VkCommandBuffer) -> Unit]
   vkCmdDebugMarkerInsertEXT : FuncRef[(VkCommandBuffer, VkDebugMarkerMarkerInfoEXT) -> Unit]
-  vkGetMemoryWin32HandleNV : FuncRef[(VkDevice, VkDeviceMemory, UInt32, UInt64) -> Int32]
+  vkGetMemoryWin32HandleNV : FuncRef[(VkDevice, VkDeviceMemory, UInt32, FixedArray[UInt64]) -> Int32]
   vkCmdExecuteGeneratedCommandsNV : FuncRef[(VkCommandBuffer, UInt32, VkGeneratedCommandsInfoNV) -> Unit]
   vkCmdPreprocessGeneratedCommandsNV : FuncRef[(VkCommandBuffer, VkGeneratedCommandsInfoNV) -> Unit]
   vkCmdBindPipelineShaderGroupNV : FuncRef[(VkCommandBuffer, UInt32, VkPipeline, UInt32) -> Unit]
@@ -563,7 +563,7 @@ pub struct DeviceFn {
   vkCmdPushDescriptorSetKHR : FuncRef[(VkCommandBuffer, UInt32, VkPipelineLayout, UInt32, UInt32, VkWriteDescriptorSet) -> Unit]
   vkTrimCommandPool : FuncRef[(VkDevice, VkCommandPool, UInt32) -> Unit]
   vkTrimCommandPoolKHR : FuncRef[(VkDevice, VkCommandPool, UInt32) -> Unit]
-  vkGetMemoryWin32HandleKHR : FuncRef[(VkDevice, VkMemoryGetWin32HandleInfoKHR, UInt64) -> Int32]
+  vkGetMemoryWin32HandleKHR : FuncRef[(VkDevice, VkMemoryGetWin32HandleInfoKHR, FixedArray[UInt64]) -> Int32]
   vkGetMemoryWin32HandlePropertiesKHR : FuncRef[(VkDevice, UInt32, UInt64, VkMemoryWin32HandlePropertiesKHR) -> Int32]
   vkGetMemoryFdKHR : FuncRef[(VkDevice, VkMemoryGetFdInfoKHR, FixedArray[Int32]) -> Int32]
   vkGetMemoryFdPropertiesKHR : FuncRef[(VkDevice, UInt32, Int32, VkMemoryFdPropertiesKHR) -> Int32]
@@ -571,13 +571,13 @@ pub struct DeviceFn {
   vkGetMemoryZirconHandlePropertiesFUCHSIA : FuncRef[(VkDevice, UInt32, UInt64, VkMemoryZirconHandlePropertiesFUCHSIA) -> Int32]
   vkGetMemoryRemoteAddressNV : FuncRef[(VkDevice, VkMemoryGetRemoteAddressInfoNV, UInt64) -> Int32]
   vkGetMemorySciBufNV : FuncRef[(VkDevice, VkMemoryGetSciBufInfoNV, UInt64) -> Int32]
-  vkGetSemaphoreWin32HandleKHR : FuncRef[(VkDevice, VkSemaphoreGetWin32HandleInfoKHR, UInt64) -> Int32]
+  vkGetSemaphoreWin32HandleKHR : FuncRef[(VkDevice, VkSemaphoreGetWin32HandleInfoKHR, FixedArray[UInt64]) -> Int32]
   vkImportSemaphoreWin32HandleKHR : FuncRef[(VkDevice, VkImportSemaphoreWin32HandleInfoKHR) -> Int32]
   vkGetSemaphoreFdKHR : FuncRef[(VkDevice, VkSemaphoreGetFdInfoKHR, FixedArray[Int32]) -> Int32]
   vkImportSemaphoreFdKHR : FuncRef[(VkDevice, VkImportSemaphoreFdInfoKHR) -> Int32]
   vkGetSemaphoreZirconHandleFUCHSIA : FuncRef[(VkDevice, VkSemaphoreGetZirconHandleInfoFUCHSIA, UInt64) -> Int32]
   vkImportSemaphoreZirconHandleFUCHSIA : FuncRef[(VkDevice, VkImportSemaphoreZirconHandleInfoFUCHSIA) -> Int32]
-  vkGetFenceWin32HandleKHR : FuncRef[(VkDevice, VkFenceGetWin32HandleInfoKHR, UInt64) -> Int32]
+  vkGetFenceWin32HandleKHR : FuncRef[(VkDevice, VkFenceGetWin32HandleInfoKHR, FixedArray[UInt64]) -> Int32]
   vkImportFenceWin32HandleKHR : FuncRef[(VkDevice, VkImportFenceWin32HandleInfoKHR) -> Int32]
   vkGetFenceFdKHR : FuncRef[(VkDevice, VkFenceGetFdInfoKHR, FixedArray[Int32]) -> Int32]
   vkImportFenceFdKHR : FuncRef[(VkDevice, VkImportFenceFdInfoKHR) -> Int32]
@@ -1281,7 +1281,7 @@ extern "c" fn load_vkDebugMarkerSetObjectTagEXT(dev : VkDevice) -> FuncRef[(VkDe
 extern "c" fn load_vkCmdDebugMarkerBeginEXT(dev : VkDevice) -> FuncRef[(VkCommandBuffer, VkDebugMarkerMarkerInfoEXT) -> Unit] = "tycho_gpa_vkCmdDebugMarkerBeginEXT"
 extern "c" fn load_vkCmdDebugMarkerEndEXT(dev : VkDevice) -> FuncRef[(VkCommandBuffer) -> Unit] = "tycho_gpa_vkCmdDebugMarkerEndEXT"
 extern "c" fn load_vkCmdDebugMarkerInsertEXT(dev : VkDevice) -> FuncRef[(VkCommandBuffer, VkDebugMarkerMarkerInfoEXT) -> Unit] = "tycho_gpa_vkCmdDebugMarkerInsertEXT"
-extern "c" fn load_vkGetMemoryWin32HandleNV(dev : VkDevice) -> FuncRef[(VkDevice, VkDeviceMemory, UInt32, UInt64) -> Int32] = "tycho_gpa_vkGetMemoryWin32HandleNV"
+extern "c" fn load_vkGetMemoryWin32HandleNV(dev : VkDevice) -> FuncRef[(VkDevice, VkDeviceMemory, UInt32, FixedArray[UInt64]) -> Int32] = "tycho_gpa_vkGetMemoryWin32HandleNV"
 extern "c" fn load_vkCmdExecuteGeneratedCommandsNV(dev : VkDevice) -> FuncRef[(VkCommandBuffer, UInt32, VkGeneratedCommandsInfoNV) -> Unit] = "tycho_gpa_vkCmdExecuteGeneratedCommandsNV"
 extern "c" fn load_vkCmdPreprocessGeneratedCommandsNV(dev : VkDevice) -> FuncRef[(VkCommandBuffer, VkGeneratedCommandsInfoNV) -> Unit] = "tycho_gpa_vkCmdPreprocessGeneratedCommandsNV"
 extern "c" fn load_vkCmdBindPipelineShaderGroupNV(dev : VkDevice) -> FuncRef[(VkCommandBuffer, UInt32, VkPipeline, UInt32) -> Unit] = "tycho_gpa_vkCmdBindPipelineShaderGroupNV"
@@ -1301,7 +1301,7 @@ extern "c" fn load_vkCmdPushDescriptorSet(dev : VkDevice) -> FuncRef[(VkCommandB
 extern "c" fn load_vkCmdPushDescriptorSetKHR(dev : VkDevice) -> FuncRef[(VkCommandBuffer, UInt32, VkPipelineLayout, UInt32, UInt32, VkWriteDescriptorSet) -> Unit] = "tycho_gpa_vkCmdPushDescriptorSetKHR"
 extern "c" fn load_vkTrimCommandPool(dev : VkDevice) -> FuncRef[(VkDevice, VkCommandPool, UInt32) -> Unit] = "tycho_gpa_vkTrimCommandPool"
 extern "c" fn load_vkTrimCommandPoolKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkCommandPool, UInt32) -> Unit] = "tycho_gpa_vkTrimCommandPoolKHR"
-extern "c" fn load_vkGetMemoryWin32HandleKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkMemoryGetWin32HandleInfoKHR, UInt64) -> Int32] = "tycho_gpa_vkGetMemoryWin32HandleKHR"
+extern "c" fn load_vkGetMemoryWin32HandleKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkMemoryGetWin32HandleInfoKHR, FixedArray[UInt64]) -> Int32] = "tycho_gpa_vkGetMemoryWin32HandleKHR"
 extern "c" fn load_vkGetMemoryWin32HandlePropertiesKHR(dev : VkDevice) -> FuncRef[(VkDevice, UInt32, UInt64, VkMemoryWin32HandlePropertiesKHR) -> Int32] = "tycho_gpa_vkGetMemoryWin32HandlePropertiesKHR"
 extern "c" fn load_vkGetMemoryFdKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkMemoryGetFdInfoKHR, FixedArray[Int32]) -> Int32] = "tycho_gpa_vkGetMemoryFdKHR"
 extern "c" fn load_vkGetMemoryFdPropertiesKHR(dev : VkDevice) -> FuncRef[(VkDevice, UInt32, Int32, VkMemoryFdPropertiesKHR) -> Int32] = "tycho_gpa_vkGetMemoryFdPropertiesKHR"
@@ -1309,13 +1309,13 @@ extern "c" fn load_vkGetMemoryZirconHandleFUCHSIA(dev : VkDevice) -> FuncRef[(Vk
 extern "c" fn load_vkGetMemoryZirconHandlePropertiesFUCHSIA(dev : VkDevice) -> FuncRef[(VkDevice, UInt32, UInt64, VkMemoryZirconHandlePropertiesFUCHSIA) -> Int32] = "tycho_gpa_vkGetMemoryZirconHandlePropertiesFUCHSIA"
 extern "c" fn load_vkGetMemoryRemoteAddressNV(dev : VkDevice) -> FuncRef[(VkDevice, VkMemoryGetRemoteAddressInfoNV, UInt64) -> Int32] = "tycho_gpa_vkGetMemoryRemoteAddressNV"
 extern "c" fn load_vkGetMemorySciBufNV(dev : VkDevice) -> FuncRef[(VkDevice, VkMemoryGetSciBufInfoNV, UInt64) -> Int32] = "tycho_gpa_vkGetMemorySciBufNV"
-extern "c" fn load_vkGetSemaphoreWin32HandleKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkSemaphoreGetWin32HandleInfoKHR, UInt64) -> Int32] = "tycho_gpa_vkGetSemaphoreWin32HandleKHR"
+extern "c" fn load_vkGetSemaphoreWin32HandleKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkSemaphoreGetWin32HandleInfoKHR, FixedArray[UInt64]) -> Int32] = "tycho_gpa_vkGetSemaphoreWin32HandleKHR"
 extern "c" fn load_vkImportSemaphoreWin32HandleKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkImportSemaphoreWin32HandleInfoKHR) -> Int32] = "tycho_gpa_vkImportSemaphoreWin32HandleKHR"
 extern "c" fn load_vkGetSemaphoreFdKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkSemaphoreGetFdInfoKHR, FixedArray[Int32]) -> Int32] = "tycho_gpa_vkGetSemaphoreFdKHR"
 extern "c" fn load_vkImportSemaphoreFdKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkImportSemaphoreFdInfoKHR) -> Int32] = "tycho_gpa_vkImportSemaphoreFdKHR"
 extern "c" fn load_vkGetSemaphoreZirconHandleFUCHSIA(dev : VkDevice) -> FuncRef[(VkDevice, VkSemaphoreGetZirconHandleInfoFUCHSIA, UInt64) -> Int32] = "tycho_gpa_vkGetSemaphoreZirconHandleFUCHSIA"
 extern "c" fn load_vkImportSemaphoreZirconHandleFUCHSIA(dev : VkDevice) -> FuncRef[(VkDevice, VkImportSemaphoreZirconHandleInfoFUCHSIA) -> Int32] = "tycho_gpa_vkImportSemaphoreZirconHandleFUCHSIA"
-extern "c" fn load_vkGetFenceWin32HandleKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkFenceGetWin32HandleInfoKHR, UInt64) -> Int32] = "tycho_gpa_vkGetFenceWin32HandleKHR"
+extern "c" fn load_vkGetFenceWin32HandleKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkFenceGetWin32HandleInfoKHR, FixedArray[UInt64]) -> Int32] = "tycho_gpa_vkGetFenceWin32HandleKHR"
 extern "c" fn load_vkImportFenceWin32HandleKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkImportFenceWin32HandleInfoKHR) -> Int32] = "tycho_gpa_vkImportFenceWin32HandleKHR"
 extern "c" fn load_vkGetFenceFdKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkFenceGetFdInfoKHR, FixedArray[Int32]) -> Int32] = "tycho_gpa_vkGetFenceFdKHR"
 extern "c" fn load_vkImportFenceFdKHR(dev : VkDevice) -> FuncRef[(VkDevice, VkImportFenceFdInfoKHR) -> Int32] = "tycho_gpa_vkImportFenceFdKHR"

@@ -29,6 +29,9 @@ fn mb_type(ctype : String, t : VkTypes) -> String {
   if stars >= 2 {
     return "FixedArray[UInt64]"
   }
+  if base == "HANDLE" {
+    return if is_ptr { "FixedArray[UInt64]" } else { "UInt64" }
+  }
   if base == "void" {
     return if is_ptr { "UInt64" } else { "Unit" }
   }
@@ -209,7 +212,7 @@ pub fn emit_dispatch_stub(
   sb.write_string("// Generated loaders — DO NOT EDIT.\n")
   sb.write_string("#define VK_NO_PROTOTYPES\n")
   sb.write_string("#define VK_ENABLE_BETA_EXTENSIONS\n")
-  sb.write_string("#if defined(_WIN32)\n#define WIN32_LEAN_AND_MEAN\n#define NOMINMAX\n#include <windows.h>\n#else\n#include <dlfcn.h>\n#endif\n")
+  sb.write_string("#if defined(_WIN32)\n#define WIN32_LEAN_AND_MEAN\n#define NOMINMAX\n#define VK_USE_PLATFORM_WIN32_KHR\n#include <windows.h>\n#else\n#include <dlfcn.h>\n#endif\n")
   sb.write_string("#include <stdlib.h>\n")
   sb.write_string("#include \"include/vulkan/vulkan.h\"\n#include \"moonbit.h\"\n\n")
   sb.write_string("#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L\n#define TYCHO_STATIC_ASSERT(cond, msg) _Static_assert(cond, msg)\n#else\n#define TYCHO_SA_JOIN2(a, b) a##b\n#define TYCHO_SA_JOIN(a, b) TYCHO_SA_JOIN2(a, b)\n#define TYCHO_STATIC_ASSERT(cond, msg) typedef char TYCHO_SA_JOIN(tycho_sa_, __LINE__)[(cond) ? 1 : -1]\n#endif\n\n")
@@ -298,7 +301,8 @@ pub fn emit_dispatch_stub(
     "}\n" +
     "MOONBIT_FFI_EXPORT void tycho_entry_vkGetExternalComputeQueueDataNV(VkExternalComputeQueueNV externalQueue, VkExternalComputeQueueDataParamsNV *params, void *pData) {\n" +
     "  typedef void (VKAPI_PTR *TychoPFN_ECQ)(VkExternalComputeQueueNV, VkExternalComputeQueueDataParamsNV *, void *);\n" +
-    "  TychoPFN_ECQ fn = (TychoPFN_ECQ)tycho_vk_gpa(VK_NULL_HANDLE, \"vkGetExternalComputeQueueDataNV\");\n" +
+    "  TychoPFN_ECQ fn = (TychoPFN_ECQ)tycho_vk_gpa(tycho_vk_last_instance(), \"vkGetExternalComputeQueueDataNV\");\n" +
+    "  if (!fn) fn = (TychoPFN_ECQ)tycho_vk_gpa(VK_NULL_HANDLE, \"vkGetExternalComputeQueueDataNV\");\n" +
     "  if (fn) fn(externalQueue, params, pData);\n" +
     "}\n\n",
   )

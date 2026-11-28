@@ -8,6 +8,12 @@ pub fn cstr_array(strs : FixedArray[String]) -> FixedArray[UInt64] { let ptrs = 
 
 extern "c" fn read_cstr_ffi(p : UInt64) -> String = "tycho_read_cstr"
 pub fn read_cstr(p : UInt64) -> String { read_cstr_ffi(p) }
+extern "c" fn wstr_ffi(bytes : Bytes, len : Int32) -> UInt64 = "tycho_wstr"
+pub fn wstr(s : String) -> UInt64 { let b = @utf8.encode(s); wstr_ffi(b, b.length()) }
+extern "c" fn read_wstr_ffi(p : UInt64) -> String = "tycho_read_wstr"
+pub fn read_wstr(p : UInt64) -> String { read_wstr_ffi(p) }
+extern "c" fn win32_close_handle_ffi(h : UInt64) = "tycho_win32_close_handle"
+pub fn win32_close_handle(h : UInt64) -> Unit { win32_close_handle_ffi(h) }
 extern "c" fn bytes_ptr_ffi(a : Bytes) -> UInt64 = "tycho_as_ptr"
 pub fn bytes_ptr(a : Bytes) -> UInt64 { bytes_ptr_ffi(a) }
 extern "c" fn aligned_alloc_ffi(size : Int32, alignment : Int32) -> UInt64 = "tycho_aligned_alloc"

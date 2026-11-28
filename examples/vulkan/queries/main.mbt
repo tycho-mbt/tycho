@@ -264,10 +264,29 @@ fn main {
     n = n + 1
   }
 
-  // --- external memory / fence / semaphore capabilities (fd on Linux) ---
+  // --- external memory / fence / semaphore capabilities (Win32 on Windows, fd on POSIX) ---
+  let is_win = match @win.platform() {
+    @win.Platform::Windows => true
+    _ => false
+  }
+  let mem_ht = if is_win {
+    @vk.VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT
+  } else {
+    @vk.VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+  }
+  let fence_ht = if is_win {
+    @vk.VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_WIN32_BIT
+  } else {
+    @vk.VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT
+  }
+  let sem_ht = if is_win {
+    @vk.VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT
+  } else {
+    @vk.VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT
+  }
   let ebi = @vk.VkPhysicalDeviceExternalBufferInfo::new()
   ebi.set_usage(@vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
-  ebi.set_handleType(@vk.VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT)
+  ebi.set_handleType(mem_ht)
   let ebp = @vk.VkExternalBufferProperties::new()
   (ifn.vkGetPhysicalDeviceExternalBufferProperties)(phys, ebi, ebp)
   n = n + 1
@@ -277,7 +296,7 @@ fn main {
     n = n + 1
   }
   let efi = @vk.VkPhysicalDeviceExternalFenceInfo::new()
-  efi.set_handleType(@vk.VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT)
+  efi.set_handleType(fence_ht)
   let efp = @vk.VkExternalFenceProperties::new()
   (ifn.vkGetPhysicalDeviceExternalFenceProperties)(phys, efi, efp)
   n = n + 1
@@ -287,7 +306,7 @@ fn main {
     n = n + 1
   }
   let esi = @vk.VkPhysicalDeviceExternalSemaphoreInfo::new()
-  esi.set_handleType(@vk.VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT)
+  esi.set_handleType(sem_ht)
   let esp = @vk.VkExternalSemaphoreProperties::new()
   (ifn.vkGetPhysicalDeviceExternalSemaphoreProperties)(phys, esi, esp)
   n = n + 1

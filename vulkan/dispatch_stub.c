@@ -4,6 +4,7 @@
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
+#define VK_USE_PLATFORM_WIN32_KHR
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -109,7 +110,8 @@ MOONBIT_FFI_EXPORT int32_t tycho_entry_vkEnumerateInstanceExtensionProperties(co
 }
 MOONBIT_FFI_EXPORT void tycho_entry_vkGetExternalComputeQueueDataNV(VkExternalComputeQueueNV externalQueue, VkExternalComputeQueueDataParamsNV *params, void *pData) {
   typedef void (VKAPI_PTR *TychoPFN_ECQ)(VkExternalComputeQueueNV, VkExternalComputeQueueDataParamsNV *, void *);
-  TychoPFN_ECQ fn = (TychoPFN_ECQ)tycho_vk_gpa(VK_NULL_HANDLE, "vkGetExternalComputeQueueDataNV");
+  TychoPFN_ECQ fn = (TychoPFN_ECQ)tycho_vk_gpa(tycho_vk_last_instance(), "vkGetExternalComputeQueueDataNV");
+  if (!fn) fn = (TychoPFN_ECQ)tycho_vk_gpa(VK_NULL_HANDLE, "vkGetExternalComputeQueueDataNV");
   if (fn) fn(externalQueue, params, pData);
 }
 

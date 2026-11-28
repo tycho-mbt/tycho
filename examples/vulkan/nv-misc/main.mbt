@@ -61,26 +61,37 @@ fn main {
     }
     false
   }
-  // device extensions this batch needs
-  let want = [
+  // device extensions this batch needs: core NVIDIA extensions are required,
+  // while Linux-only DRM/POSIX-fd extensions are enabled when advertised.
+  let required = [
     "VK_EXT_device_fault",
     "VK_KHR_calibrated_timestamps",
-    "VK_EXT_image_drm_format_modifier",
     "VK_NV_device_diagnostic_checkpoints",
     "VK_EXT_shader_module_identifier",
     "VK_NVX_image_view_handle",
+  ]
+  let optional = [
+    "VK_EXT_image_drm_format_modifier",
     "VK_KHR_external_fence_fd",
     "VK_KHR_external_semaphore_fd",
   ]
-  let den = FixedArray::make(want.length(), "")
+  let den = FixedArray::make(required.length() + optional.length(), "")
   let mut nden = 0
   let mut missing = 0
-  for i = 0; i < want.length(); i = i + 1 {
-    if has_ext(want[i]) {
-      den[nden] = want[i]
+  for i = 0; i < required.length(); i = i + 1 {
+    if has_ext(required[i]) {
+      den[nden] = required[i]
       nden = nden + 1
     } else {
       missing = missing + 1
+    }
+  }
+  let has_fence_fd = has_ext("VK_KHR_external_fence_fd")
+  let has_sem_fd = has_ext("VK_KHR_external_semaphore_fd")
+  for i = 0; i < optional.length(); i = i + 1 {
+    if has_ext(optional[i]) {
+      den[nden] = optional[i]
+      nden = nden + 1
     }
   }
   if missing > 0 || !has_ext("VK_NV_cooperative_vector") || !has_ext("VK_NV_optical_flow") {
@@ -288,82 +299,90 @@ fn main {
   }
   let handle_ok = handle_size > (0 : UInt32) && handle64 != (0 : UInt64)
 
-  // ---- POSIX fd import/export ----
-  let efci = @vk.VkExportFenceCreateInfo::new()
-  efci.set_handleTypes(@vk.VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT)
-  let fci = @vk.VkFenceCreateInfo::new()
-  fci.set_pNext(efci.as_ptr())
-  let fci2 = @vk.VkFenceCreateInfo::new()
-  let fence_out = FixedArray::make(1, @vk.VkFence::null())
-  let _ = (dfn.vkCreateFence)(dev, fci, na, fence_out)
-  let fd = FixedArray::make(1, (0 : Int32))
-  let fgfi = @vk.VkFenceGetFdInfoKHR::new()
-  fgfi.set_fence(fence_out[0])
-  fgfi.set_handleType(@vk.VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT)
-  let fd_r = if has("vkGetFenceFdKHR") {
-    let r = (dfn.vkGetFenceFdKHR)(dev, fgfi, fd)
-    n = n + 1
-    r
-  } else {
-    0
+  // ---- POSIX fd import/export (Linux/POSIX only; skipped when fd extensions are absent) ----
+  let mut fd_ok = true
+  let mut imp_r = 0
+  let mut sfd_ok = true
+  let mut imps_r = 0
+  if has_fence_fd {
+    let efci = @vk.VkExportFenceCreateInfo::new()
+    efci.set_handleTypes(@vk.VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT)
+    let fci = @vk.VkFenceCreateInfo::new()
+    fci.set_pNext(efci.as_ptr())
+    let fci2 = @vk.VkFenceCreateInfo::new()
+    let fence_out = FixedArray::make(1, @vk.VkFence::null())
+    let _ = (dfn.vkCreateFence)(dev, fci, na, fence_out)
+    let fd = FixedArray::make(1, (0 : Int32))
+    let fgfi = @vk.VkFenceGetFdInfoKHR::new()
+    fgfi.set_fence(fence_out[0])
+    fgfi.set_handleType(@vk.VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT)
+    let fd_r = if has("vkGetFenceFdKHR") {
+      let r = (dfn.vkGetFenceFdKHR)(dev, fgfi, fd)
+      n = n + 1
+      r
+    } else {
+      0
+    }
+    fd_ok = fd_r == 0 && fd[0] >= 0
+    let impfence_out = FixedArray::make(1, @vk.VkFence::null())
+    let _ = (dfn.vkCreateFence)(dev, fci2, na, impfence_out)
+    let ifi = @vk.VkImportFenceFdInfoKHR::new()
+    ifi.set_fd(fd[0])
+    ifi.set_fence(impfence_out[0])
+    ifi.set_handleType(@vk.VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT)
+    ifi.set_flags(@vk.VK_FENCE_IMPORT_TEMPORARY_BIT)
+    imp_r = if has("vkImportFenceFdKHR") && fd_ok {
+      let r = (dfn.vkImportFenceFdKHR)(dev, ifi)
+      n = n + 1
+      r
+    } else {
+      0
+    }
+    if imp_r == 0 {
+      (dfn.vkDestroyFence)(dev, impfence_out[0], na)
+    }
+    (dfn.vkDestroyFence)(dev, fence_out[0], na)
   }
-  let fd_ok = fd_r == 0 && fd[0] >= 0
-  let impfence_out = FixedArray::make(1, @vk.VkFence::null())
-  let _ = (dfn.vkCreateFence)(dev, fci2, na, impfence_out)
-  let ifi = @vk.VkImportFenceFdInfoKHR::new()
-  ifi.set_fd(fd[0])
-  ifi.set_fence(impfence_out[0])
-  ifi.set_handleType(@vk.VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT)
-  ifi.set_flags(@vk.VK_FENCE_IMPORT_TEMPORARY_BIT)
-  let imp_r = if has("vkImportFenceFdKHR") && fd_ok {
-    let r = (dfn.vkImportFenceFdKHR)(dev, ifi)
-    n = n + 1
-    r
-  } else {
-    0
-  }
-  let sci3 = @vk.VkSemaphoreCreateInfo::new()
-  let esci = @vk.VkExportSemaphoreCreateInfo::new()
-  esci.set_handleTypes(@vk.VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT)
-  let sci2 = @vk.VkSemaphoreCreateInfo::new()
-  sci2.set_pNext(esci.as_ptr())
-  let sem_out = FixedArray::make(1, @vk.VkSemaphore::null())
-  let _ = (dfn.vkCreateSemaphore)(dev, sci2, na, sem_out)
-  let sfd = FixedArray::make(1, (0 : Int32))
-  let sgfi = @vk.VkSemaphoreGetFdInfoKHR::new()
-  sgfi.set_semaphore(sem_out[0])
-  sgfi.set_handleType(@vk.VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT)
-  let sfd_r = if has("vkGetSemaphoreFdKHR") {
-    let r = (dfn.vkGetSemaphoreFdKHR)(dev, sgfi, sfd)
-    n = n + 1
-    r
-  } else {
-    0
-  }
-  let sfd_ok = sfd_r == 0 && sfd[0] >= 0
-  let impsem_out = FixedArray::make(1, @vk.VkSemaphore::null())
-  let _ = (dfn.vkCreateSemaphore)(dev, sci3, na, impsem_out)
-  let isi = @vk.VkImportSemaphoreFdInfoKHR::new()
-  isi.set_fd(sfd[0])
-  isi.set_semaphore(impsem_out[0])
-  isi.set_handleType(@vk.VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT)
-  isi.set_flags(@vk.VK_SEMAPHORE_IMPORT_TEMPORARY_BIT)
-  let imps_r = if has("vkImportSemaphoreFdKHR") && sfd_ok {
-    let r = (dfn.vkImportSemaphoreFdKHR)(dev, isi)
-    n = n + 1
-    r
-  } else {
-    0
+  if has_sem_fd {
+    let sci3 = @vk.VkSemaphoreCreateInfo::new()
+    let esci = @vk.VkExportSemaphoreCreateInfo::new()
+    esci.set_handleTypes(@vk.VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT)
+    let sci2 = @vk.VkSemaphoreCreateInfo::new()
+    sci2.set_pNext(esci.as_ptr())
+    let sem_out = FixedArray::make(1, @vk.VkSemaphore::null())
+    let _ = (dfn.vkCreateSemaphore)(dev, sci2, na, sem_out)
+    let sfd = FixedArray::make(1, (0 : Int32))
+    let sgfi = @vk.VkSemaphoreGetFdInfoKHR::new()
+    sgfi.set_semaphore(sem_out[0])
+    sgfi.set_handleType(@vk.VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT)
+    let sfd_r = if has("vkGetSemaphoreFdKHR") {
+      let r = (dfn.vkGetSemaphoreFdKHR)(dev, sgfi, sfd)
+      n = n + 1
+      r
+    } else {
+      0
+    }
+    sfd_ok = sfd_r == 0 && sfd[0] >= 0
+    let impsem_out = FixedArray::make(1, @vk.VkSemaphore::null())
+    let _ = (dfn.vkCreateSemaphore)(dev, sci3, na, impsem_out)
+    let isi = @vk.VkImportSemaphoreFdInfoKHR::new()
+    isi.set_fd(sfd[0])
+    isi.set_semaphore(impsem_out[0])
+    isi.set_handleType(@vk.VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT)
+    isi.set_flags(@vk.VK_SEMAPHORE_IMPORT_TEMPORARY_BIT)
+    imps_r = if has("vkImportSemaphoreFdKHR") && sfd_ok {
+      let r = (dfn.vkImportSemaphoreFdKHR)(dev, isi)
+      n = n + 1
+      r
+    } else {
+      0
+    }
+    if imps_r == 0 {
+      (dfn.vkDestroySemaphore)(dev, impsem_out[0], na)
+    }
+    (dfn.vkDestroySemaphore)(dev, sem_out[0], na)
   }
 
-  if imp_r == 0 {
-    (dfn.vkDestroyFence)(dev, impfence_out[0], na)
-  }
-  if imps_r == 0 {
-    (dfn.vkDestroySemaphore)(dev, impsem_out[0], na)
-  }
-  (dfn.vkDestroyFence)(dev, fence_out[0], na)
-  (dfn.vkDestroySemaphore)(dev, sem_out[0], na)
   (dfn.vkDestroySampler)(dev, samp, na)
   (dfn.vkDestroyImageView)(dev, view, na)
   (dfn.vkDestroyImage)(dev, img, na)
@@ -372,6 +391,7 @@ fn main {
   (dfn.vkDestroyDevice)(dev, na)
   @vk.destroy_debug_messenger(inst, ifn, messenger)
   (ifn.vkDestroyInstance)(inst, na)
+  let min_cmds = 9 + (if has_fence_fd { 2 } else { 0 }) + (if has_sem_fd { 2 } else { 0 })
   println("[28-nv] commands=\{n} coop=\{coop_ok} of=\{of_ok} ts=\{ts_ok} ident=\{ident_ok} handle=\{handle_ok} addr=\{addr_r} combined=\{combined} fd=\{fd_ok} imp=\{imp_r} sem=\{sfd_ok} imps=\{imps_r} errors=\{g_errors.val}")
   if coop_ok &&
      of_ok &&
@@ -383,9 +403,9 @@ fn main {
      imp_r == 0 &&
      sfd_ok &&
      imps_r == 0 &&
-     n >= 13 &&
+     n >= min_cmds &&
      g_errors.val == 0 {
-    println("[28-nv] OK — \{n} NVIDIA-family commands, handles and fds verified")
+    println("[28-nv] OK — \{n} NVIDIA-family commands and handles verified")
   } else {
     println("[28-nv] FAIL — commands=\{n} errors=\{g_errors.val}")
   }
