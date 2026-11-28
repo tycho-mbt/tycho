@@ -240,6 +240,11 @@ pub fn MeshData::bounds(self : MeshData) -> @tmath.Aabb3 {
 pub suberror GeometryError {
   InvalidMesh(String)
   InvalidGltf(String)
+  // A glTF document requires an extension this parser does not implement
+  // (for example `KHR_draco_mesh_compression`). The payload is the extension
+  // name, so callers can surface an actionable message instead of rendering an
+  // empty or corrupt mesh.
+  UnsupportedExtension(String)
 }
 
 ///|

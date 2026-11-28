@@ -140,6 +140,35 @@ fn jarr(j : @json.Json, key : String) -> Array[@json.Json] {
 }
 
 ///|
+/// glTF extensions this parser implements. Per the specification, every entry
+/// in `extensionsRequired` must be understood, otherwise the asset cannot be
+/// loaded faithfully. Returning an explicit error beats silently producing a
+/// mesh with missing geometry.
+fn gltf_extension_supported(name : String) -> Bool {
+  // Core materials, animations and textures only: no optional extension is
+  // decoded yet. Add names here as decoders land (Draco/Meshopt/KTX2).
+  let _ = name
+  false
+}
+
+///|
+/// A primitive-level compression extension, if present. Some exporters emit it
+/// without listing it in `extensionsRequired`, so it is checked directly.
+fn primitive_compression_extension(pj : @json.Json) -> String? {
+  match jget(pj, "extensions") {
+    Some(exts) =>
+      if jget(exts, "KHR_draco_mesh_compression") is Some(_) {
+        Some("KHR_draco_mesh_compression")
+      } else if jget(exts, "EXT_meshopt_compression") is Some(_) {
+        Some("EXT_meshopt_compression")
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
 fn jnum_at(j : @json.Json, d : Float) -> Float {
   match j {
     Number(n, ..) => Float::from_double(n)
@@ -359,6 +388,17 @@ pub fn parse_gltf(text : String) -> GltfScene raise GeometryError {
   } catch {
     _ => raise GeometryError::InvalidGltf("document is not valid JSON")
   }
+  // `extensionsRequired` is a hard contract: a loader that does not implement
+  // one of these must refuse the asset rather than drop geometry.
+  for entry in jarr(root, "extensionsRequired") {
+    match entry {
+      String(name) =>
+        if !gltf_extension_supported(name) {
+          raise GeometryError::UnsupportedExtension(name)
+        }
+      _ => ()
+    }
+  }
   let buffers : Array[Bytes] = []
   for b in jarr(root, "buffers") {
     let uri = jstr(b, "uri", "")
@@ -446,6 +486,10 @@ pub fn parse_gltf(text : String) -> GltfScene raise GeometryError {
     let groups : Array[MeshGroup] = []
     let mut has_normals = true
     for pj in jarr(mj, "primitives") {
+      match primitive_compression_extension(pj) {
+        Some(name) => raise GeometryError::UnsupportedExtension(name)
+        None => ()
+      }
       let attrs = match jget(pj, "attributes") {
         Some(a) => a
         None => @json.Json::empty_object()

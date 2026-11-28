@@ -73,3 +73,49 @@ test "parse gltf animation" {
   need(close(ch.values[1].y, 0.70710678, eps=1.0e-4), "quat y")
   need(close(ch.values[1].w, 0.70710678, eps=1.0e-4), "quat w")
 }
+
+///|
+/// Parse `text` and return the extension name when it is rejected as
+/// unsupported, or `""` when parsing succeeded.
+fn rejected_extension(text : String) -> String {
+  try {
+    let _ = parse_gltf(text)
+    ""
+  } catch {
+    GeometryError::UnsupportedExtension(name) => name
+    _ => ""
+  }
+}
+
+///|
+test "gltf rejects required extensions it cannot decode" {
+  let text = "{\"asset\":{\"version\":\"2.0\"},\"extensionsRequired\":[\"KHR_draco_mesh_compression\"]}"
+  need(
+    rejected_extension(text) == "KHR_draco_mesh_compression",
+    "required Draco must be refused with a typed error",
+  )
+  // KTX2/Basis textures are equally undecodable today.
+  let ktx = "{\"asset\":{\"version\":\"2.0\"},\"extensionsRequired\":[\"KHR_texture_basisu\"]}"
+  need(rejected_extension(ktx) == "KHR_texture_basisu", "required KTX2 refused")
+}
+
+///|
+test "gltf rejects compressed primitives without extensionsRequired" {
+  // Some exporters forget the top-level declaration; the primitive-level
+  // extension is still a hard stop.
+  let meshopt = "{\"asset\":{\"version\":\"2.0\"},\"meshes\":[{\"primitives\":[{\"attributes\":{},\"extensions\":{\"EXT_meshopt_compression\":{}}}]}]}"
+  need(rejected_extension(meshopt) == "EXT_meshopt_compression", "meshopt refused")
+  let draco = "{\"asset\":{\"version\":\"2.0\"},\"meshes\":[{\"primitives\":[{\"attributes\":{},\"extensions\":{\"KHR_draco_mesh_compression\":{\"bufferView\":0}}}]}]}"
+  need(rejected_extension(draco) == "KHR_draco_mesh_compression", "primitive Draco refused")
+}
+
+///|
+test "gltf ignores extensionsUsed because it is not binding" {
+  // `extensionsUsed` only advertises optional data; loading must continue.
+  let text = "{\"asset\":{\"version\":\"2.0\"},\"extensionsUsed\":[\"KHR_materials_unlit\"],\"meshes\":[]}"
+  let g = parse_gltf(text)
+  need(g.meshes.length() == 0, "optional extension does not block parsing")
+  // The all-core fixture still parses.
+  let base = parse_gltf(triangle_gltf)
+  need(base.meshes.length() == 1, "core fixture unaffected")
+}

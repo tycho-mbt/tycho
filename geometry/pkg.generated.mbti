@@ -70,6 +70,7 @@ pub fn wireframe(MeshData) -> LineData
 pub suberror GeometryError {
   InvalidMesh(String)
   InvalidGltf(String)
+  UnsupportedExtension(String)
 }
 
 // Types and methods
