@@ -110,11 +110,11 @@ is not the result line.
 - A new example renders its verification frame at **800x600** (4:3) and passes exactly that size to
   the capture call, so the PNG fills the frame edge to edge.
 - `Options::capture` still letterboxes any other canvas into 800x600 (aspect preserved,
-  nearest-neighbour, centred on black). A few existing tests deliberately verify a smaller offscreen
-  target (a 32x32 sampler grid, a 256x256 MSAA resolve, the fixed-size 2D scenes at 1920x1080 /
-  960x320); their PNGs keep black bars. That is a legacy exception, not a template: for a new
-  example choose 800x600 unless the canvas size itself is what the assertions are about. Never add
-  letterboxing to an example, and do not crop or stretch to fill the frame.
+  nearest-neighbour, centred on black). The only remaining fixed canvases are the 2D scenes, which
+  are authored at 1920x1080, 960x320, 640x240 or 900x640 and keep black bars on purpose. That is a
+  legacy exception, not a template: for a new example choose 800x600 unless the canvas size itself
+  is what the assertions are about. Never add letterboxing to an example, and do not crop or
+  stretch to fill the frame.
 - Do not pick a small canvas (64x64, 128x128, 480x320) to make a test cheaper. If a check only needs
   a few samples, sample fewer coordinates while still rendering 800x600.
 - `--size` only changes the window/swapchain. Do not pass it when generating a committed

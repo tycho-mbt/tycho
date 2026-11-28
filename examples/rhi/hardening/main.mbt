@@ -158,7 +158,7 @@ fn main {
       pipe.destroy()
       sc.destroy()
     } else {
-      let rt = dev.create_render_target(400, 300, @tycho.TextureFormat::RGBA8)
+      let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
       let pipe = dev.create_graphics_pipeline(
         @tycho.PipelineDesc::new(
           vert,
@@ -189,14 +189,14 @@ fn main {
         fence.destroy()
         if f == 0 {
           pixels = rt.readback()
-          opts.capture(400, 300, pixels)
+          opts.capture(800, 600, pixels)
         }
       }
       pipe.destroy()
       rt.destroy()
     }
 
-    let c = (150 * 400 + 200) * 4
+    let c = (300 * 800 + 400) * 4
     let (r, g, b) = if is_bgra {
       (pixels[c + 2].to_int(), pixels[c + 1].to_int(), pixels[c].to_int())
     } else {

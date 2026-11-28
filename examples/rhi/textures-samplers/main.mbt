@@ -66,8 +66,8 @@ fn main {
     )
 
     // 4. RGBA16F HDR render target + RGBA8 blit destination
-    let hdr_rt = dev.create_render_target(16, 16, @tycho.TextureFormat::RGBA16F)
-    let ldr_rt = dev.create_render_target(32, 32, @tycho.TextureFormat::RGBA8)
+    let hdr_rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA16F)
+    let ldr_rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
 
     let vert = @tycho.compile_glsl(
       "examples/rhi/textures-samplers/shader.vert",
@@ -97,7 +97,7 @@ fn main {
     dev.end_commands(cmd)
 
     let px = ldr_rt.readback()
-    opts.capture(32, 32, px)
+    opts.capture(800, 600, px)
     if show_win {
       let sc = @exwin_rhi.open(dev, opts)
       while @exwin_rhi.next_frame(sc) {
@@ -105,15 +105,15 @@ fn main {
       }
       sc.destroy()
     }
-    // Left half (x=8, y=16): +Z blue + R8 green(~200) -> (0, ~200, 255)
-    let li = (16 * 32 + 8) * 4
+    // Left half (x=200, y=300): +Z blue + R8 green(~200) -> (0, ~200, 255)
+    let li = (300 * 800 + 200) * 4
     let (lr, lg, lb) = (
       px[li].to_int(),
       px[li + 1].to_int(),
       px[li + 2].to_int(),
     )
-    // Right half (x=24, y=16): +X red + R8 green(~200) -> (255, ~200, 0)
-    let ri = (16 * 32 + 24) * 4
+    // Right half (x=600, y=300): +X red + R8 green(~200) -> (255, ~200, 0)
+    let ri = (300 * 800 + 600) * 4
     let (rr, rg, rb) = (
       px[ri].to_int(),
       px[ri + 1].to_int(),

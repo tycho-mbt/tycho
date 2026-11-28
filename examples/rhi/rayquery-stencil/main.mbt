@@ -16,7 +16,7 @@ fn main {
       ),
     )
 
-    // --- 1. Stencil masking test (256x256 RGBA8 + Depth24Stencil8) ---
+    // --- 1. Stencil masking test (800x600 RGBA8 + Depth24Stencil8) ---
     let vert = @tycho.compile_glsl(
       "examples/rhi/rayquery-stencil/tri.vert",
       @tycho.ShaderStage::Vertex,
@@ -25,10 +25,10 @@ fn main {
       "examples/rhi/rayquery-stencil/tri.frag",
       @tycho.ShaderStage::Fragment,
     )
-    let rt = dev.create_render_target(256, 256, @tycho.TextureFormat::RGBA8)
+    let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
     let ds = dev.create_depth_texture_format(
-      256,
-      256,
+      800,
+      600,
       @tycho.TextureFormat::Depth24Stencil8,
     )
 
@@ -109,8 +109,8 @@ fn main {
         )
       ,
     )
-    cmd.set_viewport(0.0, 0.0, 256.0, 256.0)
-    cmd.set_scissor(0, 0, 256, 256)
+    cmd.set_viewport(0.0, 0.0, 800.0, 600.0)
+    cmd.set_scissor(0, 0, 800, 600)
     cmd.bind_vertex(0, vbuf)
     cmd.bind_pipeline(pipe_write)
     cmd.push_constants_floats(pipe_write, [(0.0 : Float), (0.0 : Float), (0.0 : Float), (1.0 : Float)])
@@ -123,8 +123,8 @@ fn main {
     dev.end_commands(cmd)
 
     let st_px = rt.readback()
-    let center_idx = (128 * 256 + 128) * 4
-    let corner_idx = (10 * 256 + 10) * 4
+    let center_idx = (300 * 800 + 400) * 4
+    let corner_idx = (10 * 800 + 10) * 4
     let stencil_ok = st_px[center_idx].to_int() > 220 &&
       st_px[center_idx + 1].to_int() > 110 &&
       st_px[corner_idx].to_int() < 5 &&
@@ -158,8 +158,8 @@ fn main {
           clear_color=@tycho.ClearColor::black(),
         ),
       ])
-      cmd2.set_viewport(0.0, 0.0, 256.0, 256.0)
-      cmd2.set_scissor(0, 0, 256, 256)
+      cmd2.set_viewport(0.0, 0.0, 800.0, 600.0)
+      cmd2.set_scissor(0, 0, 800, 600)
       cmd2.bind_vertex(0, vbuf)
       cmd2.bind_pipeline(pipe_plain)
       cmd2.push_constants_floats(pipe_plain, [(0.2 : Float), (0.9 : Float), (0.3 : Float), (1.0 : Float)])
@@ -168,9 +168,9 @@ fn main {
       dev.end_commands(cmd2)
 
       let ic_px = rt.readback()
-      // Left triangle centroid ~(x=-0.65, y=0.0) -> px ~ (44, 128); Right ~(x=0.65, y=0.0) -> px ~ (211, 128)
-      let left_idx = (128 * 256 + 44) * 4
-      let right_idx = (128 * 256 + 211) * 4
+      // Left triangle centroid ~(x=-0.65, y=0.0) -> px ~ (140, 300); Right ~(x=0.65, y=0.0) -> px ~ (660, 300)
+      let left_idx = (300 * 800 + 140) * 4
+      let right_idx = (300 * 800 + 660) * 4
       indirect_count_ok = ic_px[left_idx + 1].to_int() > 200 &&
         ic_px[right_idx + 1].to_int() < 5
     }
@@ -210,24 +210,24 @@ fn main {
         ),
       ])
       let tlas = dev.create_tlas([@tycho.RayInstanceDesc::from_affine3(blas, @tmath.Affine3::identity())])
-      let rq_img = dev.create_storage_texture(128, 128, @tycho.TextureFormat::RGBA8)
+      let rq_img = dev.create_storage_texture(800, 600, @tycho.TextureFormat::RGBA8)
 
       let ccmd = dev.begin_commands()
       ccmd.bind_pipeline(rq_pipe)
       ccmd.bind_accel_struct(rq_pipe, 0, tlas)
       ccmd.bind_storage_image(rq_pipe, 0, rq_img)
-      ccmd.dispatch(16, 16, 1)
+      ccmd.dispatch(100, 75, 1)
       ccmd.transition_for_sampling(rq_img)
       dev.end_commands(ccmd)
 
       let rpx = rq_img.readback()
-      let rq_mid = (64 * 128 + 64) * 4
-      let rq_cor = (4 * 128 + 4) * 4
+      let rq_mid = (300 * 800 + 400) * 4
+      let rq_cor = (8 * 800 + 8) * 4
       // Triangle hit has barycentric RGB > 50, miss corner is dark blue (b > r && r < 40)
       rq_ok = rpx[rq_mid].to_int() + rpx[rq_mid + 1].to_int() + rpx[rq_mid + 2].to_int() > 200 &&
         rpx[rq_cor].to_int() < 35 &&
         rpx[rq_cor + 2].to_int() > rpx[rq_cor].to_int()
-      opts.capture(128, 128, rpx)
+      opts.capture(800, 600, rpx)
       tlas.destroy()
       blas.destroy()
       rq_ibuf.destroy()
@@ -235,7 +235,7 @@ fn main {
       rq_pipe.destroy()
       Some(rq_img)
     } else {
-      opts.capture(256, 256, st_px)
+      opts.capture(800, 600, st_px)
       None
     }
 

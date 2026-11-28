@@ -101,12 +101,12 @@ fn main {
       pitch=0.3,
     )
     let fov : Float = 2.0 * @tmath.atan((1.0 : Float) / (2.1 : Float))
-    let cam = @t3d.Camera::perspective(fov, (640.0 : Float) / (480.0 : Float), near=0.1)
+    let cam = @t3d.Camera::perspective(fov, (800.0 : Float) / (600.0 : Float), near=0.1)
     let cam_node = scene.add_camera(cam, transform=orbit.transform())
 
     if !show_win {
       let rt_ok = renderer.ray_shadows_supported()
-      let rt = dev.create_render_target(640, 480, @tycho.TextureFormat::RGBA8Srgb)
+      let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8Srgb)
       renderer.render_offscreen( rt,scene, cam_node)
       let px_rt = rt.readback()
 
@@ -115,7 +115,7 @@ fn main {
       let px_plain = rt.readback()
 
       let diff = diff90(px_rt, px_plain)
-      opts.capture(640, 480, px_rt)
+      opts.capture(800, 600, px_rt)
       let errs = dev.validation_errors()
       println(
         "[3d/ray-shadow] rt_supported=\{rt_ok} rt_diff=\{diff} validation=\{errs}",

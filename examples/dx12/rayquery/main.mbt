@@ -1,17 +1,20 @@
 // dx12/rayquery — inline ray query (DXR Tier 1.1 / SM 6.5) on the DX12 backend.
 //
 // Builds a single-triangle BLAS, wraps it in a TLAS (using the BLAS GPU VA),
-// binds the TLAS as an acceleration-structure SRV at t0 alongside a 64x64 UAV
-// at u0, dispatches a SM 6.5 RayQuery compute shader, and asserts green at the
-// centre (triangle hit) and blue at the corner (miss), with 0 validation errors.
+// binds the TLAS as an acceleration-structure SRV at t0 alongside an 800x600
+// UAV at u0, dispatches a SM 6.5 RayQuery compute shader, and asserts green at
+// the centre (triangle hit) and blue at the corner (miss), with 0 validation
+// errors.
 
-const SIZE : Int = 64
+const WIDTH : Int = 800
+
+const HEIGHT : Int = 600
 
 const GROUP : Int = 8
 
 ///|
 fn pixel(px : FixedArray[Byte], x : Int, y : Int) -> (Int, Int, Int) {
-  let i = (y * SIZE + x) * 4
+  let i = (y * WIDTH + x) * 4
   if i + 3 >= px.length() {
     return (-1, -1, -1)
   }
@@ -81,7 +84,7 @@ fn main {
     ])
     let tlas = dev.create_tlas([@tycho.RayInstanceDesc::new(blas)])
 
-    let tex = dev.create_storage_texture(SIZE, SIZE, @tycho.TextureFormat::RGBA8)
+    let tex = dev.create_storage_texture(WIDTH, HEIGHT, @tycho.TextureFormat::RGBA8)
     let pipe = dev.create_compute_pipeline(
       dx12_rayquery_cs,
       0,
@@ -94,13 +97,13 @@ fn main {
     cmd.bind_pipeline(pipe)
     cmd.bind_storage_image(pipe, 0, tex)
     cmd.bind_accel_struct(pipe, 0, tlas)
-    cmd.dispatch(SIZE / GROUP, SIZE / GROUP, 1)
+    cmd.dispatch(WIDTH / GROUP, HEIGHT / GROUP, 1)
     dev.end_commands(cmd)
 
     let px = tex.readback()
-    opts.capture(SIZE, SIZE, px)
+    opts.capture(WIDTH, HEIGHT, px)
 
-    let centre = pixel(px, SIZE / 2, SIZE / 2)
+    let centre = pixel(px, WIDTH / 2, HEIGHT / 2)
     let corner = pixel(px, 0, 0)
     let hit_ok = centre.0 < 10 && centre.1 > 240 && centre.2 < 10
     let miss_ok = corner.0 < 10 && corner.1 < 10 && corner.2 > 240

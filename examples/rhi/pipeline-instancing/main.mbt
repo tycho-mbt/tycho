@@ -306,7 +306,7 @@ fn main {
       (1.0 : Float),
     ])
 
-    let rt = dev.create_render_target(200, 200, @tycho.TextureFormat::RGBA8)
+    let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
     let rt_blend = dev.create_render_target(
       180,
       60,
@@ -385,7 +385,7 @@ fn main {
     dev.end_commands(cmd)
 
     let px = rt.readback()
-    opts.capture(200, 200, px)
+    opts.capture(800, 600, px)
     if show_win {
       let sc = @exwin_rhi.open(dev, opts)
       while @exwin_rhi.next_frame(sc) {
@@ -393,11 +393,11 @@ fn main {
       }
       sc.destroy()
     }
-    let (lr, lg, lb) = sample_rgb(px, 200, 50, 100)
-    let (rr, rg, rb) = sample_rgb(px, 200, 150, 100)
+    let (lr, lg, lb) = sample_rgb(px, 800, 200, 300)
+    let (rr, rg, rb) = sample_rgb(px, 800, 600, 300)
     let mut line_ok = false
-    for ly = 12; ly <= 18; ly = ly + 1 {
-      let (pr, pg, pb) = sample_rgb(px, 200, 100, ly)
+    for ly = 36; ly <= 54; ly = ly + 1 {
+      let (pr, pg, pb) = sample_rgb(px, 800, 400, ly)
       if pr > 200 && pg > 200 && pb > 200 {
         line_ok = true
       }

@@ -27,34 +27,34 @@ fn main {
 
     let cpipe = dev.create_compute_pipeline_auto(comp_spv)
     let storage_tex = dev.create_storage_texture(
-      128,
-      128,
+      800,
+      600,
       @tycho.TextureFormat::RGBA8,
     )
     let ts = dev.create_timestamp_pool(2)
 
-    let params : FixedArray[Float] = [128.0, 128.0, 0.5, 1.0]
+    let params : FixedArray[Float] = [800.0, 600.0, 0.5, 1.0]
     let ccmd = dev.begin_commands()
     ccmd.reset_timestamps(ts)
     ccmd.write_timestamp(ts, 0, at_start=true)
     ccmd.bind_pipeline(cpipe)
     ccmd.bind_storage_image(cpipe, 0, storage_tex)
     ccmd.push_constants_floats(cpipe, params)
-    ccmd.dispatch(16, 16, 1)
+    ccmd.dispatch(100, 75, 1)
     ccmd.write_timestamp(ts, 1)
     ccmd.transition_for_sampling(storage_tex)
     dev.end_commands(ccmd)
 
     let gpu_ms = ts.elapsed_ms(0, 1)
     let px = storage_tex.readback()
-    opts.capture(128, 128, px)
+    opts.capture(800, 600, px)
     let p00_r = px[0].to_int()
     let p00_g = px[1].to_int()
     let p00_b = px[2].to_int()
-    let i_tr = 127 * 4
+    let i_tr = 799 * 4
     let p10_r = px[i_tr].to_int()
     let p10_g = px[i_tr + 1].to_int()
-    let i_bl = 127 * 128 * 4
+    let i_bl = 599 * 800 * 4
     let p01_r = px[i_bl].to_int()
     let p01_g = px[i_bl + 1].to_int()
     let grad_ok = p00_r < 15 &&
@@ -83,11 +83,11 @@ fn main {
     dev.destroy()
 
     println(
-      "[rhi/compute-storage-image] refl_ok=\{refl_ok} gpu_ms=\{gpu_ms} corners=[(0,0)=(\{p00_r},\{p00_g},\{p00_b}), (127,0)=(\{p10_r},\{p10_g}), (0,127)=(\{p01_r},\{p01_g})] frames=\{frames}",
+      "[rhi/compute-storage-image] refl_ok=\{refl_ok} gpu_ms=\{gpu_ms} corners=[(0,0)=(\{p00_r},\{p00_g},\{p00_b}), (799,0)=(\{p10_r},\{p10_g}), (0,599)=(\{p01_r},\{p01_g})] frames=\{frames}",
     )
     if refl_ok && grad_ok && gpu_ms >= 0.0 && errs == 0 {
       println(
-        "[rhi/compute-storage-image] OK — auto-reflected compute shader wrote 128x128 storage image in \{gpu_ms} ms, 0 validation errors",
+        "[rhi/compute-storage-image] OK — auto-reflected compute shader wrote an 800x600 storage image in \{gpu_ms} ms, 0 validation errors",
       )
     } else {
       println(

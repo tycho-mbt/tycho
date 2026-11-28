@@ -1,6 +1,6 @@
 # rhi/compute-storage-image
 
-Generates a 128x128 RGBA8 gradient texture on the GPU via an auto-reflected compute pipeline (`create_compute_pipeline_auto`) writing to a storage image (`create_storage_texture` / `bind_storage_image`), measures GPU execution time with `TimestampPool`, transitions it for sampling (`transition_for_sampling`), and presents it to the swapchain.
+Generates an 800x600 RGBA8 gradient texture on the GPU via an auto-reflected compute pipeline (`create_compute_pipeline_auto`) writing to a storage image (`create_storage_texture` / `bind_storage_image`), measures GPU execution time with `TimestampPool`, transitions it for sampling (`transition_for_sampling`), and presents it to the swapchain.
 
 ## Run
 

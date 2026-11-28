@@ -313,18 +313,18 @@ fn main {
       @tycho.TextureFormat::Depth24Stencil8,
     )
     let hdr_rt = dev.create_render_target(
-      256,
-      256,
+      800,
+      600,
       @tycho.TextureFormat::RGBA16F,
     )
     let scene_depth = dev.create_depth_texture_format(
-      256,
-      256,
+      800,
+      600,
       @tycho.TextureFormat::Depth32F,
     )
     let srgb_rt = dev.create_render_target(
-      256,
-      256,
+      800,
+      600,
       @tycho.TextureFormat::RGBA8Srgb,
     )
 
@@ -352,7 +352,7 @@ fn main {
     let fov_y = 2.0 * @math.atan(1.0 / 1.4)
     let cam_vp = @dmath.dperspective_rh(
         fov_y,
-        1.0,
+        (800.0 : Double) / (600.0 : Double),
         0.2,
         20.0,
         clip=@tmath.ClipSpace::Vulkan,
@@ -442,7 +442,7 @@ fn main {
     dev.end_commands(cmd)
 
     let px = srgb_rt.readback()
-    opts.capture(256, 256, px)
+    opts.capture(800, 600, px)
     if show_win {
       let sc = @exwin_rhi.open(dev, opts)
       while @exwin_rhi.next_frame(sc) {
@@ -455,15 +455,15 @@ fn main {
     //   B (-1.10, -0.50, 0.00): lit ground inside shadow frustum
     //   C (1.70, -0.50, 1.70): lit ground OUTSIDE shadow frustum (tests ClampToBorder OpaqueWhite)
     //   D (-0.25, 0.20, 0.35): occluder front face (tests Texture2DArray layer 1 upload_subregion green patch)
-    let (ax, ay, a_in) = project_px(cam_vp, @dmath.DVec3::new(0.80, -0.50, 0.00), 256, 256)
-    let (bx, by, b_in) = project_px(cam_vp, @dmath.DVec3::new(-1.10, -0.50, 0.00), 256, 256)
-    let (cx, cy, c_in) = project_px(cam_vp, @dmath.DVec3::new(1.70, -0.50, 1.70), 256, 256)
-    let (dx, dy, d_in) = project_px(cam_vp, @dmath.DVec3::new(-0.25, 0.20, 0.35), 256, 256)
+    let (ax, ay, a_in) = project_px(cam_vp, @dmath.DVec3::new(0.80, -0.50, 0.00), 800, 600)
+    let (bx, by, b_in) = project_px(cam_vp, @dmath.DVec3::new(-1.10, -0.50, 0.00), 800, 600)
+    let (cx, cy, c_in) = project_px(cam_vp, @dmath.DVec3::new(1.70, -0.50, 1.70), 800, 600)
+    let (dx, dy, d_in) = project_px(cam_vp, @dmath.DVec3::new(-0.25, 0.20, 0.35), 800, 600)
 
-    let (ar, ag, ab) = sample_rgba(px, 256, ax, ay)
-    let (br, bg, bb) = sample_rgba(px, 256, bx, by)
-    let (cr, cg, cb) = sample_rgba(px, 256, cx, cy)
-    let (dr, dg, db) = sample_rgba(px, 256, dx, dy)
+    let (ar, ag, ab) = sample_rgba(px, 800, ax, ay)
+    let (br, bg, bb) = sample_rgba(px, 800, bx, by)
+    let (cr, cg, cb) = sample_rgba(px, 800, cx, cy)
+    let (dr, dg, db) = sample_rgba(px, 800, dx, dy)
 
     let a_luma = ar + ag + ab
     let b_luma = br + bg + bb

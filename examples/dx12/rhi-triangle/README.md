@@ -31,7 +31,7 @@ moon build --target native examples/dx12/rhi-triangle
 Expected:
 
 ```
-[dx12/rhi-triangle] OK — RHI triangle on the DX12 backend (256x256, 3 frames, 3 vertex regions verified, 0 validation errors)
+[dx12/rhi-triangle] OK — RHI triangle on the DX12 backend (800x600, 3 frames, 3 vertex regions verified, 0 validation errors)
 ```
 
 Add `--window` (or `TYCHO_WINDOW=1`) to keep presenting until the window is closed or `Esc` is

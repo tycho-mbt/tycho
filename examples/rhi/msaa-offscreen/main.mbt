@@ -15,14 +15,14 @@ fn main {
     )
 
     let msaa_tex = dev.create_render_target(
-      256,
-      256,
+      800,
+      600,
       @tycho.TextureFormat::RGBA8,
       samples=@tycho.SampleCount::X4,
     )
     let resolve_tex = dev.create_render_target(
-      256,
-      256,
+      800,
+      600,
       @tycho.TextureFormat::RGBA8,
       samples=@tycho.SampleCount::X1,
     )
@@ -60,11 +60,11 @@ fn main {
     dev.end_commands(off_cmd)
 
     let resolved = resolve_tex.readback()
-    opts.capture(256, 256, resolved)
+    opts.capture(800, 600, resolved)
     let mut white = 0
     let mut black = 0
     let mut partial = 0
-    let n = 256 * 256
+    let n = 800 * 600
     for i = 0; i < n; i = i + 1 {
       let v = resolved[i * 4].to_int()
       if v > 240 {

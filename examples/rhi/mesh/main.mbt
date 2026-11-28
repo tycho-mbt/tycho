@@ -73,7 +73,7 @@ fn main {
       Float::reinterpret_from_int(1),
     ])
 
-    let rt = dev.create_render_target(200, 200, @tycho.TextureFormat::RGBA8)
+    let rt = dev.create_render_target(800, 600, @tycho.TextureFormat::RGBA8)
     let cmd = dev.begin_commands()
     cmd.begin_render_pass([
       @tycho.RenderTargetDesc::new(rt, clear_color=@tycho.ClearColor::black()),
@@ -102,7 +102,7 @@ fn main {
     dev.end_commands(cmd)
 
     let px = rt.readback()
-    opts.capture(200, 200, px)
+    opts.capture(800, 600, px)
     if show_win {
       let sc = @exwin_rhi.open(dev, opts)
       while @exwin_rhi.next_frame(sc) {
@@ -110,13 +110,13 @@ fn main {
       }
       sc.destroy()
     }
-    let li = (100 * 200 + 50) * 4
+    let li = (300 * 800 + 200) * 4
     let (lr, lg, lb) = (
       px[li].to_int(),
       px[li + 1].to_int(),
       px[li + 2].to_int(),
     )
-    let ri = (100 * 200 + 150) * 4
+    let ri = (300 * 800 + 600) * 4
     let (rr, rg, rb) = (
       px[ri].to_int(),
       px[ri + 1].to_int(),

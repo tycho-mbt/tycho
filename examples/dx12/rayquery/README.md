@@ -9,6 +9,10 @@ Inline ray query (DXR Tier 1.1 / SM 6.5) verification on the DX12 RHI backend.
 - `RayQuery<RAY_FLAG_FORCE_OPAQUE>` tracing primary rays against a single triangle: green `(0, 255, 0)` on hit at the centre pixel, blue `(0, 0, 255)` on miss at the corner pixel
 - Zero D3D12 debug-layer validation errors on both hardware and WARP
 
+## Screenshot
+
+![dx12/rayquery screenshot](./screenshot.png)
+
 ## Run
 
 ```powershell

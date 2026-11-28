@@ -1,16 +1,16 @@
 // Inline ray query (DXR Tier 1.1, SM 6.5) compute shader.
 // Traces a primary ray per pixel against the TLAS at t0 and writes green on
-// triangle hit, blue on miss into the 64x64 RWTexture2D at u0.
+// triangle hit, blue on miss into the 800x600 RWTexture2D at u0.
 
 RaytracingAccelerationStructure scene : register(t0, space0);
 RWTexture2D<float4> outTex : register(u0, space0);
 
 [numthreads(8, 8, 1)]
 void cs_main(uint3 tid : SV_DispatchThreadID) {
-  if (tid.x >= 64 || tid.y >= 64) {
+  if (tid.x >= 800 || tid.y >= 600) {
     return;
   }
-  float2 uv = (float2(tid.xy) + 0.5) / 64.0 * 2.0 - 1.0;
+  float2 uv = (float2(tid.xy) + 0.5) / float2(800.0, 600.0) * 2.0 - 1.0;
 
   RayDesc ray;
   ray.Origin = float3(uv.x, -uv.y, -1.0);
