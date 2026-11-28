@@ -71,6 +71,12 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
 - Physical sheen: `MaterialDesc::with_sheen(color, roughness=...)` adds the
   glTF `KHR_materials_sheen` Charlie/Ashikhmin grazing lobe to the direct and
   environment terms; a zero colour disables it (material SSBO 64 → 80 bytes).
+- Thin-film iridescence: `MaterialDesc::with_iridescence(1.0, ior=1.35,
+  thickness_nm=380)` evaluates two-beam (Airy) interference at the R/G/B
+  wavelengths per pixel and blends the view-dependent reflectance into the
+  specular F0 of both the direct and environment terms. A perfect mirror
+  correctly shows no tint, since it reflects all light; dielectrics with a dark
+  base show the soap-bubble shift (`3d/iridescence`).
 - Screen-space transmission: `MaterialDesc::with_transmission(0.92, ior=1.45)`
   draws the mesh in a second pass against a copy of the already-shaded scene and
   refracts that view by `ior`, so the background is genuinely displaced instead
@@ -246,6 +252,7 @@ let clock = @t3d.Clock::new()
 | `new MeshStandardMaterial({ color: 0xff8800 })` | `MaterialDesc::standard(hex(0xFF8800))` |
 | `new MeshBasicMaterial(...)` | `MaterialDesc::basic(...)` |
 | `material.transmission = 0.9; material.ior = 1.45` | `MaterialDesc::with_transmission(0.9, ior=1.45)` |
+| `material.iridescence = 1; iridescenceThicknessRange = [380, 380]` | `MaterialDesc::with_iridescence(1.0, thickness_nm=380)` |
 | `SSAOPass` (addon) | `RendererDesc::with_ssao(true)` + `set_ssao_intensity` |
 | `TAARenderPass` (addon) | `RendererDesc::with_taa(true)` + `reset_taa` |
 | `new Color(0xff8800)` / `setHSL` | `hex(0xFF8800)` / `hsl(deg, s, l)` → linear `Vec4` |
