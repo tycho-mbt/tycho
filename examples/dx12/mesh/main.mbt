@@ -56,6 +56,11 @@ fn main {
         backend=@tycho.BackendKind::Dx12,
       ),
     )
+    if !dev.capabilities().supports_mesh_shader {
+      println("[dx12/mesh] SKIP — adapter does not support mesh shaders")
+      dev.destroy()
+      return
+    }
     let rt = dev.create_render_target(SIZE, SIZE, @tycho.TextureFormat::RGBA8)
     let pipe = dev.create_mesh_pipeline(
       @tycho.MeshPipelineDesc::new(shader_ms_dxil, shader_fs_dxil),
