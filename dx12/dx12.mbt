@@ -19,6 +19,16 @@ extern "c" fn env_requests_warp_ffi() -> Int32 = "tycho_dx12_env_requests_warp"
 #borrow(values)
 extern "c" fn int32_ptr_ffi(values : FixedArray[Int32]) -> UInt64 = "tycho_dx12_as_ptr"
 
+#borrow(values)
+extern "c" fn bytes_ptr_ffi(values : FixedArray[Byte]) -> UInt64 = "tycho_dx12_as_ptr"
+
+#borrow(values)
+extern "c" fn int64_ptr_ffi(values : FixedArray[Int64]) -> UInt64 = "tycho_dx12_as_ptr"
+
+extern "c" fn com_add_ref_ffi(obj : UInt64) -> UInt64 = "tycho_dx12_com_add_ref"
+
+extern "c" fn com_release_ffi(obj : UInt64) -> UInt64 = "tycho_dx12_com_release"
+
 extern "c" fn device_create_ffi(use_warp : Int, debug : Int) -> UInt64 = "tycho_dx12_device_create"
 
 extern "c" fn device_destroy_ffi(dev : UInt64) = "tycho_dx12_device_destroy"
@@ -234,6 +244,36 @@ pub fn env_requests_warp() -> Bool {
 /// Data pointer of an `Int32` array, for the raw generated-dispatch ABI.
 pub fn int32_ptr(values : FixedArray[Int32]) -> UInt64 {
   int32_ptr_ffi(values)
+}
+
+///|
+/// Data pointer of a `Byte` array, for marshalling raw structs into the
+/// generated-dispatch ABI (a by-value struct arrives as a pointer to its bytes).
+pub fn bytes_ptr(values : FixedArray[Byte]) -> UInt64 {
+  bytes_ptr_ffi(values)
+}
+
+///|
+/// Data pointer of an `Int64` array, for raw `void **` out-parameters and
+/// 64-bit struct fields in the generated-dispatch ABI.
+pub fn int64_ptr(values : FixedArray[Int64]) -> UInt64 {
+  int64_ptr_ffi(values)
+}
+
+///|
+/// `IUnknown::AddRef` on a raw COM object from the generated dispatch layer.
+/// Returns the new reference count. The manifest omits the IUnknown methods, so
+/// these helpers are the lifetime boundary for raw-dispatch callers.
+pub fn com_add_ref(obj : UInt64) -> UInt64 {
+  com_add_ref_ffi(obj)
+}
+
+///|
+/// `IUnknown::Release` on a raw COM object from the generated dispatch layer.
+/// Returns the new reference count. Release every object a generated `Create*`
+/// method hands back once the GPU is done with it.
+pub fn com_release(obj : UInt64) -> UInt64 {
+  com_release_ffi(obj)
 }
 
 ///|

@@ -348,6 +348,19 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_as_ptr(const void *p) {
   return (uint64_t)(uintptr_t)p;
 }
 
+// IUnknown lifetime for raw COM objects handed out by the generated dispatch
+// layer (the manifest deliberately omits QueryInterface/AddRef/Release). Every
+// COM vtable begins with IUnknown, so slot 1 is AddRef and slot 2 is Release.
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_com_add_ref(uint64_t obj) {
+  IUnknown *u = (IUnknown *)(uintptr_t)obj;
+  return u ? (uint64_t)u->lpVtbl->AddRef(u) : 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_com_release(uint64_t obj) {
+  IUnknown *u = (IUnknown *)(uintptr_t)obj;
+  return u ? (uint64_t)u->lpVtbl->Release(u) : 0;
+}
+
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_env_requests_warp(void) {
   const char *e = getenv("TYCHO_DX12_WARP");
   return (e && (strcmp(e, "1") == 0 || strcmp(e, "true") == 0 || strcmp(e, "yes") == 0)) ? 1 : 0;
@@ -3565,6 +3578,16 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_last_error(void) { return 0; }
 
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_as_ptr(const void *p) {
   return (uint64_t)(uintptr_t)p;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_com_add_ref(uint64_t obj) {
+  (void)obj;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_com_release(uint64_t obj) {
+  (void)obj;
+  return 0;
 }
 
 MOONBIT_FFI_EXPORT int32_t tycho_dx12_env_requests_warp(void) { return 0; }
