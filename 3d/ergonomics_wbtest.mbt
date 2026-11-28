@@ -557,3 +557,21 @@ test "ssao descriptor is mutually exclusive with msaa" {
   // Turning SSAO off leaves MSAA as it was (off, because with_ssao cleared it).
   need(!off.msaa, "msaa stays off after toggling ssao")
 }
+
+///|
+test "taa descriptor and jitter" {
+  let d = RendererDesc::default().with_taa(true)
+  need(d.taa, "taa enabled")
+  // TAA and SSAO can coexist; SSAO keeps forcing single-sample depth.
+  let both = d.with_ssao(true)
+  need(both.taa && both.ssao && !both.msaa, "taa + ssao")
+  let off = d.with_taa(false)
+  need(!off.taa, "taa disabled")
+  // A 4 px x 2 px shift on a 800x600 identity projection becomes an NDC
+  // translation of 2*4/800 and 2*2/600 in clip space.
+  let j = jitter_view_proj(@tmath.Mat4::identity(), (4.0 : Float), (2.0 : Float), 800, 600)
+  let origin = j.mul_vec4(@tmath.Vec4::new(0.0, 0.0, 0.0, 1.0))
+  need(close(origin.x, (0.01 : Float), eps=1.0e-6), "jitter x")
+  need(close(origin.y, (2.0 * 2.0) / (600.0 : Float), eps=1.0e-6), "jitter y")
+  need(close(origin.z, (0.0 : Float)) && close(origin.w, (1.0 : Float)), "jitter keeps z/w")
+}

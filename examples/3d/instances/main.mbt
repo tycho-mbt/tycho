@@ -32,6 +32,7 @@ fn main {
       gpu_culling: false,
       bindless: true,
       ssao: false,
+      taa: false,
     }
     let renderer = @t3d.Renderer3D::new(dev, desc=desc)
     let scene = @t3d.Scene::new()

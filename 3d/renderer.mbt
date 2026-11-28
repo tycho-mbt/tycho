@@ -20,6 +20,9 @@ pub(all) struct RendererDesc {
   // Screen-space ambient occlusion. Requires a single-sample depth buffer, so
   // enabling it forces MSAA off.
   ssao : Bool
+  // Temporal anti-aliasing: sub-pixel projection jitter plus a reprojected
+  // history buffer resolved before bloom/tonemap.
+  taa : Bool
 }
 
 ///|
@@ -37,6 +40,7 @@ pub fn RendererDesc::default() -> RendererDesc {
     gpu_culling: false,
     bindless: true,
     ssao: false,
+    taa: false,
   }
 }
 
@@ -61,6 +65,14 @@ pub fn RendererDesc::with_ssao(self : RendererDesc, on : Bool) -> RendererDesc {
 ///|
 pub fn RendererDesc::with_msaa(self : RendererDesc, on : Bool) -> RendererDesc {
   { ..self, msaa: on && !self.ssao }
+}
+
+///|
+/// Enable temporal anti-aliasing. TAA jitters the projection every frame and
+/// resolves against a reprojected history buffer; it composes with MSAA but is
+/// cheapest with it off.
+pub fn RendererDesc::with_taa(self : RendererDesc, on : Bool) -> RendererDesc {
+  { ..self, taa: on }
 }
 
 const OBJECT_FLOATS : Int = 40
@@ -102,6 +114,51 @@ const SSAO_FLOATS : Int = 40
 
 const SSAO_BYTES : Int = 160
 
+// TAA UBO: invViewProj + prevViewProj (2 mat4), params (1 vec4).
+const TAA_FLOATS : Int = 36
+
+const TAA_BYTES : Int = 144
+
+///|
+/// Halton(2,3) phase `index` centred around zero, in pixels.
+fn taa_jitter(index : Int) -> (Float, Float) {
+  match index % 8 {
+    0 => (0.0, -0.167)
+    1 => (-0.25, 0.167)
+    2 => (0.25, -0.389)
+    3 => (-0.375, -0.056)
+    4 => (0.125, 0.278)
+    5 => (-0.125, -0.278)
+    6 => (0.375, 0.056)
+    _ => (-0.4375, 0.389)
+  }
+}
+
+///|
+/// Shift a view-projection by `(jx, jy)` pixels in NDC. Adding an NDC offset
+/// means adding `t * row3` to rows 0 and 1, which in this column-major layout
+/// updates the `.x` / `.y` component of every column.
+fn jitter_view_proj(
+  vp : @tmath.Mat4,
+  jx : Float,
+  jy : Float,
+  w : Int,
+  h : Int,
+) -> @tmath.Mat4 {
+  let tx : Float = 2.0 * jx / f_of_int(w)
+  let ty : Float = 2.0 * jy / f_of_int(h)
+  let x = vp.x_axis
+  let y = vp.y_axis
+  let z = vp.z_axis
+  let ww = vp.w_axis
+  {
+    x_axis: @tmath.Vec4::new(x.x + tx * x.w, x.y + ty * x.w, x.z, x.w),
+    y_axis: @tmath.Vec4::new(y.x + tx * y.w, y.y + ty * y.w, y.z, y.w),
+    z_axis: @tmath.Vec4::new(z.x + tx * z.w, z.y + ty * z.w, z.z, z.w),
+    w_axis: @tmath.Vec4::new(ww.x + tx * ww.w, ww.y + ty * ww.w, ww.z, ww.w),
+  }
+}
+
 ///|
 priv struct FrameTargets {
   w : Int
@@ -115,6 +172,9 @@ priv struct FrameTargets {
   // SSAO raw + blurred results; present only when SSAO is enabled.
   ao_a : @tycho.Texture?
   ao_b : @tycho.Texture?
+  // TAA ping-pong history, present only when TAA is enabled.
+  taa_a : @tycho.Texture?
+  taa_b : @tycho.Texture?
   bloom_a : @tycho.Texture
   bloom_b : @tycho.Texture
 }
@@ -277,6 +337,17 @@ pub struct Renderer3D {
   priv ssao_blur_pipe : @tycho.Pipeline
   priv ssao_writer : @tmath.GpuPackWriter
   priv depth_sampler : @tycho.Sampler
+  // Temporal anti-aliasing state.
+  priv taa : Bool
+  priv mut taa_frame : Int
+  priv mut taa_history_weight : Float
+  priv mut taa_valid : Bool
+  priv mut taa_read : Int
+  priv mut prev_view_proj : @tmath.Mat4
+  priv taa_ubo : @tycho.Buffer
+  priv taa_pipe : @tycho.Pipeline
+  priv taa_writer : @tmath.GpuPackWriter
+  priv taa_sampler : @tycho.Sampler
   priv gpu_culling : Bool
   priv cull_pipe : @tycho.Pipeline?
   priv pbr_cull_pipe : @tycho.Pipeline?
@@ -902,6 +973,26 @@ pub fn Renderer3D::new(
     @tycho.BufferKind::Uniform,
     location=@tycho.MemoryLocation::CpuToGpu,
   )
+  let taa_pipe = dev.create_graphics_pipeline(
+    @tycho.PipelineDesc::from_spirv(
+      spv_fullscreen_vert,
+      spv_taa_frag,
+      color_format=@tycho.TextureFormat::RGBA16F,
+    ),
+  )
+  let taa_sampler = dev.create_sampler_desc(
+    @tycho.SamplerDesc::new(
+      mag=@tycho.Filter::Linear,
+      min=@tycho.Filter::Linear,
+      mipmap=@tycho.Filter::Nearest,
+      address=@tycho.AddressMode::ClampToEdge,
+    ),
+  )
+  let taa_ubo = dev.create_buffer_with(
+    TAA_BYTES,
+    @tycho.BufferKind::Uniform,
+    location=@tycho.MemoryLocation::CpuToGpu,
+  )
   let mut cull_pipe : @tycho.Pipeline? = None
   let mut pbr_cull_pipe : @tycho.Pipeline? = None
   let cull_vis : Array[@tycho.Buffer] = []
@@ -1120,6 +1211,16 @@ pub fn Renderer3D::new(
     ssao_blur_pipe,
     ssao_writer: @tmath.GpuPackWriter::std140(SSAO_FLOATS),
     depth_sampler,
+    taa: desc.taa,
+    taa_frame: 0,
+    taa_history_weight: 0.9,
+    taa_valid: false,
+    taa_read: 0,
+    prev_view_proj: @tmath.Mat4::identity(),
+    taa_ubo,
+    taa_pipe,
+    taa_writer: @tmath.GpuPackWriter::std140(TAA_FLOATS),
+    taa_sampler,
     gpu_culling: desc.gpu_culling && bindless_ok,
     cull_pipe,
     pbr_cull_pipe,
@@ -1660,6 +1761,14 @@ fn Renderer3D::destroy_targets(targets : FrameTargets) -> Unit {
     Some(t) => t.destroy()
     None => ()
   }
+  match targets.taa_a {
+    Some(t) => t.destroy()
+    None => ()
+  }
+  match targets.taa_b {
+    Some(t) => t.destroy()
+    None => ()
+  }
   targets.bloom_a.destroy()
   targets.bloom_b.destroy()
 }
@@ -1673,6 +1782,10 @@ fn Renderer3D::create_targets(self : Renderer3D, w : Int, h : Int) -> FrameTarge
   } else {
     @tycho.SampleCount::X1
   }
+  // New targets mean a new depth/colour history: drop the TAA accumulation.
+  self.taa_valid = false
+  self.taa_frame = 0
+  self.taa_read = 0
   {
     w,
     h,
@@ -1701,6 +1814,16 @@ fn Renderer3D::create_targets(self : Renderer3D, w : Int, h : Int) -> FrameTarge
     },
     ao_b: if self.ssao {
       Some(self.dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8))
+    } else {
+      None
+    },
+    taa_a: if self.taa {
+      Some(self.dev.create_render_target(w, h, @tycho.TextureFormat::RGBA16F))
+    } else {
+      None
+    },
+    taa_b: if self.taa {
+      Some(self.dev.create_render_target(w, h, @tycho.TextureFormat::RGBA16F))
     } else {
       None
     },
@@ -2200,10 +2323,22 @@ fn Renderer3D::render_frame(
     Some(v) => v
     None => raise Render3DError::InvalidCamera("Renderer3D: camera matrix is singular")
   }
+  // TAA rasterises with a sub-pixel jitter; every scene-pass consumer uses the
+  // jittered matrix, while reprojection keeps the unjittered one.
+  let jitter = if self.taa {
+    taa_jitter(self.taa_frame)
+  } else {
+    ((0.0 : Float), (0.0 : Float))
+  }
+  let render_vp = if self.taa {
+    jitter_view_proj(vp, jitter.0, jitter.1, w, h)
+  } else {
+    vp
+  }
   let eye = cam_world.translation
   let targets = self.ensure_targets(w, h)
   let (light_nodes, shadow_dir) = self.collect_lights(scene)
-  let frustum = @tmath.Frustum::from_view_proj(vp)
+  let frustum = @tmath.Frustum::from_view_proj(render_vp)
   let mut gpu_cull_enabled = match self.cull_pipe {
     Some(_) => self.gpu_culling
     None => false
@@ -2493,7 +2628,7 @@ fn Renderer3D::render_frame(
   let light_vp1 = @tmath.Mat4::identity()
   let cascade_split : Float = 1.0e9
   self.frame_writer.reset()
-  self.frame_writer.push_mat4(vp)
+  self.frame_writer.push_mat4(render_vp)
   self.frame_writer.push_mat4(light_vp0)
   self.frame_writer.push_mat4(light_vp1)
   self.frame_writer.push_vec3_padded(eye)
@@ -3302,6 +3437,76 @@ fn Renderer3D::render_frame(
     )
   }
 
+  // TAA resolve: blend the jittered frame with a reprojected history buffer.
+  // Runs before SSAO/bloom so the post chain sees the accumulated image.
+  let mut post_src = resolved
+  if self.taa {
+    match (targets.taa_a, targets.taa_b) {
+      (Some(a), Some(b)) => {
+        let read = if self.taa_read == 0 { a } else { b }
+        let write = if self.taa_read == 0 { b } else { a }
+        let inv_vp = match @tmath.invert_view_proj(render_vp) {
+          Some(m) => m
+          None => @tmath.Mat4::identity()
+        }
+        self.taa_writer.reset()
+        self.taa_writer.push_mat4(inv_vp)
+        self.taa_writer.push_mat4(self.prev_view_proj)
+        self.taa_writer.push_vec4(
+          @tmath.Vec4::new(
+            self.taa_history_weight,
+            if self.taa_valid { 1.0 } else { 0.0 },
+            0.0,
+            0.0,
+          ),
+        )
+        self.taa_ubo.upload_floats(self.taa_writer.buffer(), count=TAA_FLOATS)
+        cmd.transition_for_sampling(targets.depth)
+        if !self.taa_valid {
+          // The history target was never written; move it out of UNDEFINED so
+          // the descriptor is legal even though the shader skips it.
+          cmd.transition_for_sampling(read)
+        }
+        cmd.render_pass(
+          [
+            @tycho.RenderTargetDesc::new(
+              write,
+              load_op=@tycho.LoadOp::Clear,
+              store_op=@tycho.StoreOp::Store,
+              clear_color=@tycho.ClearColor::black(),
+            ),
+          ],
+          fn(pass) {
+            pass.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
+            pass.set_scissor(0, 0, w, h)
+            pass.bind_pipeline(self.taa_pipe)
+            pass.bind_uniform(
+              self.taa_pipe,
+              0,
+              self.taa_ubo,
+              offset=0,
+              size=TAA_BYTES,
+            )
+            pass.bind_texture(self.taa_pipe, 0, resolved, self.taa_sampler)
+            pass.bind_texture(self.taa_pipe, 1, read, self.taa_sampler)
+            pass.bind_texture(self.taa_pipe, 2, targets.depth, self.depth_sampler)
+            pass.draw(3, 1)
+          },
+        )
+        self.taa_read = 1 - self.taa_read
+        self.taa_valid = true
+        post_src = write
+        self.stats.draw_calls = self.stats.draw_calls + 1
+      }
+      _ => ()
+    }
+    // Next frame's history was rasterised with THIS frame's jittered matrix,
+    // so reprojection must use the jittered VP to land on the same world
+    // point; using the unjittered one would bias the history by the jitter.
+    self.prev_view_proj = render_vp
+    self.taa_frame = self.taa_frame + 1
+  }
+
   // SSAO: reconstruct positions from depth, accumulate hemisphere occlusion,
   // then box-blur the noisy result. Runs before bloom so the bloom source stays
   // untouched; the tonemap pass multiplies the blurred AO into the image.
@@ -3309,12 +3514,12 @@ fn Renderer3D::render_frame(
   if self.ssao {
     match (targets.ao_a, targets.ao_b) {
       (Some(ssao_rt), Some(blur_rt)) => {
-        let inv_vp = match @tmath.invert_view_proj(vp) {
+        let inv_vp = match @tmath.invert_view_proj(render_vp) {
           Some(m) => m
           None => @tmath.Mat4::identity()
         }
         self.ssao_writer.reset()
-        self.ssao_writer.push_mat4(vp)
+        self.ssao_writer.push_mat4(render_vp)
         self.ssao_writer.push_mat4(inv_vp)
         self.ssao_writer.push_vec3_padded(eye)
         self.ssao_writer.push_float(self.ssao_radius)
@@ -3393,7 +3598,7 @@ fn Renderer3D::render_frame(
   }
 
   // Bloom chain.
-  let mut bloom_result = resolved
+  let mut bloom_result = post_src
   if self.desc.bloom {
     let bw = targets.bloom_a.width()
     let bh = targets.bloom_a.height()
@@ -3410,7 +3615,7 @@ fn Renderer3D::render_frame(
       pass.set_viewport(0.0, 0.0, f_of_int(bw), f_of_int(bh))
       pass.set_scissor(0, 0, bw, bh)
       pass.bind_pipeline(self.bloom_extract_pipe)
-      pass.bind_texture(self.bloom_extract_pipe, 0, resolved, self.linear_sampler)
+      pass.bind_texture(self.bloom_extract_pipe, 0, post_src, self.linear_sampler)
       pass.draw(3, 1)
     
   },
@@ -3484,7 +3689,7 @@ fn Renderer3D::render_frame(
     pass.set_viewport(0.0, 0.0, f_of_int(w), f_of_int(h))
     pass.set_scissor(0, 0, w, h)
     pass.bind_pipeline(tm_pipe)
-    pass.bind_texture(tm_pipe, 0, resolved, self.linear_sampler)
+    pass.bind_texture(tm_pipe, 0, post_src, self.linear_sampler)
     pass.bind_texture(tm_pipe, 1, bloom_result, self.linear_sampler)
     // 1x1 white when SSAO is off, so the shader path stays identical.
     let ao_bind = match ao_texture {
@@ -3678,6 +3883,9 @@ pub fn Renderer3D::destroy(self : Renderer3D) -> Unit {
   self.ssao_blur_pipe.destroy()
   self.ssao_ubo.destroy()
   self.depth_sampler.destroy()
+  self.taa_pipe.destroy()
+  self.taa_ubo.destroy()
+  self.taa_sampler.destroy()
   self.bloom_blur_pipe.destroy()
   self.bloom_extract_pipe.destroy()
   self.sky_pipe.destroy()

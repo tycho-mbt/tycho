@@ -516,6 +516,7 @@ pub fn Renderer3D::release_node(Self, NodeId) -> Unit
 pub fn Renderer3D::render_offscreen(Self, @tycho.Texture, Scene, CameraId) -> Unit raise
 pub fn Renderer3D::render_swapchain(Self, @tycho.Swapchain, Scene, CameraId) -> Unit raise
 pub fn Renderer3D::render_swapchain_into(Self, @tycho.CommandBuffer, @tycho.Swapchain, Scene, CameraId) -> Unit raise
+pub fn Renderer3D::reset_taa(Self) -> Unit
 pub fn Renderer3D::set_background(Self, @tycho_math.Vec4) -> Unit
 pub fn Renderer3D::set_environment(Self, @tycho.Texture, @tycho_math.Vec3, intensity? : Float) -> Unit
 pub fn Renderer3D::set_fog(Self, Fog) -> Unit
@@ -525,9 +526,14 @@ pub fn Renderer3D::set_ray_shadows(Self, Bool) -> Unit
 pub fn Renderer3D::set_ssao_bias(Self, Float) -> Unit
 pub fn Renderer3D::set_ssao_intensity(Self, Float) -> Unit
 pub fn Renderer3D::set_ssao_radius(Self, Float) -> Unit
+pub fn Renderer3D::set_taa_history_weight(Self, Float) -> Unit
 pub fn Renderer3D::ssao_enabled(Self) -> Bool
 pub fn Renderer3D::ssao_intensity(Self) -> Float
 pub fn Renderer3D::stats(Self) -> RenderStats3D
+pub fn Renderer3D::taa_enabled(Self) -> Bool
+pub fn Renderer3D::taa_frame_number(Self) -> Int32
+pub fn Renderer3D::taa_history_valid(Self) -> Bool
+pub fn Renderer3D::taa_history_weight(Self) -> Float
 pub fn Renderer3D::texture_count(Self) -> Int32
 pub fn Renderer3D::update_material(Self, MaterialHandle, MaterialDesc) -> Unit raise
 pub fn Renderer3D::upload_lines(Self, @tycho_geometry.LineData) -> LineHandle raise
@@ -546,12 +552,14 @@ pub(all) struct RendererDesc {
   shadows : Bool
   shadow_map_size : Int32
   ssao : Bool
+  taa : Bool
 }
 pub fn RendererDesc::default() -> Self
 pub fn RendererDesc::with_bindless(Self, Bool) -> Self
 pub fn RendererDesc::with_msaa(Self, Bool) -> Self
 pub fn RendererDesc::with_shadows(Self, Bool) -> Self
 pub fn RendererDesc::with_ssao(Self, Bool) -> Self
+pub fn RendererDesc::with_taa(Self, Bool) -> Self
 
 pub struct Scene {
   // private fields

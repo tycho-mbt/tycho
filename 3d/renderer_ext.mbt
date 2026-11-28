@@ -175,6 +175,48 @@ pub fn Renderer3D::ssao_intensity(self : Renderer3D) -> Float {
 }
 
 ///|
+/// `true` when the renderer was created with `RendererDesc::with_taa(true)`.
+pub fn Renderer3D::taa_enabled(self : Renderer3D) -> Bool {
+  self.taa
+}
+
+///|
+/// Drop the TAA history. Call after a camera cut or a teleport so the old
+/// frame cannot bleed into the new view.
+pub fn Renderer3D::reset_taa(self : Renderer3D) -> Unit {
+  self.taa_valid = false
+  self.taa_frame = 0
+  self.taa_read = 0
+}
+
+///|
+/// History blend weight in `[0, 1]` (default 0.9). Higher values smooth more
+/// but ghost more; `0` effectively disables accumulation.
+pub fn Renderer3D::set_taa_history_weight(
+  self : Renderer3D,
+  weight : Float,
+) -> Unit {
+  self.taa_history_weight = @tmath.clamp_f(weight, 0.0, 0.99)
+}
+
+///|
+pub fn Renderer3D::taa_history_weight(self : Renderer3D) -> Float {
+  self.taa_history_weight
+}
+
+///|
+/// Number of TAA frames accumulated since the last reset.
+pub fn Renderer3D::taa_frame_number(self : Renderer3D) -> Int {
+  self.taa_frame
+}
+
+///|
+/// `true` once a history frame exists.
+pub fn Renderer3D::taa_history_valid(self : Renderer3D) -> Bool {
+  self.taa_valid
+}
+
+///|
 /// The material description behind a handle, for editors and debug UIs.
 pub fn Renderer3D::material(
   self : Renderer3D,

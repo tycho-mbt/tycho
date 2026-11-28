@@ -121,6 +121,7 @@ fn main {
       gpu_culling: false,
       bindless: true,
       ssao: false,
+      taa: false,
     }
     let desc_plain : @t3d.RendererDesc = {
       max_objects: 4096,
@@ -135,6 +136,7 @@ fn main {
       gpu_culling: false,
       bindless: true,
       ssao: false,
+      taa: false,
     }
     let r_msaa = @t3d.Renderer3D::new(dev, desc=desc_msaa)
     let r_plain = @t3d.Renderer3D::new(dev, desc=desc_plain)

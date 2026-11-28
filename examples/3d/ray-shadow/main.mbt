@@ -46,6 +46,7 @@ fn main {
       gpu_culling: false,
       bindless: true,
       ssao: false,
+      taa: false,
     }
     let renderer = @t3d.Renderer3D::new(dev, desc=desc)
     // Opt in: other scenes keep map shadows only.
