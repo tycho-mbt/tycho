@@ -15,6 +15,7 @@ EXAMPLES=(
   3d/transmission
   3d/ssao
   3d/taa
+  3d/iridescence
   geometry/primitives
   3d/instances
   3d/textures
