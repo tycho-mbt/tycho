@@ -5,7 +5,9 @@
 //  2. storage buffer      -> UAV buffer written by compute and read back
 //  3. GPU-side draw count -> `ExecuteIndirect` with a count buffer
 
-const SIZE : Int = 64
+const WIDTH : Int = 800
+
+const HEIGHT : Int = 600
 
 // 0.2, 0.6, 0.9, 1.0 in 8-bit terms; the shader writes the tint verbatim.
 const TINT_R : Int = 51
@@ -18,7 +20,7 @@ const STORAGE_FLOATS : Int = 64
 
 ///|
 fn pixel(px : FixedArray[Byte], x : Int, y : Int) -> (Int, Int, Int) {
-  let i = (y * SIZE + x) * 4
+  let i = (y * WIDTH + x) * 4
   if i + 3 >= px.length() {
     return (-1, -1, -1)
   }
@@ -61,7 +63,7 @@ fn main {
         backend=@tycho.BackendKind::Dx12,
       ),
     )
-    let rt = dev.create_render_target(SIZE, SIZE, @tycho.TextureFormat::RGBA8)
+    let rt = dev.create_render_target(WIDTH, HEIGHT, @tycho.TextureFormat::RGBA8)
     let pipe = dev.create_graphics_pipeline(
       @tycho.PipelineDesc::new(
         shader_vs_dxil,
@@ -82,8 +84,8 @@ fn main {
     cmd.end_render_pass()
     dev.end_commands(cmd)
     let push_px = rt.readback()
-    opts.capture(SIZE, SIZE, push_px)
-    let push_centre = pixel(push_px, SIZE / 2, SIZE / 2)
+    opts.capture(WIDTH, HEIGHT, push_px)
+    let push_centre = pixel(push_px, WIDTH / 2, HEIGHT / 2)
     let push_ok = near(push_centre, TINT_R, TINT_G, TINT_B, 8)
 
     // 2. GPU-side count: the same draw args, first with count 0 (nothing must be
@@ -102,7 +104,7 @@ fn main {
       pass.end_render_pass()
       dev.end_commands(pass)
       let px = rt.readback()
-      let centre = pixel(px, SIZE / 2, SIZE / 2)
+      let centre = pixel(px, WIDTH / 2, HEIGHT / 2)
       if expected == 0 {
         // Nothing was drawn: the clear colour must survive.
         count_ok = count_ok && near(centre, 13, 13, 26, 6)

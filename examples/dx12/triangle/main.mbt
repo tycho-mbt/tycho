@@ -11,9 +11,9 @@
 // WARP so a GPU-less CI runner exercises exactly the same binary.
 // Non-Windows hosts report SKIP.
 
-const CANVAS_W : Int = 128
+const CANVAS_W : Int = 800
 
-const CANVAS_H : Int = 128
+const CANVAS_H : Int = 600
 
 const CLEAR_R : Float = 0.1
 

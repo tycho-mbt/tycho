@@ -27,11 +27,11 @@ $env:TYCHO_DX12_WARP = "1"
 Expected (default is headless offscreen verification, so it runs on a CI runner):
 
 ```
-[dx12/triangle] OK — D3D12 offscreen triangle (128x128, 1 frame(s), adapter=hardware, shader model 6.7, clear + 3 vertex regions verified, 0 validation errors)
+[dx12/triangle] OK — D3D12 offscreen triangle (800x600, 1 frame(s), adapter=hardware, shader model 6.7, clear + 3 vertex regions verified, 0 validation errors)
 [dx12/triangle] SKIP — d3d12.dll / dxgi.dll not loadable on this host        # non-Windows
 ```
 
-Add `--window` (or set `TYCHO_WINDOW=1`) to present the same triangle in a 480x320 Win32 window
+Add `--window` (or set `TYCHO_WINDOW=1`) to present the same triangle in an 800x600 Win32 window
 through a DXGI flip-model swapchain; close the window to exit. Add `--screenshot <path>` (or set
 `TYCHO_SCREENSHOT`) to write the verified frame as PNG — the file is taken from whichever path ran,
 so `--window --screenshot out.png` captures a presented back buffer.

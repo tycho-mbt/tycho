@@ -8,6 +8,6 @@ RWTexture2D<float4> output_texture : register(u0, space0);
 [shader("compute")]
 [numthreads(8, 8, 1)]
 void computeMain(uint3 thread_id : SV_DispatchThreadID) {
-  float2 uv = float2(thread_id.xy) / 64.0;
+  float2 uv = float2(thread_id.xy) / float2(800.0, 600.0);
   output_texture[thread_id.xy] = float4(uv.x, uv.y, 0.5, 1.0);
 }

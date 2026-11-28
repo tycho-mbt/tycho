@@ -40,7 +40,7 @@ moon build --target native examples/dx12/geometry
 Expected:
 
 ```
-[dx12/geometry] OK — vertex + index buffers drew an indexed quad (centre=(126, 0, 129), 4/4 corners matched, 0 validation errors)
+[dx12/geometry] OK — vertex + index buffers drew an indexed quad (centre=(127, 0, 128), 4/4 corners matched, 0 validation errors)
 ```
 
 `TYCHO_DX12_WARP=1` forces WARP; `--screenshot <path>` writes the frame as PNG.

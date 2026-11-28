@@ -11,7 +11,9 @@
 // (or the state machine broke) the second draw would win and one of the two runs
 // would come back red.
 
-const SIZE : Int = 128
+const WIDTH : Int = 800
+
+const HEIGHT : Int = 600
 
 const TINT_GREEN_R : Float = 0.1
 
@@ -37,7 +39,7 @@ fn uniform_block(r : Float, g : Float, b : Float, z : Float) -> FixedArray[Float
 
 ///|
 fn pixel(px : FixedArray[Byte], x : Int, y : Int) -> (Int, Int, Int) {
-  let i = (y * SIZE + x) * 4
+  let i = (y * WIDTH + x) * 4
   if i + 3 >= px.length() {
     return (-1, -1, -1)
   }
@@ -77,8 +79,8 @@ fn main {
         backend=@tycho.BackendKind::Dx12,
       ),
     )
-    let rt = dev.create_render_target(SIZE, SIZE, @tycho.TextureFormat::RGBA8)
-    let depth = dev.create_depth_texture(SIZE, SIZE)
+    let rt = dev.create_render_target(WIDTH, HEIGHT, @tycho.TextureFormat::RGBA8)
+    let depth = dev.create_depth_texture(WIDTH, HEIGHT)
     let pipe = dev.create_graphics_pipeline(
       @tycho.PipelineDesc::new(
         shader_vs_dxil,
@@ -115,13 +117,13 @@ fn main {
       cmd.draw(3, 1)
       cmd.end_render_pass()
       dev.end_commands(cmd)
-      pixel(rt.readback(), SIZE / 2, SIZE / 2)
+      pixel(rt.readback(), WIDTH / 2, HEIGHT / 2)
     }
 
     let far_then_near = render(far, near)
     let near_then_far = render(near, far)
     let shot_pixels = rt.readback()
-    opts.capture(SIZE, SIZE, shot_pixels)
+    opts.capture(WIDTH, HEIGHT, shot_pixels)
 
     // The uniform buffers come out of the shared RegionPool wrapped around a
     // placed heap, so a non-zero used size proves the pool path ran rather than

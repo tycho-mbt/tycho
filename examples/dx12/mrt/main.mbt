@@ -5,7 +5,9 @@
 // makes the two stored byte patterns differ for the same linear value, so the
 // assertion pins both the MRT wiring and the format support.
 
-const SIZE : Int = 64
+const WIDTH : Int = 800
+
+const HEIGHT : Int = 600
 
 // Linear values uploaded to the two textures: 0.25/0.5/0.75 and 0.5 grey.
 const A_R : Int = 64
@@ -19,7 +21,7 @@ const SRGB_GREY : Int = 188
 
 ///|
 fn pixel(px : FixedArray[Byte], x : Int, y : Int) -> (Int, Int, Int) {
-  let i = (y * SIZE + x) * 4
+  let i = (y * WIDTH + x) * 4
   if i + 3 >= px.length() {
     return (-1, -1, -1)
   }
@@ -71,8 +73,8 @@ fn main {
         backend=@tycho.BackendKind::Dx12,
       ),
     )
-    let rt_linear = dev.create_render_target(SIZE, SIZE, @tycho.TextureFormat::RGBA8)
-    let rt_srgb = dev.create_render_target(SIZE, SIZE, @tycho.TextureFormat::RGBA8Srgb)
+    let rt_linear = dev.create_render_target(WIDTH, HEIGHT, @tycho.TextureFormat::RGBA8)
+    let rt_srgb = dev.create_render_target(WIDTH, HEIGHT, @tycho.TextureFormat::RGBA8Srgb)
     let tex_a = dev.create_texture(2, 2, solid(A_R, A_G, A_B))
     let tex_b = dev.create_texture(2, 2, solid(128, 128, 128))
     let samp = dev.create_sampler()
@@ -107,14 +109,15 @@ fn main {
     dev.end_commands(cmd)
     let px_linear = rt_linear.readback()
     let px_srgb = rt_srgb.readback()
-    opts.capture(SIZE, SIZE, px_linear)
+    opts.capture(WIDTH, HEIGHT, px_linear)
 
-    let linear_centre = pixel(px_linear, SIZE / 2, SIZE / 2)
-    let srgb_centre = pixel(px_srgb, SIZE / 2, SIZE / 2)
+    let linear_centre = pixel(px_linear, WIDTH / 2, HEIGHT / 2)
+    let srgb_centre = pixel(px_srgb, WIDTH / 2, HEIGHT / 2)
     let linear_ok = near(linear_centre, A_R, A_G, A_B, 8)
     // An sRGB target stores the encoded value, so 0.5 linear lands near 188.
     let srgb_ok = near(srgb_centre, SRGB_GREY, SRGB_GREY, SRGB_GREY, 8)
-    let size_ok = px_linear.length() == SIZE * SIZE * 4 && px_srgb.length() == SIZE * SIZE * 4
+    let size_ok = px_linear.length() == WIDTH * HEIGHT * 4 &&
+      px_srgb.length() == WIDTH * HEIGHT * 4
     let errs = dev.validation_errors()
     samp.destroy()
     tex_b.destroy()

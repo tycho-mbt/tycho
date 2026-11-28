@@ -6,11 +6,13 @@
 // proves the mesh path (stream-descriptor PSO + `ID3D12GraphicsCommandList6::
 // DispatchMesh`) is wired.
 
-const SIZE : Int = 128
+const WIDTH : Int = 800
+
+const HEIGHT : Int = 600
 
 ///|
 fn pixel(px : FixedArray[Byte], x : Int, y : Int) -> (Int, Int, Int) {
-  let i = (y * SIZE + x) * 4
+  let i = (y * WIDTH + x) * 4
   if i + 3 >= px.length() {
     return (-1, -1, -1)
   }
@@ -61,7 +63,7 @@ fn main {
       dev.destroy()
       return
     }
-    let rt = dev.create_render_target(SIZE, SIZE, @tycho.TextureFormat::RGBA8)
+    let rt = dev.create_render_target(WIDTH, HEIGHT, @tycho.TextureFormat::RGBA8)
     let pipe = dev.create_mesh_pipeline(
       @tycho.MeshPipelineDesc::new(shader_ms_dxil, shader_fs_dxil),
     )
@@ -77,14 +79,14 @@ fn main {
     cmd.end_render_pass()
     dev.end_commands(cmd)
     let px = rt.readback()
-    opts.capture(SIZE, SIZE, px)
+    opts.capture(WIDTH, HEIGHT, px)
 
     // One sample near each vertex; the mesh shader writes red / green / blue
     // there, and the rasteriser interpolates between them.
     let samples = [
-      pixel(px, SIZE / 2, SIZE * 15 / 100),
-      pixel(px, SIZE * 85 / 100, SIZE * 85 / 100),
-      pixel(px, SIZE * 15 / 100, SIZE * 85 / 100),
+      pixel(px, WIDTH / 2, HEIGHT * 15 / 100),
+      pixel(px, WIDTH * 85 / 100, HEIGHT * 85 / 100),
+      pixel(px, WIDTH * 15 / 100, HEIGHT * 85 / 100),
     ]
     let mut matched = 0
     for channel = 0; channel < 3; channel = channel + 1 {
@@ -95,7 +97,7 @@ fn main {
         }
       }
     }
-    let size_ok = px.length() == SIZE * SIZE * 4
+    let size_ok = px.length() == WIDTH * HEIGHT * 4
     let errs = dev.validation_errors()
     pipe.destroy()
     rt.destroy()

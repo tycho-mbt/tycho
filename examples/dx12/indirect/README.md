@@ -28,7 +28,7 @@ moon build --target native examples/dx12/indirect
 Expected:
 
 ```
-[dx12/indirect] OK — indirect indexed draw + timestamps (centre=(126, 0, 129), 4/4 corners matched, pass=0.004096 ms, unsupported calls rejected, 0 validation errors)
+[dx12/indirect] OK — indirect indexed draw + timestamps (centre=(127, 0, 128), 4/4 corners matched, pass=0.007168 ms, unsupported calls rejected, 0 validation errors)
 ```
 
 `TYCHO_DX12_WARP=1` forces WARP (the pass time then grows by ~50x, which is a useful sanity check that

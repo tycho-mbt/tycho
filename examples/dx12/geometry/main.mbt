@@ -6,7 +6,9 @@
 // command list binds IASetVertexBuffers / IASetIndexBuffer, so a quad with
 // per-vertex colours and an index buffer must render as four coloured corners.
 
-const SIZE : Int = 128
+const WIDTH : Int = 800
+
+const HEIGHT : Int = 600
 
 // 4 vertices x (float3 position + float4 colour) = 28 bytes each.
 const VERTEX_STRIDE : Int = 28
@@ -17,7 +19,7 @@ const INDEX_BYTES : Int = 6 * 4
 
 ///|
 fn pixel(px : FixedArray[Byte], x : Int, y : Int) -> (Int, Int, Int) {
-  let i = (y * SIZE + x) * 4
+  let i = (y * WIDTH + x) * 4
   if i + 3 >= px.length() {
     return (-1, -1, -1)
   }
@@ -70,7 +72,7 @@ fn main {
         backend=@tycho.BackendKind::Dx12,
       ),
     )
-    let rt = dev.create_render_target(SIZE, SIZE, @tycho.TextureFormat::RGBA8)
+    let rt = dev.create_render_target(WIDTH, HEIGHT, @tycho.TextureFormat::RGBA8)
     let pipe = dev.create_graphics_pipeline(
       @tycho.PipelineDesc::new(
         shader_vs_dxil,
@@ -103,20 +105,20 @@ fn main {
     cmd.end_render_pass()
     dev.end_commands(cmd)
     let px = rt.readback()
-    opts.capture(SIZE, SIZE, px)
+    opts.capture(WIDTH, HEIGHT, px)
 
     // The diagonal of the two triangles passes exactly through the centre, so
     // both triangles contribute (red + blue) / 2 there.
-    let centre = pixel(px, SIZE / 2, SIZE / 2)
+    let centre = pixel(px, WIDTH / 2, HEIGHT / 2)
     let centre_ok = near(centre, 127, 0, 127, 24)
     // Orientation-agnostic: each of the four corners must show one dominant
     // colour. Sampling close to the corner keeps the interpolation bleed small,
     // and the predicate form tolerates the remaining blend.
     let quads = [
-      pixel(px, SIZE / 8, SIZE / 8),
-      pixel(px, SIZE * 7 / 8, SIZE / 8),
-      pixel(px, SIZE / 8, SIZE * 7 / 8),
-      pixel(px, SIZE * 7 / 8, SIZE * 7 / 8),
+      pixel(px, WIDTH / 8, HEIGHT / 8),
+      pixel(px, WIDTH * 7 / 8, HEIGHT / 8),
+      pixel(px, WIDTH / 8, HEIGHT * 7 / 8),
+      pixel(px, WIDTH * 7 / 8, HEIGHT * 7 / 8),
     ]
     let dominates = fn(c : (Int, Int, Int), channel : Int) -> Bool {
       let (r, g, b) = c
@@ -139,7 +141,7 @@ fn main {
         }
       }
     }
-    let size_ok = px.length() == SIZE * SIZE * 4
+    let size_ok = px.length() == WIDTH * HEIGHT * 4
     let errs = dev.validation_errors()
     ibuf.destroy()
     vbuf.destroy()

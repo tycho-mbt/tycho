@@ -7,11 +7,13 @@
 // the texture. A 2x2 albedo with four distinct colours fills the viewport, so the
 // four quadrants must come back as those four colours.
 
-const SIZE : Int = 128
+const WIDTH : Int = 800
+
+const HEIGHT : Int = 600
 
 ///|
 fn pixel(px : FixedArray[Byte], x : Int, y : Int) -> (Int, Int, Int) {
-  let i = (y * SIZE + x) * 4
+  let i = (y * WIDTH + x) * 4
   if i + 3 >= px.length() {
     return (-1, -1, -1)
   }
@@ -74,7 +76,7 @@ fn main {
         backend=@tycho.BackendKind::Dx12,
       ),
     )
-    let rt = dev.create_render_target(SIZE, SIZE, @tycho.TextureFormat::RGBA8)
+    let rt = dev.create_render_target(WIDTH, HEIGHT, @tycho.TextureFormat::RGBA8)
     let tex = dev.create_texture(2, 2, albedo())
     // ClampToEdge keeps the albedo stretched exactly once over the viewport; the
     // default descriptor repeats it, which would tile the 2x2 texels.
@@ -109,15 +111,15 @@ fn main {
       rt.readback()
     }
     let px = render(samp)
-    opts.capture(SIZE, SIZE, px)
+    opts.capture(WIDTH, HEIGHT, px)
 
     // Orientation is a backend detail (the DX12 path flips Y), so compare the four
     // quadrants as a set instead of pinning each corner.
     let quads = [
-      pixel(px, SIZE / 4, SIZE / 4),
-      pixel(px, SIZE * 3 / 4, SIZE / 4),
-      pixel(px, SIZE / 4, SIZE * 3 / 4),
-      pixel(px, SIZE * 3 / 4, SIZE * 3 / 4),
+      pixel(px, WIDTH / 4, HEIGHT / 4),
+      pixel(px, WIDTH * 3 / 4, HEIGHT / 4),
+      pixel(px, WIDTH / 4, HEIGHT * 3 / 4),
+      pixel(px, WIDTH * 3 / 4, HEIGHT * 3 / 4),
     ]
     let want = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
     let mut matched = 0
@@ -141,8 +143,8 @@ fn main {
       ),
     )
     let px_point = render(nearest)
-    let centre_linear = pixel(px, SIZE / 2, SIZE / 2)
-    let centre_point = pixel(px_point, SIZE / 2, SIZE / 2)
+    let centre_linear = pixel(px, WIDTH / 2, HEIGHT / 2)
+    let centre_point = pixel(px_point, WIDTH / 2, HEIGHT / 2)
     let spread = fn(rgb : (Int, Int, Int)) -> Int {
       let (r, g, b) = rgb
       let hi = if r > g {
@@ -183,7 +185,7 @@ fn main {
     }
     let slots_recycled = recycles == 40
 
-    let size_ok = px.length() == SIZE * SIZE * 4
+    let size_ok = px.length() == WIDTH * HEIGHT * 4
     let errs = dev.validation_errors()
     samp.destroy()
     tex.destroy()

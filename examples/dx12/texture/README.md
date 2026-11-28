@@ -18,7 +18,7 @@ between them.
 
 SamplerDesc is honoured rather than approximated: a second pass binds a Nearest sampler and the
 centre of the image (where all four texels meet) flips from the bilinear average
-(127, 129, 64) to one pure texel (255, 255, 0). The same run also creates and destroys 40
+(127, 127, 64) to one pure texel (255, 255, 0). The same run also creates and destroys 40
 samplers against a 16-slot heap, which only succeeds because destroyed slots are recycled.
 
 ## Screenshot
@@ -35,7 +35,7 @@ moon build --target native examples/dx12/texture
 Expected:
 
 ```
-[dx12/texture] OK — 2x2 albedo sampled through an SRV table + sampler heap (4/4 quadrants matched, 128x128, 0 validation errors)
+[dx12/texture] OK — 2x2 albedo sampled through an SRV table + sampler heap (4/4 quadrants matched, linear centre=(127, 127, 64) averaged, point centre=(255, 255, 0) pure, 40 sampler slots recycled, 0 validation errors)
 ```
 
 `TYCHO_DX12_WARP=1` forces WARP; `--screenshot <path>` writes the verified frame. Non-Windows hosts
