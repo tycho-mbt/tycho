@@ -72,6 +72,15 @@ extern "c" fn cmd_set_extra_targets_ffi(cmds : UInt64, t1 : UInt64, t2 : UInt64,
 #borrow(ms, ps)
 extern "c" fn mesh_pipeline_create_ffi(dev : UInt64, ms : FixedArray[UInt32], ms_bytes : Int, ps : FixedArray[UInt32], ps_bytes : Int, color_format : Int, depth_enable : Int, depth_write : Int, flip_y : Int) -> UInt64 = "tycho_dx12_mesh_pipeline_create"
 
+extern "c" fn accel_blas_create_ffi(dev : UInt64, vertex_address : UInt64, vertex_count : Int, vertex_stride : Int, index_address : UInt64, index_count : Int, index32 : Int, is_opaque : Int) -> UInt64 = "tycho_dx12_blas_create"
+
+#borrow(transform)
+extern "c" fn accel_tlas_create_ffi(dev : UInt64, blas_address : UInt64, transform : FixedArray[Float], custom_index : Int, mask : Int) -> UInt64 = "tycho_dx12_tlas_create"
+
+extern "c" fn cmd_set_accel_ffi(cmds : UInt64, root_index : Int, accel : UInt64, compute : Int) -> Int32 = "tycho_dx12_cmd_set_accel"
+
+extern "c" fn accel_destroy_ffi(accel : UInt64) = "tycho_dx12_accel_destroy"
+
 extern "c" fn cmd_dispatch_mesh_ffi(cmds : UInt64, tex : UInt64, x : Int, y : Int, z : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_dispatch_mesh"
 
 extern "c" fn cmd_draw_ffi(cmds : UInt64, tex : UInt64, vertices : Int, instances : Int, flip_y : Int) -> Int32 = "tycho_dx12_cmd_draw"
@@ -158,7 +167,7 @@ extern "c" fn sampler_destroy_ffi(sampler : UInt64) = "tycho_dx12_sampler_destro
 extern "c" fn storage_texture_create_ffi(dev : UInt64, width : Int, height : Int) -> UInt64 = "tycho_dx12_storage_texture_create"
 
 #borrow(cs)
-extern "c" fn compute_pipeline_create_ffi(dev : UInt64, cs : FixedArray[UInt32], cs_bytes : Int, cbv_count : Int, uav_tables : Int, push_bytes : Int) -> UInt64 = "tycho_dx12_compute_pipeline_create"
+extern "c" fn compute_pipeline_create_ffi(dev : UInt64, cs : FixedArray[UInt32], cs_bytes : Int, cbv_count : Int, uav_tables : Int, accel_tables : Int, push_bytes : Int) -> UInt64 = "tycho_dx12_compute_pipeline_create"
 
 extern "c" fn compute_pipeline_destroy_ffi(pipe : UInt64) = "tycho_dx12_pipeline_destroy"
 
@@ -755,6 +764,7 @@ pub fn ComputePipeline::create(
   cs_bytes : Int,
   cbv_count? : Int = 0,
   uav_tables? : Int = 0,
+  accel_tables? : Int = 0,
   push_bytes? : Int = 0,
 ) -> ComputePipeline? {
   let handle = compute_pipeline_create_ffi(
@@ -763,6 +773,7 @@ pub fn ComputePipeline::create(
     cs_bytes,
     cbv_count,
     uav_tables,
+    accel_tables,
     push_bytes,
   )
   if handle == (0 : UInt64) {
@@ -941,6 +952,91 @@ pub fn CommandList::execute_indirect_counted(
     count_offset,
     if flip_y { 1 } else { 0 },
   ) != 0
+}
+
+// ---------------------------------------------------------------------------
+// Acceleration structures (ray queries)
+// ---------------------------------------------------------------------------
+
+///|
+/// A bottom-level (blas = true) or top-level acceleration structure. Ray queries
+/// read it as an SRV at `t0`; there is no state object / shader binding table
+/// path here, which is what `trace_rays` pipelines would need.
+pub struct AccelStruct {
+  handle : UInt64
+}
+
+///|
+pub fn AccelStruct::create_blas(
+  device : Device,
+  vertex_address : UInt64,
+  vertex_count : Int,
+  vertex_stride? : Int = 12,
+  index_address? : UInt64 = (0 : UInt64),
+  index_count? : Int = 0,
+  index32? : Bool = true,
+  is_opaque? : Bool = true,
+) -> AccelStruct? {
+  let handle = accel_blas_create_ffi(
+    device.handle,
+    vertex_address,
+    vertex_count,
+    vertex_stride,
+    index_address,
+    index_count,
+    if index32 { 1 } else { 0 },
+    if is_opaque { 1 } else { 0 },
+  )
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn AccelStruct::create_tlas(
+  device : Device,
+  blas_address : UInt64,
+  transform : FixedArray[Float],
+  custom_index? : Int = 0,
+  mask? : Int = 0xFF,
+) -> AccelStruct? {
+  if blas_address == (0 : UInt64) || transform.length() < 12 {
+    return None
+  }
+  let handle = accel_tlas_create_ffi(
+    device.handle,
+    blas_address,
+    transform,
+    custom_index,
+    mask,
+  )
+  if handle == (0 : UInt64) {
+    None
+  } else {
+    Some({ handle, })
+  }
+}
+
+///|
+pub fn AccelStruct::handle(self : AccelStruct) -> UInt64 {
+  self.handle
+}
+
+///|
+pub fn CommandList::set_accel(
+  self : CommandList,
+  root_index : Int,
+  accel : AccelStruct,
+  compute? : Bool = true,
+) -> Bool {
+  cmd_set_accel_ffi(self.handle, root_index, accel.handle, if compute { 1 } else { 0 }) != 0
+}
+
+///|
+pub fn AccelStruct::destroy(self : AccelStruct) -> Unit {
+  accel_destroy_ffi(self.handle)
 }
 
 // ---------------------------------------------------------------------------

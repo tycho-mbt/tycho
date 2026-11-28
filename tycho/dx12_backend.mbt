@@ -64,6 +64,7 @@ priv struct Dx12ComputeState {
   pipe : @dx12.ComputePipeline
   uniform_slots : Int
   uav_slots : Int
+  accel_slots : Int
   push_index : Int
   push_bytes : Int
 }
@@ -730,6 +731,7 @@ fn dx12_compute_pipeline_create(
   cs : FixedArray[UInt32],
   uniform_slots : Int,
   uav_slots : Int,
+  accel_slots : Int,
   push_bytes : Int,
 ) -> Dx12ComputeState raise RhiError {
   match @dx12.ComputePipeline::create(
@@ -738,12 +740,14 @@ fn dx12_compute_pipeline_create(
     cs.length() * 4,
     cbv_count=uniform_slots,
     uav_tables=uav_slots,
+    accel_tables=accel_slots,
     push_bytes=push_bytes,
   ) {
     Some(pipe) => {
       pipe,
       uniform_slots,
       uav_slots,
+      accel_slots,
       push_index: uniform_slots + (if uav_slots > 0 { 1 } else { 0 }),
       push_bytes,
     }
@@ -1215,5 +1219,117 @@ fn dx12_mesh_pipeline_create(
       push_bytes: 0,
     }
     None => raise RhiError::PipelineFailed("DX12 mesh pipeline state failed")
+  }
+}
+
+///|
+/// Ray queries read the acceleration structure from the SRV table that follows the
+/// UAV table, so its root index is `uniform_slots + uav_slots`.
+fn dx12_bind_accel_struct(
+  cmd : Dx12CommandState,
+  pipe : Dx12ComputeState,
+  slot : Int,
+  accel : @dx12.AccelStruct,
+) -> Bool {
+  if slot < 0 || slot >= pipe.accel_slots {
+    return false
+  }
+  cmd.commands.set_accel(pipe.uniform_slots + pipe.uav_slots + slot, accel, compute=true)
+}
+
+///|
+fn dx12_create_blas(
+  state : Dx12DeviceState,
+  geometries : Array[RayGeometryDesc],
+) -> @dx12.AccelStruct raise RhiError {
+  if @dx12.Device::raytracing_tier(state.device) < 10 {
+    raise RhiError::DeviceFailed(
+      "D3D12 ray tracing tier 1.0 is required for acceleration structures",
+    )
+  }
+  if geometries.length() != 1 {
+    raise RhiError::BackendUnsupported(
+      "the DX12 backend builds a BLAS from exactly one geometry so far",
+    )
+  }
+  let geometry = geometries[0]
+  let vertex_address = match geometry.vertex_buffer.backend {
+    Dx12Buffer(buffer) => buffer.buffer.gpu_address()
+    VkBuffer(_) => raise RhiError::InvalidArgument("Vulkan buffer in a DX12 BLAS build")
+  }
+  let mut index_address : UInt64 = 0
+  if geometry.index_count > 0 {
+    index_address = match geometry.index_buffer {
+      Some(buffer) =>
+        match buffer.backend {
+          Dx12Buffer(state) => state.buffer.gpu_address()
+          VkBuffer(_) => raise RhiError::InvalidArgument("Vulkan buffer in a DX12 BLAS build")
+        }
+      None => 0
+    }
+  }
+  let index32 = match geometry.index_type {
+    IndexType::Uint16 => false
+    IndexType::Uint32 => true
+  }
+  let built = @dx12.AccelStruct::create_blas(
+    state.device,
+    vertex_address,
+    geometry.vertex_count,
+    vertex_stride=geometry.vertex_stride,
+    index_address~,
+    index_count=geometry.index_count,
+    index32~,
+    is_opaque=geometry.is_opaque,
+  )
+  match built {
+    Some(accel) => accel
+    None => raise RhiError::AllocationFailed("DX12 BLAS build")
+  }
+}
+
+///|
+/// A top-level structure over a single instance. Multi-instance TLASes are
+/// rejected instead of silently building only the first one.
+fn dx12_create_tlas(
+  state : Dx12DeviceState,
+  instances : Array[RayInstanceDesc],
+) -> @dx12.AccelStruct raise RhiError {
+  if @dx12.Device::raytracing_tier(state.device) < 10 {
+    raise RhiError::DeviceFailed(
+      "D3D12 ray tracing tier 1.0 is required for acceleration structures",
+    )
+  }
+  if instances.length() != 1 {
+    raise RhiError::BackendUnsupported(
+      "the DX12 backend builds a TLAS from exactly one instance so far",
+    )
+  }
+  let instance = instances[0]
+  let blas_address = match instance.blas.backend {
+    Dx12Accel(accel) => accel.handle()
+    VkAccel(_) => raise RhiError::InvalidArgument("Vulkan BLAS in a DX12 TLAS build")
+  }
+  // 12 floats (3x4 row-major); a shorter transform is padded with identity.
+  let transform = FixedArray::make(12, (0.0 : Float))
+  for i = 0; i < 12; i = i + 1 {
+    transform[i] = if i < instance.transform.length() {
+      instance.transform[i]
+    } else if i % 5 == 0 {
+      1.0
+    } else {
+      0.0
+    }
+  }
+  let built = @dx12.AccelStruct::create_tlas(
+    state.device,
+    blas_address,
+    transform,
+    custom_index=instance.custom_index,
+    mask=instance.mask,
+  )
+  match built {
+    Some(accel) => accel
+    None => raise RhiError::AllocationFailed("DX12 TLAS build")
   }
 }

@@ -332,6 +332,7 @@ pub fn Device::end_commands(Self, CommandBuffer) -> Unit raise RhiError
 pub fn Device::new(String, Bool) -> Self raise RhiError
 pub fn Device::new_desc(DeviceDesc) -> Self raise RhiError
 pub fn Device::pipeline_cache_data(Self) -> Bytes
+pub fn Device::raytracing_tier(Self) -> Int32
 pub fn Device::submit_commands(Self, CommandBuffer, Fence) -> Unit raise RhiError
 pub fn Device::validation_errors(Self) -> Int32
 pub fn Device::wait_idle(Self) -> Unit

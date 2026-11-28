@@ -68,6 +68,14 @@ static const GUID kIID_ID3D12GraphicsCommandList = {0x5b160d0f, 0xac1b, 0x4185,
                                                     {0x8b, 0xa8, 0xb3, 0xae, 0x42, 0xa5, 0xa4, 0x55}};
 static const GUID kIID_ID3D12DescriptorHeap = {0x8efb471d, 0x616c, 0x4f49,
                                                {0x90, 0xf7, 0x12, 0x7b, 0xb7, 0x63, 0xfa, 0x51}};
+static const GUID kIID_ID3D12GraphicsCommandList4 = {
+    0x8754318e, 0xd3a9, 0x4541, {0x98, 0xcf, 0x64, 0x5b, 0x50, 0xdc, 0x48, 0x74}};
+static const GUID kIID_ID3D12DeviceRemovedExtendedDataSettings = {
+    0x82bc481c, 0x6b9b, 0x4030, {0xae, 0xdb, 0x7e, 0xe3, 0xd1, 0x0f, 0x1e, 0x65}};
+static const GUID kIID_ID3D12DeviceRemovedExtendedData = {
+    0x98931d33, 0x5ae8, 0x4791, {0xaa, 0x3c, 0x1a, 0x73, 0xc3, 0x6d, 0x6f, 0xdf}};
+static const GUID kIID_ID3D12Device5 = {
+    0x8b4f173b, 0x2fea, 0x4b80, {0x8f, 0x58, 0x43, 0x07, 0x19, 0x1a, 0xb9, 0x5d}};
 static const GUID kIID_ID3D12Device2 = {
     0x30baa41e, 0xb15b, 0x475c, {0xa0, 0xbb, 0x1a, 0xf5, 0xc5, 0xb6, 0x43, 0x28}};
 static const GUID kIID_ID3D12GraphicsCommandList6 = {
@@ -131,6 +139,7 @@ static D3D12_RESOURCE_STATES dx12_native_state(int32_t state) {
 typedef struct TychoDxDevice {
   ID3D12Device *device;
   ID3D12Device2 *device2;  // lazily queried; mesh pipeline state objects need it
+  ID3D12Device5 *device5;  // lazily queried; acceleration structures need it
   ID3D12CommandQueue *queue;
   ID3D12Fence *fence;
   IDXGIFactory4 *factory;
@@ -268,6 +277,19 @@ static TychoDxBufferHeap *as_buffer_heap(uint64_t p) {
   return (TychoDxBufferHeap *)(uintptr_t)p;
 }
 // Mesh pipelines (and any stream-descriptor PSO) go through Device2.
+static ID3D12Device5 *ensure_device5(TychoDxDevice *dev) {
+  HRESULT hr;
+  if (!dev || !dev->device) return NULL;
+  if (dev->device5) return dev->device5;
+  hr = dev->device->lpVtbl->QueryInterface(dev->device, &kIID_ID3D12Device5,
+                                          (void **)&dev->device5);
+  if (FAILED(hr)) {
+    dev->device5 = NULL;
+    return NULL;
+  }
+  return dev->device5;
+}
+
 static ID3D12Device2 *ensure_device2(TychoDxDevice *dev) {
   HRESULT hr;
   if (!dev || !dev->device) return NULL;
@@ -342,6 +364,19 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_device_create(int32_t use_warp, int32_t d
     ID3D12Debug *dbg = NULL;
     if (SUCCEEDED(g_get_debug(&kIID_ID3D12Debug, (void **)&dbg)) && dbg) {
       dbg->lpVtbl->EnableDebugLayer(dbg);
+      // DRED is what turns an acceleration-structure fault from "device hung"
+      // into a reportable page fault with an address.
+      {
+        ID3D12DeviceRemovedExtendedDataSettings *dred = NULL;
+        if (SUCCEEDED(g_get_debug(&kIID_ID3D12DeviceRemovedExtendedDataSettings,
+                                   (void **)&dred)) &&
+            dred) {
+          dred->lpVtbl->SetAutoBreadcrumbsEnablement(
+              dred, D3D12_DRED_ENABLEMENT_FORCED_ON);
+          dred->lpVtbl->SetPageFaultEnablement(dred, D3D12_DRED_ENABLEMENT_FORCED_ON);
+          dred->lpVtbl->Release(dred);
+        }
+      }
       dbg->lpVtbl->Release(dbg);
     }
   }
@@ -450,6 +485,7 @@ fail:
       if (dev->indirect_sig[sig]) dev->indirect_sig[sig]->lpVtbl->Release(dev->indirect_sig[sig]);
     }
   }
+  if (dev->device5) dev->device5->lpVtbl->Release(dev->device5);
   if (dev->device2) dev->device2->lpVtbl->Release(dev->device2);
   if (dev->sampler_heap) dev->sampler_heap->lpVtbl->Release(dev->sampler_heap);
   if (dev->srv_heap) dev->srv_heap->lpVtbl->Release(dev->srv_heap);
@@ -2675,7 +2711,10 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_storage_texture_create(uint64_t dev_p, in
   UINT slot;
   HRESULT hr;
   if (!dev || width <= 0 || height <= 0) return 0;
-  if (!ensure_srv_heap(dev)) return 0;
+  if (!ensure_srv_heap(dev)) {
+    fprintf(stderr, "[tycho-dx12] storage texture: SRV heap unavailable\n");
+    return 0;
+  }
 
   tex = (TychoDxTexture *)calloc(1, sizeof(TychoDxTexture));
   if (!tex) return 0;
@@ -2708,6 +2747,7 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_storage_texture_create(uint64_t dev_p, in
       (void **)&tex->resource);
   set_hr(hr);
   if (FAILED(hr)) {
+    fprintf(stderr, "[tycho-dx12] storage texture resource failed: 0x%08lX\n", (unsigned long)hr);
     free(tex);
     return 0;
   }
@@ -2718,6 +2758,8 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_storage_texture_create(uint64_t dev_p, in
   } else if (dev->srv_used < dev->srv_capacity) {
     slot = dev->srv_used++;
   } else {
+    fprintf(stderr, "[tycho-dx12] storage texture: descriptor heap exhausted (used=%u cap=%u free=%u)\n",
+            dev->srv_used, dev->srv_capacity, dev->srv_free_count);
     tex->resource->lpVtbl->Release(tex->resource);
     free(tex);
     g_last_hr = (HRESULT)0x8007000E;  // E_OUTOFMEMORY: descriptor heap exhausted
@@ -2741,20 +2783,23 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_compute_pipeline_create(uint64_t dev_p,
                                                                const uint8_t *cs, int32_t cs_len,
                                                                int32_t cbv_count,
                                                                int32_t uav_tables,
+                                                               int32_t accel_tables,
                                                                int32_t push_bytes) {
   TychoDxDevice *dev = as_device(dev_p);
   TychoDxPipeline *pipe;
   ID3DBlob *rs_blob = NULL;
   ID3DBlob *rs_err = NULL;
   D3D12_VERSIONED_ROOT_SIGNATURE_DESC rs_desc;
-  D3D12_ROOT_PARAMETER root_params[TYCHO_DX12_MAX_ROOT_CBVS + 2];
+  D3D12_ROOT_PARAMETER root_params[TYCHO_DX12_MAX_ROOT_CBVS + 3];
   D3D12_DESCRIPTOR_RANGE uav_range;
+  D3D12_DESCRIPTOR_RANGE accel_range;
   D3D12_COMPUTE_PIPELINE_STATE_DESC pso_desc;
   HRESULT hr;
   int i;
   if (!dev || !cs || cs_len <= 0) return 0;
   if (cbv_count < 0 || cbv_count > TYCHO_DX12_MAX_ROOT_CBVS) return 0;
   if (uav_tables < 0 || uav_tables > 8) return 0;
+  if (accel_tables < 0 || accel_tables > 8) return 0;
   if (push_bytes < 0 || push_bytes > 256 || (push_bytes % 4) != 0) return 0;
 
   pipe = (TychoDxPipeline *)calloc(1, sizeof(TychoDxPipeline));
@@ -2781,9 +2826,25 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_compute_pipeline_create(uint64_t dev_p,
     root_params[cbv_count].DescriptorTable.pDescriptorRanges = &uav_range;
     root_params[cbv_count].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
   }
+  if (accel_tables > 0) {
+    // Ray queries read the acceleration structure as an SRV at t0, in the root
+    // slot right after the UAV table.
+    memset(&accel_range, 0, sizeof accel_range);
+    accel_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    accel_range.NumDescriptors = (UINT)accel_tables;
+    accel_range.BaseShaderRegister = 0;
+    accel_range.RegisterSpace = 0;
+    root_params[cbv_count + (uav_tables > 0 ? 1 : 0)].ParameterType =
+        D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    root_params[cbv_count + (uav_tables > 0 ? 1 : 0)].DescriptorTable.NumDescriptorRanges = 1;
+    root_params[cbv_count + (uav_tables > 0 ? 1 : 0)].DescriptorTable.pDescriptorRanges =
+        &accel_range;
+    root_params[cbv_count + (uav_tables > 0 ? 1 : 0)].ShaderVisibility =
+        D3D12_SHADER_VISIBILITY_ALL;
+  }
   {
     // Same convention as the graphics path: push constants live at `b15, space0`.
-    int push_index = cbv_count + (uav_tables > 0 ? 1 : 0);
+    int push_index = cbv_count + (uav_tables > 0 ? 1 : 0) + (accel_tables > 0 ? 1 : 0);
     if (push_bytes > 0) {
       root_params[push_index].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
       root_params[push_index].Constants.ShaderRegister = 15;
@@ -2793,7 +2854,8 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_compute_pipeline_create(uint64_t dev_p,
     }
   }
   rs_desc.Desc_1_0.NumParameters =
-      (UINT)(cbv_count + (uav_tables > 0 ? 1 : 0) + (push_bytes > 0 ? 1 : 0));
+      (UINT)(cbv_count + (uav_tables > 0 ? 1 : 0) + (accel_tables > 0 ? 1 : 0) +
+             (push_bytes > 0 ? 1 : 0));
   rs_desc.Desc_1_0.pParameters = rs_desc.Desc_1_0.NumParameters > 0 ? root_params : NULL;
   rs_desc.Desc_1_0.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
   hr = g_serialize_rs(&rs_desc, &rs_blob, &rs_err);
@@ -3086,6 +3148,403 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_resize(uint64_t dev_p, uint64_t 
   sc->width = (UINT)width;
   sc->height = (UINT)height;
   return swapchain_create_views(dev, sc) ? 1 : 0;
+}
+
+// ---------------------------------------------------------------------------
+// Acceleration structures (ray queries; no state objects / SBT)
+// ---------------------------------------------------------------------------
+
+typedef struct TychoDxAccelStruct {
+  ID3D12Resource *resource;
+  // Identity 3x4 transform for triangle geometry: D3D12 wants a GPU address here,
+  // so the identity is uploaded instead of relying on a "0 means identity" rule.
+  ID3D12Resource *transform;
+  D3D12_GPU_VIRTUAL_ADDRESS gpu_address;
+  UINT srv_slot;
+  int has_srv;
+  struct TychoDxDevice *dev;
+} TychoDxAccelStruct;
+
+static TychoDxAccelStruct *as_accel(uint64_t p) {
+  return (TychoDxAccelStruct *)(uintptr_t)p;
+}
+
+static ID3D12Resource *rt_buffer_create(TychoDxDevice *dev, UINT64 size, D3D12_HEAP_TYPE heap_type,
+                                        D3D12_RESOURCE_STATES initial_state) {
+  D3D12_HEAP_PROPERTIES heap;
+  D3D12_RESOURCE_DESC desc;
+  ID3D12Resource *resource = NULL;
+  HRESULT hr;
+  if (!dev || size == 0) return NULL;
+  memset(&heap, 0, sizeof heap);
+  heap.Type = heap_type;
+  heap.CreationNodeMask = 1;
+  heap.VisibleNodeMask = 1;
+  memset(&desc, 0, sizeof desc);
+  desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  desc.Width = size;
+  desc.Height = 1;
+  desc.DepthOrArraySize = 1;
+  desc.MipLevels = 1;
+  desc.Format = DXGI_FORMAT_UNKNOWN;
+  desc.SampleDesc.Count = 1;
+  desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+  // Acceleration structure buffers (result and scratch alike) are UAV-visible.
+  // Without the flag the result buffer is rejected with E_INVALIDARG and the
+  // scratch buffer faults the GPU during the build (device removed).
+  desc.Flags = heap_type == D3D12_HEAP_TYPE_DEFAULT
+                   ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS
+                   : D3D12_RESOURCE_FLAG_NONE;
+  hr = dev->device->lpVtbl->CreateCommittedResource(dev->device, &heap, D3D12_HEAP_FLAG_NONE,
+                                                    &desc, initial_state, NULL,
+                                                    &kIID_ID3D12Resource, (void **)&resource);
+  set_hr(hr);
+  if (FAILED(hr)) {
+    fprintf(stderr, "[tycho-dx12] rt_buffer_create failed: 0x%08lX (heap=%d size=%llu state=%d)\n",
+            (unsigned long)hr, (int)heap_type, (unsigned long long)size, (int)initial_state);
+    return NULL;
+  }
+  return resource;
+}
+
+// Runs `record` on a throwaway command list and waits for the queue. Acceleration
+// structure builds have no render pass, so this is the whole submission path.
+static int rt_submit(TychoDxDevice *dev,
+                     void (*record)(ID3D12GraphicsCommandList *list, void *ctx), void *ctx) {
+  ID3D12CommandAllocator *allocator = NULL;
+  ID3D12GraphicsCommandList *list = NULL;
+  ID3D12CommandList *lists[1];
+  HRESULT hr;
+  int ok = 0;
+  hr = dev->device->lpVtbl->CreateCommandAllocator(dev->device, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                                   &kIID_ID3D12CommandAllocator,
+                                                   (void **)&allocator);
+  set_hr(hr);
+  if (FAILED(hr)) return 0;
+  hr = dev->device->lpVtbl->CreateCommandList(dev->device, 0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                              allocator, NULL,
+                                              &kIID_ID3D12GraphicsCommandList, (void **)&list);
+  set_hr(hr);
+  if (SUCCEEDED(hr) && list) {
+    record(list, ctx);
+    hr = list->lpVtbl->Close(list);
+    set_hr(hr);
+    if (SUCCEEDED(hr)) {
+      lists[0] = (ID3D12CommandList *)list;
+      dev->queue->lpVtbl->ExecuteCommandLists(dev->queue, 1, lists);
+      dev->fence_value += 1;
+      hr = dev->queue->lpVtbl->Signal(dev->queue, dev->fence, dev->fence_value);
+      set_hr(hr);
+      if (SUCCEEDED(hr) && dev->fence->lpVtbl->GetCompletedValue(dev->fence) < dev->fence_value) {
+        hr = dev->fence->lpVtbl->SetEventOnCompletion(dev->fence, dev->fence_value,
+                                                     dev->fence_event);
+        if (FAILED(hr) || WaitForSingleObject(dev->fence_event, 30000) != WAIT_OBJECT_0) {
+          hr = E_FAIL;
+        }
+      }
+      ok = SUCCEEDED(hr);
+    }
+  }
+  if (list) list->lpVtbl->Release(list);
+  if (allocator) allocator->lpVtbl->Release(allocator);
+  return ok;
+}
+
+typedef struct {
+  ID3D12Resource *dst;
+  ID3D12Resource *src;
+  UINT64 size;
+} TychoRtCopy;
+
+static void rt_record_copy(ID3D12GraphicsCommandList *list, void *ctx) {
+  TychoRtCopy *copy = (TychoRtCopy *)ctx;
+  list->lpVtbl->CopyBufferRegion(list, copy->dst, 0, copy->src, 0, copy->size);
+}
+
+static void rt_record_build(ID3D12GraphicsCommandList *list, void *ctx) {
+  D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC *desc =
+      (D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC *)ctx;
+  ID3D12GraphicsCommandList4 *list4 = NULL;
+  HRESULT hr;
+  // The build entry point lives on GraphicsCommandList4, not the base list.
+  hr = list->lpVtbl->QueryInterface(list, &kIID_ID3D12GraphicsCommandList4,
+                                    (void **)&list4);
+  if (FAILED(hr) || !list4) {
+    fprintf(stderr, "[tycho-dx12] GraphicsCommandList4 is unavailable; acceleration structures need it\n");
+    return;
+  }
+  list4->lpVtbl->BuildRaytracingAccelerationStructure(list4, desc, 0, NULL);
+  list4->lpVtbl->Release(list4);
+}
+
+// Allocates the result buffer, builds, and installs an SRV for ray queries.
+static uint64_t accel_build(TychoDxDevice *dev,
+                            D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS *inputs) {
+  ID3D12Device5 *device5 = ensure_device5(dev);
+  TychoDxAccelStruct *accel;
+  D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info;
+  D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc;
+  D3D12_SHADER_RESOURCE_VIEW_DESC srv;
+  D3D12_CPU_DESCRIPTOR_HANDLE handle;
+  ID3D12Resource *scratch = NULL;
+  UINT slot;
+  HRESULT hr;
+  if (!device5) {
+    fprintf(stderr, "[tycho-dx12] ID3D12Device5 is unavailable; ray queries need it\n");
+    return 0;
+  }
+  if (!ensure_srv_heap(dev)) return 0;
+
+  memset(&info, 0, sizeof info);
+  device5->lpVtbl->GetRaytracingAccelerationStructurePrebuildInfo(device5, inputs, &info);
+  if (info.ResultDataMaxSizeInBytes == 0) {
+    fprintf(stderr, "[tycho-dx12] acceleration structure prebuild info is empty\n");
+    return 0;
+  }
+
+  accel = (TychoDxAccelStruct *)calloc(1, sizeof(TychoDxAccelStruct));
+  if (!accel) return 0;
+  accel->dev = dev;
+  accel->resource = rt_buffer_create(dev, info.ResultDataMaxSizeInBytes, D3D12_HEAP_TYPE_DEFAULT,
+                                     D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+  scratch = rt_buffer_create(dev, info.ScratchDataSizeInBytes, D3D12_HEAP_TYPE_DEFAULT,
+                             D3D12_RESOURCE_STATE_COMMON);
+  if (!accel->resource || !scratch) {
+    if (accel->resource) accel->resource->lpVtbl->Release(accel->resource);
+    if (scratch) scratch->lpVtbl->Release(scratch);
+    free(accel);
+    return 0;
+  }
+  accel->gpu_address =
+      accel->resource->lpVtbl->GetGPUVirtualAddress(accel->resource);
+
+  memset(&desc, 0, sizeof desc);
+  desc.DestAccelerationStructureData = accel->gpu_address;
+  desc.Inputs = *inputs;
+  desc.SourceAccelerationStructureData = 0;
+  desc.ScratchAccelerationStructureData =
+      scratch->lpVtbl->GetGPUVirtualAddress(scratch);
+  if (!rt_submit(dev, rt_record_build, &desc)) {
+    fprintf(stderr, "[tycho-dx12] BuildRaytracingAccelerationStructure failed: 0x%08lX\n",
+            (unsigned long)g_last_hr);
+    dump_info_queue(dev, "BuildRaytracingAccelerationStructure");
+    accel->resource->lpVtbl->Release(accel->resource);
+    scratch->lpVtbl->Release(scratch);
+    free(accel);
+    return 0;
+  }
+  scratch->lpVtbl->Release(scratch);
+  {
+    // A build that faults the GPU reports success here and only surfaces on the
+    // next call, so ask the device directly while the context is still obvious.
+    HRESULT removed = dev->device->lpVtbl->GetDeviceRemovedReason(dev->device);
+    if (removed != S_OK) {
+      fprintf(stderr, "[tycho-dx12] device removed after accel build: 0x%08lX\n",
+              (unsigned long)removed);
+      dump_info_queue(dev, "accel build");
+      {
+        ID3D12DeviceRemovedExtendedData *dred = NULL;
+        if (SUCCEEDED(dev->device->lpVtbl->QueryInterface(
+                dev->device, &kIID_ID3D12DeviceRemovedExtendedData, (void **)&dred)) &&
+            dred) {
+          D3D12_DRED_PAGE_FAULT_OUTPUT fault;
+          memset(&fault, 0, sizeof fault);
+          if (SUCCEEDED(dred->lpVtbl->GetPageFaultAllocationOutput(dred, &fault))) {
+            fprintf(stderr, "[tycho-dx12] DRED page fault va=0x%llX\n",
+                    (unsigned long long)fault.PageFaultVA);
+            if (fault.pHeadExistingAllocationNode) {
+              fprintf(stderr, "[tycho-dx12] DRED existing allocation: %s\n",
+                      fault.pHeadExistingAllocationNode->ObjectNameA);
+            }
+          }
+          dred->lpVtbl->Release(dred);
+        }
+      }
+    }
+  }
+
+  if (dev->srv_free_count > 0) {
+    dev->srv_free_count -= 1;
+    slot = dev->srv_free[dev->srv_free_count];
+  } else if (dev->srv_used < dev->srv_capacity) {
+    slot = dev->srv_used++;
+  } else {
+    g_last_hr = (HRESULT)0x8007000E;
+    accel->resource->lpVtbl->Release(accel->resource);
+    free(accel);
+    return 0;
+  }
+  dev->srv_heap->lpVtbl->GetCPUDescriptorHandleForHeapStart(dev->srv_heap, &handle);
+  handle.ptr += (SIZE_T)slot * dev->srv_increment;
+  memset(&srv, 0, sizeof srv);
+  srv.Format = DXGI_FORMAT_UNKNOWN;
+  srv.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+  srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  srv.RaytracingAccelerationStructure.Location = accel->gpu_address;
+  dev->device->lpVtbl->CreateShaderResourceView(dev->device, NULL, &srv, handle);
+  accel->srv_slot = slot;
+  accel->has_srv = 1;
+  return (uint64_t)(uintptr_t)accel;
+}
+
+// One triangle geometry: the RHI raises for more than one, so the shim stays
+// single-geometry until a real scene needs otherwise.
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_blas_create(uint64_t dev_p, uint64_t vertex_address,
+                                                   int32_t vertex_count, int32_t vertex_stride,
+                                                   uint64_t index_address, int32_t index_count,
+                                                   int32_t index32, int32_t opaque) {
+  TychoDxDevice *dev = as_device(dev_p);
+  TychoDxAccelStruct *accel;
+  D3D12_RAYTRACING_GEOMETRY_DESC geometry;
+  D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs;
+  float *identity;
+  void *mapped = NULL;
+  if (!dev || vertex_address == 0 || vertex_count < 3 || vertex_stride <= 0) return 0;
+
+  // Identity 3x4 (row-major), uploaded because Transform3x4 is a GPU address.
+  accel = NULL;
+  {
+    ID3D12Resource *transform = rt_buffer_create(dev, 48, D3D12_HEAP_TYPE_UPLOAD,
+                                                 D3D12_RESOURCE_STATE_GENERIC_READ);
+    if (!transform) return 0;
+    if (FAILED(transform->lpVtbl->Map(transform, 0, NULL, &mapped)) || !mapped) {
+      transform->lpVtbl->Release(transform);
+      return 0;
+    }
+    identity = (float *)mapped;
+    identity[0] = 1.0f; identity[1] = 0.0f; identity[2] = 0.0f; identity[3] = 0.0f;
+    identity[4] = 0.0f; identity[5] = 1.0f; identity[6] = 0.0f; identity[7] = 0.0f;
+    identity[8] = 0.0f; identity[9] = 0.0f; identity[10] = 1.0f; identity[11] = 0.0f;
+
+    memset(&geometry, 0, sizeof geometry);
+    geometry.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+    geometry.Flags = opaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE
+                            : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
+    // 0 means identity: passing an explicit matrix is legal but makes the builder
+    // consume a second buffer, and a bad address there surfaces as a TDR.
+    geometry.Triangles.Transform3x4 = 0;
+    geometry.Triangles.IndexFormat =
+        index_count > 0 ? (index32 ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT)
+                        : DXGI_FORMAT_UNKNOWN;
+    geometry.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+    geometry.Triangles.IndexCount = (UINT)(index_count > 0 ? index_count : 0);
+    geometry.Triangles.VertexCount = (UINT)vertex_count;
+    geometry.Triangles.IndexBuffer = index_address;
+    geometry.Triangles.VertexBuffer.StartAddress = vertex_address;
+    geometry.Triangles.VertexBuffer.StrideInBytes = (UINT64)vertex_stride;
+
+    memset(&inputs, 0, sizeof inputs);
+    inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+    inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+    inputs.NumDescs = 1;
+    inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+    inputs.pGeometryDescs = &geometry;
+
+    {
+      uint64_t built = accel_build(dev, &inputs);
+      if (built == 0) {
+        transform->lpVtbl->Release(transform);
+        return 0;
+      }
+      accel = as_accel(built);
+      accel->transform = transform;
+    }
+  }
+  return (uint64_t)(uintptr_t)accel;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_tlas_create(uint64_t dev_p, uint64_t blas_address,
+                                                   const float *transform12, int32_t custom_index,
+                                                   int32_t mask) {
+  TychoDxDevice *dev = as_device(dev_p);
+  D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs;
+  D3D12_RAYTRACING_INSTANCE_DESC *instance;
+  ID3D12Resource *staging = NULL;
+  ID3D12Resource *instances = NULL;
+  TychoRtCopy copy;
+  void *mapped = NULL;
+  uint64_t result;
+  const UINT64 kInstanceBytes = sizeof(D3D12_RAYTRACING_INSTANCE_DESC);
+  if (!dev || blas_address == 0 || !transform12) return 0;
+
+  // The instance descriptors are filled on the CPU, but the build reads them
+  // through a non-pixel-shader path, so they live in a DEFAULT-heap buffer and are
+  // copied from a staging buffer rather than read straight out of the upload heap.
+  staging = rt_buffer_create(dev, kInstanceBytes, D3D12_HEAP_TYPE_UPLOAD,
+                             D3D12_RESOURCE_STATE_GENERIC_READ);
+  instances = rt_buffer_create(dev, kInstanceBytes, D3D12_HEAP_TYPE_DEFAULT,
+                               D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+  if (!staging || !instances) goto fail;
+  if (FAILED(staging->lpVtbl->Map(staging, 0, NULL, &mapped)) || !mapped) goto fail;
+  instance = (D3D12_RAYTRACING_INSTANCE_DESC *)mapped;
+  memset(instance, 0, (size_t)kInstanceBytes);
+  // `transform12` is 3x4 row-major, matching FLOAT Transform[3][4].
+  memcpy(instance->Transform, transform12, sizeof(float) * 12);
+  instance->InstanceID = 0;
+  instance->InstanceMask = (UINT)(mask & 0xFF);
+  instance->InstanceContributionToHitGroupIndex = (UINT)(custom_index & 0xFFFFFF);
+  instance->Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+  instance->AccelerationStructure = blas_address;
+  staging->lpVtbl->Unmap(staging, 0, NULL);
+
+  memset(&copy, 0, sizeof copy);
+  copy.dst = instances;
+  copy.src = staging;
+  copy.size = kInstanceBytes;
+  if (!rt_submit(dev, rt_record_copy, &copy)) goto fail;
+
+  memset(&inputs, 0, sizeof inputs);
+  inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+  inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
+  inputs.NumDescs = 1;
+  inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+  inputs.InstanceDescs = instances->lpVtbl->GetGPUVirtualAddress(instances);
+
+  result = accel_build(dev, &inputs);
+  if (result != 0) {
+    fprintf(stderr, "[tycho-dx12] TLAS built\n");
+  }
+  instances->lpVtbl->Release(instances);
+  staging->lpVtbl->Release(staging);
+  return result;
+
+fail:
+  if (instances) instances->lpVtbl->Release(instances);
+  if (staging) staging->lpVtbl->Release(staging);
+  fprintf(stderr, "[tycho-dx12] TLAS instance buffer setup failed\n");
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_accel(uint64_t cmd_p, int32_t root_index,
+                                                    uint64_t accel_p, int32_t compute) {
+  TychoDxCommands *cmds = as_commands(cmd_p);
+  TychoDxAccelStruct *accel = as_accel(accel_p);
+  ID3D12DescriptorHeap *heaps[1];
+  D3D12_GPU_DESCRIPTOR_HANDLE gpu;
+  if (!cmds || !cmds->dev || !accel || !accel->has_srv || root_index < 0) return 0;
+  heaps[0] = cmds->dev->srv_heap;
+  cmds->list->lpVtbl->SetDescriptorHeaps(cmds->list, 1, heaps);
+  cmds->dev->srv_heap->lpVtbl->GetGPUDescriptorHandleForHeapStart(cmds->dev->srv_heap, &gpu);
+  gpu.ptr += (SIZE_T)accel->srv_slot * cmds->dev->srv_increment;
+  if (compute) {
+    cmds->list->lpVtbl->SetComputeRootDescriptorTable(cmds->list, (UINT)root_index, gpu);
+  } else {
+    cmds->list->lpVtbl->SetGraphicsRootDescriptorTable(cmds->list, (UINT)root_index, gpu);
+  }
+  return 1;
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_accel_destroy(uint64_t accel_p) {
+  TychoDxAccelStruct *accel = as_accel(accel_p);
+  if (!accel) return;
+  if (accel->has_srv && accel->dev &&
+      accel->dev->srv_free_count < TYCHO_DX12_SRV_HEAP_SIZE) {
+    accel->dev->srv_free[accel->dev->srv_free_count] = accel->srv_slot;
+    accel->dev->srv_free_count += 1;
+  }
+  if (accel->transform) accel->transform->lpVtbl->Release(accel->transform);
+  if (accel->resource) accel->resource->lpVtbl->Release(accel->resource);
+  free(accel);
 }
 
 #else  // !defined(_WIN32)
@@ -3532,12 +3991,14 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_storage_texture_create(uint64_t dev, int3
 MOONBIT_FFI_EXPORT uint64_t tycho_dx12_compute_pipeline_create(uint64_t dev, const uint8_t *cs,
                                                                int32_t cs_len, int32_t cbv_count,
                                                                int32_t uav_tables,
+                                                               int32_t accel_tables,
                                                                int32_t push_bytes) {
   (void)dev;
   (void)cs;
   (void)cs_len;
   (void)cbv_count;
   (void)uav_tables;
+  (void)accel_tables;
   (void)push_bytes;
   return 0;
 }
@@ -3693,5 +4154,42 @@ MOONBIT_FFI_EXPORT int32_t tycho_dx12_swapchain_resize(uint64_t dev, uint64_t p,
   (void)height;
   return 0;
 }
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_blas_create(uint64_t dev, uint64_t vertex_address,
+                                                   int32_t vertex_count, int32_t vertex_stride,
+                                                   uint64_t index_address, int32_t index_count,
+                                                   int32_t index32, int32_t opaque) {
+  (void)dev;
+  (void)vertex_address;
+  (void)vertex_count;
+  (void)vertex_stride;
+  (void)index_address;
+  (void)index_count;
+  (void)index32;
+  (void)opaque;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT uint64_t tycho_dx12_tlas_create(uint64_t dev, uint64_t blas_address,
+                                                   const float *transform12, int32_t custom_index,
+                                                   int32_t mask) {
+  (void)dev;
+  (void)blas_address;
+  (void)transform12;
+  (void)custom_index;
+  (void)mask;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT int32_t tycho_dx12_cmd_set_accel(uint64_t cmd, int32_t root_index,
+                                                    uint64_t accel, int32_t compute) {
+  (void)cmd;
+  (void)root_index;
+  (void)accel;
+  (void)compute;
+  return 0;
+}
+
+MOONBIT_FFI_EXPORT void tycho_dx12_accel_destroy(uint64_t accel) { (void)accel; }
 
 #endif  // defined(_WIN32)

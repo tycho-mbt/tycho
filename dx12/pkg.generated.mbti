@@ -5519,6 +5519,14 @@ pub fn last_error() -> Int32
 // Errors
 
 // Types and methods
+pub struct AccelStruct {
+  handle : UInt64
+}
+pub fn AccelStruct::create_blas(Device, UInt64, Int32, vertex_stride? : Int32, index_address? : UInt64, index_count? : Int32, index32? : Bool, is_opaque? : Bool) -> Self?
+pub fn AccelStruct::create_tlas(Device, UInt64, FixedArray[Float], custom_index? : Int32, mask? : Int32) -> Self?
+pub fn AccelStruct::destroy(Self) -> Unit
+pub fn AccelStruct::handle(Self) -> UInt64
+
 pub struct Buffer {
   handle : UInt64
 }
@@ -5561,6 +5569,7 @@ pub fn CommandList::execute_indirect(Self, IndirectKind, Buffer, tex? : Texture,
 pub fn CommandList::execute_indirect_counted(Self, IndirectKind, Buffer, Buffer, max_count? : Int32, tex? : Texture, offset? : Int32, count_offset? : Int32, flip_y? : Bool) -> Bool
 pub fn CommandList::execute_wait(Self, Device) -> Bool
 pub fn CommandList::handle(Self) -> UInt64
+pub fn CommandList::set_accel(Self, Int32, AccelStruct, compute? : Bool) -> Bool
 pub fn CommandList::set_buffer_uav(Self, Int32, Buffer) -> Bool
 pub fn CommandList::set_cbv(Self, Int32, Buffer, offset? : Int32) -> Bool
 pub fn CommandList::set_compute_pipeline(Self, ComputePipeline) -> Bool
@@ -5579,7 +5588,7 @@ pub fn CommandList::transition(Self, Texture, ResourceState) -> Bool
 pub struct ComputePipeline {
   handle : UInt64
 }
-pub fn ComputePipeline::create(Device, FixedArray[UInt32], Int32, cbv_count? : Int32, uav_tables? : Int32, push_bytes? : Int32) -> Self?
+pub fn ComputePipeline::create(Device, FixedArray[UInt32], Int32, cbv_count? : Int32, uav_tables? : Int32, accel_tables? : Int32, push_bytes? : Int32) -> Self?
 pub fn ComputePipeline::destroy(Self) -> Unit
 pub fn ComputePipeline::handle(Self) -> UInt64
 

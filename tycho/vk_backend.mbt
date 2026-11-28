@@ -4124,8 +4124,14 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
     let (p, slot, accel) = entry
     let ps = p
     if slot >= 0 && slot < ps.accel_slots {
+      // Comparing handles keeps this path non-raising; `vk()` would have to
+      // raise on a DX12 struct.
       let same = match ps.cur_accel[slot] {
-        Some(pa) => pa.inner.accel.as_ptr() == accel.inner.accel.as_ptr()
+        Some(pa) =>
+          match (pa.backend, accel.backend) {
+            (VkAccel(a), VkAccel(b)) => a.accel.as_ptr() == b.accel.as_ptr()
+            _ => false
+          }
         None => false
       }
       if !same {
@@ -4230,13 +4236,20 @@ fn vk_cmd_flush_slots(c : VkCmdState) -> Unit {
           }
           for i = 0; i < ps.accel_slots; i = i + 1 {
             match ps.cur_accel[i] {
+              // Only Vulkan acceleration structures ever land in `cur_accel`, so a
+              // non-Vulkan tag cannot occur here; the match keeps the helper
+              // non-raising.
               Some(accel) =>
-                write_descriptor_accel_struct(
-                  c.device,
-                  set_handle,
-                  ps.accel_bindings[i],
-                  accel.inner,
-                )
+                match accel.backend {
+                  VkAccel(state) =>
+                    write_descriptor_accel_struct(
+                      c.device,
+                      set_handle,
+                      ps.accel_bindings[i],
+                      state,
+                    )
+                  Dx12Accel(_) => ()
+                }
               None => ()
             }
           }
@@ -6399,7 +6412,7 @@ fn vk_create_tlas(
       inst.mask.reinterpret_as_uint(),
       (0 : UInt32),
       @vk.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
-      inst.blas.inner.device_address,
+      inst.blas.vk().device_address,
     )
     xform.free()
   }

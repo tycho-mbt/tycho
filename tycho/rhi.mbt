@@ -170,8 +170,17 @@ pub struct BindlessHeap {
 }
 
 ///|
+priv enum AccelBackend {
+  VkAccel(VkAccelStructState)
+  Dx12Accel(@dx12.AccelStruct)
+}
+
+///|
+/// A BLAS or TLAS. Ray queries read it from a shader; there is no
+/// `trace_rays` pipeline path yet (that would need D3D12 state objects and a
+/// shader binding table).
 pub struct AccelStruct {
-  priv inner : VkAccelStructState
+  priv backend : AccelBackend
 }
 
 ///|
@@ -234,8 +243,12 @@ fn BindlessHeap::vk(self : BindlessHeap) -> VkBindlessHeapState {
   self.inner
 }
 
-fn AccelStruct::vk(self : AccelStruct) -> VkAccelStructState {
-  self.inner
+fn AccelStruct::vk(self : AccelStruct) -> VkAccelStructState raise RhiError {
+  match self.backend {
+    VkAccel(state) => state
+    Dx12Accel(_) =>
+      raise RhiError::BackendUnsupported("this acceleration-structure operation is Vulkan only")
+  }
 }
 
 ///|
@@ -820,11 +833,6 @@ pub fn Device::create_compute_pipeline(
 ) -> Pipeline raise RhiError {
   match self.backend {
     Dx12Device(state) => {
-      if accel_slots > 0 {
-        raise RhiError::BackendUnsupported(
-          "the DX12 compute path implements storage-buffer/image (UAV) slots and uniform slots",
-        )
-      }
       if storage_slots > 0 && storage_image_slots > 0 {
         raise RhiError::BackendUnsupported(
           "the DX12 compute path binds either storage buffers or storage images in its single UAV table",
@@ -837,6 +845,7 @@ pub fn Device::create_compute_pipeline(
             spv,
             uniform_slots,
             storage_image_slots + storage_slots,
+            accel_slots,
             push_constant_size,
           ),
         ),
@@ -2143,10 +2152,34 @@ pub fn CommandBuffer::bind_accel_struct(
   slot : Int,
   accel : AccelStruct,
 ) -> Unit {
-  match pipeline.backend {
-    VkPipeline(pipe) => self.on_vk(fn(state) { state.pending_accel.push((pipe, slot, accel)) })
-    Dx12Pipeline(_) | Dx12Compute(_) =>
-      self.fail_later("bind_accel_struct is not implemented on the DX12 backend")
+  match (pipeline.backend, accel.backend) {
+    (VkPipeline(pipe), VkAccel(_)) =>
+      self.on_vk(fn(cmd) { cmd.pending_accel.push((pipe, slot, accel)) })
+    (Dx12Compute(pipe), Dx12Accel(dx12)) =>
+      match self.backend {
+        Dx12Commands(cmd) => {
+          if !dx12_bind_accel_struct(cmd, pipe, slot, dx12) {
+            dx12_unsupported(cmd, "this acceleration-structure binding")
+          }
+        }
+        VkCommands(_) => ()
+      }
+    // Ray queries in a raster pipeline would need the accel table in the
+    // graphics root signature, which is not wired yet.
+    (Dx12Pipeline(_), Dx12Accel(_)) =>
+      self.fail_later("bind_accel_struct is only wired for DX12 compute pipelines")
+    _ => ()
+  }
+}
+
+///|
+/// Ray tracing capability: 0 = none, 1 = tier 1.0 / VK_KHR_ray_query. Ray
+/// queries are the only ray tracing path the RHI exposes so far, so a value of 1
+/// means acceleration structures plus in-shader queries are usable.
+pub fn Device::raytracing_tier(self : Device) -> Int {
+  match self.backend {
+    Dx12Device(state) => @dx12.Device::raytracing_tier(state.device)
+    VkDevice(state) => if state.caps.supports_ray_query { 1 } else { 0 }
   }
 }
 
@@ -2155,7 +2188,10 @@ pub fn Device::create_blas(
   self : Device,
   geometries : Array[RayGeometryDesc],
 ) -> AccelStruct raise RhiError {
-  { inner: vk_create_blas(self.vk(), geometries) }
+  match self.backend {
+    Dx12Device(state) => { backend: Dx12Accel(dx12_create_blas(state, geometries)) }
+    VkDevice(_) => { backend: VkAccel(vk_create_blas(self.vk(), geometries)) }
+  }
 }
 
 ///|
@@ -2163,12 +2199,18 @@ pub fn Device::create_tlas(
   self : Device,
   instances : Array[RayInstanceDesc],
 ) -> AccelStruct raise RhiError {
-  { inner: vk_create_tlas(self.vk(), instances) }
+  match self.backend {
+    Dx12Device(state) => { backend: Dx12Accel(dx12_create_tlas(state, instances)) }
+    VkDevice(_) => { backend: VkAccel(vk_create_tlas(self.vk(), instances)) }
+  }
 }
 
 ///|
 pub fn AccelStruct::destroy(self : AccelStruct) -> Unit {
-  vk_accel_struct_destroy(self.vk())
+  match self.backend {
+    VkAccel(state) => vk_accel_struct_destroy(state)
+    Dx12Accel(accel) => accel.destroy()
+  }
 }
 
 ///|
