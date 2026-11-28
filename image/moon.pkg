@@ -1,3 +1,4 @@
 import {
   "laplaceliu/tycho_shader" @shader,
+  "moonbitlang/core/math" @math,
 }

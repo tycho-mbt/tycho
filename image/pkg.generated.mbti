@@ -6,6 +6,8 @@ import {
 }
 
 // Values
+pub fn decode_hdr(Bytes) -> HdrImage raise ImageError
+
 pub fn decode_rgba(Bytes) -> Image raise ImageError
 
 pub fn load_hdr(String) -> HdrImage raise ImageError
@@ -21,6 +23,24 @@ pub fn read_file_bytes_checked(String) -> Bytes raise ImageError
 pub fn save_png(String, Image, bgra? : Bool) -> Unit raise ImageError
 
 pub fn save_png_rgba(String, Int32, Int32, Bytes, bgra? : Bool) -> Unit raise ImageError
+
+pub fn stbi_info_from_memory(Bytes) -> StbiInfo?
+
+pub fn stbi_is_16_bit_from_memory(Bytes) -> Bool
+
+pub fn stbi_is_hdr_from_memory(Bytes) -> Bool
+
+pub fn stbi_load_16_from_memory(Bytes, desired_channels? : Int32, options? : StbiOptions) -> StbiImage16?
+
+pub fn stbi_load_from_memory(Bytes, desired_channels? : Int32, options? : StbiOptions) -> StbiImage8?
+
+pub fn stbi_load_gif_from_memory(Bytes, desired_channels? : Int32, options? : StbiOptions) -> StbiGif?
+
+pub fn stbi_loadf_from_memory(Bytes, desired_channels? : Int32, options? : StbiOptions) -> StbiImageF?
+
+pub fn stbi_zlib_decode(Bytes) -> Bytes?
+
+pub fn stbi_zlib_decode_noheader(Bytes) -> Bytes?
 
 // Errors
 pub suberror ImageError {
@@ -54,6 +74,75 @@ pub(all) enum ImageFormat {
   RGBA8Srgb
   R32Float
 }
+
+pub(all) struct StbiGif {
+  width : Int32
+  height : Int32
+  frames : Int32
+  channels_in_file : Int32
+  channels : Int32
+  delays : FixedArray[Int32]
+  data : Bytes
+}
+
+pub(all) struct StbiImage16 {
+  width : Int32
+  height : Int32
+  channels_in_file : Int32
+  channels : Int32
+  data : FixedArray[UInt16]
+}
+
+pub(all) struct StbiImage8 {
+  width : Int32
+  height : Int32
+  channels_in_file : Int32
+  channels : Int32
+  data : Bytes
+}
+
+pub(all) struct StbiImageF {
+  width : Int32
+  height : Int32
+  channels_in_file : Int32
+  channels : Int32
+  data : FixedArray[Float]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum StbiImageType {
+  Unsupported
+  Png
+  Jpeg
+  Bmp
+  Tga
+  Gif
+  Psd
+  Hdr
+  Pnm
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct StbiInfo {
+  width : Int32
+  height : Int32
+  channels : Int32
+  image_type : StbiImageType
+  is_16_bit : Bool
+  is_hdr : Bool
+  is_iphone_png : Bool
+}
+
+pub(all) struct StbiOptions {
+  flip_vertically : Bool
+  unpremultiply_iphone_png : Bool
+  convert_iphone_png_to_rgb : Bool
+  ldr_to_hdr_gamma : Float
+  ldr_to_hdr_scale : Float
+  hdr_to_ldr_gamma : Float
+  hdr_to_ldr_scale : Float
+}
+pub fn StbiOptions::default() -> Self
 
 // Type aliases
 

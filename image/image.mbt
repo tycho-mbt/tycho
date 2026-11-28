@@ -1,8 +1,6 @@
 // Image IO for the Tycho stack: one typed entry point for decoding
-// PNG/JPEG/PPM/BMP to RGBA8, decoding Radiance HDR to linear float pixels,
-// reading raw files, and encoding PNG. The heavy lifting stays in
-// `laplaceliu/tycho_shader` (bundled stb_image / stb_image_write), so callers
-// get `Image` / `ImageError` instead of `(Bytes, Int32, Int32)` tuples.
+// PNG/JPEG/BMP/TGA/GIF/PSD/HDR/PNM in pure MoonBit (a faithful port of
+// stb_image v2.34), reading raw files, and encoding PNG.
 
 ///|
 #derive(Eq, Debug)
@@ -22,7 +20,12 @@ pub(all) struct Image {
 }
 
 ///|
-pub fn Image::new(width : Int, height : Int, format : ImageFormat, data : Bytes) -> Image {
+pub fn Image::new(
+  width : Int,
+  height : Int,
+  format : ImageFormat,
+  data : Bytes,
+) -> Image {
   { width, height, format, data }
 }
 
@@ -43,7 +46,7 @@ pub fn Image::byte_size(self : Image) -> Int {
 }
 
 ///|
-/// Radiance HDR image: linear RGB triples, row-major.
+/// Radiance HDR image: linear RGBA float pixels, row-major.
 pub(all) struct HdrImage {
   width : Int
   height : Int
@@ -63,13 +66,14 @@ pub suberror ImageError {
 }
 
 ///|
-/// Decode PNG/JPEG (and the PPM/BMP variants stb_image accepts) from memory.
+/// Decode any stb_image-supported format (PNG/JPEG/BMP/TGA/GIF/PSD/HDR/PNM)
+/// from memory to straight-alpha RGBA8 in pure MoonBit.
 pub fn decode_rgba(bytes : Bytes) -> Image raise ImageError {
   if bytes.length() == 0 {
     raise ImageError::DecodeFailed("empty image data")
   }
-  match @shader.decode_image(bytes) {
-    Some((px, w, h)) => Image::rgba8(w, h, px)
+  match stbi_load_from_memory(bytes, desired_channels=4) {
+    Some(img) => Image::rgba8(img.width, img.height, img.data)
     None => raise ImageError::DecodeFailed("unsupported or corrupt image data")
   }
 }
@@ -99,30 +103,52 @@ pub fn read_file_bytes(path : String) -> Bytes {
 }
 
 ///|
-/// Load an image file through the PPM/BMP/TGA path stb_image exposes by name
-/// (PNG/JPEG go through `load_rgba`).
+/// Load an image file (PNG/JPEG/BMP/TGA/GIF/PSD/HDR/PNM) to RGBA8 in pure MoonBit.
 pub fn load_image(path : String) -> Image raise ImageError {
-  let (pixels, w, h) = @shader.load_image(path)
-  if w <= 0 || h <= 0 || pixels.length() == 0 {
+  let bytes = read_file_bytes(path)
+  if bytes.length() == 0 {
     raise ImageError::DecodeFailed(path)
   }
-  Image::rgba8(w.to_int(), h.to_int(), Bytes::from_array(pixels[:]))
+  match stbi_load_from_memory(bytes, desired_channels=4) {
+    Some(img) => Image::rgba8(img.width, img.height, img.data)
+    None => raise ImageError::DecodeFailed(path)
+  }
 }
 
 ///|
-/// Read a Radiance `.hdr` file as linear float pixels.
+/// Decode a Radiance `.hdr` (or LDR converted to linear float) image from memory
+/// to linear RGBA float pixels in pure MoonBit.
+pub fn decode_hdr(bytes : Bytes) -> HdrImage raise ImageError {
+  if bytes.length() == 0 {
+    raise ImageError::DecodeFailed("empty image data")
+  }
+  match stbi_loadf_from_memory(bytes, desired_channels=4) {
+    Some(img) => { width: img.width, height: img.height, pixels: img.data }
+    None => raise ImageError::DecodeFailed("unsupported or corrupt HDR data")
+  }
+}
+
+///|
+/// Read a Radiance `.hdr` file as linear RGBA float pixels in pure MoonBit.
 pub fn load_hdr(path : String) -> HdrImage raise ImageError {
-  let (pixels, w, h) = @shader.load_hdr_image(path)
-  if w <= 0 || h <= 0 || pixels.length() == 0 {
+  let bytes = read_file_bytes(path)
+  if bytes.length() == 0 {
     raise ImageError::DecodeFailed(path)
   }
-  { width: w.to_int(), height: h.to_int(), pixels }
+  match stbi_loadf_from_memory(bytes, desired_channels=4) {
+    Some(img) => { width: img.width, height: img.height, pixels: img.data }
+    None => raise ImageError::DecodeFailed(path)
+  }
 }
 
 ///|
 /// Encode `image` as PNG. `bgra=true` swaps red/blue first, which Vulkan
 /// swapchain readbacks on some drivers need.
-pub fn save_png(path : String, image : Image, bgra? : Bool = false) -> Unit raise ImageError {
+pub fn save_png(
+  path : String,
+  image : Image,
+  bgra? : Bool = false,
+) -> Unit raise ImageError {
   match image.format {
     ImageFormat::R32Float =>
       raise ImageError::EncodeFailed("save_png expects an 8-bit RGBA image")
