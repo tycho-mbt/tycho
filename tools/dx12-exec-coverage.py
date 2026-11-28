@@ -49,7 +49,7 @@ def surface(gen):
 
 def executed(fn_to_method):
     done = set()
-    for pat in ("examples/dx12/*/main.mbt", "dx12/dx12_wbtest.mbt"):
+    for pat in ("examples/dx12/*/*.mbt", "dx12/dx12_wbtest.mbt"):
         for f in ROOT.glob(pat):
             text = f.read_text(encoding="utf-8")
             for m in re.finditer(r"\bdx_[a-z0-9_]+\b", text):
