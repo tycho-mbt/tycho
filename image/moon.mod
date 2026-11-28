@@ -15,5 +15,5 @@ description = "Tycho Image — typed RGBA/HDR image IO (PNG/JPEG/PPM/BMP decode,
 keywords = [ "image", "png", "hdr", "decoding", "tycho" ]
 
 import {
-  "laplaceliu/tycho_shader@0.8.0",
+  "laplaceliu/tycho_shader@0.9.0",
 }

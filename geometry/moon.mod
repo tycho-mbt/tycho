@@ -1,6 +1,6 @@
 name = "laplaceliu/tycho_geometry"
 
-version = "0.10.0"
+version = "0.11.0"
 
 license = "Apache-2.0"
 
@@ -13,5 +13,5 @@ description = "Tycho Geometry — zero-dependency pure-MoonBit mesh data, parame
 keywords = [ "geometry", "mesh", "primitives", "obj", "tycho" ]
 
 import {
-  "laplaceliu/tycho_math@0.9.0",
+  "laplaceliu/tycho_math@0.10.0",
 }

@@ -1,6 +1,6 @@
 name = "laplaceliu/tycho_3d"
 
-version = "0.10.0"
+version = "0.11.0"
 
 license = "Apache-2.0"
 
@@ -16,7 +16,7 @@ keywords = [ "3d", "graphics", "pbr", "scene-graph", "threejs", "tycho" ]
 
 import {
   "laplaceliu/tycho_image@0.9.0",
-  "laplaceliu/tycho@0.10.0",
-  "laplaceliu/tycho_geometry@0.10.0",
-  "laplaceliu/tycho_math@0.9.0",
+  "laplaceliu/tycho@0.11.0",
+  "laplaceliu/tycho_geometry@0.11.0",
+  "laplaceliu/tycho_math@0.10.0",
 }
