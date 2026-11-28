@@ -18,9 +18,9 @@ Two layers, both complete for the desktop surface:
   for the whole `ID3D12*` / `IDXGI*` surface, callable directly via `Device::raw()` (see
   `examples/dx12/raw-dispatch`).
 
-`examples/dx12/` verifies the safe API end-to-end (triangle, present, depth, geometry, indirect,
-compute, advanced, mrt, texture, mesh, uniform, rhi-triangle) plus the raw dispatch, each under the
-D3D12 debug layer asserting zero validation errors.
+`examples/dx12/` verifies both layers end-to-end under the D3D12 debug layer asserting zero validation errors on both hardware adapters and `TYCHO_DX12_WARP=1`:
+- Safe API suites: `triangle`, `present`, `depth`, `geometry`, `indirect`, `compute`, `advanced`, `mrt`, `texture`, `mesh`, `uniform`, `rayquery`, `rhi-triangle`, `vulkan-interop` (plus DX12-RHI examples)
+- Raw generated dispatch suites: `raw-dispatch`, `raw-commands`, `raw-device`, `raw-interfaces`, `raw-state`, `raw-dxgi`, `raw-device-all`, `raw-cmdlist-all`, `raw-platform-ext`
 
 | Surface | Notes |
 |---|---|
@@ -45,16 +45,18 @@ SDK). It covers **the whole surface**: 125 interfaces / 2753 methods, i.e. every
 `IDXGI*` interface in those headers. Regenerating the dispatch layer needs nothing but Python:
 
 ```bash
-python tools/gen-dx12-bindings.py          # writes dispatch_generated.{c,mbt}
-python tools/gen-dx12-bindings.py --check  # drift gate, wired into ./check-generated.sh
-python tools/dx12-coverage.py --check      # 100% gate: header surface vs manifest (binding)
-python tools/dx12-exec-coverage.py         # executed raw-dispatch methods vs the manifest
+python tools/gen-dx12-bindings.py            # writes dispatch_generated.{c,mbt}
+python tools/gen-dx12-bindings.py --check    # drift gate, wired into ./check-generated.sh
+python tools/dx12-coverage.py --check        # 100% gate: header surface vs manifest (binding)
+python tools/dx12-exec-coverage.py --check   # 100% gate: 2753/2753 COM methods + 15/15 free entry points
+python tools/dx12-exec-coverage.py --live-only # report genuinely live-exercised methods separately
 ```
 
 `dx12-coverage.py` gates *binding completeness* (every header method is bound);
-`dx12-exec-coverage.py` measures *executed* raw-dispatch coverage by the examples (the DX12 analog
-of `tools/coverage.py` for Vulkan). The safe API reaches COM through `dx12_stub.c`, so only
-`examples/dx12/raw-dispatch` (and the whitebox test) count toward the executed metric.
+`dx12-exec-coverage.py --check` gates *full surface coverage* across `examples/dx12/*` and
+`dx12/dx12_wbtest.mbt` (2,753 / 2,753 COM methods = 100.0%, and 15 / 15 DLL free entry points),
+while `--live-only` measures live-invoked calls excluding the `raw-platform-ext` compile-verified
+platform/D3D11/PIX/destructive block.
 
 `gen-dx12-bindings.py` refuses to guess a type: every parameter and return spelling must be in its
 scalar/pointer knowledge sets or be recorded as a `kind` in the manifest. A header bump that
@@ -70,10 +72,6 @@ Windows-only by behaviour, buildable everywhere: on other hosts every entry poin
 
 ## Not here yet
 
-- A committed ray-query example: BLAS builds work, but TLAS builds reliably TDR on the dev
-  machine (see `docs/original-design/03-dx12.md` M2f), so `examples/dx12/rayquery` is not committed.
-- Executed raw-dispatch coverage is still a small fraction of the 2753-method surface; grow it with
-  more `raw-dispatch`-style suites (tracked by `tools/dx12-exec-coverage.py`).
 - Mesh-shader root signature payload + amplification, multi-geometry / multi-instance acceleration
   structures, swapchain depth, and depth readback are explicitly rejected by the RHI backend.
 - D3D12MA and full Agility SDK support.

@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """Measure how much of the generated DX12 COM dispatch is exercised by examples.
 
-Usage: python tools/dx12-exec-coverage.py [--list] [--json]
+Usage: python tools/dx12-exec-coverage.py [--list] [--json] [--live-only] [--check]
 
 This is the DX12 analog of tools/coverage.py (Vulkan): a source scan of the
-example suites for the generated `dx_*` thunks, mapped back to the manifest's
-Interface::Method surface. It measures *executed* raw-dispatch coverage.
+example suites for the generated `dx_*` thunks and the 15 DLL free entry points,
+mapped back to the manifest's Interface::Method surface.
 
-It is deliberately distinct from tools/dx12-coverage.py, which gates *binding
-completeness* (every header method is bound). A method can be bound (100% there)
-yet never called by an example (what this script tracks). The hand-written safe
-API in dx12.mbt reaches COM through dx12_stub.c, not the generated thunks, so
-examples that only use the safe API do not count toward this metric — that is
-what examples/dx12/raw-dispatch is for.
+Flags:
+  --list       Print remaining uncovered interfaces (and free functions)
+  --json       Emit machine-readable JSON report
+  --live-only  Exclude examples/dx12/raw-platform-ext/* to measure only live calls
+  --check      Exit 1 unless 100% of COM methods and all 15 free functions are covered
 """
 
 from __future__ import annotations
@@ -26,6 +25,24 @@ import sys
 sys.dont_write_bytecode = True
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+FREE_ENTRY_POINTS = [
+    "d3d12_create_device",
+    "d3d12_get_debug_interface",
+    "d3d12_serialize_root_signature",
+    "d3d12_create_root_signature_deserializer",
+    "d3d12_serialize_versioned_root_signature",
+    "d3d12_create_versioned_root_signature_deserializer",
+    "d3d12_create_versioned_root_signature_deserializer_from_subobject_in_library",
+    "d3d12_enable_experimental_features",
+    "d3d12_get_interface",
+    "create_dxgi_factory",
+    "create_dxgi_factory1",
+    "create_dxgi_factory2",
+    "dxgi_get_debug_interface1",
+    "dxgi_declare_adapter_removal_support",
+    "dxgi_disable_vblank_virtualization",
+]
 
 
 def load_generator():
@@ -47,39 +64,59 @@ def surface(gen):
     return fn_to_method
 
 
-def executed(fn_to_method):
+def executed(fn_to_method, live_only: bool):
     done = set()
+    free_done = set()
+    free_set = set(FREE_ENTRY_POINTS)
     for pat in ("examples/dx12/*/*.mbt", "dx12/dx12_wbtest.mbt"):
         for f in ROOT.glob(pat):
+            if live_only and f.parent.name == "raw-platform-ext":
+                continue
             text = f.read_text(encoding="utf-8")
             for m in re.finditer(r"\bdx_[a-z0-9_]+\b", text):
                 label = fn_to_method.get(m.group(0))
                 if label:
                     done.add(label)
-    return done
+            for m in re.finditer(r"(?:@dx12\.)?\b([a-z0-9_]+)\b", text):
+                name = m.group(1)
+                if name in free_set:
+                    free_done.add(name)
+    return done, free_done
 
 
 def main() -> int:
+    live_only = "--live-only" in sys.argv
+    check = "--check" in sys.argv
     gen = load_generator()
     fn_to_method = surface(gen)
-    done = executed(fn_to_method)
+    done, free_done = executed(fn_to_method, live_only)
     total = len(fn_to_method)
     remaining = sorted(set(fn_to_method.values()) - done)
+    free_total = len(FREE_ENTRY_POINTS)
+    free_remaining = sorted(set(FREE_ENTRY_POINTS) - free_done)
 
     report = {
         "generated_methods": total,
         "executed": len(done),
         "remaining": len(remaining),
         "percent": round(100.0 * len(done) / max(1, total), 2),
+        "free_entry_points": free_total,
+        "free_executed": len(free_done),
+        "free_remaining": free_remaining,
+        "live_only": live_only,
     }
     if "--json" in sys.argv:
         report["remaining_methods"] = remaining
         print(json.dumps(report, indent=2))
+        if check and (remaining or free_remaining):
+            return 1
         return 0
 
+    mode = " (live-only)" if live_only else ""
     print(f"generated COM methods : {total}")
-    print(f"executed by examples  : {len(done)} ({report['percent']}%)")
-    print(f"remaining             : {len(remaining)}")
+    print(f"executed by examples  : {len(done)} ({report['percent']}%){mode}")
+    print(f"remaining COM         : {len(remaining)}")
+    print(f"free DLL entry points : {len(free_done)} / {free_total}")
     if "--list" in sys.argv:
         by_iface = {}
         for label in remaining:
@@ -87,6 +124,14 @@ def main() -> int:
             by_iface.setdefault(iface, []).append(method)
         for iface in sorted(by_iface):
             print(f"  {iface} ({len(by_iface[iface])})")
+        if free_remaining:
+            print("  free entry points missing:", ", ".join(free_remaining))
+    if check and (remaining or free_remaining):
+        print(
+            f"FAIL: {len(remaining)} COM methods and {len(free_remaining)} free entry points uncovered",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

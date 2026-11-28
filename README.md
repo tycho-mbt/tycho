@@ -142,8 +142,15 @@ moon build --target native
 # 3. Run unit tests
 moon test --target native
 
-# 4. Run the pure-MoonBit verification examples (GPU-less runners use Mesa lavapipe)
+# 4. Run the pure-MoonBit verification examples (GPU-less runners use Mesa lavapipe + WARP)
 python tools\run-ci-suite.py --mode all --skip vulkan/slang,window/wayland --require-pass 35
+
+# 5. Measure reproducible Vulkan + DX12 API coverage
+python tools\coverage.py
+python tools\gen-dx12-bindings.py --check
+python tools\dx12-coverage.py --check
+python tools\dx12-exec-coverage.py --check
+python tools\dx12-exec-coverage.py --live-only
 ```
 
 `setup-windows.ps1` verifies the MSVC x64 compiler and Windows SDK that `moon` drives

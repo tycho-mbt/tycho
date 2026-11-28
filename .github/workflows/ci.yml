@@ -137,13 +137,30 @@ jobs:
       - name: Unit tests
         shell: pwsh
         run: moon test --target native
-      - name: Run examples on lavapipe
+      - name: Verify API coverage and pure-MoonBit examples
+        shell: pwsh
+        run: |
+          $checks = @(
+            @('tools/gen-dx12-bindings.py', '--check'),
+            @('tools/dx12-coverage.py', '--check'),
+            @('tools/dx12-exec-coverage.py', '--check'),
+            @('tools/dx12-exec-coverage.py', '--live-only'),
+            @('tools/coverage.py')
+          )
+          foreach ($cmd in $checks) {
+            python @cmd
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          if (Get-ChildItem -Path examples -Filter *.c -Recurse) {
+            throw "Found C files under examples/"
+          }
+      - name: Run examples on lavapipe and WARP
         shell: pwsh
         env:
           # A hosted runner has no GPU: pin the DX12 examples to WARP instead of
           # letting their hardware-first adapter choice depend on the image.
           TYCHO_DX12_WARP: "1"
-        run: python tools/run-ci-suite.py --mode all --skip vulkan/slang,window/wayland --require-pass 35
+        run: python tools/run-ci-suite.py --mode all --skip vulkan/slang,window/wayland --require-pass 70
 
   macos:
     runs-on: macos-15
