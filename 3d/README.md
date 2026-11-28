@@ -26,6 +26,11 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   (directional or spot, one tile each); `Light::spot(..., shadow=...)` opts a
   spot in. Each light carries its tile view-projection and tile rect in the
   light SSBO, and PCF clamps to the tile so taps never bleed across lights.
+- TAA: `RendererDesc::with_taa(true)` rasterises with an 8-phase Halton
+  sub-pixel jitter and resolves against a reprojected history buffer
+  (camera-only reprojection, 3x3 neighbourhood clamp, residual guard). Call
+  `reset_taa()` after a camera cut. There are no per-object motion vectors yet,
+  so fast-moving geometry can ghost (`3d/taa`).
 - SSAO: `RendererDesc::with_ssao(true)` reconstructs world positions from the
   single-sample depth buffer (no G-buffer), accumulates a 12-sample rotated
   hemisphere and box-blurs the result; the tonemap pass multiplies it in before
@@ -242,6 +247,7 @@ let clock = @t3d.Clock::new()
 | `new MeshBasicMaterial(...)` | `MaterialDesc::basic(...)` |
 | `material.transmission = 0.9; material.ior = 1.45` | `MaterialDesc::with_transmission(0.9, ior=1.45)` |
 | `SSAOPass` (addon) | `RendererDesc::with_ssao(true)` + `set_ssao_intensity` |
+| `TAARenderPass` (addon) | `RendererDesc::with_taa(true)` + `reset_taa` |
 | `new Color(0xff8800)` / `setHSL` | `hex(0xFF8800)` / `hsl(deg, s, l)` → linear `Vec4` |
 | `mesh.position.set(x, y, z)` | `Scene::set_position(id, v)` / `translate` |
 | `mesh.rotation.set(x, y, z)` | `Scene::set_euler(id, x, y, z)` |
