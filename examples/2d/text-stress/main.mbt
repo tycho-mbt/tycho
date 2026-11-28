@@ -4,8 +4,7 @@
 // Headless assertions by default; --window for live preview, --screenshot <path> for PNG.
 
 ///|
-fn load_font(path : String) -> @g2d.FontFace {
-  let bytes = @image.read_file_bytes(path)
+fn load_font(bytes : Bytes) -> @g2d.FontFace {
   if bytes.length() == 0 {
     return @g2d.FontFace::builtin()
   }
@@ -27,12 +26,12 @@ fn main {
         headless=!show_win,
       ),
     )
-    let font_en = load_font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
-    let font_zh = load_font("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf")
+    let font_en = load_font(@fonts.latin())
+    let font_zh = load_font(@fonts.cjk())
     let en = "The quick brown fox jumps over the lazy dog 0123456789 The quick brown fox jumps over the lazy dog 0123456789"
     let zh = "永和九年岁在癸丑暮春之初会于会稽山阴之兰亭修禊事也群贤毕至少长咸集此地有崇山峻岭茂林修竹又有清流激湍映带左右引以为流觞曲水列坐其次虽无丝竹管弦之盛一觞一咏亦足以畅叙幽情是日也天朗气清惠风和畅仰观宇宙之大俯察品类之盛"
-    let w = 1920
-    let h = 1080
+    let w = 800
+    let h = 600
     let c = @g2d.Canvas::new()
     c.clear(@g2d.Color::from_rgba8(16, 20, 30))
     for i = 0; i < 40; i = i + 1 {
@@ -47,12 +46,12 @@ fn main {
           ),
         )
         .build()
-      para.layout((440.0 : Float))
+      para.layout((180.0 : Float))
       c.draw_paragraph(
         para,
         @g2d.Point::new(
-          Float::from_int(40 + (i % 4) * 460),
-          Float::from_int(30 + (i / 4) * 50),
+          Float::from_int(20 + (i % 4) * 190),
+          Float::from_int(20 + (i / 4) * 28),
         ),
       )
     }
@@ -68,12 +67,12 @@ fn main {
           ),
         )
         .build()
-      para.layout((440.0 : Float))
+      para.layout((180.0 : Float))
       c.draw_paragraph(
         para,
         @g2d.Point::new(
-          Float::from_int(40 + (i % 4) * 460),
-          Float::from_int(560 + (i / 4) * 50),
+          Float::from_int(20 + (i % 4) * 190),
+          Float::from_int(320 + (i / 4) * 28),
         ),
       )
     }

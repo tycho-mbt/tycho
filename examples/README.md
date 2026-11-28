@@ -14,6 +14,7 @@ The policy is implemented once and must not be copied into an example:
 | `examples/exwin_rhi` | `@tycho` swapchain: open, event loop, resize, capture |
 | `examples/exwin_native` | the native window used by raw `tycho_vulkan` / `tycho_dx12` examples |
 | `examples/exwin_2d` | aspect-preserving fit of a fixed 2D canvas into the window |
+| `examples/fonts` | cross-platform system-font lookup (`TYCHO_FONT_DIR` + per-OS candidates) |
 
 The user-facing summary is the root README section `Example Window & CLI Policy` (`../README.md`).
 
@@ -46,8 +47,7 @@ fn main {
 - Parse once, as the first statement of `main`.
 - Use `opts.width` / `opts.height` for the window and swapchain instead of hard-coded sizes, so
   `--size` keeps working.
-- The offscreen verification canvas is 800x600 unless the example is one of the documented
-  fixed-canvas exceptions (section 4.1).
+- The offscreen verification canvas is 800x600.
 
 ## 2. Headless first, window second
 
@@ -105,16 +105,15 @@ is not the result line.
 
 ### 4.1 Size: 800x600, no letterbox bars
 
-- Every committed `screenshot.png` under `examples/` is **800x600**. Frames written through
-  `@shader.save_png` are opaque RGBA8 (the writer forces alpha to 255).
+- Every committed `screenshot.png` under `examples/` is **800x600, opaque RGBA8** (written through
+  `@shader.save_png`, which forces alpha to 255).
 - A new example renders its verification frame at **800x600** (4:3) and passes exactly that size to
   the capture call, so the PNG fills the frame edge to edge.
 - `Options::capture` still letterboxes any other canvas into 800x600 (aspect preserved,
-  nearest-neighbour, centred on black). The only remaining fixed canvases are the 2D scenes, which
-  are authored at 1920x1080, 960x320, 640x240 or 900x640 and keep black bars on purpose. That is a
-  legacy exception, not a template: for a new example choose 800x600 unless the canvas size itself
-  is what the assertions are about. Never add letterboxing to an example, and do not crop or
-  stretch to fill the frame.
+  nearest-neighbour, centred on black) as a safety net, but no committed example relies on it any
+  more: every example that captures renders at 800x600. For a new example choose 800x600 unless
+  the canvas size itself is what the assertions are about. Never add letterboxing to an example,
+  and do not crop or stretch to fill the frame.
 - Do not pick a small canvas (64x64, 128x128, 480x320) to make a test cheaper. If a check only needs
   a few samples, sample fewer coordinates while still rendering 800x600.
 - `--size` only changes the window/swapchain. Do not pass it when generating a committed
@@ -204,6 +203,13 @@ PNG. Do not copy that shape for a new example unless presentation is the thing b
 
 - `TYCHO_WINDOW=1` and `TYCHO_SCREENSHOT=<path>` mirror `--window` and `--screenshot`; CI uses them
   instead of rewriting command lines.
+- `TYCHO_FONT_DIR=<dir>` points the 2D/UI examples at a directory containing the canonical font
+  files (`DejaVuSans.ttf`, `DroidSansFallbackFull.ttf`, `NotoColorEmoji.ttf`,
+  `Lohit-Devanagari.ttf`); without it they fall back to the platform font directories
+  (`/usr/share/fonts` on Linux, `%WINDIR%\Fonts` on Windows, `/System/Library/Fonts` on macOS).
+  On Debian/Ubuntu the canonical files come from `fonts-dejavu-core`, `fonts-droid-fallback`,
+  `fonts-noto-color-emoji` and `fonts-lohit-deva`. This is how the committed 2D screenshots are
+  reproduced across platforms.
 - Backend escape hatches stay in the backend documentation (`TYCHO_DX12_WARP=1`,
   `TYCHO_D3D12_LIB` / `TYCHO_DXGI_LIB`, `TYCHO_VULKAN_LIB`, ...). Do not add new environment
   variables for window or screenshot behavior.

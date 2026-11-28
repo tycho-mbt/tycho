@@ -186,11 +186,10 @@ it. Interactive runs close on Esc or the window button, adopt a resize
 as `[<module>/<name>] screenshot=<path> ok`.
 
 Every window is 800x600 and every `--screenshot` is 800x600, so the committed
-`screenshot.png` files all share one size. Examples whose verification canvas has
-another size (the 2D scenes are 1920x1080, 960x320, …) keep that canvas — it is
-what they assert on — and both
-the window preview and the PNG are letterboxed into 800x600 with the aspect
-preserved (centred on black, never cropped or stretched).
+`screenshot.png` files all share one size. The examples also verify at 800x600,
+so the PNG fills the frame instead of being letterboxed; `Options::capture`
+still letterboxes a differently sized canvas as a safety net (aspect preserved,
+centred on black, never cropped or stretched).
 
 ## Publishing to `mooncakes.io`
 

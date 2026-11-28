@@ -1,0 +1,21 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_vulkan_examples/fonts"
+
+// Values
+pub fn cjk() -> Bytes
+
+pub fn color_emoji() -> Bytes
+
+pub fn dejavu_sans() -> Bytes
+
+pub fn devanagari() -> Bytes
+
+pub fn latin() -> Bytes
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

@@ -1,7 +1,7 @@
 # 2d/svg-icons — coverage atlas quality gate
 
-Renders 300 procedural icon paths (concave stars, EvenOdd rings, rounded
-squares) at 1920x1080 twice:
+Renders 3,000 procedural icon paths (concave stars, EvenOdd rings, rounded
+squares) at 800x600 twice:
 
 1. through the CPU coverage atlas (one batched draw, zero MSAA passes);
 2. through the per-path 4x MSAA fallback.
@@ -27,6 +27,6 @@ moon build --target native 2d/svg-icons
 Sample output on NVIDIA:
 
 ```json
-{"ssim":0.9944478052586458,"coverage_draws":3000,"coverage_passes":0,"msaa_passes":400,"coverage_draw_calls":2,"msaa_draw_calls":1}
-[2d/svg-icons] OK — SSIM=0.9944, coverage 3000 icons / 0 passes, MSAA 400 passes, 0 validation errors
+{"ssim":0.9833004072716155,"coverage_draws":3000,"coverage_passes":0,"msaa_passes":400,"coverage_draw_calls":2,"msaa_draw_calls":1}
+[2d/svg-icons] OK — SSIM=0.9833004072716155, coverage 3000 icons / 0 passes, MSAA 400 passes, 0 validation errors
 ```

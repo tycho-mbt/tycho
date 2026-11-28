@@ -29,6 +29,6 @@ moon build --target native 2d/emoji
 Sample output:
 
 ```json
-{"bitmap":true,"yellow_pixels":2825,"glyphs":4}
-[2d/emoji] OK — fallback Latin/CJK/CBDT emoji, yellow_pixels=2825, 0 validation errors
+{"bitmap":true,"yellow_pixels":2827,"glyphs":4}
+[2d/emoji] OK — fallback Latin/CJK/CBDT emoji, yellow_pixels=2827, 0 validation errors
 ```

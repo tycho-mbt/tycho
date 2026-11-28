@@ -308,15 +308,11 @@ fn main {
       @tycho.DeviceDesc::new("Tycho 2D Showcase", validation=true, headless=!show_win),
     )
 
-    // Use system DejaVuSans.ttf if available, gracefully falling back to built-in crisp font on CI.
-    let font_bytes = @image.read_file_bytes("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
-    let font = if font_bytes.length() > 0 {
-      match @g2d.FontFace::from_ttf_bytes(font_bytes) {
-        Some(f) => f
-        None => @g2d.FontFace::builtin()
-      }
-    } else {
-      @g2d.FontFace::builtin()
+    // Use the platform's Latin UI face if available, gracefully falling back
+    // to the built-in crisp font on CI.
+    let font = match @g2d.FontFace::from_ttf_bytes(@fonts.latin()) {
+      Some(f) => f
+      None => @g2d.FontFace::builtin()
     }
     let badge = make_badge_image()
     let checker = make_checker_image()

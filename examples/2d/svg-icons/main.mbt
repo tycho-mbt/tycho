@@ -10,12 +10,12 @@ const PI58 : Float = 3.141592653589793
 const ICON_COUNT : Int = 3000
 
 ///|
-fn make_icon(index : Int, cx : Float, cy : Float) -> @g2d.Path {
+fn make_icon(index : Int, cx : Float, cy : Float, scale : Float) -> @g2d.Path {
   let variant = index % 3
   if variant == 0 {
     // Concave N-point star.
     let spokes = 5 + index % 6
-    let r_out = (6.0 : Float) + Float::from_int(index % 5)
+    let r_out = ((6.0 : Float) + Float::from_int(index % 5)) * scale
     let r_in = r_out * (0.45 : Float)
     let pb = @g2d.PathBuilder::new()
     for k = 0; k < spokes * 2; k = k + 1 {
@@ -32,14 +32,14 @@ fn make_icon(index : Int, cx : Float, cy : Float) -> @g2d.Path {
     pb.close().build()
   } else if variant == 1 {
     // Ring with an EvenOdd hole.
-    let r = (5.0 : Float) + Float::from_int(index % 4)
+    let r = ((5.0 : Float) + Float::from_int(index % 4)) * scale
     @g2d.PathBuilder::new()
       .add_circle(cx, cy, r)
       .add_circle(cx, cy, r * (0.5 : Float))
       .build(fill_rule=@g2d.FillRule::EvenOdd)
   } else {
     // Rounded square.
-    let half = (4.0 : Float) + Float::from_int(index % 3)
+    let half = ((4.0 : Float) + Float::from_int(index % 3)) * scale
     let rr = @g2d.RRect::uniform(
       @g2d.Rect::new(
         cx - half,
@@ -126,17 +126,20 @@ fn main {
         headless=!show_win,
       ),
     )
-    let w = 1920
-    let h = 1080
+    let w = 800
+    let h = 600
+    let sx = Float::from_int(w) / (1920.0 : Float)
+    let sy = Float::from_int(h) / (1080.0 : Float)
+    let s = if sx < sy { sx } else { sy }
     let bg = @g2d.Color::from_rgba8(18, 22, 34)
     let c = @g2d.Canvas::new()
     c.clear(bg)
     for i = 0; i < ICON_COUNT; i = i + 1 {
       let col = i % 60
       let row = i / 60
-      let cx = Float::from_int(16 + col * 32)
-      let cy = Float::from_int(10 + row * 21)
-      let p = make_icon(i, cx, cy)
+      let cx = (16.0 : Float) * sx + Float::from_int(col) * (32.0 : Float) * sx
+      let cy = (10.0 : Float) * sy + Float::from_int(row) * (21.0 : Float) * sy
+      let p = make_icon(i, cx, cy, s)
       let r = 90 + (i * 37) % 150
       let g = 90 + (i * 53) % 150
       let b = 90 + (i * 71) % 150
@@ -164,9 +167,9 @@ fn main {
     for i = 0; i < ICON_COUNT; i = i + 1 {
       let col = i % 60
       let row = i / 60
-      let cx = Float::from_int(16 + col * 32)
-      let cy = Float::from_int(10 + row * 21)
-      let p = make_icon(i, cx, cy)
+      let cx = (16.0 : Float) * sx + Float::from_int(col) * (32.0 : Float) * sx
+      let cy = (10.0 : Float) * sy + Float::from_int(row) * (21.0 : Float) * sy
+      let p = make_icon(i, cx, cy, s)
       let r = 90 + (i * 37) % 150
       let g = 90 + (i * 53) % 150
       let b = 90 + (i * 71) % 150

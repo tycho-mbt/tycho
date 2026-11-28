@@ -6,8 +6,7 @@
 // Indic clusters are still future work.
 
 ///|
-fn load_font(path : String) -> @g2d.FontFace? {
-  let bytes = @image.read_file_bytes(path)
+fn load_font(bytes : Bytes) -> @g2d.FontFace? {
   if bytes.length() == 0 {
     return None
   }
@@ -19,12 +18,10 @@ fn main {
   try {
     let opts = @exwin.Options::parse("2d/i18n-text")
     let show_win = opts.window
-    let latin = load_font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
-    let cjk = load_font("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf")
-    let emoji = load_font("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf")
-    let deva = load_font(
-      "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
-    )
+    let latin = load_font(@fonts.latin())
+    let cjk = load_font(@fonts.cjk())
+    let emoji = load_font(@fonts.color_emoji())
+    let deva = load_font(@fonts.devanagari())
     match (latin, cjk, emoji) {
       (Some(latin_f), Some(cjk_f), Some(emoji_f)) => {
         let dev = @tycho.Device::new_desc(
@@ -34,8 +31,8 @@ fn main {
             headless=!show_win,
           ),
         )
-        let w = 900
-        let h = 640
+        let w = 800
+        let h = 600
         let bg = @g2d.Color::from_rgba8(18, 22, 34)
         let fallback_faces : Array[@g2d.FontFace] = [cjk_f, emoji_f]
         match deva {
@@ -93,11 +90,11 @@ fn main {
             ),
           )
           .build()
-        p1.layout((820.0 : Float))
-        p2.layout((820.0 : Float))
-        p3.layout((820.0 : Float))
-        p4.layout((820.0 : Float))
-        p5.layout((820.0 : Float))
+        p1.layout((736.0 : Float))
+        p2.layout((736.0 : Float))
+        p3.layout((736.0 : Float))
+        p4.layout((736.0 : Float))
+        p5.layout((736.0 : Float))
         let mut deva_ok = true
         let mut p6 : @g2d.Paragraph? = None
         match deva {
@@ -108,7 +105,7 @@ fn main {
                 style=mk_style((36.0 : Float), @g2d.Color::from_rgba8(240, 200, 170)),
               )
               .build()
-            para.layout((820.0 : Float))
+            para.layout((736.0 : Float))
             let mut has_virama = false
             for g in para.placed_glyphs() {
               if g.codepoint == 0x094D {
@@ -139,14 +136,14 @@ fn main {
             style=mk_style((22.0 : Float), @g2d.Color::from_rgba8(210, 220, 235)),
           )
           .build()
-        p7.layout((820.0 : Float))
+        p7.layout((736.0 : Float))
         let p8 = @g2d.ParagraphBuilder::new()
           .add_text(
             "Text on a curved path",
             style=mk_style((18.0 : Float), @g2d.Color::from_rgba8(150, 220, 255)),
           )
           .build()
-        p8.layout((820.0 : Float))
+        p8.layout((736.0 : Float))
         let inline_ok = {
           let mut found = false
           for g in p7.placed_glyphs() {
@@ -195,14 +192,14 @@ fn main {
         c.draw_paragraph(p7, @g2d.Point::new((32.0 : Float), (430.0 : Float)))
         c.draw_paragraph(p4, @g2d.Point::new((32.0 : Float), p4_y))
         let tp = @g2d.PathBuilder::new()
-          .move_to((40.0 : Float), (600.0 : Float))
+          .move_to((40.0 : Float), (560.0 : Float))
           .cubic_to(
-            (260.0 : Float),
+            (220.0 : Float),
+            (520.0 : Float),
             (560.0 : Float),
-            (620.0 : Float),
-            (650.0 : Float),
-            (840.0 : Float),
             (600.0 : Float),
+            (760.0 : Float),
+            (560.0 : Float),
           )
           .build()
         c.draw_text_on_path(
@@ -317,7 +314,7 @@ fn main {
       }
       _ =>
         println(
-          "[2d/i18n-text] OK — skipped (DejaVu/Droid/NotoColorEmoji not installed)",
+          "[2d/i18n-text] SKIP — DejaVu/Droid/NotoColorEmoji not installed (set TYCHO_FONT_DIR)",
         )
     }
   } catch {

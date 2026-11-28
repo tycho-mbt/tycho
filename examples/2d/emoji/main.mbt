@@ -6,8 +6,7 @@
 // --window for live preview, --screenshot <path> for PNG.
 
 ///|
-fn load_font(path : String) -> @g2d.FontFace? {
-  let bytes = @image.read_file_bytes(path)
+fn load_font(bytes : Bytes) -> @g2d.FontFace? {
   if bytes.length() == 0 {
     return None
   }
@@ -19,9 +18,9 @@ fn main {
   try {
     let opts = @exwin.Options::parse("2d/emoji")
     let show_win = opts.window
-    let latin = load_font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
-    let cjk = load_font("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf")
-    let emoji = load_font("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf")
+    let latin = load_font(@fonts.latin())
+    let cjk = load_font(@fonts.cjk())
+    let emoji = load_font(@fonts.color_emoji())
     match (latin, cjk, emoji) {
       (Some(latin_f), Some(cjk_f), Some(emoji_f)) => {
         let dev = @tycho.Device::new_desc(
@@ -31,8 +30,8 @@ fn main {
             headless=!show_win,
           ),
         )
-        let w = 640
-        let h = 240
+        let w = 800
+        let h = 600
         let bg = @g2d.Color::from_rgba8(18, 22, 34)
         let chain = @g2d.FontFallbackChain::new(
           latin_f,
@@ -47,10 +46,10 @@ fn main {
         let para = @g2d.ParagraphBuilder::new()
           .add_text("Hi 😀 中", style=style)
           .build()
-        para.layout((600.0 : Float))
+        para.layout((760.0 : Float))
         let c = @g2d.Canvas::new()
         c.clear(bg)
-        c.draw_paragraph(para, @g2d.Point::new((24.0 : Float), (60.0 : Float)))
+        c.draw_paragraph(para, @g2d.Point::new((24.0 : Float), (264.0 : Float)))
         let dl = c.finish()
         let renderer = @g2d.Renderer2D::new(dev)
         renderer.set_png_decoder(fn(png) {
@@ -115,7 +114,7 @@ fn main {
       }
       _ =>
         println(
-          "[2d/emoji] OK — skipped (DejaVu/Droid/NotoColorEmoji not installed)",
+          "[2d/emoji] SKIP — DejaVu/Droid/NotoColorEmoji not installed (set TYCHO_FONT_DIR)",
         )
     }
   } catch {

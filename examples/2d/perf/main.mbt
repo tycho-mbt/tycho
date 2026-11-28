@@ -15,30 +15,28 @@ fn main {
         headless=!show_win,
       ),
     )
-    let font_bytes = @image.read_file_bytes("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
-    let font = if font_bytes.length() > 0 {
-      match @g2d.FontFace::from_ttf_bytes(font_bytes) {
-        Some(f) => f
-        None => @g2d.FontFace::builtin()
-      }
-    } else {
-      @g2d.FontFace::builtin()
+    let font = match @g2d.FontFace::from_ttf_bytes(@fonts.latin()) {
+      Some(f) => f
+      None => @g2d.FontFace::builtin()
     }
-    let w = 1920
-    let h = 1080
+    let w = 800
+    let h = 600
+    let sx = Float::from_int(w) / (1920.0 : Float)
+    let sy = Float::from_int(h) / (1080.0 : Float)
+    let s = if sx < sy { sx } else { sy }
     let c = @g2d.Canvas::new()
     c.clear(@g2d.Color::from_rgba8(18, 22, 34))
 
     // 5,000 Tier-1 SDF primitives (100 x 50 grid).
     for row = 0; row < 50; row = row + 1 {
       for col = 0; col < 100; col = col + 1 {
-        let x = Float::from_int(40 + col * 18)
-        let y = Float::from_int(40 + row * 18)
+        let x = (40.0 : Float) * sx + Float::from_int(col) * (18.0 : Float) * sx
+        let y = (40.0 : Float) * sy + Float::from_int(row) * (18.0 : Float) * sy
         let r = (col * 7) % 200 + 40
         let g = (row * 5) % 200 + 40
         let b = (col + row) % 120 + 80
         c.draw_rect(
-          @g2d.Rect::new(x, y, (12.0 : Float), (12.0 : Float)),
+          @g2d.Rect::new(x, y, (12.0 : Float) * s, (12.0 : Float) * s),
           @g2d.Paint::fill(@g2d.Color::from_rgba8(r, g, b)),
         )
       }
@@ -47,24 +45,24 @@ fn main {
     // 200 anti-aliased cubic paths (20 x 10 grid), batched into shared MSAA passes.
     for row = 0; row < 10; row = row + 1 {
       for col = 0; col < 20; col = col + 1 {
-        let x = Float::from_int(40 + col * 90)
-        let y = Float::from_int(700 + row * 22)
+        let x = (40.0 : Float) * sx + Float::from_int(col) * (90.0 : Float) * sx
+        let y = (700.0 : Float) * sy + Float::from_int(row) * (22.0 : Float) * sy
         let pb = @g2d.PathBuilder::new()
-        let _ = pb.move_to(x, y + (10.0 : Float))
+        let _ = pb.move_to(x, y + (10.0 : Float) * s)
         let _ = pb.cubic_to(
-          x + (20.0 : Float),
+          x + (20.0 : Float) * s,
           y,
-          x + (40.0 : Float),
-          y + (20.0 : Float),
-          x + (60.0 : Float),
-          y + (10.0 : Float),
+          x + (40.0 : Float) * s,
+          y + (20.0 : Float) * s,
+          x + (60.0 : Float) * s,
+          y + (10.0 : Float) * s,
         )
         let p = pb.build()
         c.draw_path(
           p,
           @g2d.Paint::stroke(
             @g2d.Color::from_rgba8(90, 200, 255),
-            (3.0 : Float),
+            (3.0 : Float) * s,
             cap=@g2d.StrokeCap::Round,
             join=@g2d.StrokeJoin::Round,
           ),
@@ -88,8 +86,8 @@ fn main {
       c.draw_paragraph(
         para,
         @g2d.Point::new(
-          Float::from_int(40 + (i % 5) * 360),
-          Float::from_int(950 + (i / 5) * 22),
+          (40.0 : Float) * sx + Float::from_int(i % 5) * (360.0 : Float) * sx,
+          (950.0 : Float) * sy + Float::from_int(i / 5) * (22.0 : Float) * sy,
         ),
       )
     }
@@ -97,15 +95,15 @@ fn main {
     // 20 frosted-glass backdrop panels.
     for row = 0; row < 4; row = row + 1 {
       for col = 0; col < 5; col = col + 1 {
-        let px = Float::from_int(60 + col * 360)
-        let py = Float::from_int(120 + row * 130)
-        let r = @g2d.Rect::new(px, py, (220.0 : Float), (70.0 : Float))
-        let rr = @g2d.RRect::uniform(r, (14.0 : Float))
+        let px = (60.0 : Float) * sx + Float::from_int(col) * (360.0 : Float) * sx
+        let py = (120.0 : Float) * sy + Float::from_int(row) * (130.0 : Float) * sy
+        let r = @g2d.Rect::new(px, py, (220.0 : Float) * s, (70.0 : Float) * s)
+        let rr = @g2d.RRect::uniform(r, (14.0 : Float) * s)
         let _ = c.save()
         c.clip_rrect(rr)
         let _ = c.save_backdrop_layer(
           r,
-          @g2d.ImageFilter::Blur((5.0 : Float), (5.0 : Float), @g2d.TileMode::Clamp),
+          @g2d.ImageFilter::Blur((5.0 : Float) * s, (5.0 : Float) * s, @g2d.TileMode::Clamp),
         )
         c.draw_rrect(
           rr,

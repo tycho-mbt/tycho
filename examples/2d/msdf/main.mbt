@@ -71,7 +71,7 @@ fn render_at(
   font : @g2d.FontFace,
   size : Float,
   w : Int,
-  _h : Int,
+  h : Int,
   bg : @g2d.Color,
 ) -> @g2d.DisplayList {
   let c = @g2d.Canvas::new()
@@ -86,8 +86,14 @@ fn render_at(
       ),
     )
     .build()
-  para.layout(Float::from_int(w - 24))
-  c.draw_paragraph(para, @g2d.Point::new((12.0 : Float), (24.0 : Float)))
+  para.layout(Float::from_int(w - 48))
+  c.draw_paragraph(
+    para,
+    @g2d.Point::new(
+      (24.0 : Float),
+      Float::from_int(h) / 2.0 - size / 2.0,
+    ),
+  )
   c.finish()
 }
 
@@ -96,13 +102,15 @@ fn main {
   try {
     let opts = @exwin.Options::parse("2d/msdf")
     let show_win = opts.window
-    let bytes = @image.read_file_bytes(
-      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    )
+    let bytes = @fonts.dejavu_sans()
+    if bytes.length() == 0 {
+      println("[2d/msdf] SKIP — DejaVuSans not found (set TYCHO_FONT_DIR)")
+      return
+    }
     let font = match @g2d.FontFace::from_ttf_bytes(bytes) {
       Some(f) => f
       None => {
-        println("[2d/msdf] FAIL — DejaVuSans not found")
+        println("[2d/msdf] FAIL — DejaVuSans could not be parsed")
         return
       }
     }
@@ -113,8 +121,8 @@ fn main {
         headless=!show_win,
       ),
     )
-    let w = 960
-    let h = 320
+    let w = 800
+    let h = 600
     let bg = @g2d.Color::from_rgba8(16, 20, 30)
     let renderer = @g2d.Renderer2D::new(dev)
     let rt = dev.create_render_target(w, h, @tycho.TextureFormat::RGBA8)

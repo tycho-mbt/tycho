@@ -1,6 +1,6 @@
 # 2d/text-stress — text stress test
 
-Renders ~8,000 glyphs across 40 fractional sizes per script at 1920x1080:
+Renders ~8,000 glyphs across 40 fractional sizes per script at 800x600:
 
 - Latin: DejaVuSans.ttf
 - CJK: DroidSansFallbackFull.ttf
