@@ -203,7 +203,8 @@ pub fn classify(cmd : VkCommand) -> DispatchLevel {
   let first = base_type(cmd.params[0].ctype)
   match first {
     "VkInstance" | "VkPhysicalDevice" => Instance
-    "VkDevice" | "VkQueue" | "VkCommandBuffer" => Device
+    "VkDevice" | "VkQueue" | "VkCommandBuffer" | "VkExternalComputeQueueNV" =>
+      Device
     _ => Entry
   }
 }

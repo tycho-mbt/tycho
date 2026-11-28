@@ -6,3 +6,7 @@ third_party/slang
 *.spv
 *.log
 .toolchain
+
+docs/original-design/
+docs/roadmap/
+__pycache__

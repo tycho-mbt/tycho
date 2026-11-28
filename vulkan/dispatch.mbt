@@ -6,7 +6,6 @@ pub extern "c" fn vkGetInstanceProcAddr(instance : VkInstance, pName : UInt64) -
 pub extern "c" fn vkEnumerateInstanceVersion(pApiVersion : FixedArray[UInt32]) -> Int32 = "tycho_entry_vkEnumerateInstanceVersion"
 pub extern "c" fn vkEnumerateInstanceLayerProperties(pPropertyCount : FixedArray[UInt32], pProperties : VkLayerProperties) -> Int32 = "tycho_entry_vkEnumerateInstanceLayerProperties"
 pub extern "c" fn vkEnumerateInstanceExtensionProperties(pLayerName : UInt64, pPropertyCount : FixedArray[UInt32], pProperties : VkExtensionProperties) -> Int32 = "tycho_entry_vkEnumerateInstanceExtensionProperties"
-pub extern "c" fn vkGetExternalComputeQueueDataNV(externalQueue : VkExternalComputeQueueNV, params : VkExternalComputeQueueDataParamsNV, pData : UInt64) -> Unit = "tycho_entry_vkGetExternalComputeQueueDataNV"
 
 pub struct InstanceFn {
   vkDestroyInstance : FuncRef[(VkInstance, VkAllocationCallbacks) -> Unit]
@@ -1059,6 +1058,7 @@ pub struct DeviceFn {
   vkCmdEndPerTileExecutionQCOM : FuncRef[(VkCommandBuffer, VkPerTileEndInfoQCOM) -> Unit]
   vkCreateExternalComputeQueueNV : FuncRef[(VkDevice, VkExternalComputeQueueCreateInfoNV, VkAllocationCallbacks, FixedArray[VkExternalComputeQueueNV]) -> Int32]
   vkDestroyExternalComputeQueueNV : FuncRef[(VkDevice, VkExternalComputeQueueNV, VkAllocationCallbacks) -> Unit]
+  vkGetExternalComputeQueueDataNV : FuncRef[(VkExternalComputeQueueNV, VkExternalComputeQueueDataParamsNV, UInt64) -> Unit]
   vkCreateShaderInstrumentationARM : FuncRef[(VkDevice, VkShaderInstrumentationCreateInfoARM, VkAllocationCallbacks, FixedArray[VkShaderInstrumentationARM]) -> Int32]
   vkDestroyShaderInstrumentationARM : FuncRef[(VkDevice, VkShaderInstrumentationARM, VkAllocationCallbacks) -> Unit]
   vkCmdBeginShaderInstrumentationARM : FuncRef[(VkCommandBuffer, VkShaderInstrumentationARM) -> Unit]
@@ -1797,6 +1797,7 @@ extern "c" fn load_vkCmdBeginPerTileExecutionQCOM(dev : VkDevice) -> FuncRef[(Vk
 extern "c" fn load_vkCmdEndPerTileExecutionQCOM(dev : VkDevice) -> FuncRef[(VkCommandBuffer, VkPerTileEndInfoQCOM) -> Unit] = "tycho_gpa_vkCmdEndPerTileExecutionQCOM"
 extern "c" fn load_vkCreateExternalComputeQueueNV(dev : VkDevice) -> FuncRef[(VkDevice, VkExternalComputeQueueCreateInfoNV, VkAllocationCallbacks, FixedArray[VkExternalComputeQueueNV]) -> Int32] = "tycho_gpa_vkCreateExternalComputeQueueNV"
 extern "c" fn load_vkDestroyExternalComputeQueueNV(dev : VkDevice) -> FuncRef[(VkDevice, VkExternalComputeQueueNV, VkAllocationCallbacks) -> Unit] = "tycho_gpa_vkDestroyExternalComputeQueueNV"
+extern "c" fn load_vkGetExternalComputeQueueDataNV(dev : VkDevice) -> FuncRef[(VkExternalComputeQueueNV, VkExternalComputeQueueDataParamsNV, UInt64) -> Unit] = "tycho_gpa_vkGetExternalComputeQueueDataNV"
 extern "c" fn load_vkCreateShaderInstrumentationARM(dev : VkDevice) -> FuncRef[(VkDevice, VkShaderInstrumentationCreateInfoARM, VkAllocationCallbacks, FixedArray[VkShaderInstrumentationARM]) -> Int32] = "tycho_gpa_vkCreateShaderInstrumentationARM"
 extern "c" fn load_vkDestroyShaderInstrumentationARM(dev : VkDevice) -> FuncRef[(VkDevice, VkShaderInstrumentationARM, VkAllocationCallbacks) -> Unit] = "tycho_gpa_vkDestroyShaderInstrumentationARM"
 extern "c" fn load_vkCmdBeginShaderInstrumentationARM(dev : VkDevice) -> FuncRef[(VkCommandBuffer, VkShaderInstrumentationARM) -> Unit] = "tycho_gpa_vkCmdBeginShaderInstrumentationARM"
@@ -2536,6 +2537,7 @@ pub fn DeviceFn::load(dev : VkDevice) -> DeviceFn {
     vkCmdEndPerTileExecutionQCOM: load_vkCmdEndPerTileExecutionQCOM(dev),
     vkCreateExternalComputeQueueNV: load_vkCreateExternalComputeQueueNV(dev),
     vkDestroyExternalComputeQueueNV: load_vkDestroyExternalComputeQueueNV(dev),
+    vkGetExternalComputeQueueDataNV: load_vkGetExternalComputeQueueDataNV(dev),
     vkCreateShaderInstrumentationARM: load_vkCreateShaderInstrumentationARM(dev),
     vkDestroyShaderInstrumentationARM: load_vkDestroyShaderInstrumentationARM(dev),
     vkCmdBeginShaderInstrumentationARM: load_vkCmdBeginShaderInstrumentationARM(dev),

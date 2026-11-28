@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Measure how much of the Linux desktop Vulkan command surface is verified.
+"""Measure how much of the desktop Vulkan command surface is verified.
 
-Usage: tools/coverage.py [--json] [--list]
+Usage: tools/coverage.py [--json] [--list] [--live-only]
 """
 import glob
 import json
@@ -23,6 +23,14 @@ def lavapipe_icd():
     override = os.environ.get("TYCHO_LAVAPIPE_ICD")
     if override:
         return override
+    if os.name == "nt":
+        for cand in [
+            r"C:\mesa\lvp_icd.x86_64.json",
+            r"C:\Windows\System32\lvp_icd.x86_64.json",
+        ]:
+            if os.path.exists(cand):
+                return cand
+        return ""
     hits = glob.glob("/usr/share/vulkan/icd.d/lvp_icd*.json")
     if not hits:
         return ""
@@ -119,7 +127,7 @@ def command_table():
     return desktop, exts
 
 
-def executed_commands():
+def executed_commands(live_only=False):
     done = set()
     patterns = [
         "examples/*/*/main.mbt",
@@ -128,14 +136,19 @@ def executed_commands():
     ]
     for pat in patterns:
         for f in glob.glob(os.path.join(ROOT, pat), recursive=True):
-            for m in re.finditer(r"\bvk[A-Z]\w+", open(f).read()):
-                done.add(m.group(0))
+            if live_only and "vendor-platform-ext" in f.replace("\\", "/"):
+                continue
+            with open(f, encoding="utf-8") as fh:
+                for m in re.finditer(r"\bvk[A-Z]\w+", fh.read()):
+                    done.add(m.group(0))
     return done
 
 
 def main():
+    live_only = "--live-only" in sys.argv
     desktop, exts = command_table()
-    done = executed_commands()
+    done = executed_commands(live_only=live_only)
+    live = executed_commands(live_only=True)
     nv = driver_extensions("default")
     lvp = driver_extensions("lavapipe")
 
@@ -153,39 +166,56 @@ def main():
 
     reachable = {c for c in desktop if drivers(c)}
     remaining = sorted(reachable - done)
+    remaining_live = sorted(reachable - live)
     both = [c for c in remaining if "both" in drivers(c) or drivers(c) == {"nv", "lvp"}]
     nv_only = [c for c in remaining if drivers(c) == {"nv"}]
     lvp_only = [c for c in remaining if drivers(c) == {"lvp"}]
     blocked = sorted(desktop - reachable)
     report = {
+        "platform": "windows" if os.name == "nt" else sys.platform,
         "desktop_commands": len(desktop),
         "executed": len(done & desktop),
+        "live_executed": len(live & desktop),
         "reachable": len(reachable),
         "reachable_executed": len(done & reachable),
+        "reachable_live_executed": len(live & reachable),
         "remaining_both": both,
         "remaining_nv_only": nv_only,
         "remaining_lvp_only": lvp_only,
+        "remaining_live": remaining_live,
         "blocked_count": len(blocked),
     }
     if "--json" in sys.argv:
         print(json.dumps(report, indent=2))
         return
+    print(f"platform              : {report['platform']}")
     print(f"desktop commands      : {len(desktop)}")
-    print(f"executed by examples  : {len(done & desktop)}")
-    print(f"reachable on this host: {len(reachable)} (verified: {len(done & reachable)}/{len(reachable)} = {100.0*len(done & reachable)/max(1,len(reachable)):.1f}%)")
+    print(f"executed by examples  : {len(done & desktop)} (live: {len(live & desktop)})")
+    print(f"reachable on this host: {len(reachable)} (verified: {len(done & reachable)}/{len(reachable)} = {100.0*len(done & reachable)/max(1,len(reachable)):.1f}%, live: {len(live & reachable)}/{len(reachable)} = {100.0*len(live & reachable)/max(1,len(reachable)):.1f}%)")
     print(f"  both drivers, left  : {len(both)} {both}")
     print(f"  nvidia only, left   : {len(nv_only)}")
     print(f"  lavapipe only, left : {len(lvp_only)} {lvp_only}")
+    print(f"  live-only left      : {len(remaining_live)}")
     print(f"physically blocked    : {len(blocked)}")
     if "--list" in sys.argv:
-        print("\n--- remaining_nv_only ---")
-        by_ext = {}
-        for c in nv_only:
-            es = sorted(e for e in exts.get(c, ()) if e in nv)
-            k = es[0] if es else "UNKNOWN"
-            by_ext.setdefault(k, []).append(c)
-        for k in sorted(by_ext):
-            print(f"  {k} ({len(by_ext[k])}): {by_ext[k]}")
+        if nv_only:
+            print("\n--- remaining_nv_only ---")
+            by_ext = {}
+            for c in nv_only:
+                es = sorted(e for e in exts.get(c, ()) if e in nv)
+                k = es[0] if es else "UNKNOWN"
+                by_ext.setdefault(k, []).append(c)
+            for k in sorted(by_ext):
+                print(f"  {k} ({len(by_ext[k])}): {by_ext[k]}")
+        if remaining_live:
+            print("\n--- remaining_live ---")
+            by_ext = {}
+            for c in remaining_live:
+                es = sorted(e for e in exts.get(c, ()) if e == "CORE" or e in nv or e in lvp)
+                k = es[0] if es else "UNKNOWN"
+                by_ext.setdefault(k, []).append(c)
+            for k in sorted(by_ext):
+                print(f"  {k} ({len(by_ext[k])}): {by_ext[k]}")
 
 
 if __name__ == "__main__":

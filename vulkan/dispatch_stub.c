@@ -2569,6 +2569,8 @@ MOONBIT_FFI_EXPORT void *tycho_gpa_vkCreateExternalComputeQueueNV(void *h) { ret
 TYCHO_STATIC_ASSERT(sizeof(VkDevice) <= sizeof(void*), "tycho ABI: vkDestroyExternalComputeQueueNV device wider than MoonBit type");
 TYCHO_STATIC_ASSERT(sizeof(VkExternalComputeQueueNV) <= sizeof(void*), "tycho ABI: vkDestroyExternalComputeQueueNV externalQueue wider than MoonBit type");
 MOONBIT_FFI_EXPORT void *tycho_gpa_vkDestroyExternalComputeQueueNV(void *h) { return tycho_vk_gdpa((VkDevice)h, "vkDestroyExternalComputeQueueNV"); }
+TYCHO_STATIC_ASSERT(sizeof(VkExternalComputeQueueNV) <= sizeof(void*), "tycho ABI: vkGetExternalComputeQueueDataNV externalQueue wider than MoonBit type");
+MOONBIT_FFI_EXPORT void *tycho_gpa_vkGetExternalComputeQueueDataNV(void *h) { return tycho_vk_gdpa((VkDevice)h, "vkGetExternalComputeQueueDataNV"); }
 TYCHO_STATIC_ASSERT(sizeof(VkDevice) <= sizeof(void*), "tycho ABI: vkCreateShaderInstrumentationARM device wider than MoonBit type");
 MOONBIT_FFI_EXPORT void *tycho_gpa_vkCreateShaderInstrumentationARM(void *h) { return tycho_vk_gdpa((VkDevice)h, "vkCreateShaderInstrumentationARM"); }
 TYCHO_STATIC_ASSERT(sizeof(VkDevice) <= sizeof(void*), "tycho ABI: vkDestroyShaderInstrumentationARM device wider than MoonBit type");
