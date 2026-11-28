@@ -1118,13 +1118,20 @@ MOONBIT_FFI_EXPORT uint64_t tycho_dx12_pipeline_create(uint64_t dev_p, const uin
   }
   pso_desc.SampleMask = UINT_MAX;
   pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-  if (color_count <= 0 || color_count > 4) {
+  if (color_count < 0 || color_count > 4) {
     free(pipe);
     return 0;
   }
-  pso_desc.NumRenderTargets = (UINT)color_count;
-  {
+  if (color_count == 0) {
+    // No explicit formats means the documented default: a single RGBA8 UNORM
+    // render target (the same format Texture::create uses).
+    pso_desc.NumRenderTargets = 1;
+    pso_desc.RTVFormats[0] = TYCHO_DX12_RT_FORMAT;
+    pso_desc.BlendState.RenderTarget[0].RenderTargetWriteMask =
+        D3D12_COLOR_WRITE_ENABLE_ALL;
+  } else {
     int target;
+    pso_desc.NumRenderTargets = (UINT)color_count;
     for (target = 0; target < color_count; target++) {
       DXGI_FORMAT format = dx12_format_from_code(color_formats[target]);
       if (format == DXGI_FORMAT_UNKNOWN) {
