@@ -24,12 +24,16 @@ Every example that opens a window or writes a screenshot accepts exactly these f
 Raw API/COM coverage suites (`dx12/raw-*`, most `vulkan/*` chapters) neither own a window nor
 capture, so they take no flags and must not start parsing arguments.
 
-| Flag / environment variable | Meaning |
+| Flag | Meaning |
 |---|---|
-| `--window`, `-w`, `--show`, `--screen`, `TYCHO_WINDOW=1` | open the interactive window |
-| `--screenshot <path>`, `--screenshot=<path>`, `TYCHO_SCREENSHOT=<path>` | write the verified frame as an 800x600 PNG |
-| `--size <W>x<H>`, `--size=WxH` | window size, default 800x600 |
-| `--help`, `-h` | print usage and exit 0 |
+| `--window` | open the interactive window |
+| `--screenshot <path>` | write the verified frame as an 800x600 PNG |
+| `--size <W>x<H>` | window size, default 800x600 |
+| `--help` | print usage and exit 0 |
+
+Each option has exactly one spelling. The `TYCHO_WINDOW` / `TYCHO_SCREENSHOT`
+environment variables are the no-argument equivalent for tooling, not extra
+flag spellings (section 8).
 
 ```moonbit
 fn main {

@@ -20,7 +20,7 @@ prefer to compute matrices yourself.
 ## 1. Device & Headless / Window Modes
 
 ```moonbit
-let show_win = @tycho.want_window()        // true when --window / -w is passed
+let show_win = @tycho.want_window()        // true when --window is passed
 let shot = @tycho.screenshot_path()        // non-empty when --screenshot <path> is passed
 let dev = @tycho.Device::new_desc(
   @tycho.DeviceDesc::new("My App", validation=true, headless=!show_win),

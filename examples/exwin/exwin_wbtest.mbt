@@ -38,25 +38,28 @@ test "--size overrides the canonical window size" {
 }
 
 ///|
-test "--size=<W>x<H> is accepted too" {
-  let opts = Options::parse("rhi/triangle").with_args(["exe", "--size=1024x768"])
-  assert_eq(opts.width, 1024)
-  assert_eq(opts.height, 768)
+test "only the space-separated value forms are accepted" {
+  let opts = Options::parse("rhi/triangle").with_args([
+    "exe", "--screenshot=out.png", "--size=1024x768",
+  ])
+  assert_eq(opts.screenshot, "")
+  assert_eq(opts.width, DEFAULT_WIDTH)
+  assert_eq(opts.height, DEFAULT_HEIGHT)
 }
 
 ///|
-test "--screenshot takes the next argument or =value" {
-  let spaced = Options::parse("rhi/triangle").with_args(["exe", "--screenshot", "out.png"])
-  assert_eq(spaced.screenshot, "out.png")
-  let joined = Options::parse("rhi/triangle").with_args(["exe", "--screenshot=out2.png"])
-  assert_eq(joined.screenshot, "out2.png")
+test "--screenshot takes the next argument" {
+  let opts = Options::parse("rhi/triangle").with_args(["exe", "--screenshot", "out.png"])
+  assert_eq(opts.screenshot, "out.png")
 }
 
 ///|
-test "every accepted --window spelling opens a window" {
-  for flag in ["--window", "-w", "--show", "--screen"] {
-    let opts = Options::parse("rhi/triangle").with_args(["exe", flag])
-    assert_true(opts.window)
+test "--window is the only window flag" {
+  let opts = Options::parse("rhi/triangle").with_args(["exe", "--window"])
+  assert_true(opts.window)
+  for legacy in ["-w", "--show", "--screen"] {
+    let ignored = Options::parse("rhi/triangle").with_args(["exe", legacy])
+    assert_false(ignored.window)
   }
 }
 

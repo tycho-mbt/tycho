@@ -170,10 +170,14 @@ letterboxes a fixed-size 2D canvas into the shared window.
 
 | Flag | Meaning |
 |---|---|
-| `--window`, `-w`, `--show`, `--screen` | open an interactive window (same as `TYCHO_WINDOW=1`) |
-| `--screenshot <path>` | write the verified frame as an **800x600** PNG (also `--screenshot=<path>` / `TYCHO_SCREENSHOT=<path>`) |
-| `--size <W>x<H>` | window size in pixels, default **800x600** (also `--size=WxH`) |
-| `--help`, `-h` | print the contract above and exit |
+| `--window` | open an interactive window |
+| `--screenshot <path>` | write the verified frame as an **800x600** PNG |
+| `--size <W>x<H>` | window size in pixels, default **800x600** |
+| `--help` | print the contract above and exit |
+
+There is exactly one spelling per option. `TYCHO_WINDOW=1` and
+`TYCHO_SCREENSHOT=<path>` set the window and screenshot options for tools that
+cannot pass arguments.
 
 Headless is the default: the example renders offscreen, asserts its pixels and
 prints a single `OK — …` / `FAIL — …` line, so a GPU-less CI runner can verify

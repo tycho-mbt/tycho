@@ -7,19 +7,20 @@
 // contract covers the low-level Vulkan suites, the unified RHI demos and the
 // 2D/3D/UI layers on Linux, Windows and macOS:
 //
-//   --window, -w, --show, --screen   open an interactive window (TYCHO_WINDOW=1)
+//   --window                         open an interactive window (TYCHO_WINDOW=1)
 //   --screenshot <path>              save the verified frame as PNG
-//                                    (TYCHO_SCREENSHOT=<path>, also --screenshot=<path>)
-//   --size <W>x<H>                   override the window size (also --size=WxH)
-//   --help, -h                       print the contract above and exit 0
+//                                    (TYCHO_SCREENSHOT=<path>)
+//   --size <W>x<H>                   override the window size
+//   --help                           print the contract above and exit 0
+//
+// There is exactly one spelling per option; the two `TYCHO_*` variables are the
+// no-argument equivalent for tooling, not additional flag spellings.
 //
 // Without `--window` an example runs headless: it renders offscreen, asserts
 // the pixels and prints one `OK — …` / `FAIL — …` line, so a GPU-less CI runner
 // can verify it. With `--window` it opens a `DEFAULT_WIDTH`x`DEFAULT_HEIGHT`
 // window whose title is the example path, and closes on the window button or
-// Esc. The flag names and env vars match the ones the old `tycho_shader`
-// helpers accepted (`--window` / `--screenshot` / `TYCHO_WINDOW`), so existing
-// example invocations keep working now that this lives in the examples.
+// Esc.
 //
 // Every example therefore presents and captures the *same* 800x600 frame, even
 // when its verification canvas has another size: `--screenshot` letterboxes the
@@ -50,17 +51,16 @@ pub(all) struct Options {
 pub fn usage(name : String) -> String {
   let dw = DEFAULT_WIDTH
   let dh = DEFAULT_HEIGHT
-  "usage: \{name} [--window|-w] [--screenshot <path>] [--size <W>x<H>]\n\n" +
-  "  --window, -w, --show, --screen\n" +
+  "usage: \{name} [--window] [--screenshot <path>] [--size <W>x<H>]\n\n" +
+  "  --window\n" +
   "      open an interactive window (window button or Esc closes it);\n" +
-  "      also TYCHO_WINDOW=1\n" +
+  "      env: TYCHO_WINDOW=1\n" +
   "  --screenshot <path>\n" +
   "      write the verified frame as a \{dw}x\{dh} PNG (letterboxed to that\n" +
-  "      size when the canvas differs); also --screenshot=<path> and\n" +
-  "      TYCHO_SCREENSHOT=<path>\n" +
+  "      size when the canvas differs); env: TYCHO_SCREENSHOT=<path>\n" +
   "  --size <W>x<H>\n" +
-  "      window size in pixels, default \{dw}x\{dh} (also --size=WxH)\n" +
-  "  --help, -h\n" +
+  "      window size in pixels, default \{dw}x\{dh}\n" +
+  "  --help\n" +
   "      print this help\n\n" +
   "Without --window the example runs headless: it renders offscreen, asserts\n" +
   "its pixels and prints a single `OK — …` or `FAIL — …` line."
@@ -93,9 +93,9 @@ fn Options::with_args(self : Options, args : Array[String]) -> Options {
   let mut i = 1
   while i < args.length() {
     let a = args[i]
-    if a == "--window" || a == "-w" || a == "--show" || a == "--screen" {
+    if a == "--window" {
       window = true
-    } else if a == "--help" || a == "-h" {
+    } else if a == "--help" {
       println(usage(self.name))
       @env.exit(0)
     } else if a == "--screenshot" {
@@ -105,8 +105,6 @@ fn Options::with_args(self : Options, args : Array[String]) -> Options {
       } else {
         eprintln("[" + self.name + "] --screenshot needs a path; ignoring")
       }
-    } else if a.has_prefix("--screenshot=") {
-      screenshot = value_after(a, "--screenshot=")
     } else if a == "--size" {
       if i + 1 < args.length() {
         i = i + 1
@@ -119,14 +117,6 @@ fn Options::with_args(self : Options, args : Array[String]) -> Options {
         }
       } else {
         eprintln("[" + self.name + "] --size needs <W>x<H>; ignoring")
-      }
-    } else if a.has_prefix("--size=") {
-      match parse_size(value_after(a, "--size=")) {
-        Some(size) => {
-          width = size.0
-          height = size.1
-        }
-        None => eprintln("[" + self.name + "] --size value is not <W>x<H>; ignoring")
       }
     }
     i = i + 1
@@ -255,20 +245,6 @@ fn parse_size(s : String) -> (Int, Int)? {
     return None
   }
   Some((width, height))
-}
-
-///|
-fn value_after(arg : String, prefix : String) -> String {
-  let cut = prefix.length()
-  let rest : Array[Char] = []
-  let mut i = (0 : Int32)
-  for c in arg {
-    if i >= cut {
-      rest.push(c)
-    }
-    i = i + 1
-  }
-  String::from_array(rest[:])
 }
 
 ///|
