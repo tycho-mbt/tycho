@@ -12,6 +12,10 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   tracks with linear (Vec3) or slerp (Quat) interpolation, per-channel node
   binding, looping or clamped playback, and `update(scene, dt)` that writes
   local transforms (`3d/animation`).
+- `AnimationMixer` / `AnimationAction`: any number of clips blended by
+  normalized weight (a lone action at weight 0.5 plays its full pose), crossfade,
+  `LoopRepeat` / `LoopOnce` / `LoopPingPong`, per-action speed/pause/seek/fade,
+  a global time scale, and channels bound to destroyed nodes are skipped.
 - `Camera`: perspective (infinite reversed-Z by default) / orthographic
   reversed-Z projections, view/view-projection matrices, screen rays, and an
   analytic sky ray matrix.
@@ -22,6 +26,11 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   (directional or spot, one tile each); `Light::spot(..., shadow=...)` opts a
   spot in. Each light carries its tile view-projection and tile rect in the
   light SSBO, and PCF clamps to the tile so taps never bleed across lights.
+- SSAO: `RendererDesc::with_ssao(true)` reconstructs world positions from the
+  single-sample depth buffer (no G-buffer), accumulates a 12-sample rotated
+  hemisphere and box-blurs the result; the tonemap pass multiplies it in before
+  ACES. SSAO needs a single-sample depth attachment, so enabling it forces MSAA
+  off; `set_ssao_intensity(0)` toggles it off at runtime (`3d/ssao`).
 - Non-bindless fallback: `RendererDesc::with_bindless(false)` (or a device
   without descriptor indexing) switches to a PBR shader variant that binds
   albedo/normal per batch; identical output, exercised by `3d/brdf-fallback`.
@@ -54,6 +63,15 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   rebinds material textures.
 - Physical clearcoat: `MaterialDesc::with_clearcoat(1.0, roughness=0.2)`
   adds a second GGX lobe in the direct and environment terms (`3d/clearcoat`).
+- Physical sheen: `MaterialDesc::with_sheen(color, roughness=...)` adds the
+  glTF `KHR_materials_sheen` Charlie/Ashikhmin grazing lobe to the direct and
+  environment terms; a zero colour disables it (material SSBO 64 → 80 bytes).
+- Screen-space transmission: `MaterialDesc::with_transmission(0.92, ior=1.45)`
+  draws the mesh in a second pass against a copy of the already-shaded scene and
+  refracts that view by `ior`, so the background is genuinely displaced instead
+  of merely alpha-blended (`3d/transmission`). The pass only runs when a
+  transmissive object is visible; static meshes only, and it does not use the
+  ray-shadow shader variant (material SSBO 80 → 96 bytes).
 - Morph targets: `MeshData::add_morph_target` stores up to two position-delta
   sets, `create_morph_node`/`set_morph_weights` animate them through a 72-byte
   stream with per-draw push-constant weights (`3d/morph`).
@@ -85,6 +103,14 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   when possible, CPU copy retained for picking).
 - `Renderer3D::pick` + `ray_mesh_hit`: frustum-culled, world-space ray picking
   with Moller-Trumbore and normal-matrix-transformed normals.
+- Picking BVH: `MeshBvh` builds a median-split hierarchy per mesh; `pick` /
+  `pick_pixels` lazily build and cache one per uploaded mesh, so a pointer ray
+  no longer touches every triangle. `ray_mesh_hit` stays as the brute-force
+  reference used by tests.
+- Fog: `Renderer3D::set_fog(fog_linear(...))` / `fog_exp2(...)` mix linear or
+  exponential-squared distance fog before tone mapping. Fog parameters ride in
+  the frame UBO, so toggling fog creates no pipeline variant and applies to
+  unlit materials too.
 - `OrbitCamera` / `FlyCamera`: drag-to-orbit, scroll-to-zoom and WASD/QE fly
   controllers that consume `@tycho.Event` and emit camera `Transform`s.
 - 4x MSAA: the HDR pass renders into a multisampled `RGBA16F` target and
@@ -156,7 +182,107 @@ scene.set_local_bounds(node, renderer.mesh_bounds(mesh))
 renderer.render_swapchain(sc, scene, camera_node)
 ```
 
-See [`examples/3d/showcase`](../examples/3d/showcase).
+See [`examples/3d/hello`](../examples/3d/hello) for the smallest complete scene
+written with this layer, and [`examples/3d/showcase`](../examples/3d/showcase)
+for the full PBR showcase.
+
+## three.js-style authoring layer
+
+The renderer keeps the arena + handle core (generation-checked `NodeId`, AOT
+pipeline family, SSBO-packed materials), while the authoring surface follows
+three.js so a scene reads like the one you would write in JS.
+
+```moonbit
+let renderer = @t3d.Renderer3D::new(dev)
+let scene = @t3d.Scene::new()
+
+// `new Mesh(geometry, material)` + `scene.add(mesh)` in one call.
+let ball = renderer.add(
+  scene,
+  @tgeo.sphere(radius=0.5),
+  @t3d.MaterialDesc::standard(@t3d.hex(0xFF8800), roughness=0.35),
+)
+scene.set_position(ball, 0.0, 1.0, 0.0)
+scene.set_uniform_scale(ball, 0.8)
+
+// Grouping, orientation and inherited visibility.
+let pivot = scene.add_group(name="pivot")
+let _child = renderer.add(scene, @tgeo.box(), @t3d.MaterialDesc::basic(@t3d.hex(0x88CCFF)), parent=pivot)
+scene.look_at(_child, @tmath.Vec3::zero())
+
+// Lights, grid and axes.
+let _sun = scene.add_directional_light(
+  direction=@tmath.Vec3::new(-0.4, -1.0, -0.3),
+  intensity=4.0,
+)
+let _ambient = scene.add_ambient_light(intensity=0.2)
+let _grid = renderer.add_grid(scene, size=20.0, divisions=20)
+let _axes = renderer.add_axes(scene, size=1.0)
+
+// Degrees are accepted where three.js uses degrees.
+let camera = scene.add_camera(
+  @t3d.Camera::perspective_deg(60.0, 800.0 / 600.0, near=0.1),
+)
+
+// Frame loop: the platform owns the monotonic timestamp.
+let clock = @t3d.Clock::new()
+// per frame: let dt = clock.tick(now_seconds)
+//            renderer.render_offscreen(target, scene, camera)
+
+// Pointer picking in pixel space (top-left origin, any ClipSpace).
+// match renderer.pick_pixels(scene, camera, px, py, 800.0, 600.0) { ... }
+```
+
+| three.js | `tycho_3d` |
+|---|---|
+| `new Scene()` | `Scene::new()` |
+| `new Mesh(g, m)` + `scene.add` | `Renderer3D::add(scene, geometry, desc)` |
+| `new BoxGeometry(...)` / `SphereGeometry` | `@tgeo.box(...)` / `@tgeo.sphere(...)` |
+| `new MeshStandardMaterial({ color: 0xff8800 })` | `MaterialDesc::standard(hex(0xFF8800))` |
+| `new MeshBasicMaterial(...)` | `MaterialDesc::basic(...)` |
+| `material.transmission = 0.9; material.ior = 1.45` | `MaterialDesc::with_transmission(0.9, ior=1.45)` |
+| `SSAOPass` (addon) | `RendererDesc::with_ssao(true)` + `set_ssao_intensity` |
+| `new Color(0xff8800)` / `setHSL` | `hex(0xFF8800)` / `hsl(deg, s, l)` → linear `Vec4` |
+| `mesh.position.set(x, y, z)` | `Scene::set_position(id, v)` / `translate` |
+| `mesh.rotation.set(x, y, z)` | `Scene::set_euler(id, x, y, z)` |
+| `mesh.scale.setScalar(s)` | `Scene::set_uniform_scale(id, s)` |
+| `mesh.lookAt(v)` | `Scene::look_at(id, v)` |
+| `parent.add(child)` | `Scene::set_parent(child, Some(parent))` |
+| `mesh.removeFromParent()` | `Scene::remove(id)` (stays alive, becomes a root) |
+| `object.visible = false` | `Scene::set_visible(id, false)` — inherited by the subtree |
+| `new DirectionalLight` / `PointLight` / `SpotLight` | `Scene::add_directional_light` / `add_point_light` / `add_spot_light` |
+| `new PerspectiveCamera(60, ...)` | `Camera::perspective_deg(60.0, aspect)` |
+| `camera.aspect = w / h` on resize | `scene.set_camera(cam, scene.camera(cam).with_viewport(w, h))` |
+| `scene.background = new Color(...)` | `Renderer3D::set_background(hex(...))` / `clear_background()` |
+| `scene.fog = new Fog(c, near, far)` | `Renderer3D::set_fog(fog_linear(c, near=..., far=...))` |
+| `scene.fog = new FogExp2(c, density)` | `Renderer3D::set_fog(fog_exp2(c, density=...))` |
+| `GridHelper` / `AxesHelper` | `Renderer3D::add_grid` / `add_axes` |
+| `Raycaster` | `Renderer3D::pick_pixels` (pixels) or `pick` (NDC) |
+| `Clock.getDelta()` | `Clock::tick(now_seconds)` |
+| `GLTFLoader` | `@tgeo.parse_gltf` + `Renderer3D::load_gltf_instance` |
+| `AnimationMixer` / `clipAction` | `AnimationMixer::add` / `action` (`AnimationPlayer` for one clip) |
+
+Design notes:
+
+- `Renderer3D::add` uploads a fresh geometry per call, mirroring
+  `new Mesh(new BoxGeometry())`. For a shared mesh (10k instanced nodes), call
+  `upload_mesh` / `create_material` once and use `create_mesh_node`; equal
+  `(mesh, material)` pairs still collapse into one instanced draw.
+- Colors stay linear `Vec3`/`Vec4`; `hex` / `hsl` / `linear` are authoring
+  converters only, so there is still one color source of truth.
+- `set_background` skips the sky draw and clears the HDR target to a flat
+  authoring color; the environment cubemap stays bound for IBL. `clear_background`
+  returns to the procedural sky. Fog is applied to geometry only, matching the
+  three.js split between `scene.fog` and `scene.background`.
+- Every `create_*_node` helper accepts `parent?`, so a mesh / LOD / skinned /
+  morph node can join a group in the same call (`create_mesh_node(..., parent=g)`).
+- Visibility, frustum collection, light collection and picking all use
+  `Scene::is_visible_in_world`, so hiding a group hides its whole subtree.
+- LOD / skin / morph registrations are matched by the full generation-checked
+  `NodeId` and pruned for dead nodes each frame; `Renderer3D::release_node`
+  drops them deterministically before an arena slot is reused.
+- `Clock` clamps long frames (`max_delta`, 0.25 s by default) and returns `0` on
+  the first tick, so pausing a debugger never teleports animation.
 
 ## Conventions
 
