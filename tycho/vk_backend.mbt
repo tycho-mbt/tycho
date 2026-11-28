@@ -4294,19 +4294,35 @@ fn vk_cmd_transition_for_sampling(c : VkCmdState, tex : VkTextureState) -> Unit 
   if tex.layout == @vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL {
     return
   }
+  // Depth images must keep their depth aspect and are written by the
+  // early/late fragment test stages, not by colour attachment output. Using
+  // the colour aspect here is invalid for a D32F texture and leaves the image
+  // in the attachment layout, so a later sample would trip validation.
+  let is_depth = (tex.aspect & @vk.VK_IMAGE_ASPECT_DEPTH_BIT) != (0 : UInt32)
+  let src_stage = if is_depth {
+    @vk.VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+    @vk.VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT
+  } else {
+    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+    @vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT |
+    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT
+  }
+  let src_access = if is_depth {
+    @vk.VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
+  } else {
+    @vk.VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT |
+    @vk.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT |
+    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT
+  }
   cmd_image_barrier2_mips(
     c.device,
     c.cmd,
     tex.image,
-    @vk.VK_IMAGE_ASPECT_COLOR_BIT,
+    tex.aspect,
     0,
     tex.mip_levels,
-    @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
-    @vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT |
-    @vk.VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
-    @vk.VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT |
-    @vk.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT |
-    @vk.VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    src_stage,
+    src_access,
     @vk.VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
     @vk.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
     @vk.VK_ACCESS_2_SHADER_READ_BIT,
