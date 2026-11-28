@@ -24,6 +24,7 @@ struct MaterialGpu {
     vec4 sheen;     // rgb sheen colour, w sheen roughness (0 colour disables)
     vec4 transmission; // x amount, y ior (screen-space transmission)
     vec4 iridescence;  // x amount, y film ior, z thickness nm
+    vec4 extra;        // x metallic-roughness texture index
 };
 layout(std430, binding = 2) readonly buffer MaterialBuf { MaterialGpu materials[]; };
 
@@ -268,6 +269,14 @@ void main() {
     vec3 albedo = base.rgb;
     float metallic = clamp(m.params.x, 0.0, 1.0);
     float roughness = clamp(m.params.y, 0.05, 1.0);
+#ifndef TYCHO_NO_BINDLESS
+    // glTF metallicRoughnessTexture: G scales roughness, B scales metallic.
+    if ((flags & 32) != 0) {
+        vec4 mr = texture(uTextures[nonuniformEXT(int(m.extra.x + 0.5))], vUV);
+        roughness = clamp(roughness * mr.g, 0.05, 1.0);
+        metallic = clamp(metallic * mr.b, 0.0, 1.0);
+    }
+#endif
     float cc = clamp(m.texParams.z, 0.0, 1.0);
     float ccr = clamp(m.texParams.w, 0.03, 1.0);
     bool hasSheen = (flags & 8) != 0;
@@ -413,7 +422,17 @@ void main() {
         vec3 behind = texture(uSceneColor, clamp(uv + offs, vec2(0.001), vec2(0.999))).rgb;
         vec3 reflected = textureLod(uEnv, reflect(-V, N), roughness * maxLod).rgb * envI;
         float fres = 0.04 + 0.96 * pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 5.0);
-        lit = mix(lit, mix(behind, reflected, fres), transmission);
+        // The interface reflectance is the thin-film one when the material has a
+        // film, so iridescent glass tints both the reflection and the split.
+        vec3 Fr = vec3(fres);
+        if ((flags & 16) != 0 && m.iridescence.x > 0.0) {
+            Fr = mix(
+                Fr,
+                thin_film_f0(Fr, clamp(dot(N, V), 0.0, 1.0), m.iridescence.y, m.iridescence.z),
+                clamp(m.iridescence.x, 0.0, 1.0)
+            );
+        }
+        lit = mix(lit, behind * (vec3(1.0) - Fr) + reflected * Fr, transmission);
     }
 #endif
     outHDR = vec4(apply_fog(lit, vWorldPos), base.a);

@@ -1,10 +1,13 @@
 // Minimal glTF 2.0 loader.
 //
-// Supported subset: JSON documents whose buffers are base64 data URIs,
-// triangle-list primitives with POSITION / NORMAL / TEXCOORD_0 and optional
-// 8/16/32-bit indices, sparse accessors, node TRS or matrix transforms,
-// pbrMetallicRoughness factors plus base-colour / normal textures whose images
-// are embedded `data:` URIs, and node TRS animation channels (cubic spline
+// Supported subset: JSON documents (`.gltf`, buffers as base64 `data:` URIs)
+// and binary containers (`.glb`, buffer 0 in the BIN chunk), triangle-list
+// primitives with POSITION / NORMAL / TEXCOORD_0 and optional 8/16/32-bit
+// indices, sparse accessors, node TRS or matrix transforms, pbrMetallicRoughness
+// factors plus base-colour / normal / metallic-roughness textures (images
+// embedded as `data:` URIs or buffer views), the KHR material extensions that
+// map onto `tycho_3d`'s physical material (transmission, ior, iridescence,
+// clearcoat, emissive strength), and node TRS animation channels (cubic spline
 // keys are sampled by their value key, i.e. treated as linear).
 
 ///|
@@ -20,11 +23,26 @@ pub(all) struct GltfMaterial {
   base_color : @tmath.Vec4
   metallic : Float
   roughness : Float
+  // Linear emissive colour, already multiplied by `KHR_materials_emissive_strength`.
+  emissive : @tmath.Vec3
   alpha_mode : GltfAlphaMode
   double_sided : Bool
   // Indices into `GltfScene::textures`, or -1.
   base_color_tex : Int
   normal_tex : Int
+  // R = occlusion, G = roughness, B = metallic.
+  metallic_roughness_tex : Int
+  // KHR_materials_transmission / ior.
+  transmission : Float
+  ior : Float
+  // KHR_materials_iridescence. `iridescence_thickness` is the midpoint of the
+  // (minimum, maximum) range: the thickness texture is not sampled yet.
+  iridescence : Float
+  iridescence_ior : Float
+  iridescence_thickness : Float
+  // KHR_materials_clearcoat.
+  clearcoat : Float
+  clearcoat_roughness : Float
 }
 
 ///|
@@ -145,10 +163,17 @@ fn jarr(j : @json.Json, key : String) -> Array[@json.Json] {
 /// loaded faithfully. Returning an explicit error beats silently producing a
 /// mesh with missing geometry.
 fn gltf_extension_supported(name : String) -> Bool {
-  // Core materials, animations and textures only: no optional extension is
-  // decoded yet. Add names here as decoders land (Draco/Meshopt/KTX2).
-  let _ = name
-  false
+  match name {
+    // Material extensions that map onto `tycho_3d`'s physical material.
+    "KHR_materials_transmission" => true
+    "KHR_materials_ior" => true
+    "KHR_materials_iridescence" => true
+    "KHR_materials_clearcoat" => true
+    "KHR_materials_emissive_strength" => true
+    // Not decoded yet: add names here as decoders land (Draco/Meshopt/KTX2)
+    // or as the material model grows (volume, dispersion, anisotropy).
+    _ => false
+  }
 }
 
 ///|
@@ -381,8 +406,75 @@ fn read_indices(acc : Accessor, buffers : Array[Bytes]) -> FixedArray[UInt] {
 }
 
 ///|
-/// Parse a glTF document. Buffers must be base64 `data:` URIs.
+/// Parse a glTF JSON document. Buffers must be base64 `data:` URIs.
 pub fn parse_gltf(text : String) -> GltfScene raise GeometryError {
+  parse_gltf_doc(text, None)
+}
+
+///|
+/// Copy `len` bytes out of `src` starting at `start`. `Bytes` slicing yields a
+/// view, while the accessor readers take owned buffers.
+fn bytes_copy(src : Bytes, start : Int, len : Int) -> Bytes {
+  Bytes::makei(len, fn(i) { src[start + i] })
+}
+
+const GLB_MAGIC : Int = 0x46546C67
+
+const GLB_CHUNK_JSON : Int = 0x4E4F534A
+
+const GLB_CHUNK_BIN : Int = 0x004E4942
+
+///|
+/// Parse a binary glTF (`.glb`) container: a 12-byte header followed by the
+/// JSON chunk and (usually) one BIN chunk that backs buffer 0.
+pub fn parse_glb(bytes : Bytes) -> GltfScene raise GeometryError {
+  if bytes.length() < 12 {
+    raise GeometryError::InvalidGltf("GLB is shorter than its 12-byte header")
+  }
+  if u32_at(bytes, 0, 5125) != GLB_MAGIC {
+    raise GeometryError::InvalidGltf("GLB magic is not 'glTF'")
+  }
+  if u32_at(bytes, 4, 5125) != 2 {
+    raise GeometryError::InvalidGltf("only GLB container version 2 is supported")
+  }
+  let declared = u32_at(bytes, 8, 5125)
+  let end = if declared > 0 && declared <= bytes.length() {
+    declared
+  } else {
+    bytes.length()
+  }
+  let mut off = 12
+  let mut json = ""
+  let mut found_json = false
+  let mut bin : Bytes? = None
+  while off + 8 <= end {
+    let chunk_len = u32_at(bytes, off, 5125)
+    let chunk_type = u32_at(bytes, off + 4, 5125)
+    let data = off + 8
+    if chunk_len < 0 || data + chunk_len > end {
+      raise GeometryError::InvalidGltf("GLB chunk overruns the container")
+    }
+    if chunk_type == GLB_CHUNK_JSON && !found_json {
+      json = try {
+        @utf8.decode(bytes[data:data + chunk_len])
+      } catch {
+        _ => raise GeometryError::InvalidGltf("GLB JSON chunk is not valid UTF-8")
+      }
+      found_json = true
+    } else if chunk_type == GLB_CHUNK_BIN && bin is None {
+      bin = Some(bytes_copy(bytes, data, chunk_len))
+    }
+    // Chunks are 4-byte aligned; their length already includes the padding.
+    off = data + chunk_len
+  }
+  if !found_json {
+    raise GeometryError::InvalidGltf("GLB has no JSON chunk")
+  }
+  parse_gltf_doc(json, bin)
+}
+
+///|
+fn parse_gltf_doc(text : String, bin : Bytes?) -> GltfScene raise GeometryError {
   let root = try {
     @json.parse(text)
   } catch {
@@ -402,24 +494,34 @@ pub fn parse_gltf(text : String) -> GltfScene raise GeometryError {
   let buffers : Array[Bytes] = []
   for b in jarr(root, "buffers") {
     let uri = jstr(b, "uri", "")
-    let bytes = match uri.split_once(",") {
-      Some((head, data)) =>
-        if head.has_prefix("data:") {
-          try {
-            @base64.decode(data)
-          } catch {
-            _ => raise GeometryError::InvalidGltf("buffer is not valid base64")
+    let bytes = if uri == "" {
+      // A buffer without a URI is the GLB BIN chunk.
+      match bin {
+        Some(data) => data
+        None => Bytes::make(0, b'\x00')
+      }
+    } else {
+      match uri.split_once(",") {
+        Some((head, data)) =>
+          if head.has_prefix("data:") {
+            try {
+              @base64.decode(data)
+            } catch {
+              _ => raise GeometryError::InvalidGltf("buffer is not valid base64")
+            }
+          } else {
+            Bytes::make(0, b'\x00')
           }
-        } else {
-          Bytes::make(0, b'\x00')
-        }
-      None => Bytes::make(0, b'\x00')
+        None => Bytes::make(0, b'\x00')
+      }
     }
     buffers.push(bytes)
   }
   let views : Array[(Int, Int, Int)] = []
+  let view_lens : Array[Int] = []
   for v in jarr(root, "bufferViews") {
     views.push((jint(v, "buffer", 0), jint(v, "byteOffset", 0), jint(v, "byteStride", 0)))
+    view_lens.push(jint(v, "byteLength", 0))
   }
   let accessors : Array[Accessor] = []
   for a in jarr(root, "accessors") {
@@ -560,18 +662,38 @@ pub fn parse_gltf(text : String) -> GltfScene raise GeometryError {
   let images : Array[Bytes] = []
   for im in jarr(root, "images") {
     let uri = jstr(im, "uri", "")
-    let bytes = match uri.split_once(",") {
-      Some((head, data)) =>
-        if head.has_prefix("data:") {
-          try {
-            @base64.decode(data)
-          } catch {
-            _ => raise GeometryError::InvalidGltf("buffer is not valid base64")
+    let bytes = if uri != "" {
+      match uri.split_once(",") {
+        Some((head, data)) =>
+          if head.has_prefix("data:") {
+            try {
+              @base64.decode(data)
+            } catch {
+              _ => raise GeometryError::InvalidGltf("image is not valid base64")
+            }
+          } else {
+            Bytes::make(0, b'\x00')
+          }
+        None => Bytes::make(0, b'\x00')
+      }
+    } else {
+      // GLB images live in a buffer view (PNG / JPEG bytes, no URI).
+      let bv = jint(im, "bufferView", -1)
+      if bv >= 0 && bv < views.length() {
+        let (buffer, view_off, _) = views[bv]
+        if buffer >= 0 && buffer < buffers.length() {
+          let len = view_lens[bv]
+          if len > 0 && view_off + len <= buffers[buffer].length() {
+            bytes_copy(buffers[buffer], view_off, len)
+          } else {
+            Bytes::make(0, b'\x00')
           }
         } else {
           Bytes::make(0, b'\x00')
         }
-      None => Bytes::make(0, b'\x00')
+      } else {
+        Bytes::make(0, b'\x00')
+      }
     }
     images.push(bytes)
   }
@@ -599,15 +721,72 @@ pub fn parse_gltf(text : String) -> GltfScene raise GeometryError {
       Some(t) => jint(t, "index", -1)
       None => -1
     }
+    let metallic_roughness_tex = match jget(pbr, "metallicRoughnessTexture") {
+      Some(t) => jint(t, "index", -1)
+      None => -1
+    }
+    let exts = match jget(mj, "extensions") {
+      Some(e) => e
+      None => @json.Json::empty_object()
+    }
+    let transmission = match jget(exts, "KHR_materials_transmission") {
+      Some(e) => Float::from_double(jnum(e, "transmissionFactor", 1.0))
+      None => 0.0
+    }
+    let ior = match jget(exts, "KHR_materials_ior") {
+      Some(e) => Float::from_double(jnum(e, "ior", 1.5))
+      None => 1.5
+    }
+    let mut iridescence : Float = 0.0
+    let mut iridescence_ior : Float = 1.3
+    let mut iridescence_thickness : Float = 400.0
+    match jget(exts, "KHR_materials_iridescence") {
+      Some(e) => {
+        iridescence = Float::from_double(jnum(e, "iridescenceFactor", 1.0))
+        iridescence_ior = Float::from_double(jnum(e, "iridescenceIor", 1.3))
+        // The thickness texture is not sampled yet, so the film takes the
+        // midpoint of its authored range.
+        let lo = jnum(e, "iridescenceThicknessMinimum", 100.0)
+        let hi = jnum(e, "iridescenceThicknessMaximum", 400.0)
+        iridescence_thickness = Float::from_double((lo + hi) * 0.5)
+      }
+      None => ()
+    }
+    let mut clearcoat : Float = 0.0
+    let mut clearcoat_roughness : Float = 0.03
+    match jget(exts, "KHR_materials_clearcoat") {
+      Some(e) => {
+        clearcoat = Float::from_double(jnum(e, "clearcoatFactor", 0.0))
+        clearcoat_roughness = Float::from_double(
+          jnum(e, "clearcoatRoughnessFactor", 0.0),
+        )
+      }
+      None => ()
+    }
+    let emissive_strength = match jget(exts, "KHR_materials_emissive_strength") {
+      Some(e) => jnum(e, "emissiveStrength", 1.0)
+      None => 1.0
+    }
+    let emissive = jvec3(mj, "emissiveFactor", @tmath.Vec3::zero())
+      .scale(Float::from_double(emissive_strength))
     materials.push({
       name: jstr(mj, "name", ""),
       base_color: jvec4(pbr, "baseColorFactor", @tmath.Vec4::new(1.0, 1.0, 1.0, 1.0)),
       metallic: Float::from_double(jnum(pbr, "metallicFactor", 1.0)),
       roughness: Float::from_double(jnum(pbr, "roughnessFactor", 1.0)),
+      emissive,
       alpha_mode,
       double_sided: jget(mj, "doubleSided") is Some(True),
       base_color_tex,
       normal_tex,
+      metallic_roughness_tex,
+      transmission,
+      ior,
+      iridescence,
+      iridescence_ior,
+      iridescence_thickness,
+      clearcoat,
+      clearcoat_roughness,
     })
   }
 

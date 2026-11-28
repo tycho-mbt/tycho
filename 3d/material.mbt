@@ -273,6 +273,18 @@ pub fn MaterialDesc::with_albedo_tex(self : MaterialDesc, tex : TextureHandle) -
 }
 
 ///|
+/// Metallic-roughness map (glTF `metallicRoughnessTexture`, three.js
+/// `metalnessMap` + `roughnessMap` packed in one image): G scales roughness and
+/// B scales metallic, sampled in linear space. The packed texture path needs
+/// the bindless heap; the non-bindless fallback keeps the scalar factors.
+pub fn MaterialDesc::with_metallic_roughness_tex(
+  self : MaterialDesc,
+  tex : TextureHandle,
+) -> MaterialDesc {
+  { ..self, metallic_roughness_tex: Some(tex) }
+}
+
+///|
 pub fn MaterialDesc::with_normal_tex(self : MaterialDesc, tex : TextureHandle) -> MaterialDesc {
   { ..self, normal_tex: Some(tex) }
 }

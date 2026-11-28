@@ -123,6 +123,25 @@ fn load_gltf_assets(
       Some(h) => desc = desc.with_normal_tex(h)
       None => ()
     }
+    match upload_gltf_texture(renderer, gltf, m.metallic_roughness_tex, false) {
+      Some(h) => desc = desc.with_metallic_roughness_tex(h)
+      None => ()
+    }
+    // Physical extensions parsed from the glTF material.
+    desc = desc.with_emissive(m.emissive)
+    if m.transmission > 0.0 {
+      desc = desc.with_transmission(m.transmission, ior=m.ior)
+    }
+    if m.iridescence > 0.0 {
+      desc = desc.with_iridescence(
+        m.iridescence,
+        ior=m.iridescence_ior,
+        thickness_nm=m.iridescence_thickness,
+      )
+    }
+    if m.clearcoat > 0.0 {
+      desc = desc.with_clearcoat(m.clearcoat, roughness=m.clearcoat_roughness)
+    }
     materials.push(renderer.create_material(desc))
   }
   if materials.length() == 0 {

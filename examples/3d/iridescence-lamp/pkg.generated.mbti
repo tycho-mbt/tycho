@@ -1,0 +1,15 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "laplaceliu/tycho_vulkan_examples/3d/iridescence-lamp"
+
+// Values
+pub let asset_glb : String
+
+pub let asset_hdr : String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

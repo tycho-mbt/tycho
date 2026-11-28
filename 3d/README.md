@@ -44,13 +44,25 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   map (two cascades: an inner half-radius fit at twice the density plus the
   full caster union), GGX-prefiltered (PMREM) environment IBL, HDR `RGBA16F`, separable
   bloom, and ACES tonemapping into `RGBA8Srgb`.
-- glTF: `load_gltf_instance` uploads `parse_gltf` meshes and materials
-  (decoding embedded images through the RHI, base colour as sRGB / normal maps
-  linear) and returns one `GltfInstance` aggregating `roots`, the
-  glTF-node → `NodeId` map, `meshes`, `materials`, and the `AnimationClip`s
-  already bound to the instantiated nodes. `load_gltf` / `load_gltf_with_nodes`
-  / `load_gltf_animations` remain as thin specialisations
-  (`3d/gltf-viewer` / `3d/gltf-animation`).
+- glTF: `load_gltf_instance` uploads `parse_gltf` / `parse_glb` meshes and
+  materials — JSON documents with data-URI buffers and binary GLB containers
+  with buffer-view images alike — decoding images through the RHI (base colour
+  as sRGB, normal and metallic-roughness maps linear), and returns one
+  `GltfInstance` aggregating `roots`, the glTF-node → `NodeId` map, `meshes`,
+  `materials`, and the `AnimationClip`s already bound to the instantiated nodes.
+  `load_gltf` / `load_gltf_with_nodes` / `load_gltf_animations` remain as thin
+  specialisations (`3d/gltf-viewer` / `3d/gltf-animation`).
+- Physical glTF materials: `parse_glb` maps `KHR_materials_transmission` /
+  `KHR_materials_ior` onto `MaterialDesc::with_transmission`,
+  `KHR_materials_iridescence` (midpoint thickness) onto `with_iridescence`,
+  `KHR_materials_clearcoat` onto `with_clearcoat`, and
+  `KHR_materials_emissive_strength` into `emissive`, so an authored asset keeps
+  its film and glass response without hand-written material code
+  (`3d/iridescence-lamp`).
+- Metallic-roughness maps: `MaterialDesc::with_metallic_roughness_tex` samples a
+  packed glTF `metallicRoughnessTexture` (G roughness, B metallic) from the
+  bindless heap; the scalar factors stay as multipliers. The non-bindless
+  fallback keeps the factors only.
 - HDR environments: `decode_hdr` parses Radiance RGBE (RLE and flat
   scanlines, -Y/+Y and +X/-X), `encode_hdr` writes it, and
   `equirect_environment_cubemap` projects a linear equirect image into the
@@ -150,10 +162,12 @@ three.js-inspired pure-MoonBit 3D rendering library over `laplaceliu/tycho`
   world transform plus a `LineMaterial` colour (push constants). Line nodes are
   frustum-culled and pickable (`LINE_PICK_RADIUS`), but cast no shadows and are
   not ray-tracing geometry.
-- glTF 2.0 subset: `@tgeo.parse_gltf` handles base64 data-URI buffers,
-  POSITION/NORMAL/TEXCOORD_0, 8/16/32-bit indices, node TRS/matrix hierarchy
-  and pbrMetallicRoughness factors; `@t3d.load_gltf` uploads meshes/materials
-  and instantiates the hierarchy. Material textures are not resolved yet.
+- glTF 2.0 subset: `@tgeo.parse_gltf` (JSON + data-URI buffers) and
+  `@tgeo.parse_glb` (binary container + buffer-view images) handle
+  POSITION/NORMAL/TEXCOORD_0, 8/16/32-bit indices, node TRS/matrix hierarchy,
+  base-colour / normal / metallic-roughness texture references, and the physical
+  material extensions listed above; `@t3d.load_gltf` uploads meshes/materials
+  and instantiates the hierarchy.
 - GPU-driven path (`RendererDesc.gpu_culling`): submits every mesh node, runs
   `cull.comp` per instanced batch (bounding-sphere vs frustum) to compact a
   visible index list and grow a `draw_indexed_indirect` command, then the PBR
@@ -204,9 +218,12 @@ renderer.render_swapchain(sc, scene, camera_node)
 
 See [`examples/3d/hello`](../examples/3d/hello) for the smallest complete scene
 written with this layer, [`examples/3d/showcase`](../examples/3d/showcase) for
-the full PBR showcase, and [`examples/3d/batch-lod-bvh`](../examples/3d/batch-lod-bvh)
+the full PBR showcase, [`examples/3d/batch-lod-bvh`](../examples/3d/batch-lod-bvh)
 for the three.js `webgl_batch_lod_bvh` port (shared LOD specs, per-instance
-tint, BVH picking over 4096 instances).
+tint, BVH picking over 4096 instances), and
+[`examples/3d/iridescence-lamp`](../examples/3d/iridescence-lamp) for the
+three.js `webgl_loader_gltf_iridescence` port (binary glTF, HDR sky, physical
+glass).
 
 ## three.js-style authoring layer
 

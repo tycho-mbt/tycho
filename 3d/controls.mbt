@@ -80,6 +80,16 @@ pub fn OrbitCamera::set_target(self : OrbitCamera, target : @tmath.Vec3) -> Unit
 }
 
 ///|
+pub fn OrbitCamera::set_yaw(self : OrbitCamera, yaw : Float) -> Unit {
+  self.yaw = yaw
+}
+
+///|
+pub fn OrbitCamera::set_pitch(self : OrbitCamera, pitch : Float) -> Unit {
+  self.pitch = clamp_pitch(pitch)
+}
+
+///|
 pub fn OrbitCamera::set_distance(self : OrbitCamera, distance : Float) -> Unit {
   self.distance = if distance < self.min_distance {
     self.min_distance

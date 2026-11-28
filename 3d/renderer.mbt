@@ -95,9 +95,10 @@ const LIGHT_FLOATS : Int = 40
 
 const LIGHT_BYTES : Int = 160
 
-const MATERIAL_FLOATS : Int = 28
+// baseColor, emissive, params, texParams, sheen, transmission, iridescence, extra.
+const MATERIAL_FLOATS : Int = 32
 
-const MATERIAL_BYTES : Int = 112
+const MATERIAL_BYTES : Int = 128
 
 const SHADOW_TILES_MAX : Int = 8
 
@@ -567,6 +568,9 @@ fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
   if m.iridescence > 0.0 {
     flags = flags | 16
   }
+  if m.metallic_roughness_tex is Some(_) {
+    flags = flags | 32
+  }
   let cutoff : Float = match m.alpha_mode {
     Mask(c) => c
     _ => 0.0
@@ -609,6 +613,13 @@ fn Renderer3D::pack_material(self : Renderer3D, m : MaterialDesc) -> Unit {
       0.0,
     ),
   )
+  // Extra texture slots: x metallic-roughness (G roughness, B metallic).
+  let mr = if m.metallic_roughness_tex is Some(_) {
+    self.texture_index(m.metallic_roughness_tex)
+  } else {
+    self.white_index
+  }
+  w.push_vec4(@tmath.Vec4::new(f_of_int(mr), 0.0, 0.0, 0.0))
 }
 
 ///|

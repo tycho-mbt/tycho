@@ -356,6 +356,7 @@ pub fn MaterialDesc::with_double_sided(Self, Bool) -> Self
 pub fn MaterialDesc::with_emissive(Self, @tycho_math.Vec3) -> Self
 pub fn MaterialDesc::with_iridescence(Self, Float, ior? : Float, thickness_nm? : Float) -> Self
 pub fn MaterialDesc::with_metallic(Self, Float) -> Self
+pub fn MaterialDesc::with_metallic_roughness_tex(Self, TextureHandle) -> Self
 pub fn MaterialDesc::with_normal_tex(Self, TextureHandle) -> Self
 pub fn MaterialDesc::with_roughness(Self, Float) -> Self
 pub fn MaterialDesc::with_sheen(Self, @tycho_math.Vec3, roughness? : Float) -> Self
@@ -426,7 +427,9 @@ pub fn OrbitCamera::new(target? : @tycho_math.Vec3, distance? : Float, yaw? : Fl
 pub fn OrbitCamera::pitch(Self) -> Float
 pub fn OrbitCamera::position(Self) -> @tycho_math.Vec3
 pub fn OrbitCamera::set_distance(Self, Float) -> Unit
+pub fn OrbitCamera::set_pitch(Self, Float) -> Unit
 pub fn OrbitCamera::set_target(Self, @tycho_math.Vec3) -> Unit
+pub fn OrbitCamera::set_yaw(Self, Float) -> Unit
 pub fn OrbitCamera::target(Self) -> @tycho_math.Vec3
 pub fn OrbitCamera::transform(Self) -> @tycho_math.Transform
 pub fn OrbitCamera::yaw(Self) -> Float

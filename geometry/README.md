@@ -41,12 +41,19 @@ This module is the CPU content layer of the Tycho graphics stack (see
   distinguish a bad mesh, a bad document and a document that needs a decoder
   this build does not ship.
 - **IO** — `parse_obj` / `parse_obj_text` (v/vt/vn, polygons, `o`/`g` parts,
-  positive and negative indices), and `parse_gltf` (glTF 2.0 subset: embedded
-  base64 buffers, POSITION/NORMAL/TEXCOORD_0, sparse accessors, TRS/matrix
-  nodes, PBR factors plus base-colour/normal texture references with embedded
-  `data:` image URIs decoded to bytes, and node TRS animation channels with
-  LINEAR/STEP/CUBICSPLINE samplers). Compressed assets are rejected instead of
-  silently mis-parsed: any `extensionsRequired` entry (for example
+  positive and negative indices), `parse_gltf` (glTF 2.0 JSON with embedded
+  base64 buffers) and `parse_glb` (the same documents delivered as a binary
+  container: 12-byte header, JSON chunk, BIN chunk backing buffer 0, images in
+  buffer views instead of `data:` URIs). Both entry points cover
+  POSITION/NORMAL/TEXCOORD_0, sparse accessors, TRS/matrix nodes, and node TRS
+  animation channels with LINEAR/STEP/CUBICSPLINE samplers. Materials carry
+  base colour, emissive, normal and metallic-roughness texture references plus
+  the extensions `tycho_3d` can render: `KHR_materials_transmission`,
+  `KHR_materials_ior`, `KHR_materials_iridescence` (the thickness range's
+  midpoint, since the thickness texture is not sampled yet),
+  `KHR_materials_clearcoat` and `KHR_materials_emissive_strength`.
+  Compressed assets are rejected instead of silently mis-parsed: any
+  `extensionsRequired` entry the loader does not implement (for example
   `KHR_draco_mesh_compression`, `EXT_meshopt_compression`,
   `KHR_texture_basisu`) raises `UnsupportedExtension(name)`, and the same check
   runs per primitive in case the exporter forgot the top-level declaration.

@@ -34,6 +34,8 @@ pub fn lathe(Array[@tycho_math.Vec2], segments? : Int32, phi_start? : Float, phi
 
 pub fn octahedron(radius? : Float, detail? : Int32) -> MeshData
 
+pub fn parse_glb(Bytes) -> GltfScene raise GeometryError
+
 pub fn parse_gltf(String) -> GltfScene raise GeometryError
 
 pub fn parse_obj(Bytes) -> Array[(String, MeshData)]
@@ -122,10 +124,19 @@ pub(all) struct GltfMaterial {
   base_color : @tycho_math.Vec4
   metallic : Float
   roughness : Float
+  emissive : @tycho_math.Vec3
   alpha_mode : GltfAlphaMode
   double_sided : Bool
   base_color_tex : Int32
   normal_tex : Int32
+  metallic_roughness_tex : Int32
+  transmission : Float
+  ior : Float
+  iridescence : Float
+  iridescence_ior : Float
+  iridescence_thickness : Float
+  clearcoat : Float
+  clearcoat_roughness : Float
 }
 
 pub(all) struct GltfNode {

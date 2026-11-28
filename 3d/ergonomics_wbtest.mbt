@@ -637,3 +637,26 @@ test "per-instance tint and shared LOD spec" {
   need(s.instance_tint(lamp) == None, "light has no tint")
   need(s.instance_lod(lamp) == None, "light has no lod")
 }
+///|
+test "metallic-roughness map and orbit setters" {
+  let inst = MeshInstance::new(MeshHandle::from_id(1), MaterialHandle::from_id(1))
+  need(inst.tint().w == 1.0, "tint default")
+  let tex = TextureHandle::from_id(3)
+  let m = MaterialDesc::standard(hex(0x888888), roughness=(0.6 : Float))
+  need(m.metallic_roughness_tex == None, "no MR map by default")
+  let mapped = m.with_metallic_roughness_tex(tex)
+  match mapped.metallic_roughness_tex {
+    Some(h) => need(h.id() == 3, "MR map handle")
+    None => fail("MR map lost")
+  }
+  // The scalar factors are kept as multipliers, per glTF.
+  need(close(mapped.metallic, m.metallic) && close(mapped.roughness, m.roughness), "factors kept")
+
+  let orbit = OrbitCamera::new(yaw=(0.25 : Float), pitch=(0.4 : Float))
+  orbit.set_yaw((1.25 : Float))
+  need(close(orbit.yaw(), (1.25 : Float)), "set_yaw")
+  orbit.set_pitch((9.0 : Float))
+  need(orbit.pitch() < (1.46 : Float), "set_pitch clamps")
+  orbit.set_pitch((0.1 : Float))
+  need(close(orbit.pitch(), (0.1 : Float)), "set_pitch")
+}
