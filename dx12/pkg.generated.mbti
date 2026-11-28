@@ -4,6 +4,12 @@ package "laplaceliu/tycho_dx12"
 // Values
 pub fn available() -> Bool
 
+pub fn bytes_ptr(FixedArray[Byte]) -> UInt64
+
+pub fn com_add_ref(UInt64) -> UInt64
+
+pub fn com_release(UInt64) -> UInt64
+
 pub fn dx_d3d12_command_allocator_get_device(UInt64, UInt64, UInt64) -> Int32
 
 pub fn dx_d3d12_command_allocator_get_private_data(UInt64, UInt64, UInt64, UInt64) -> Int32
@@ -5513,6 +5519,8 @@ pub fn dx_id3_d_destruction_notifier_unregister_destruction_callback(UInt64, Int
 pub fn env_requests_warp() -> Bool
 
 pub fn int32_ptr(FixedArray[Int32]) -> UInt64
+
+pub fn int64_ptr(FixedArray[Int64]) -> UInt64
 
 pub fn last_error() -> Int32
 

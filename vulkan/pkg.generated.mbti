@@ -11098,8 +11098,6 @@ pub fn vkEnumerateInstanceLayerProperties(FixedArray[UInt32], VkLayerProperties)
 
 pub fn vkEnumerateInstanceVersion(FixedArray[UInt32]) -> Int32
 
-pub fn vkGetExternalComputeQueueDataNV(VkExternalComputeQueueNV, VkExternalComputeQueueDataParamsNV, UInt64) -> Unit
-
 pub fn vkGetInstanceProcAddr(VkInstance, UInt64) -> UInt64
 
 pub fn win32_close_handle(UInt64) -> Unit
@@ -11782,6 +11780,7 @@ pub struct DeviceFn {
   vkCmdEndPerTileExecutionQCOM : FuncRef[(VkCommandBuffer, VkPerTileEndInfoQCOM) -> Unit]
   vkCreateExternalComputeQueueNV : FuncRef[(VkDevice, VkExternalComputeQueueCreateInfoNV, VkAllocationCallbacks, FixedArray[VkExternalComputeQueueNV]) -> Int32]
   vkDestroyExternalComputeQueueNV : FuncRef[(VkDevice, VkExternalComputeQueueNV, VkAllocationCallbacks) -> Unit]
+  vkGetExternalComputeQueueDataNV : FuncRef[(VkExternalComputeQueueNV, VkExternalComputeQueueDataParamsNV, UInt64) -> Unit]
   vkCreateShaderInstrumentationARM : FuncRef[(VkDevice, VkShaderInstrumentationCreateInfoARM, VkAllocationCallbacks, FixedArray[VkShaderInstrumentationARM]) -> Int32]
   vkDestroyShaderInstrumentationARM : FuncRef[(VkDevice, VkShaderInstrumentationARM, VkAllocationCallbacks) -> Unit]
   vkCmdBeginShaderInstrumentationARM : FuncRef[(VkCommandBuffer, VkShaderInstrumentationARM) -> Unit]
