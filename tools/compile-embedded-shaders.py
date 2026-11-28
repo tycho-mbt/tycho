@@ -34,6 +34,11 @@ VARIANTS = {
         ((), None),
         (("-DTYCHO_NO_BINDLESS",), "spv_pbr_frag_nobindless"),
         (("-DTYCHO_RAY_SHADOW",), "spv_pbr_frag_rt"),
+        (("-DTYCHO_TRANSMISSION",), "spv_pbr_frag_transmission"),
+        (
+            ("-DTYCHO_TRANSMISSION", "-DTYCHO_NO_BINDLESS"),
+            "spv_pbr_frag_transmission_nobindless",
+        ),
     ],
 }
 

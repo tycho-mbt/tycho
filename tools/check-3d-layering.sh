@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Enforce the module layering rules from roadmap/tycho-3d-design.md:
 #   geometry -> math only (no RHI, no 2d/ui)
-#   3d       -> tycho + math + geometry + pool, never 2d/ui
+#   3d       -> tycho + math + geometry + pool + image decoding, never 2d/ui
+# `tycho_image` is a leaf decoder (no GPU, no 2d/ui) used to upload embedded
+# glTF textures, so it belongs to the allowed 3d dependency set.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,7 +22,7 @@ check_imports() {
 
 check_imports "geometry" "$ROOT/geometry/moon.pkg" '^(laplaceliu/tycho_math$|moonbitlang/core/)'
 check_imports "3d" "$ROOT/3d/moon.pkg" \
-  '^(laplaceliu/tycho$|laplaceliu/tycho_math$|laplaceliu/tycho_geometry$|laplaceliu/tycho/pool$|moonbitlang/core/)'
+  '^(laplaceliu/tycho$|laplaceliu/tycho_math$|laplaceliu/tycho_geometry$|laplaceliu/tycho_image$|laplaceliu/tycho/pool$|moonbitlang/core/)'
 
 for src in "$ROOT/3d"/*.mbt; do
   if grep -qE '@g2d|@ui\b|tycho_2d|tycho_ui' "$src"; then

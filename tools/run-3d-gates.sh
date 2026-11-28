@@ -11,6 +11,9 @@ fi
 
 EXAMPLES=(
   3d/showcase
+  3d/hello
+  3d/transmission
+  3d/ssao
   geometry/primitives
   3d/instances
   3d/textures
